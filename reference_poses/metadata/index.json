@@ -1,11 +1,5 @@
 {
   "poses": [
-    "COFFEE_auth_00",
-    "COFFEE_auth_01",
-    "COFFEE_auth_02",
-    "COFFEE_auth_03",
-    "COFFEE_auth_04",
-    "COFFEE_auth_05",
     "HELLO_bake_00",
     "HELLO_bake_01",
     "HELLO_bake_02",
@@ -33,12 +27,7 @@
     "THANKYOU_auth_00",
     "THANKYOU_auth_01",
     "THANKYOU_auth_02",
-    "THANKYOU_auth_03",
-    "YES_auth_00",
-    "YES_auth_01",
-    "YES_auth_02",
-    "YES_auth_03",
-    "YES_auth_04"
+    "THANKYOU_auth_03"
   ],
-  "updatedAt": "2026-07-02T00:46:54.752Z"
+  "updatedAt": "2026-07-02T15:44:13.776Z"
 }
