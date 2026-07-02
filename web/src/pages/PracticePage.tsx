@@ -298,7 +298,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
                   {recognition.result && (
                     <ParameterChecklist
                       params={recognition.result.params}
-                      movementKind={currentEngineSign?.movement.kind}
+                      sign={currentEngineSign}
                     />
                   )}
 

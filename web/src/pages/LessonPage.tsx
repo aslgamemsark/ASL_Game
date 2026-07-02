@@ -257,7 +257,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
               {recognition.result && (
                 <ParameterChecklist
                   params={recognition.result.params}
-                  movementKind={currentEngineSign?.movement.kind}
+                  sign={currentEngineSign}
                 />
               )}
 
