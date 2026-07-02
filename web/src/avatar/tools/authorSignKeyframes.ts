@@ -26,8 +26,8 @@ import { buildHierarchy } from '../calibration/SkeletonInspector.ts';
 import { buildCalibration } from '../calibration/CalibrationEngine.ts';
 import type { AvatarHierarchy, HandSide, Quat, Vec3 } from '../calibration/types.ts';
 import {
-  cross, distance, dot, fromTRS, getTranslation, multiply, normalize, quatIdentity,
-  quatInvert, quatMultiply, rotateVec3, subtract,
+  add, cross, distance, dot, fromTRS, getTranslation, multiply, normalize, quatIdentity,
+  quatInvert, quatMultiply, rotateVec3, scale, subtract,
 } from '../calibration/math3d.ts';
 import type { Mat4 } from '../calibration/math3d.ts';
 import { computeBodyFrame, targetWorld } from '../animation/BodyFrame.ts';
@@ -45,13 +45,23 @@ import type { ReferencePoseIndex, ReferencePoseMetadata } from '../reference/typ
 // ---------------------------------------------------------------------------------------------
 
 interface ArmKeyframeSpec {
-  /** Wrist target = anchor bone's rest world position + body-frame offset * shoulderWidth. */
+  /** Wrist target = anchor bone's rest world position + body-frame offset * shoulderWidth. Ignored
+   * when `centroidRelativeToOtherHand` is set — see below. */
   anchor: string;
   offset: Vec3;
   forearmRollDeg: number;
   wristFlexDeg: number;
   /** 'fist' curls every finger joint (S-handshape); omitted/'flat' leaves fingers at rest. */
   handshape?: 'fist' | 'flat';
+  /**
+   * Fix for defect #3 (COFFEE's circle centered wrist-over-wrist instead of knuckles-over-knuckles):
+   * when set, `offset` is instead the body-frame offset (shoulder-width units) from the OTHER
+   * hand's ALREADY-SOLVED KNUCKLE CENTROID to THIS hand's desired knuckle centroid — `anchor` is
+   * unused. The main authoring loop processes 'left' before 'right' each keyframe so this can be
+   * set on the right (dominant) hand referencing the left. Solved via iterative refinement
+   * (solveArmForCentroidTarget) since the wrist-to-centroid offset depends on hand orientation.
+   */
+  centroidRelativeToOtherHand?: boolean;
 }
 
 interface AuthoredKeyframe {
@@ -66,21 +76,16 @@ interface AuthoredSign {
   keyframes: AuthoredKeyframe[];
 }
 
-/** COFFEE's circling dominant fist: wrist target on a horizontal circle above the resting fist. */
+/**
+ * COFFEE's circling dominant fist: the RIGHT hand's KNUCKLE CENTROID (not wrist — defect #3 fix)
+ * traces a horizontal circle directly above the LEFT hand's (stationary) knuckle centroid.
+ */
 function coffeeCircleKf(fraction: number, angleDeg: number): AuthoredKeyframe {
   const a = (angleDeg * Math.PI) / 180;
-  const r = 0.11; // circle radius in shoulder-width units (~4cm on this rig)
+  const r = 0.16; // circle radius, shoulder-width units, measured around the left knuckle centroid
   return {
     frameFraction: fraction,
     arms: {
-      right: {
-        anchor: 'Spine2',
-        // Circle centered directly OVER the left fist (same x/z base), raised ~0.24SW (~9cm).
-        offset: { x: -0.06 + r * Math.cos(a), y: -0.38, z: 0.78 + r * Math.sin(a) },
-        forearmRollDeg: 35, // grinding fist angled palm-down-left, like gripping a crank knob
-        wristFlexDeg: 20, // knuckles angled slightly down over the bottom fist
-        handshape: 'fist',
-      },
       left: {
         anchor: 'Spine2',
         offset: { x: -0.06, y: -0.62, z: 0.78 },
@@ -88,8 +93,17 @@ function coffeeCircleKf(fraction: number, angleDeg: number): AuthoredKeyframe {
         wristFlexDeg: 0,
         handshape: 'fist',
       },
+      right: {
+        anchor: '', // unused — centroidRelativeToOtherHand below overrides targeting
+        // Offset is from the LEFT hand's knuckle centroid: raised ~0.35SW, circling radius r.
+        offset: { x: r * Math.cos(a), y: 0.35, z: r * Math.sin(a) },
+        forearmRollDeg: 35, // grinding fist angled palm-down-left, like gripping a crank knob
+        wristFlexDeg: 20, // knuckles angled slightly down over the bottom fist
+        handshape: 'fist',
+        centroidRelativeToOtherHand: true,
+      },
     },
-    notes: `Dominant fist circling over the stationary non-dominant fist (${angleDeg}deg around the circle).`,
+    notes: `Dominant fist's knuckles circling over the stationary non-dominant fist's knuckles (${angleDeg}deg around the circle).`,
   };
 }
 
@@ -257,31 +271,48 @@ interface BuiltKeyframe {
   bones: ReferencePoseMetadata['bones'];
 }
 
-/** Solves one arm's spec into local bone rotations; returns them plus an FK sanity report line. */
-function buildArm(side: HandSide, armSpec: ArmKeyframeSpec): { bones: Record<string, Quat>; report: string; sane: boolean } {
+/** Mean world position of the 4 non-thumb MCP joints. Independent of finger CURL (a bone's own
+ * rotation never affects its own translation, only its children's), so this can be measured from
+ * an arm-only override map (no finger rotations needed) — used both to author and to verify
+ * two-handed alignment (fix for defect #3: wrist-to-wrist alignment ignored knuckle offset). */
+function knuckleCentroid(side: HandSide, armOnlyBones: Record<string, Quat>, cache: Map<string, Mat4>): Vec3 {
+  const fingers = hierarchy.hands[side]?.fingers ?? {};
+  const mcpNames = (['index', 'middle', 'ring', 'pinky'] as const).map((f) => fingers[f]?.[0]).filter((n): n is string => !!n);
+  if (mcpNames.length !== 4) fail(`${side} hand: expected 4 non-thumb MCP joints, found ${mcpNames.length}.`);
+  const positions = mcpNames.map((n) => getTranslation(worldMatrixWithOverrides(hierarchy, n, armOnlyBones, cache)));
+  return scale(
+    positions.reduce((acc, p) => add(acc, p), { x: 0, y: 0, z: 0 }),
+    1 / positions.length
+  );
+}
+
+/** Solves one arm to an EXPLICIT world-space wrist target (core IK+roll+flex, factored out so
+ * COFFEE's centroid-targeting can iterate on the wrist target without re-deriving anchor/offset). */
+function solveArmForWristTarget(
+  side: HandSide,
+  targetW: Vec3,
+  forearmRollDeg: number,
+  wristFlexDeg: number,
+  handshape: 'fist' | 'flat' | undefined
+): { bones: Record<string, Quat>; wristFk: Vec3; wristErr: number; elbowY: number; shoulderY: number } {
   const chain = hierarchy.arms[side];
   if (!chain.upperArm || !chain.forearm || !chain.hand) fail(`${side} arm chain incomplete.`);
   const armName = chain.upperArm;
   const foreName = chain.forearm;
   const handName = chain.hand;
 
-  const targetW = targetWorld(hierarchy, frame, armSpec.anchor, armSpec.offset);
   const pose = poseArm(hierarchy, calibration, frame, side, targetW);
 
-  // World quaternions after the IK solve, so roll/flexion can be applied about unambiguous world axes.
   const armParentWorld = restWorldQuat(hierarchy, hierarchy.bones[armName].parent);
   const armWorld = quatMultiply(armParentWorld, pose.upperArmLocalRotation);
   const forearmAxisWorld = normalize(subtract(pose.achievedHandWorld, pose.elbowWorld));
 
-  // Roll the forearm about its own (post-solve) bone axis: hand position is unchanged, palm turns.
-  const rollQuat = axisAngleQuat(forearmAxisWorld, -armSpec.forearmRollDeg);
+  const rollQuat = axisAngleQuat(forearmAxisWorld, -forearmRollDeg);
   const foreWorld0 = quatMultiply(armWorld, pose.forearmLocalRotation);
   const foreWorld = quatMultiply(rollQuat, foreWorld0);
   const foreLocal = quatMultiply(quatInvert(armWorld), foreWorld);
 
-  // Tilt the wrist about the body-frame right axis (sagittal-plane flexion — adequate while the
-  // hand works in front of the torso, which covers every keyframe authored above).
-  const flexQuat = axisAngleQuat(frame.right, -armSpec.wristFlexDeg);
+  const flexQuat = axisAngleQuat(frame.right, -wristFlexDeg);
   const handWorld0 = quatMultiply(foreWorld, hierarchy.bones[handName].localRotation);
   const handWorld = quatMultiply(flexQuat, handWorld0);
   const handLocal = quatMultiply(quatInvert(foreWorld), handWorld);
@@ -291,54 +322,110 @@ function buildArm(side: HandSide, armSpec: ArmKeyframeSpec): { bones: Record<str
     [foreName]: foreLocal,
     [handName]: handLocal,
   };
-  if (armSpec.handshape === 'fist') Object.assign(bones, buildFist(side));
-
-  // ---- FK verification: where do the wrist / fingers ACTUALLY end up with these rotations? ----
   const cache = new Map<string, Mat4>();
   const wristFk = getTranslation(worldMatrixWithOverrides(hierarchy, handName, bones, cache));
-  const wristErr = distance(wristFk, targetW);
+  if (handshape === 'fist') Object.assign(bones, buildFist(side));
 
-  let fistReport = '';
-  if (armSpec.handshape === 'fist') {
-    const middleChain = hierarchy.hands[side]?.fingers['middle'];
-    if (middleChain && middleChain.length > 0) {
-      const tip = getTranslation(worldMatrixWithOverrides(hierarchy, middleChain[middleChain.length - 1], bones, cache));
-      fistReport = `  fist: middle tip->wrist=${(distance(tip, wristFk) * 1000).toFixed(0)}mm (flat rest ~130mm, fist optimum ~91mm on this rig)`;
-    }
+  return { bones, wristFk, wristErr: distance(wristFk, targetW), elbowY: pose.elbowWorld.y, shoulderY: hierarchy.bones[armName].worldPosition.y };
+}
+
+/** Iterates the wrist target so the hand's KNUCKLE CENTROID (not the wrist) lands on
+ * `desiredCentroidW` — fix for defect #3. Converges in <=3 iterations since the wrist->centroid
+ * offset only drifts slightly as the forearm's solved direction shifts with the target. */
+function solveArmForCentroidTarget(
+  side: HandSide,
+  desiredCentroidW: Vec3,
+  forearmRollDeg: number,
+  wristFlexDeg: number,
+  handshape: 'fist' | 'flat' | undefined
+): ReturnType<typeof solveArmForWristTarget> & { centroidW: Vec3; centroidErrMm: number } {
+  let guessTarget = desiredCentroidW;
+  let result = solveArmForWristTarget(side, guessTarget, forearmRollDeg, wristFlexDeg, handshape);
+  let centroidW = knuckleCentroid(side, result.bones, new Map());
+  for (let i = 0; i < 4; i++) {
+    const err = subtract(desiredCentroidW, centroidW);
+    if (vecLen(err) < 0.0005) break;
+    guessTarget = add(guessTarget, err);
+    result = solveArmForWristTarget(side, guessTarget, forearmRollDeg, wristFlexDeg, handshape);
+    centroidW = knuckleCentroid(side, result.bones, new Map());
   }
+  return { ...result, centroidW, centroidErrMm: distance(centroidW, desiredCentroidW) * 1000 };
+}
+
+function vecLen(v: Vec3): number {
+  return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+/** Builds the FK report string shared by both authoring paths (wrist target / centroid target). */
+function reportFor(side: HandSide, solved: { bones: Record<string, Quat>; wristFk: Vec3; wristErr: number; elbowY: number; shoulderY: number }, handshape: 'fist' | 'flat' | undefined): { report: string; sane: boolean } {
+  const cache = new Map<string, Mat4>();
+  const { bones, wristFk, wristErr, elbowY, shoulderY } = solved;
 
   const fingers = hierarchy.hands[side]?.fingers ?? {};
   const indexMcp = fingers['index']?.[0];
   const pinkyMcp = fingers['pinky']?.[0];
   const middleMcp = fingers['middle']?.[0];
   let palmReport = 'palm: (finger bones not discovered)';
+  let palmN: Vec3 | null = null;
   if (indexMcp && pinkyMcp && middleMcp) {
     const iPos = getTranslation(worldMatrixWithOverrides(hierarchy, indexMcp, bones, cache));
     const pPos = getTranslation(worldMatrixWithOverrides(hierarchy, pinkyMcp, bones, cache));
     const mPos = getTranslation(worldMatrixWithOverrides(hierarchy, middleMcp, bones, cache));
-    // Palm normal points out of the palm side: cross order flips between hands (mirrored anatomy).
     const va = subtract(iPos, wristFk);
     const vb = subtract(pPos, wristFk);
-    const palmN = normalize(side === 'right' ? cross(va, vb) : cross(vb, va));
+    palmN = normalize(side === 'right' ? cross(va, vb) : cross(vb, va));
     const fingerDir = normalize(subtract(mPos, wristFk));
     palmReport =
       `palm up=${dot(palmN, frame.up).toFixed(2)} fwd=${dot(palmN, frame.forward).toFixed(2)} rt=${dot(palmN, frame.right).toFixed(2)} | ` +
       `fingers up=${dot(fingerDir, frame.up).toFixed(2)} fwd=${dot(fingerDir, frame.forward).toFixed(2)}`;
   }
 
-  const shoulderY = hierarchy.bones[armName].worldPosition.y;
-  const sane = wristErr < 0.02 && pose.elbowWorld.y < shoulderY + 0.02;
+  // Defect #2 fix: enumerate EVERY finger by name (not just middle) and FAIL LOUDLY if any of the
+  // 5 expected chains is missing or didn't actually curl (tip did not move toward the palm side).
+  let fistLines = '';
+  let fistSane = true;
+  if (handshape === 'fist') {
+    const fingerNames = ['thumb', 'index', 'middle', 'ring', 'pinky'] as const;
+    const chains = fingerNames.map((n) => hierarchy.hands[side]?.fingers[n]);
+    const missing = fingerNames.filter((_, i) => !chains[i] || chains[i]!.length === 0);
+    if (missing.length > 0) fail(`${side} hand: fist requested but chain(s) missing for: ${missing.join(', ')}.`);
+    const rows: string[] = [];
+    for (let i = 0; i < fingerNames.length; i++) {
+      const chain = chains[i]!;
+      const mcp = chain[0];
+      const tip = chain[chain.length - 1];
+      const mcpPos = getTranslation(worldMatrixWithOverrides(hierarchy, mcp, bones, cache));
+      const tipPos = getTranslation(worldMatrixWithOverrides(hierarchy, tip, bones, cache));
+      const tipToMcp = distance(tipPos, mcpPos) * 1000;
+      const sideOfPalm = palmN ? dot(subtract(tipPos, mcpPos), palmN) : NaN;
+      const curled = palmN ? sideOfPalm < 0 : tipToMcp < 60; // fallback if palm normal unavailable
+      fistSane &&= curled;
+      rows.push(`${fingerNames[i].padEnd(6)} tip->mcp=${tipToMcp.toFixed(0)}mm palmSide=${sideOfPalm.toFixed(3)} ${curled ? 'curled' : 'NOT-CURLED'}`);
+    }
+    fistLines = '\n        ' + rows.join('\n        ');
+  }
+
+  const sane = wristErr < 0.02 && elbowY < shoulderY + 0.02 && fistSane;
   const report =
-    `${side.padEnd(5)} wrist err=${(wristErr * 1000).toFixed(1)}mm  elbow y=${pose.elbowWorld.y.toFixed(3)} (shoulder ${shoulderY.toFixed(3)})  ${sane ? 'OK' : 'SUSPECT'}\n` +
-    `        wrist=(${wristFk.x.toFixed(3)}, ${wristFk.y.toFixed(3)}, ${wristFk.z.toFixed(3)})  ${palmReport}${fistReport}`;
-  return { bones, report, sane };
+    `${side.padEnd(5)} wrist err=${(wristErr * 1000).toFixed(1)}mm  elbow y=${elbowY.toFixed(3)} (shoulder ${shoulderY.toFixed(3)})  ${sane ? 'OK' : 'SUSPECT'}\n` +
+    `        wrist=(${wristFk.x.toFixed(3)}, ${wristFk.y.toFixed(3)}, ${wristFk.z.toFixed(3)})  ${palmReport}${fistLines}`;
+  return { report, sane };
 }
 
 /**
- * Local rotations that curl one hand into an S-handshape (fist). The curl axis for each joint is
- * NEVER assumed: for each finger both curl directions are tried and FK decides — the direction that
- * brings the fingertip closest to the wrist wins. Depends only on the rig's REST pose (local-frame
- * geometry is invariant to whatever the arm/wrist are doing), so the result is cached per side.
+ * Local rotations that curl one hand into an S-handshape (fist).
+ *
+ * Defect #1 fix: direction is no longer chosen by tip-to-wrist distance (hyperextending a finger
+ * backward shortens that distance almost as much as a correct curl does — that's exactly how some
+ * fingers ended up bent the wrong way). Direction is now chosen by which sign brings the fingertip
+ * to the PALM side of the palm plane: dot(tip - mcp, palmNormal) < 0. Tip-to-mcp distance is still
+ * reported as a tightness metric, just never used to pick direction.
+ *
+ * Defect #1 (thumb specifically): the thumb's CMC/MCP joint does not hinge about the same
+ * index-pinky transverse axis as the other four fingers (that axis barely moves it — anatomically
+ * the thumb opposes across the palm, not alongside it). It gets its own curl axis: the palm normal
+ * itself, which sweeps the thumb across the front of the fist toward the index finger, verified by
+ * requiring the thumb tip get closer to the index MCP than the flat-rest thumb tip is.
  */
 const fistCache = new Map<HandSide, Record<string, Quat>>();
 function buildFist(side: HandSide): Record<string, Quat> {
@@ -353,36 +440,52 @@ function buildFist(side: HandSide): Record<string, Quat> {
   const pky = fingers['pinky']?.[0];
   if (!idx || !pky) fail(`${side} hand is missing index/pinky chains — cannot derive a curl axis.`);
 
-  // Transverse axis of the palm at rest (index MCP -> pinky MCP): curling is a rotation about this
-  // line (or its negation — FK picks below).
-  const axisW = normalize(subtract(hierarchy.bones[pky].worldPosition, hierarchy.bones[idx].worldPosition));
   const wristRest = hierarchy.bones[wristName].worldPosition;
+  const idxRest = hierarchy.bones[idx].worldPosition;
+  const pkyRest = hierarchy.bones[pky].worldPosition;
+  // Transverse axis (index MCP -> pinky MCP): curl axis for the 4 non-thumb fingers.
+  const transverseAxisW = normalize(subtract(pkyRest, idxRest));
+  // Palm normal at rest, same side convention as reportFor/buildArm's palm readout.
+  const va = subtract(idxRest, wristRest);
+  const vb = subtract(pkyRest, wristRest);
+  const palmNormalW = normalize(side === 'right' ? cross(va, vb) : cross(vb, va));
 
   // 70/95/60 measured as near-optimal on this rig: pushing higher (85/105/75) INCREASED middle
   // tip->wrist from 91mm to 101mm — overcurl, fingers spiraling past the palm.
-  const CURL_DEG = { finger: [70, 95, 60], thumb: [35, 40, 25] };
+  const CURL_DEG = { finger: [70, 95, 60], thumb: [70, 75, 45] };
   const result: Record<string, Quat> = {};
 
   for (const [fingerName, chain] of Object.entries(fingers)) {
     if (!chain || chain.length === 0) continue;
     const isThumb = fingerName.toLowerCase().includes('thumb');
     const angles = isThumb ? CURL_DEG.thumb : CURL_DEG.finger;
+    const mcpBone = chain[0];
     const tipBone = chain[chain.length - 1];
+    const mcpRest = hierarchy.bones[mcpBone].worldPosition;
+    // Rotating about palmNormalW itself would be a DEGENERATE test: dot(v, axis) is invariant
+    // under rotation about that same axis, so the palm-side direction test could never distinguish
+    // the two candidate signs (this was the actual bug — the thumb barely moved because its curl
+    // axis and its success metric were the same vector). The thumb's own rest bone direction is
+    // NOT parallel to the other fingers (its geometry opposes across the palm), so give it its own
+    // axis, perpendicular to palmNormalW by construction, guaranteeing the test is non-degenerate.
+    const tipRestForAxis = hierarchy.bones[tipBone].worldPosition;
+    const thumbDirRest = normalize(subtract(tipRestForAxis, mcpRest));
+    const axisW = isThumb ? normalize(cross(thumbDirRest, palmNormalW)) : transverseAxisW;
 
-    let best: { rotations: Record<string, Quat>; tipToWrist: number } | null = null;
+    let best: { rotations: Record<string, Quat>; sideOfPalm: number } | null = null;
     for (const sign of [1, -1]) {
       const rotations: Record<string, Quat> = {};
       for (let j = 0; j < Math.min(angles.length, chain.length); j++) {
         const boneName = chain[j];
         const bone = hierarchy.bones[boneName];
-        // Express the world-space curl axis in this joint's own local frame, then apply the curl as
-        // a post-rotation of the rest local rotation (rotation in the bone's own frame).
         const axisL = rotateVec3(axisW, quatInvert(restWorldQuat(hierarchy, boneName)));
         rotations[boneName] = quatMultiply(bone.localRotation, axisAngleQuat(axisL, sign * angles[j]));
       }
       const tip = getTranslation(worldMatrixWithOverrides(hierarchy, tipBone, rotations, new Map()));
-      const tipToWrist = distance(tip, wristRest);
-      if (!best || tipToWrist < best.tipToWrist) best = { rotations, tipToWrist };
+      // Correct curl (finger and thumb alike) moves the tip to the PALM side of the palm plane
+      // passing through this finger's own MCP — never judged by raw distance (see docstring above).
+      const sideOfPalm = dot(subtract(tip, mcpRest), palmNormalW);
+      if (!best || sideOfPalm < best.sideOfPalm) best = { rotations, sideOfPalm };
     }
     Object.assign(result, best!.rotations);
   }
@@ -396,14 +499,40 @@ let allSane = true;
 
 for (const kf of spec.keyframes) {
   const bones: ReferencePoseMetadata['bones'] = {};
+  const centroids: Partial<Record<HandSide, Vec3>> = {};
   console.log(`kf t=${kf.frameFraction.toFixed(2)}  ${kf.notes}`);
-  for (const side of ['right', 'left'] as HandSide[]) {
+  // 'left' before 'right': centroidRelativeToOtherHand (COFFEE's dominant hand) needs the other
+  // side's knuckle centroid already solved this same keyframe.
+  for (const side of ['left', 'right'] as HandSide[]) {
     const armSpec = kf.arms[side];
     if (!armSpec) continue;
-    const armResult = buildArm(side, armSpec);
-    allSane &&= armResult.sane;
-    console.log(`  ${armResult.report}`);
-    for (const [name, rotation] of Object.entries(armResult.bones)) {
+    const otherSide: HandSide = side === 'right' ? 'left' : 'right';
+
+    let solved: ReturnType<typeof solveArmForWristTarget>;
+    let centroidLine = '';
+    if (armSpec.centroidRelativeToOtherHand) {
+      const otherCentroid = centroids[otherSide];
+      if (!otherCentroid) fail(`${side}: centroidRelativeToOtherHand requires "${otherSide}" to be authored first in the same keyframe.`);
+      const desiredCentroid = add(
+        otherCentroid,
+        add(
+          scale(frame.right, armSpec.offset.x * frame.shoulderWidth),
+          add(scale(frame.up, armSpec.offset.y * frame.shoulderWidth), scale(frame.forward, armSpec.offset.z * frame.shoulderWidth))
+        )
+      );
+      const centroidSolved = solveArmForCentroidTarget(side, desiredCentroid, armSpec.forearmRollDeg, armSpec.wristFlexDeg, armSpec.handshape);
+      solved = centroidSolved;
+      centroidLine = `\n        knuckle centroid err vs target: ${centroidSolved.centroidErrMm.toFixed(1)}mm`;
+    } else {
+      const targetW = targetWorld(hierarchy, frame, armSpec.anchor, armSpec.offset);
+      solved = solveArmForWristTarget(side, targetW, armSpec.forearmRollDeg, armSpec.wristFlexDeg, armSpec.handshape);
+    }
+
+    centroids[side] = knuckleCentroid(side, solved.bones, new Map());
+    const { report, sane } = reportFor(side, solved, armSpec.handshape);
+    allSane &&= sane;
+    console.log(`  ${report}${centroidLine}`);
+    for (const [name, rotation] of Object.entries(solved.bones)) {
       const rest = hierarchy.bones[name];
       bones[name] = {
         rotation: [rotation.x, rotation.y, rotation.z, rotation.w],

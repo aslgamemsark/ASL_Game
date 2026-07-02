@@ -26,11 +26,30 @@ except ImportError as exc:  # pragma: no cover - guidance, not logic
 from core.landmarks import (
     Frame,
     Hand,
+    POSE_LEFT_ELBOW,
+    POSE_LEFT_HIP,
     POSE_LEFT_SHOULDER,
+    POSE_LEFT_WRIST,
     POSE_MOUTH_LEFT,
     POSE_MOUTH_RIGHT,
+    POSE_RIGHT_ELBOW,
+    POSE_RIGHT_HIP,
     POSE_RIGHT_SHOULDER,
+    POSE_RIGHT_WRIST,
 )
+
+# Joint name -> pose landmark index, for the OPTIONAL world-landmark dict populated when
+# `Capture(want_world_landmarks=True)`. See docs/VIDEO_RETARGET_HANDOFF.md.
+_WORLD_POSE_JOINTS = {
+    "left_shoulder": POSE_LEFT_SHOULDER,
+    "right_shoulder": POSE_RIGHT_SHOULDER,
+    "left_elbow": POSE_LEFT_ELBOW,
+    "right_elbow": POSE_RIGHT_ELBOW,
+    "left_wrist": POSE_LEFT_WRIST,
+    "right_wrist": POSE_RIGHT_WRIST,
+    "left_hip": POSE_LEFT_HIP,
+    "right_hip": POSE_RIGHT_HIP,
+}
 
 DEFAULT_HAND_MODEL = os.path.join("models", "hand_landmarker.task")
 DEFAULT_POSE_MODEL = os.path.join("models", "pose_landmarker_lite.task")
@@ -48,7 +67,14 @@ class Capture:
         hand_model: str = DEFAULT_HAND_MODEL,
         pose_model: str = DEFAULT_POSE_MODEL,
         num_hands: int = 2,
+        want_world_landmarks: bool = False,
     ):
+        # OPTIONAL, additive, default OFF (avatar video-retarget pipeline only — see
+        # docs/VIDEO_RETARGET_HANDOFF.md). The Tasks API always computes world landmarks alongside
+        # image landmarks; this flag only controls whether `process()` reads and attaches them to
+        # the returned Frame. Default False => zero behavior change for every existing caller
+        # (live game, tools/extract_dataset.py, tools/wlasl_extract.py).
+        self._want_world_landmarks = want_world_landmarks
         for path, what in ((hand_model, "hand"), (pose_model, "pose")):
             if not os.path.exists(path):
                 raise FileNotFoundError(
@@ -105,10 +131,18 @@ class Capture:
         )
 
         if hand_res.hand_landmarks:
-            for lms, handedness in zip(hand_res.hand_landmarks, hand_res.handedness):
+            world_by_index = (
+                hand_res.hand_world_landmarks
+                if self._want_world_landmarks and hand_res.hand_world_landmarks
+                else None
+            )
+            for i, (lms, handedness) in enumerate(zip(hand_res.hand_landmarks, hand_res.handedness)):
                 label = handedness[0].category_name  # "Left" / "Right"
                 pts = np.array([[lm.x * w, lm.y * h, lm.z] for lm in lms], dtype=float)
-                frame.hands.append(Hand(handedness=label, points=pts))
+                world_pts = None
+                if world_by_index is not None and i < len(world_by_index):
+                    world_pts = np.array([[wl.x, wl.y, wl.z] for wl in world_by_index[i]], dtype=float)
+                frame.hands.append(Hand(handedness=label, points=pts, world_points=world_pts))
 
         if pose_res.pose_landmarks:
             pose = pose_res.pose_landmarks[0]
@@ -117,6 +151,14 @@ class Capture:
             frame.right_shoulder = np.array([rs.x * w, rs.y * h], dtype=float)
             ml, mr = pose[POSE_MOUTH_LEFT], pose[POSE_MOUTH_RIGHT]
             frame.mouth = np.array([(ml.x + mr.x) * 0.5 * w, (ml.y + mr.y) * 0.5 * h], dtype=float)
+
+            if self._want_world_landmarks and pose_res.pose_world_landmarks:
+                world_pose = pose_res.pose_world_landmarks[0]
+                frame.pose_world = {
+                    name: np.array([world_pose[idx].x, world_pose[idx].y, world_pose[idx].z], dtype=float)
+                    for name, idx in _WORLD_POSE_JOINTS.items()
+                    if idx < len(world_pose)
+                }
 
         return frame
 

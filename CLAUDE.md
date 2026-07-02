@@ -83,3 +83,8 @@ The 3D avatar work lives on branch `claude/avatar-lab-prototype` (module `web/sr
 authoring defects with root causes and prescribed fixes, and the rules that stopped earlier
 models from shipping broken poses (FK readback before every write; measure the rig, never assume
 axis conventions; Blender keyframes from the user outrank code-authored math).
+
+**Active effort (approved 2026-07-02): video-driven arm retargeting from ASL Citizen.** Plan,
+research findings, per-sign risks, and current implementation state are in
+`docs/VIDEO_RETARGET_HANDOFF.md` — read it before touching this pipeline. Pilot signs (must
+work): HELLO, YOU, COFFEE, WANT, HOSPITAL.
