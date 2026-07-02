@@ -21,7 +21,7 @@ export const LESSON_UNITS: LessonUnit[] = [
         id: 'cafe-order',
         title: 'Cafe Order',
         description: 'Order at the coffee shop',
-        signIds: ['COFFEE', 'WANT', 'YES'],
+        signIds: ['COFFEE', 'WANT', 'MORE', 'YES'],
         status: 'locked',
         xpReward: 15,
         iconEmoji: '☕',

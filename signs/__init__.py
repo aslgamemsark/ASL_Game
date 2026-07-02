@@ -11,6 +11,7 @@ from signs.letter_b import LETTER_B
 from signs.letter_l import LETTER_L
 from signs.letter_v import LETTER_V
 from signs.letter_y import LETTER_Y
+from signs.more import MORE
 from signs.please import PLEASE
 from signs.thank_you import THANK_YOU
 from signs.want import WANT
@@ -39,14 +40,14 @@ HOSPITAL_SIGNS = (
 
 # Coffee-shop vocabulary (used by that scenario's lessons).
 COFFEE_SIGNS = (
-    COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES,
+    COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES, MORE,
     LETTER_A, LETTER_B, LETTER_L, LETTER_V, LETTER_Y, YOU,
 )
 
 SIGNS = {s.name: s for s in (*COFFEE_SIGNS, *HOSPITAL_SIGNS)}
 
 __all__ = [
-    "COFFEE", "PLEASE", "THANK_YOU", "HELLO", "WANT", "YES",
+    "COFFEE", "PLEASE", "THANK_YOU", "HELLO", "WANT", "YES", "MORE",
     "LETTER_A", "LETTER_B", "LETTER_L", "LETTER_V", "LETTER_Y", "YOU",
     "HELP", "PAIN", "MEDICINE", "EMERGENCY",
     "DOCTOR", "NURSE", "SICK", "FEVER", "WATER", "BREATHE", "HOSPITAL", "DIZZY",

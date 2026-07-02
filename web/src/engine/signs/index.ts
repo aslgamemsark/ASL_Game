@@ -48,6 +48,14 @@ export const YES = createSign({
   movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true },
 });
 
+export const MORE = createSign({
+  name: 'MORE', twoHanded: true,
+  dominant: { kind: 'claw', required: true, minConfidence: 0.5 },
+  nondominant: { kind: 'claw', required: true, minConfidence: 0.5 },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 1.5, required: false },
+  movement: { kind: MovementKind.CONVERGE, actor: DOMINANT, minApproachRatio: 0.15, minDurationS: 0.4, required: true },
+});
+
 export const YOU = createSign({
   name: 'YOU', twoHanded: false,
   dominant: { kind: 'point', required: true },
@@ -191,7 +199,7 @@ export const DIZZY = createSign({
   movement: { kind: MovementKind.CIRCULAR, actor: DOMINANT, minTotalRotationDeg: 270, radiusToleranceRatio: 1.0, minDurationS: 0.6, required: true },
 });
 
-export const COFFEE_SIGNS = [COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES, LETTER_A, LETTER_B, LETTER_L, LETTER_V, LETTER_Y, YOU] as const;
+export const COFFEE_SIGNS = [COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES, MORE, LETTER_A, LETTER_B, LETTER_L, LETTER_V, LETTER_Y, YOU] as const;
 export const HOSPITAL_SIGNS = [HELP, PAIN, MEDICINE, EMERGENCY, DOCTOR, NURSE, SICK, FEVER, WATER, BREATHE, HOSPITAL, DIZZY] as const;
 
 export const SIGNS: Record<string, Sign> = {};
