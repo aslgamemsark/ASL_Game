@@ -41,6 +41,37 @@ Recommended sequencing: try DeepMotion's free tier on COFFEE + HELLO; pull YOU/P
 from the CC0 archive; Blender-pose whatever remains. All three land in the SAME
 `extractBakedAnimation.ts` pipeline — no engine changes for any of them.
 
+## SECOND REJECTION (2026-07-03): hand-rolled Galt retarget math, confirmed broken
+
+A later session built `web/src/avatar/tools/retargetGaltClip.ts` — a **TypeScript** rest-to-rest
+quaternion retarget from the Galt archive's Mixamo-rig FBX (converted to GLB) onto ybot, bypassing
+the plan above's explicit instruction to do this retarget step **inside Blender**. It produced
+`COFFEE_galt_*`/`HELLO_galt_*` pose metadata that passed its own FK-readback check (numeric
+solver-vs-reference match, PASS) and was committed without a visual check. On visual inspection in
+`/avatarlab` (2026-07-03) both signs are **badly broken**: the avatar is collapsed forward onto its
+hands and knees, not standing — the same class of whole-body tip-over bug the tool's own code
+comments claim to have fixed. The FK check passing is misleading: it only verifies the solver
+reproduces its own reference number, not that the reference itself is an anatomically sane pose —
+a real gap in the guardrail, not just a math bug. **These poses were deleted** (matching this
+project's standing pattern for confirmed-defective experiments); do not regenerate via this tool
+without fixing the underlying bug and adding a visual/anatomical sanity check (e.g. reusing
+`armPoseSanity.test.ts`'s torso-penetration/elbow-inversion checks) to the readback, not just
+numeric agreement.
+
+**Pattern now confirmed FOUR times independently**, across four different authors/approaches, all
+failing at the same class of problem — composing rotations across two DIFFERENT rest poses/rigs in
+code: (1) `authorSignKeyframes.ts` code-authored fists (3 defects, see
+`AVATAR_AUTHORING_HANDOFF.md`), (2) raw-MediaPipe video retarget (rejected, all 5 pilot signs),
+(3) this Galt TS retarget (collapsed pose, both signs tried). The ONE approach with a 100% success
+rate remains: **pose directly on ybot itself in Blender** (no cross-rig math at all — HELLO_bake) —
+or, for third-party mocap, use **Blender's own retarget tooling** (e.g. Rigify's retarget
+operators, or manually copying pose bones with constraints) so a human eye and mature, tested
+software — not hand-rolled quaternion composition — does the rest-pose reconciliation, and only
+the ALREADY-ON-YBOT result goes through `extractBakedAnimation.ts` (which needs no retarget math,
+just a straight per-bone local-rotation copy — exactly why it's the one thing that's worked).
+**Recommendation: stop writing new cross-rig retarget math in TypeScript.** Route all third-party
+mocap (Galt archive, DeepMotion output) through Blender's retarget tools first.
+
 ---
 
 Original planning notes below are kept as the historical record; read this AND
