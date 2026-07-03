@@ -16,6 +16,24 @@ something without a clear trigger point).
   play something now) and `badgeUnlock` (defined, tested, **not wired anywhere** — see below).
 - Mute toggle added to `ProfileTab` ("Me" tab), a visible switch next to a 🔊/🔇 icon.
 
+## Second pass (2026-07-03, later): the same contrast bug, found by reading the code
+
+After the live URL scan found and fixed the `PracticeTab.tsx` card, went back and grepped every
+inline `linear-gradient` background in `web/src/` for the same *shape* of bug: a title with no
+explicit text color (inheriting the near-white body default) sitting directly on a mid-bright
+gradient. Found the exact same `#0F766E → #14B8A6` gradient reused in
+`SpeedChallengePage.tsx`'s tier-select cards (Warm Up/Sprint/Blitz all share one markup, all three
+affected) — fixed with the identical scrim technique, once, at the shared markup level. Checked
+the other two candidates the grep surfaced (`StreakCard.tsx`'s progress-bar fill — no text on top,
+fine; `OnboardingFlow.tsx`'s `background-clip: text` logo — same pattern as `TopBar.tsx`'s
+"SignUp" wordmark, gradient renders directly against the dark page background, not against
+itself, contrast is fine) and left them alone rather than "fixing" things that weren't broken.
+
+**Lesson for future sessions:** when a design-linter flags one instance of a bug class, grep the
+codebase for the same underlying pattern (here: `linear-gradient` + missing explicit text color)
+rather than assuming it's a one-off. A tool that scans page-by-page will miss reused markup that
+just hasn't been navigated to yet.
+
 ## Why `badgeUnlock` isn't wired in yet
 There's no existing "a badge was just awarded" notification/toast component anywhere in the app —
 `checkBadges()` runs deep inside store actions and just silently appends to the `badges` array. A

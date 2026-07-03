@@ -48,3 +48,6 @@ htmlcov/
 
 # --- Claude Code local (per-machine) settings ---
 .claude/settings.local.json
+
+# --- impeccable's local cache (regenerable, per-machine) ---
+.impeccable/

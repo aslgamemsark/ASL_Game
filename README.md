@@ -8,7 +8,9 @@ their webcam to progress.
 
 Every ASL sign is defined by five parameters: **handshape, location, movement, palm orientation,
 non-manual markers**. Recognition is **rule-based geometry** over MediaPipe hand + pose
-landmarks — no trained ML model in v1, and no commercially restricted datasets.
+landmarks — this Python prototype has no ML model; the browser port (`web/`) additionally runs a
+trained classifier, but strictly as a **veto-only disambiguation layer** on top of the same
+rule-based checks, never a replacement for them.
 
 The cardinal rule: **a sign that requires movement is never approved from a single frame.**
 Movement is measured over a rolling ~1.5–2 second window of frames. (An earlier version passed
@@ -23,14 +25,25 @@ ASL_Game/
 ├── signs/           # sign definitions as data
 ├── scenarios/
 │   ├── coffee_shop/   # Saad's themed scenario (presentation + assets only)
-│   └── hospital_shop/ # hospital scenario (see scenarios/hospital_shop/README.md)
-├── tools/           # landmark fixture recorder
+│   ├── hospital_shop/ # hospital scenario (see scenarios/hospital_shop/README.md)
+│   └── classroom/     # classroom scenario (ownership not yet assigned)
+├── tools/           # landmark fixture recorder + dataset extraction/vocab-mapping scripts
 ├── tests/           # confusor regression tests
-└── models/          # MediaPipe .task model files (downloaded, git-ignored)
+├── ml/              # trained-classifier pipeline (dataset → inspect → train → deploy)
+├── models/          # MediaPipe .task model files (downloaded, git-ignored)
+├── web/             # the React/TypeScript port — same recognition schema, browser-side,
+│                    #   with the trained classifier as an optional disambiguation layer
+└── docs/            # architecture/handoff docs, plus docs/vault/ — an Obsidian-compatible
+                     #   knowledge base (open docs/ as the vault); start at
+                     #   docs/vault/00-Index.md
 ```
 
 `core/` does recognition and is shared by every scenario. `scenarios/<name>/` only owns its
 look (background, prompts, animations). This split is deliberate — see [CLAUDE.md](CLAUDE.md).
+
+This README covers the **Python prototype** specifically. The browser port (`web/`) mirrors the
+same five-parameter schema and confusor-test discipline — see `docs/vault/Architecture.md` for
+how the two engines stay in sync, and `web/README.md` for running the web app itself.
 
 ## Setup
 
@@ -141,10 +154,11 @@ Engine-level shared constants live in `core/` (e.g. `_RADIUS_CV_FREE` in `core/m
 
 ## Roadmap
 
-- **v1 (now):** rule-based math, Python desktop, scenario by scenario.
-- **Robustness:** per-user calibration, then a learned classifier where rules get fragile —
-  MediaPipe Model Maker for static handshapes, a small LSTM/GRU/1D-CNN over the landmark window
-  for movement signs. Both still run client-side on landmarks and slot into the same `verify()`
-  interface, so the schema, tests, and game loop don't change.
-- **Later:** port recognition to the browser (MediaPipe Tasks Vision / TypeScript) and add
-  Supabase for user progress.
+- **v1 (this Python prototype):** rule-based math, desktop, scenario by scenario. Still the
+  source of truth for the sign schema — the browser port mirrors it, not the other way around.
+- **Done:** ported recognition to the browser (`web/`, MediaPipe Tasks Vision / TypeScript);
+  added a trained Bi-GRU classifier as a client-side, veto-only disambiguation layer
+  (`ml/`, `web/src/engine/classifier.ts`) — see `docs/vault/ML-Pipeline.md`; added Supabase for
+  user progress/auth/leaderboards (`web/`, not used for recognition).
+- **Not yet built:** per-user calibration (a "make a fist" onboarding step to personalize
+  handshape thresholds instead of global constants).

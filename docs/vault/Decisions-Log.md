@@ -46,3 +46,32 @@ interrupted) — recorded here so they're reviewable, not silently baked in.
    `python -m tools.demo_verify --sign MORE` and report the observed calibration numbers so
    `signs/more.py`'s inherited PAIN/WANT-precedent thresholds can be replaced with personally
    calibrated ones. Not done this session — requires the user's own camera.
+9. **`CLASSIFIER_DEBUG` un-gated back to hardcoded `true`** (2026-07-03, second round, explicit
+   user request while testing `model_v6`'s new classes). Was briefly `import.meta.env.DEV` — see
+   item 6. **Flip it back before any real release** — don't ship debug logging in production
+   again; the comment in `web/src/config/classifier.ts` says the same thing.
+10. **Repo cleanliness pass** (2026-07-03, second round): moved `Avatar_engine_specification.md`
+    from the repo root into `docs/` — it was invisible to the Obsidian vault (rooted at `docs/`)
+    sitting outside it. Reorganized `docs/vault/` into core reference notes (this file,
+    Architecture, Scenarios, ML-Pipeline) at the top level and session work logs under
+    `Workstreams/` — Obsidian's wikilinks resolve by filename regardless of subfolder, so this
+    didn't break any `[[links]]`. Fixed `README.md`'s stale claims ("no trained ML model",
+    2-scenario structure, ML/browser-port/Supabase listed as "later" when all three are done).
+    Added `.impeccable/` to the real, committed `.gitignore` (it was only excluded via the
+    local-only, unshared `.git/info/exclude` that impeccable's own installer had set up).
+11. **Grepped for the same contrast-bug shape after the first fix**, rather than assuming it was
+    a one-off — found and fixed the identical `#0F766E→#14B8A6`-gradient-with-unstyled-text
+    pattern reused in `SpeedChallengePage.tsx`'s three tier cards. Full detail in
+    [[Workstream-D-E-Polish]].
+12. **Investigated, not fixed: bundle size.** `npm run build` warns both JS chunks exceed 500kB
+    (877kB main + 1082kB "dist" chunk). First hypothesis was `App.tsx`'s top-level
+    `import { AvatarLabPage }` (which pulls in `three`) leaking into the production bundle despite
+    being behind an `import.meta.env.DEV` check — **checked this empirically and it's wrong**:
+    `grep -c "THREE\.\|WebGLRenderer" dist/assets/*.js` returns 0 matches. The existing code
+    comment at `App.tsx:40-41` claiming Vite dead-code-eliminates the whole dev-only branch (import
+    included) is correct, confirmed against the real build output, not just trusted. The actual
+    size is almost certainly `@mediapipe/tasks-vision` + `@tensorflow/tfjs`, both large by nature
+    and both needed on nearly every game screen (lesson/practice/story all run recognition) — so
+    route-level code-splitting wouldn't obviously help without profiling exactly what's in each
+    chunk first. Left as a genuine open question rather than either a "quick fix" (would have
+    fixed the wrong thing) or a false "confirmed problem" claim.
