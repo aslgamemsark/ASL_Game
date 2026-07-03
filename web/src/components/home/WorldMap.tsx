@@ -207,13 +207,13 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                   {!unlocked && <span className="text-2xl shrink-0">🔒</span>}
                   {unlocked && done === total && total > 0 && <span className="text-2xl shrink-0">✅</span>}
                   {unlocked && (done < total || total === 0) && (
-                    <span className="text-white/40 text-sm font-bold shrink-0 mt-1">{done}/{total}</span>
+                    <span className="text-white/70 text-sm font-bold shrink-0 mt-1">{done}/{total}</span>
                   )}
                 </div>
 
                 {unlocked ? (
                   <>
-                    <div className="flex items-center justify-between text-xs text-white/50 mb-1.5">
+                    <div className="flex items-center justify-between text-xs text-white/75 mb-1.5">
                       <span>{done} of {total} lessons</span>
                       <span>{Math.round(pct)}%</span>
                     </div>
@@ -227,8 +227,8 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                     </div>
                   </>
                 ) : (
-                  <p className="text-white/35 text-xs mt-1">
-                    Complete {world.unlockCondition?.replace(/-/g, ' ')} to unlock
+                  <p className="text-white/60 text-xs mt-1">
+                    Finish {world.unlockCondition?.replace(/-/g, ' ')} to open this world!
                   </p>
                 )}
               </div>

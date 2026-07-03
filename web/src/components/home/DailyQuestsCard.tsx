@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUserStore } from '@/stores/useUserStore';
 
@@ -9,11 +10,18 @@ const DIFF_STYLE = {
 
 export function DailyQuestsCard() {
   const { dailyQuests, claimQuest } = useUserStore();
+  const [expanded, setExpanded] = useState(false);
 
   if (dailyQuests.length === 0) return null;
 
   const claimed = dailyQuests.filter(q => q.claimed).length;
   const allDone = claimed === dailyQuests.length;
+  const hasClaimable = dailyQuests.some(q => q.completed && !q.claimed);
+
+  // Collapse to a one-line summary once there's nothing actionable (no claimable quest, not all
+  // done yet) - this is the biggest single contributor to the "too much chrome before Worlds"
+  // finding: 3 full quest cards render every visit even when there's nothing to do about them yet.
+  const showCollapsed = !expanded && !hasClaimable && !allDone;
 
   return (
     <motion.div
@@ -27,12 +35,20 @@ export function DailyQuestsCard() {
         <h3 className="font-bold text-sm text-z-gray-300 uppercase tracking-widest">
           Daily Quests
         </h3>
-        <span className={`text-xs font-bold ${allDone ? 'text-emerald-400' : 'text-z-gray-500'}`}>
+        <span className={`text-xs font-bold ${allDone ? 'text-emerald-400' : 'text-z-gray-300'}`}>
           {allDone ? '✓ All claimed!' : `${claimed}/${dailyQuests.length} done`}
         </span>
       </div>
 
-      {/* Quest list */}
+      {showCollapsed ? (
+        <button
+          onClick={() => setExpanded(true)}
+          className="w-full bg-z-card border border-white/5 rounded-2xl p-3 text-left text-sm text-z-gray-300 flex items-center justify-between"
+        >
+          <span>{claimed}/{dailyQuests.length} quests in progress</span>
+          <span className="text-z-gray-400 text-xs">View all →</span>
+        </button>
+      ) : (
       <div className="flex flex-col gap-2">
         {dailyQuests.map((quest, i) => {
           const pct = quest.target > 0 ? Math.min(1, quest.progress / quest.target) : 0;
@@ -70,12 +86,15 @@ export function DailyQuestsCard() {
                       key="claim"
                       onClick={() => claimQuest(quest.id)}
                       className="text-xs font-bold px-3 py-1 rounded-full text-white flex-shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #7B2FBE, #A855F7)' }}
+                      style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)' }}
                       initial={{ scale: 0.7, opacity: 0 }}
                       animate={{
                         scale: [1, 1.05, 1],
                         opacity: 1,
-                        transition: { scale: { duration: 1.4, repeat: Infinity }, opacity: { duration: 0.2 } },
+                        // Bounded: 3 pulses announce "this is claimable", then it holds still -
+                        // an infinite pulse is ambient decoration, not the one-off celebration
+                        // PRODUCT.md's "celebrate deliberately" principle calls for.
+                        transition: { scale: { duration: 1.4, repeat: 3 }, opacity: { duration: 0.2 } },
                       }}
                       whileHover={{ scale: 1.07 }}
                       whileTap={{ scale: 0.94 }}
@@ -96,7 +115,7 @@ export function DailyQuestsCard() {
                     style={{
                       background: quest.claimed
                         ? '#34D399'
-                        : 'linear-gradient(90deg, #7B2FBE, #A855F7)',
+                        : 'linear-gradient(90deg, #7C3AED, #A78BFA)',
                     }}
                     initial={{ width: 0 }}
                     animate={{ width: `${pct * 100}%` }}
@@ -117,6 +136,7 @@ export function DailyQuestsCard() {
           );
         })}
       </div>
+      )}
     </motion.div>
   );
 }

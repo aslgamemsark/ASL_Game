@@ -64,7 +64,9 @@ function ChestItem({ chest }: { chest: Chest }) {
       <motion.span
         className="text-3xl"
         animate={ready ? { rotate: [0, -8, 8, -5, 0], y: [0, -3, 0] } : {}}
-        transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+        // Bounded (was Infinity): a chest that stays "ready" for hours shouldn't bounce the whole
+        // time - a few cycles announce readiness, then it holds still until opened.
+        transition={{ duration: 1.5, repeat: 3, ease: 'easeInOut' }}
       >
         📦
       </motion.span>

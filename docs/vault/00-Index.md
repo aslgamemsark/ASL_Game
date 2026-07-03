@@ -33,6 +33,8 @@ a navigable map of what exists and why, kept updated as work lands (not a one-ti
 - [[Workstream-F-Alphabet]] — fingerspelling letters W, I (and why H/N/U were deliberately skipped)
 - [[Workstream-G-Design-System]] — PRODUCT.md/DESIGN.md foundation + accessibility polish pass
   (reduced motion, focus rings, touch targets, gradient-text reduction)
+- [[Workstream-H-Home-Critique]] — full `/impeccable critique` (dual sub-agent) on the home
+  screen: 32/40 score, contrast/motion/IA fixes, verified with a real contrast-measurement script
 
 ## Existing project docs (`docs/*.md` — not duplicated here, linked)
 - [[ARCHITECTURE]] — the original architecture doc
