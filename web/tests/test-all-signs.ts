@@ -29,6 +29,16 @@ import hospitalCorrect from './fixtures/hospital_correct.json';
 import hospitalConfusor from './fixtures/hospital_confusor.json';
 import dizzyCorrect from './fixtures/dizzy_correct.json';
 import dizzyConfusor from './fixtures/dizzy_confusor.json';
+import teacherCorrect from './fixtures/teacher_correct.json';
+import teacherConfusor from './fixtures/teacher_confusor.json';
+import writeCorrect from './fixtures/write_correct.json';
+import writeConfusor from './fixtures/write_confusor.json';
+import readCorrect from './fixtures/read_correct.json';
+import readConfusor from './fixtures/read_confusor.json';
+import nameCorrect from './fixtures/name_correct.json';
+import nameConfusor from './fixtures/name_confusor.json';
+import friendCorrect from './fixtures/friend_correct.json';
+import friendConfusor from './fixtures/friend_confusor.json';
 
 function loadBuffer(fixture: { frames: unknown[] }, windowS = 2.0): RollingBuffer {
   const buf = new RollingBuffer(windowS);
@@ -58,6 +68,11 @@ const SIGN_TESTS: SignTest[] = [
   { name: 'BREATHE', correct: breatheCorrect, confusor: breatheConfusor },
   { name: 'HOSPITAL', correct: hospitalCorrect, confusor: hospitalConfusor },
   { name: 'DIZZY', correct: dizzyCorrect, confusor: dizzyConfusor },
+  { name: 'TEACHER', correct: teacherCorrect, confusor: teacherConfusor },
+  { name: 'WRITE', correct: writeCorrect, confusor: writeConfusor },
+  { name: 'READ', correct: readCorrect, confusor: readConfusor },
+  { name: 'NAME', correct: nameCorrect, confusor: nameConfusor },
+  { name: 'FRIEND', correct: friendCorrect, confusor: friendConfusor },
 ];
 
 for (const st of SIGN_TESTS) {

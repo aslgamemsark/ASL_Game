@@ -141,6 +141,8 @@ _PATTERNS = {
     "u": dict(index=1, middle=1, ring=0, pinky=0),
     "w": dict(index=1, middle=1, ring=1, pinky=0),      # 3 fingers — WATER
     "middle": dict(index=0, middle=1, ring=0, pinky=0), # SICK
+    # thumb=0 is required here (unlike y) so an actual Y-hand (thumb+pinky out) can't pass as I.
+    "i": dict(thumb=0, index=0, middle=0, ring=0, pinky=1),  # pinky only — LETTER_I
 }
 
 

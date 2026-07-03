@@ -8,8 +8,10 @@ from signs.coffee import COFFEE
 from signs.hello import HELLO
 from signs.letter_a import LETTER_A
 from signs.letter_b import LETTER_B
+from signs.letter_i import LETTER_I
 from signs.letter_l import LETTER_L
 from signs.letter_v import LETTER_V
+from signs.letter_w import LETTER_W
 from signs.letter_y import LETTER_Y
 from signs.more import MORE
 from signs.please import PLEASE
@@ -32,24 +34,37 @@ from signs.breathe import BREATHE
 from signs.hospital import HOSPITAL
 from signs.dizzy import DIZZY
 
+# Classroom scenario signs
+from signs.teacher import TEACHER
+from signs.write import WRITE
+from signs.read import READ
+from signs.name_sign import NAME
+from signs.friend import FRIEND
+
 # Hospital vocabulary, in a teaching-ish order (used by the scenario's patient queue).
 HOSPITAL_SIGNS = (
     HELP, PAIN, MEDICINE, EMERGENCY,
     DOCTOR, NURSE, SICK, FEVER, WATER, BREATHE, HOSPITAL, DIZZY,
 )
 
+# Classroom vocabulary (used by that scenario's lessons).
+CLASSROOM_SIGNS = (
+    HELLO, PLEASE, THANK_YOU, TEACHER, WRITE, READ, NAME, FRIEND,
+)
+
 # Coffee-shop vocabulary (used by that scenario's lessons).
 COFFEE_SIGNS = (
     COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES, MORE,
-    LETTER_A, LETTER_B, LETTER_L, LETTER_V, LETTER_Y, YOU,
+    LETTER_A, LETTER_B, LETTER_I, LETTER_L, LETTER_V, LETTER_W, LETTER_Y, YOU,
 )
 
-SIGNS = {s.name: s for s in (*COFFEE_SIGNS, *HOSPITAL_SIGNS)}
+SIGNS = {s.name: s for s in (*COFFEE_SIGNS, *HOSPITAL_SIGNS, *CLASSROOM_SIGNS)}
 
 __all__ = [
     "COFFEE", "PLEASE", "THANK_YOU", "HELLO", "WANT", "YES", "MORE",
-    "LETTER_A", "LETTER_B", "LETTER_L", "LETTER_V", "LETTER_Y", "YOU",
+    "LETTER_A", "LETTER_B", "LETTER_I", "LETTER_L", "LETTER_V", "LETTER_W", "LETTER_Y", "YOU",
     "HELP", "PAIN", "MEDICINE", "EMERGENCY",
     "DOCTOR", "NURSE", "SICK", "FEVER", "WATER", "BREATHE", "HOSPITAL", "DIZZY",
-    "COFFEE_SIGNS", "HOSPITAL_SIGNS", "SIGNS",
+    "TEACHER", "WRITE", "READ", "NAME", "FRIEND",
+    "COFFEE_SIGNS", "HOSPITAL_SIGNS", "CLASSROOM_SIGNS", "SIGNS",
 ]

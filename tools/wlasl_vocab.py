@@ -29,4 +29,9 @@ WLASL_VOCAB: dict[str, str] = {
     "hospital": "HOSPITAL",
     "dizzy": "DIZZY",
     "more": "MORE",
+    "teacher": "TEACHER",
+    "write": "WRITE",
+    "read": "READ",
+    "name": "NAME",
+    "friend": "FRIEND",
 }

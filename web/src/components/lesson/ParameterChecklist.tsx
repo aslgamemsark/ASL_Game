@@ -38,6 +38,7 @@ const HANDSHAPE_HINTS: Record<string, string> = {
   l: 'Make an "L" with thumb and index finger',
   y: 'Make a "Y" — thumb and pinky out, rest curled',
   middle: 'Extend just your middle finger',
+  i: 'Make a fist, raise just your pinky, thumb tucked in',
 };
 
 const LOCATION_HINTS: Record<Anchor, string> = {

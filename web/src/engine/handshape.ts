@@ -106,6 +106,8 @@ const PATTERNS: Record<string, Record<string, number>> = {
   u: { index: 1, middle: 1, ring: 0, pinky: 0 },
   w: { index: 1, middle: 1, ring: 1, pinky: 0 },
   middle: { index: 0, middle: 1, ring: 0, pinky: 0 },
+  // thumb=0 required (unlike y) so a real Y-hand (thumb+pinky out) can't pass as i.
+  i: { thumb: 0, index: 0, middle: 0, ring: 0, pinky: 1 },
 };
 
 function matchPattern(hand: Hand, pattern: Record<string, number>): number {
