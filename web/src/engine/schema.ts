@@ -70,6 +70,21 @@ export interface OrientationReq {
   minConfidence: number;
 }
 
+/**
+ * Non-manual marker requirement — a facial expression held during the sign. `blendshape` names
+ * one of the 52 ARKit-standard blendshapes MediaPipe Face Landmarker outputs (e.g. "browInnerUp"
+ * for raised eyebrows). Optional/graded by default: no sign in the current vocabulary lexically
+ * requires a specific facial marker in citation form, so `required` defaults to false — this
+ * exists as coaching/scoring infrastructure for a future sign that genuinely needs one, not to
+ * bolt an invented constraint onto an existing sign.
+ */
+export interface NmmReq {
+  blendshape: string;
+  minScore: number;
+  required: boolean;
+  minConfidence: number;
+}
+
 export interface Sign {
   name: string;
   dominant: HandShapeReq;
@@ -77,6 +92,7 @@ export interface Sign {
   movement: MovementReq;
   nondominant?: HandShapeReq;
   orientation?: OrientationReq;
+  nmm?: NmmReq;
   twoHanded: boolean;
 }
 
@@ -87,6 +103,7 @@ export function createSign(opts: {
   movement?: Partial<MovementReq>;
   nondominant?: Partial<HandShapeReq> & { kind: string };
   orientation?: Partial<OrientationReq>;
+  nmm?: Partial<NmmReq> & { blendshape: string };
   twoHanded?: boolean;
 }): Sign {
   const movement: MovementReq = {
@@ -154,6 +171,15 @@ export function createSign(opts: {
       required: false,
       minConfidence: 0.5,
       ...opts.orientation,
+    };
+  }
+
+  if (opts.nmm) {
+    sign.nmm = {
+      minScore: 0.4,
+      required: false,
+      minConfidence: 0.5,
+      ...opts.nmm,
     };
   }
 

@@ -100,6 +100,25 @@ class MovementReq:
     min_confidence: float = 0.6
 
 
+# --------------------------------------------------------------------------- non-manual markers
+@dataclass(frozen=True)
+class NmmReq:
+    """Non-manual marker requirement — a facial expression held during the sign.
+
+    `blendshape` names one of the 52 ARKit-standard blendshapes MediaPipe Face Landmarker outputs
+    (e.g. "browInnerUp" for raised eyebrows, "mouthPucker" for pursed lips). Optional/graded by
+    default: no sign in the current vocabulary lexically REQUIRES a specific facial marker in
+    citation form, so `required` defaults to False — this exists as coaching/scoring
+    infrastructure for a future sign that genuinely needs one (e.g. a yes/no question needs raised
+    eyebrows), not to bolt an invented constraint onto an existing sign.
+    """
+
+    blendshape: str
+    min_score: float = 0.4
+    required: bool = False
+    min_confidence: float = 0.5
+
+
 # --------------------------------------------------------------------------- orientation
 class PalmFacing(str, Enum):
     IN = "in"
@@ -131,7 +150,7 @@ class Sign:
     movement: MovementReq
     nondominant: Optional[HandShapeReq] = None
     orientation: Optional[OrientationReq] = None
-    nmm: None = None
+    nmm: Optional[NmmReq] = None
     two_handed: bool = True
 
     def __post_init__(self):
@@ -162,4 +181,6 @@ class Sign:
             params.append("movement")
         if self.orientation is not None and self.orientation.required:
             params.append("orientation")
+        if self.nmm is not None and self.nmm.required:
+            params.append("nmm")
         return params

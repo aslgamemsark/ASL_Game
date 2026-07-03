@@ -333,6 +333,25 @@ function scoreOrientation(
   return vals.length > 0 ? median(vals) : 0;
 }
 
+/**
+ * Score a facial blendshape held over the recent window (median-smoothed), same convention as
+ * every other scorer here: frames with no data are excluded, and an empty window scores 0. Every
+ * current NMM requirement is `required: false`, so a 0 here (e.g. face capture wasn't enabled
+ * this session) never gates `resultPassed` — it only affects a graded/coaching score.
+ */
+function scoreNmm(buffer: RollingBuffer, sign: Sign): number {
+  const n = sign.nmm;
+  if (!n) return 0;
+  const vals: number[] = [];
+  for (const f of recent(buffer, SMOOTH_SECONDS)) {
+    if (f.faceBlendshapes) {
+      const raw = f.faceBlendshapes[n.blendshape] ?? 0;
+      vals.push(clip(raw / Math.max(n.minScore, 1e-6), 0, 1));
+    }
+  }
+  return vals.length > 0 ? median(vals) : 0;
+}
+
 export function verify(buffer: RollingBuffer, sign: Sign): VerifyResult {
   const roles = bestFitRoles(buffer, sign, assignRoles(buffer));
   const sw = latestShoulderWidth(buffer);
@@ -376,6 +395,15 @@ export function verify(buffer: RollingBuffer, sign: Sign): VerifyResult {
       score: scoreOrientation(buffer, sign, roles),
       threshold: sign.orientation.minConfidence,
       required: sign.orientation.required,
+    });
+  }
+
+  if (sign.nmm) {
+    params.push({
+      name: 'nmm',
+      score: scoreNmm(buffer, sign),
+      threshold: sign.nmm.minConfidence,
+      required: sign.nmm.required,
     });
   }
 

@@ -9,6 +9,7 @@ const FRIENDLY_NAMES: Record<string, string> = {
   location: 'Position',
   movement: 'Movement',
   orientation: 'Palm direction',
+  nmm: 'Facial expression',
 };
 
 const MOVEMENT_HINTS: Record<string, string> = {
@@ -58,6 +59,18 @@ const ORIENTATION_HINTS: Record<PalmFacing, string> = {
   [PalmFacing.RIGHT]: 'Turn your palm to face right',
 };
 
+// ARKit blendshape name -> coaching hint. No sign currently declares an nmm requirement (see
+// engine/schema.ts's NmmReq), but this stays ready for the first one that does.
+const NMM_HINTS: Record<string, string> = {
+  browInnerUp: 'Raise your eyebrows',
+  browDownLeft: 'Furrow your brow',
+  browDownRight: 'Furrow your brow',
+  mouthPucker: 'Purse your lips',
+  jawOpen: 'Open your mouth slightly',
+  cheekPuff: 'Puff out your cheeks',
+  mouthShrugUpper: 'Raise your upper lip',
+};
+
 export function hintFor(param: ParamScore, sign?: Sign | null): string | null {
   if (param.name === 'movement') {
     return sign ? MOVEMENT_HINTS[sign.movement.kind] ?? 'Keep moving!' : 'Keep moving!';
@@ -73,6 +86,9 @@ export function hintFor(param: ParamScore, sign?: Sign | null): string | null {
   }
   if (param.name === 'orientation' && sign?.orientation) {
     return ORIENTATION_HINTS[sign.orientation.facing] ?? null;
+  }
+  if (param.name === 'nmm' && sign?.nmm) {
+    return NMM_HINTS[sign.nmm.blendshape] ?? null;
   }
   return null;
 }

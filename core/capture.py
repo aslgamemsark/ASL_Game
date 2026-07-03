@@ -53,6 +53,7 @@ _WORLD_POSE_JOINTS = {
 
 DEFAULT_HAND_MODEL = os.path.join("models", "hand_landmarker.task")
 DEFAULT_POSE_MODEL = os.path.join("models", "pose_landmarker_lite.task")
+DEFAULT_FACE_MODEL = os.path.join("models", "face_landmarker.task")
 
 
 class Capture:
@@ -66,8 +67,10 @@ class Capture:
         self,
         hand_model: str = DEFAULT_HAND_MODEL,
         pose_model: str = DEFAULT_POSE_MODEL,
+        face_model: str = DEFAULT_FACE_MODEL,
         num_hands: int = 2,
         want_world_landmarks: bool = False,
+        want_face_blendshapes: bool = False,
     ):
         # OPTIONAL, additive, default OFF (avatar video-retarget pipeline only — see
         # docs/VIDEO_RETARGET_HANDOFF.md). The Tasks API always computes world landmarks alongside
@@ -75,12 +78,21 @@ class Capture:
         # the returned Frame. Default False => zero behavior change for every existing caller
         # (live game, tools/extract_dataset.py, tools/wlasl_extract.py).
         self._want_world_landmarks = want_world_landmarks
+        # OPTIONAL, additive, default OFF (facial non-manual marker support — see core/schema.py's
+        # NmmReq). No current sign requires this, so no existing caller needs the extra model file
+        # or the per-frame face-detection cost unless it opts in.
+        self._want_face_blendshapes = want_face_blendshapes
         for path, what in ((hand_model, "hand"), (pose_model, "pose")):
             if not os.path.exists(path):
                 raise FileNotFoundError(
                     f"Missing MediaPipe {what} model: {path}\n"
                     f"Download it into models/ — see models/README.md."
                 )
+        if want_face_blendshapes and not os.path.exists(face_model):
+            raise FileNotFoundError(
+                f"Missing MediaPipe face model: {face_model}\n"
+                f"Download it into models/ — see models/README.md."
+            )
 
         base = mp.tasks.BaseOptions
         running_mode = mp_vision.RunningMode.VIDEO
@@ -104,6 +116,16 @@ class Capture:
                 num_poses=1,
             )
         )
+        self._face = None
+        if want_face_blendshapes:
+            self._face = mp_vision.FaceLandmarker.create_from_options(
+                mp_vision.FaceLandmarkerOptions(
+                    base_options=base(model_asset_path=face_model),
+                    running_mode=running_mode,
+                    num_faces=1,
+                    output_face_blendshapes=True,
+                )
+            )
         self._last_ts_ms = -1
 
     def process(self, bgr_image: np.ndarray, timestamp_ms: int, t_seconds: Optional[float] = None) -> Frame:
@@ -123,6 +145,7 @@ class Capture:
 
         hand_res = self._hand.detect_for_video(mp_image, timestamp_ms)
         pose_res = self._pose.detect_for_video(mp_image, timestamp_ms)
+        face_res = self._face.detect_for_video(mp_image, timestamp_ms) if self._face is not None else None
 
         frame = Frame(
             t=timestamp_ms / 1000.0 if t_seconds is None else t_seconds,
@@ -160,11 +183,17 @@ class Capture:
                     if idx < len(world_pose)
                 }
 
+        if face_res is not None and face_res.face_blendshapes:
+            categories = face_res.face_blendshapes[0]
+            frame.face_blendshapes = {c.category_name: float(c.score) for c in categories}
+
         return frame
 
     def close(self) -> None:
         self._hand.close()
         self._pose.close()
+        if self._face is not None:
+            self._face.close()
 
     def __enter__(self) -> "Capture":
         return self

@@ -98,6 +98,12 @@ class Frame:
     # right_hip — each a (3,) np.ndarray. None (the whole dict) when not requested or pose missed
     # entirely this frame. Existing recognition/training consumers never read this field.
     pose_world: Optional[dict] = None
+    # OPTIONAL, additive (facial non-manual marker support). MediaPipe FaceLandmarker's
+    # `face_blendshapes`, requested only when `Capture(want_face_blendshapes=True)`: the 52
+    # ARKit-standard blendshape scores in [0, 1], keyed by category name (e.g. "browInnerUp",
+    # "mouthPucker"). None when not requested or no face detected this frame. Existing
+    # recognition/training consumers never read this field.
+    face_blendshapes: Optional[dict] = None
 
     @property
     def shoulder_width(self) -> Optional[float]:
@@ -135,6 +141,8 @@ class Frame:
         }
         if self.pose_world is not None:
             d["pose_world"] = {k: v.tolist() for k, v in self.pose_world.items()}
+        if self.face_blendshapes is not None:
+            d["face_blendshapes"] = dict(self.face_blendshapes)
         return d
 
     @classmethod
@@ -149,6 +157,7 @@ class Frame:
             right_shoulder=None if d.get("right_shoulder") is None else np.asarray(d["right_shoulder"], float),
             mouth=None if d.get("mouth") is None else np.asarray(d["mouth"], float),
             pose_world=None if pw is None else {k: np.asarray(v, float) for k, v in pw.items()},
+            face_blendshapes=d.get("face_blendshapes"),
         )
 
 

@@ -3,7 +3,7 @@ import { hintFor } from '../ParameterChecklist';
 import { SIGNS } from '@/engine/signs';
 import type { ParamScore } from '@/engine/verifier';
 
-const PARAM_NAMES = ['handshape_dominant', 'handshape_nondominant', 'location', 'movement', 'orientation'] as const;
+const PARAM_NAMES = ['handshape_dominant', 'handshape_nondominant', 'location', 'movement', 'orientation', 'nmm'] as const;
 
 function fakeParam(name: string): ParamScore {
   return { name, score: 0, threshold: 0.6, required: true };
@@ -16,6 +16,7 @@ describe('hintFor', () => {
       for (const name of PARAM_NAMES) {
         if (name === 'handshape_nondominant' && !sign.nondominant) continue;
         if (name === 'orientation' && !sign.orientation) continue;
+        if (name === 'nmm' && !sign.nmm) continue;
         if (!hintFor(fakeParam(name), sign)) missing.push(`${sign.name}.${name}`);
       }
     }

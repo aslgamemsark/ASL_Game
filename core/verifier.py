@@ -358,6 +358,20 @@ def _score_orientation(buffer, sign: Sign, roles) -> float:
     return float(np.median(vals)) if vals else 0.0
 
 
+def _score_nmm(buffer, sign: Sign) -> float:
+    """Score a facial blendshape held over the recent window (median-smoothed), same convention
+    as every other scorer here: frames with no data are excluded, and an empty window scores 0.0.
+    Every current NMM requirement is `required=False`, so a 0.0 here (e.g. face capture wasn't
+    enabled this session) never gates `passed` — it only affects a graded/coaching score.
+    """
+    n = sign.nmm
+    vals = []
+    for f in _recent(buffer, SMOOTH_SECONDS):
+        if f.face_blendshapes is not None:
+            vals.append(float(np.clip(f.face_blendshapes.get(n.blendshape, 0.0) / max(n.min_score, 1e-6), 0.0, 1.0)))
+    return float(np.median(vals)) if vals else 0.0
+
+
 # ------------------------------------------------------------------ public API
 def movement_debug(buffer: RollingBuffer, sign: Sign) -> str:
     """One-line readout of live movement sub-metrics for the dev demo / calibration."""
@@ -451,6 +465,13 @@ def verify(buffer: RollingBuffer, sign: Sign) -> VerifyResult:
             "orientation",
             _score_orientation(buffer, sign, roles),
             sign.orientation.min_confidence, sign.orientation.required,
+        ))
+
+    if sign.nmm is not None:
+        params.append(ParamScore(
+            "nmm",
+            _score_nmm(buffer, sign),
+            sign.nmm.min_confidence, sign.nmm.required,
         ))
 
     return VerifyResult(sign.name, params, roles)
