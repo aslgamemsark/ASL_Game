@@ -8,11 +8,11 @@ the app, not an active problem.
 
 ## Already flagged, tracked here for one place to check them off
 
-- [ ] **WLASL** (`data/wlasl/`, used to train `model_v4`): non-commercial / research-oriented
+- [ ] **WLASL** (`data/wlasl/`, used to train `model_v4`/`model_v5`): non-commercial / research-oriented
       license, history of source-video takedowns. User-authorized for training/experiments
-      (2026-06-30). **Verify WLASL's current license terms before shipping `model_v4` (or any
+      (2026-06-30). **Verify WLASL's current license terms before shipping `model_v5` (or any
       model trained on it) in a commercial release.**
-- [ ] **ASL Citizen** (`data/asl_citizen/`, used to train `model_v4` and as the avatar retarget
+- [ ] **ASL Citizen** (`data/asl_citizen/`, used to train `model_v4`/`model_v5` and as the avatar retarget
       source): license permits research use. **Confirm its terms explicitly cover
       baked-animation derivatives and a trained classifier shipping inside a commercial product**
       — this was flagged to the user 2026-07-02 but never independently re-verified against the
