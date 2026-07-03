@@ -24,9 +24,11 @@ export const GATE_CONFIDENCE = 0.7;
 
 /**
  * Verbose classifier logging during testing. Logs every gate decision (prompt, top-k, pass/veto)
- * and stashes the last vote on window.__lastVote for manual inspection. Turn off for release.
+ * and stashes the last vote on window.__lastVote for manual inspection. Tied to Vite's DEV flag
+ * so it's automatically off in production builds (`npm run build`/`npm run preview`) — no manual
+ * toggle to remember before release.
  */
-export const CLASSIFIER_DEBUG = true;
+export const CLASSIFIER_DEBUG = import.meta.env.DEV;
 
 /** How many top predictions to surface for debugging. */
 export const TOP_K = 3;

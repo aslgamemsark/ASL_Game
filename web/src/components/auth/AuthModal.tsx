@@ -117,7 +117,7 @@ export function AuthModal({ onClose }: Props) {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          minLength={6}
+          minLength={8}
           required
           autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
         />
