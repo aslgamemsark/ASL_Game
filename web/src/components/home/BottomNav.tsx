@@ -31,6 +31,7 @@ export function BottomNav({ active, onChange }: Props) {
             <motion.button
               key={tab.id}
               onClick={() => onChange(tab.id)}
+              aria-current={isActive ? 'page' : undefined}
               className={`relative flex flex-col items-center gap-1 px-4 py-1.5 rounded-2xl transition-colors ${
                 isActive ? 'bg-z-purple/20' : ''
               }`}

@@ -31,6 +31,8 @@ a navigable map of what exists and why, kept updated as work lands (not a one-ti
 - [[Workstream-C-Security]] — security hardening
 - [[Workstream-D-E-Polish]] — sound/UI polish, the second Coffee Shop story, the `impeccable` contrast fix
 - [[Workstream-F-Alphabet]] — fingerspelling letters W, I (and why H/N/U were deliberately skipped)
+- [[Workstream-G-Design-System]] — PRODUCT.md/DESIGN.md foundation + accessibility polish pass
+  (reduced motion, focus rings, touch targets, gradient-text reduction)
 
 ## Existing project docs (`docs/*.md` — not duplicated here, linked)
 - [[ARCHITECTURE]] — the original architecture doc

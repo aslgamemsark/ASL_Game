@@ -68,6 +68,32 @@ body {
   box-sizing: border-box;
 }
 
+/* Keyboard focus was previously invisible (framer-motion buttons ship no focus style of their
+   own). :focus-visible only — mouse/touch taps stay clean, keyboard users get a real ring. */
+:focus-visible {
+  outline: 2px solid #A78BFA;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Even out ragged heading line breaks; reduce single-word orphans in prose. */
+h1, h2, h3 {
+  text-wrap: balance;
+}
+p {
+  text-wrap: pretty;
+}
+
+/* framer-motion animations are handled globally by <MotionConfig reducedMotion="user"> in
+   main.tsx; this covers the remaining plain-CSS transitions/animations for the same users. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }
