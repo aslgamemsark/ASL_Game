@@ -53,6 +53,13 @@ export const COFFEE_SHOP_STORY: StoryScript = {
       npcResponse: "Milk it is! 🥛",
     },
     {
+      npcText: "It's happy hour — want a second cup? Sign MORE if you do!",
+      npcMood: 'surprised',
+      requiredSignId: 'MORE',
+      hint: 'Two claw hands, tap your fingertips together',
+      npcResponse: "You got it — one more coming right up! ☕☕",
+    },
+    {
       npcText: "Here's your coffee! That'll be $4.50.",
       npcMood: 'happy',
       requiredSignId: 'THANK_YOU',
