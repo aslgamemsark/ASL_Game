@@ -8,15 +8,18 @@ the app, not an active problem.
 
 ## Already flagged, tracked here for one place to check them off
 
-- [ ] **WLASL** (`data/wlasl/`, used to train `model_v4`/`model_v5`): non-commercial / research-oriented
-      license, history of source-video takedowns. User-authorized for training/experiments
-      (2026-06-30). **Verify WLASL's current license terms before shipping `model_v5` (or any
-      model trained on it) in a commercial release.**
-- [ ] **ASL Citizen** (`data/asl_citizen/`, used to train `model_v4`/`model_v5` and as the avatar retarget
-      source): license permits research use. **Confirm its terms explicitly cover
-      baked-animation derivatives and a trained classifier shipping inside a commercial product**
-      — this was flagged to the user 2026-07-02 but never independently re-verified against the
-      license text itself.
+- [ ] **WLASL** (`data/wlasl/`, used to train `model_v4`/`model_v5`/`model_v6`): non-commercial /
+      research-oriented license, history of source-video takedowns. User-authorized for
+      training/experiments (2026-06-30). **Verify WLASL's current license terms before shipping
+      any model trained on it in a commercial release.**
+- [ ] **ASL Citizen** (`data/asl_citizen/`, used to train `model_v4`/`model_v5`/`model_v6` and as
+      the avatar retarget source): license permits research use. **Confirm its terms explicitly
+      cover baked-animation derivatives and a trained classifier shipping inside a commercial
+      product** — this was flagged to the user 2026-07-02 but never independently re-verified
+      against the license text itself. Note (2026-07-03): the classroom signs
+      (TEACHER/WRITE/READ/NAME/FRIEND, added in `model_v6`) could not even be checked against ASL
+      Citizen this session — only the post-extraction subset manifest is kept locally, not the
+      raw dataset's full gloss list — so they're WLASL-only for now.
 - [x] **StudioGalt Sign-Language-Mocap-Archive** (`data/galt_archive/`): confirmed **CC0 public
       domain** — zero licensing risk, commercial use explicitly included. No action needed.
 

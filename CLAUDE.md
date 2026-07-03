@@ -63,14 +63,18 @@ never raw pixels, so the system works regardless of how close the user sits to t
 - `signs/` — shared sign definitions (pure data).
 - `scenarios/<name>/` — each developer's workspace; owns **only** its presentation/theme
   (background, prompts, success animation) plus a thin `main.py`. `coffee_shop/` = Saad,
-  `hospital_shop/` = teammate.
+  `hospital_shop/` = teammate. `classroom/` was added 2026-07-03 (ownership not yet assigned).
 - `core/game.py` — shared game mechanics (PiP webcam, score HUD, success flash, prompt banner).
 - `tools/` — landmark fixture recorder. `tests/` — confusor regression tests.
 
 ## CURRENT STATUS
 
-Coffee-shop scenario in progress. First sign: **COFFEE** (dominant S-hand circling over a
-stationary non-dominant S-hand). Static control: fingerspelled **letter A**.
+Three scenarios exist: `coffee_shop`, `hospital_shop`, and `classroom` (added 2026-07-03).
+24 signs total (7 fingerspelled letters + word signs) across all three, each with confusor
+tests in both the Python and TypeScript engines. A trained Bi-GRU ML classifier
+(`web/public/models/signs/`) runs as a veto-only disambiguation layer alongside the rule
+verifier — see `docs/vault/00-Index.md` (an Obsidian-compatible notes vault, open `docs/` as
+the vault root) for a fuller map of what exists and why, kept updated as work lands.
 
 ## WHEN ASKED TO ADD OR FIX A SIGN
 
