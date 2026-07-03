@@ -185,6 +185,10 @@ export function PracticeTab({ onStartPractice, onStartWeakPractice, onStartStory
           }}
         >
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+          {/* White text directly on this gradient failed WCAG contrast (2.3:1, needs 4.5:1) —
+              caught by an `impeccable detect` scan. A scrim behind the text keeps the vibrant
+              gradient intact while giving text enough contrast to read on. */}
+          <div className="absolute inset-0 bg-black/30 rounded-2xl" />
           <div className="relative flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-white">Coffee Shop Story</h3>

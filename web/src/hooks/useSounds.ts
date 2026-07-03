@@ -1,4 +1,5 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 
 const AudioCtx = typeof window !== 'undefined' ? window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext : null;
 
@@ -25,7 +26,11 @@ function playChord(freqs: number[], duration: number, volume = 0.1) {
 }
 
 export function useSounds() {
-  const enabledRef = useRef(true);
+  // Kept as a ref (not just reading the store inline) so every callback below stays a stable,
+  // dependency-free useCallback — the ref always points at the latest store value without
+  // forcing every sound function to be recreated on each toggle.
+  const enabledRef = useRef(useSettingsStore.getState().soundEnabled);
+  useEffect(() => useSettingsStore.subscribe((s) => { enabledRef.current = s.soundEnabled; }), []);
 
   const correct = useCallback(() => {
     if (!enabledRef.current) return;
@@ -60,5 +65,17 @@ export function useSounds() {
     });
   }, []);
 
-  return { correct, wrong, levelUp, tap, streak, enabledRef };
+  const purchase = useCallback(() => {
+    if (!enabledRef.current) return;
+    playTone(660, 0.08, 'sine', 0.1);
+    setTimeout(() => playTone(990, 0.12, 'sine', 0.1), 70);
+  }, []);
+
+  const badgeUnlock = useCallback(() => {
+    if (!enabledRef.current) return;
+    playChord([440, 554, 659], 0.15);
+    setTimeout(() => playChord([554, 659, 880], 0.3), 180);
+  }, []);
+
+  return { correct, wrong, levelUp, tap, streak, purchase, badgeUnlock, enabledRef };
 }
