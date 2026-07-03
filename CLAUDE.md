@@ -18,6 +18,9 @@ Saad owns the coffee-shop scenario; a teammate owns another scenario.
   source-video takedowns. It is fine for model training and experiments, but **verify WLASL's
   license terms before any COMMERCIAL release** of a model trained on it. We still do NOT use
   ASLLVD. Keep collecting our own landmark recordings — that remains our proprietary set.
+  See `docs/LICENSING_CHECKLIST.md` for the full pre-commercial-release checklist (datasets,
+  the ybot avatar rig, reference clips, model files, npm dependencies) — work through it before
+  charging money for the app, not before.
 - **Stack (v1):** Python, MediaPipe Hand + Pose (Tasks API), OpenCV (game UI + webcam), numpy
   (geometry). Future: React + TypeScript frontend, Supabase/Postgres for user progress — NOT
   for sign recognition.
