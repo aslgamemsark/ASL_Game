@@ -28,7 +28,8 @@ export function SettingsPage({ onExit }: Props) {
           animate={{ opacity: 1, y: 0 }}
         >
           <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">Appearance</h2>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold">Dark theme</span>
             <button
               role="switch"
               aria-checked={theme === 'dark'}
@@ -43,7 +44,6 @@ export function SettingsPage({ onExit }: Props) {
                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
               />
             </button>
-            <span className="text-sm font-semibold">Dark theme</span>
           </div>
         </motion.div>
 
