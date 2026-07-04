@@ -69,7 +69,7 @@ export function StreakCard() {
                 </span>
               )}
             </div>
-            <p className="text-sm text-z-purple-glow/80">
+            <p className="text-sm text-white/70">
               {streak === 0 ? 'Start signing today!' : 'Keep the momentum!'}
             </p>
           </div>

@@ -58,7 +58,7 @@ export function AlphabetTab({ onStartLettersPractice }: Props) {
             onClick={() => setSelected(def.letter === selected ? null : def.letter)}
             className={`aspect-square rounded-2xl font-bold text-xl flex flex-col items-center justify-center gap-0.5 border transition-colors ${
               selected === def.letter
-                ? 'bg-z-purple/30 border-z-purple-light text-white'
+                ? 'bg-z-purple/30 border-z-purple-light text-z-gray-50'
                 : 'bg-z-card border-white/5 text-z-gray-200'
             }`}
             initial={{ opacity: 0, scale: 0.75 }}
@@ -102,7 +102,7 @@ export function AlphabetTab({ onStartLettersPractice }: Props) {
               </div>
               <div>
                 <p className="text-z-gray-400 text-[10px] uppercase tracking-widest">Handshape</p>
-                <p className="font-bold text-white">{selectedDef.handshape}</p>
+                <p className="font-bold text-z-gray-50">{selectedDef.handshape}</p>
                 {selectedDef.signId ? (
                   <span className="text-[11px] text-z-purple-glow">● Camera practice available</span>
                 ) : (

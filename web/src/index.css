@@ -50,8 +50,13 @@
   --rt-z-purple: #630ED4;
   --rt-z-purple-dark: #5A00C6;
   --rt-z-purple-deep: #25005A;
-  --rt-z-purple-light: #D2BBFF;
-  --rt-z-purple-glow: #D2BBFF;
+  /* Note: -light/-glow are used as ACCENT TEXT on card surfaces throughout the app (stat
+     numbers, active-tab labels, NPC names, etc). Their dark-theme values are a pale lavender
+     meant to pop against a near-black card - that same pale value is nearly invisible against
+     the light theme's light-lavender cards, so the light variant uses a richer, readable purple
+     instead of a literal hue-match. */
+  --rt-z-purple-light: #7C3AED;
+  --rt-z-purple-glow: #7C3AED;
 
   --rt-z-orange: #FD761A;
   --rt-z-orange-dark: #9D4300;

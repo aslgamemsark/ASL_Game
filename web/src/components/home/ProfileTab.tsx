@@ -143,7 +143,7 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
             key={s}
             onClick={() => setProfileSection(s)}
             className={`flex-1 py-1.5 text-sm font-bold rounded-lg transition-colors ${
-              profileSection === s ? 'bg-z-card text-white' : 'text-z-gray-400'
+              profileSection === s ? 'bg-z-card text-z-gray-50' : 'text-z-gray-400'
             }`}
           >
             {s === 'stats' ? '📊 Stats' : s === 'insights' ? '🔍 Insights' : `🏅 Badges (${badges.length})`}
@@ -319,7 +319,7 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
                 <div className="flex bg-z-surface/60 rounded-lg p-0.5 gap-0.5">
                   {(['weekly', 'alltime'] as LBTab[]).map((t) => (
                     <button key={t} onClick={() => setLbTab(t)}
-                      className={`text-xs px-3 py-1 rounded-md font-semibold transition-colors ${lbTab === t ? 'bg-z-card text-white' : 'text-z-gray-400'}`}
+                      className={`text-xs px-3 py-1 rounded-md font-semibold transition-colors ${lbTab === t ? 'bg-z-card text-z-gray-50' : 'text-z-gray-400'}`}
                     >
                       {t === 'weekly' ? 'Weekly' : 'All-Time'}
                     </button>

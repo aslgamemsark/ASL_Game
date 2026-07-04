@@ -52,7 +52,7 @@ export function DailyQuestsCard() {
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${style.bg} ${style.text}`}>
                   {quest.difficulty}
                 </span>
-                <p className="font-semibold text-sm text-white flex-1 truncate">{quest.title}</p>
+                <p className="font-semibold text-sm text-z-gray-50 flex-1 truncate">{quest.title}</p>
 
                 <AnimatePresence mode="wait">
                   {quest.claimed ? (
