@@ -9,6 +9,37 @@ verification this session; see that doc's "THIRD UPDATE" section for the ybot-re
 findings. This note covers the parts of the session not already recorded there: dataset research,
 the render-from-archive pipeline that actually shipped, and the live bugs found along the way.
 
+## Source-priority decision (standing policy, see [[Decisions-Log]] #13/#14)
+
+```mermaid
+flowchart TD
+    A[Sign needed for a lesson] --> B{Covered by\nStudioGalt archive?}
+    B -- yes --> C[Render archive's own\ncharacter directly]
+    B -- no --> D{3D-LEX access\ngranted by 2026-07-18?}
+    D -- yes --> E{Sign name matches\na 3D-LEX gloss?}
+    E -- yes --> F[Render/retarget from 3D-LEX]
+    E -- no --> G
+    D -- no / not yet --> G{NVIDIA Signs access\ngranted?}
+    G -- yes --> H{Single-sign pilot\npasses jitter check?}
+    H -- yes --> I[Build landmark pipeline\nfor this sign]
+    H -- no --> J[NVIDIA path killed\nentirely, no partial fix]
+    G -- no / not yet --> K[Show placeholder\n'demo coming soon']
+    J --> K
+    C --> L[MP4 in web/public/clips/]
+    F --> L
+    I --> L
+
+    style C fill:#2d6a4f,color:#fff
+    style K fill:#7f1d1d,color:#fff
+    style J fill:#7f1d1d,color:#fff
+    style L fill:#1e3a8a,color:#fff
+```
+
+**Read this as**: archive coverage always wins when available (already proven, zero risk); 3D-LEX is
+the next choice if its access arrives and the specific sign matches; NVIDIA's landmark data is
+tried last and only after a cheap single-sign quality gate, with a hard kill (not a "try to fix it")
+if that gate fails; anything left over gets the graceful placeholder rather than blocking a release.
+
 ## Dataset research (extensive; most ruled out)
 
 Searched broadly for any better source of accurate 3D ASL sign data before committing to a plan.
@@ -49,6 +80,24 @@ what's already found was a useful sanity check — the search wasn't missing an 
 Plan file (outside the repo, in the Claude Code plans directory) covers full phase breakdown,
 standing policies, and the 2026-07-18 timeout for the pending dataset replies. Summary of what's
 now live:
+
+```mermaid
+flowchart LR
+    A["StudioGalt archive\n(git blobless clone)"] -->|"git cat-file -p\n(fetch one sign's FBX)"| B["Mesh.fbx\n(character + baked mocap)"]
+    B --> C["render_demo_clips.py\n(headless Blender, EEVEE)"]
+    C -->|"word preset"| D1["PNG frame sequence\n(full-body camera)"]
+    C -->|"letter preset"| D2["PNG frame sequence\n(chest/hand camera)"]
+    D1 --> E["encode_clips.py\n(imageio-ffmpeg, skip frame 1)"]
+    D2 --> E
+    E --> F["/clips/{SIGN}.mp4"]
+    F --> G["web/public/clips/"]
+    G --> H["signs.ts clip: field"]
+    H --> I["ReferenceClip.tsx\n(lesson + practice screens)"]
+
+    style A fill:#374151,color:#fff
+    style F fill:#1e3a8a,color:#fff
+    style I fill:#2d6a4f,color:#fff
+```
 
 - `data/galt_archive/render_demo_clips.py` — headless Blender script, two camera presets ("word"
   for full-body signs, "letter" for fingerspelling — tuned iteratively: first attempt cropped the
