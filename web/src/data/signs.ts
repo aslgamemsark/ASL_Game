@@ -71,7 +71,6 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Flat hand from chin, move outward/down',
     hint: 'Touch your chin then move your hand away',
-    clip: '/clips/THANK_YOU.mp4',
   },
   YOU: {
     name: 'YOU',
@@ -147,7 +146,6 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Both claw hands pull toward you',
     hint: 'Grab the air and pull it close',
-    clip: '/clips/WANT.mp4',
   },
   YES: {
     name: 'YES',
@@ -170,7 +168,6 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Fist nods up and down',
     hint: 'Your fist is nodding "yes"!',
-    clip: '/clips/YES.mp4',
   },
   MORE: {
     name: 'MORE',
@@ -296,6 +293,7 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'none', actor: 'dominant', pivot: 'nondominant', minDurationS: 0, required: false },
     description: 'Index, middle, and ring fingers up, thumb and pinky curled',
     hint: 'Three fingers fanned out like a W',
+    clip: '/clips/LETTER_W.mp4',
   },
   LETTER_I: {
     name: 'LETTER_I',
@@ -312,6 +310,7 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'none', actor: 'dominant', pivot: 'nondominant', minDurationS: 0, required: false },
     description: 'Fist with only the pinky finger raised',
     hint: 'Just the pinky — tea-cup style!',
+    clip: '/clips/LETTER_I.mp4',
   },
 
   // --- Hospital signs (v1: 8 reliably-recognised signs) ---
@@ -341,7 +340,6 @@ export const SIGNS: Record<string, SignDef> = {
     orientation: { hand: 'nondominant', facing: 'up', required: false },
     description: 'Fist resting on open palm, lift the fist straight up',
     hint: 'Rest your fist on your palm, then lift UP',
-    clip: '/clips/HELP.mp4',
   },
 
   PAIN: {
@@ -367,7 +365,6 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Both index fingers point toward each other and come together',
     hint: 'Point both fingers and bring them together',
-    clip: '/clips/PAIN.mp4',
   },
 
   MEDICINE: {
@@ -393,7 +390,6 @@ export const SIGNS: Record<string, SignDef> = {
     orientation: { hand: 'nondominant', facing: 'up', required: false },
     description: 'Open hand twists back and forth over other open palm',
     hint: 'Twist your open hand over your flat palm',
-    clip: '/clips/MEDICINE.mp4',
   },
 
   EMERGENCY: {
@@ -417,7 +413,6 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Claw hand raised and shaken quickly side to side',
     hint: 'Make a claw and shake it fast!',
-    clip: '/clips/EMERGENCY.mp4',
   },
 
   FEVER: {
@@ -442,7 +437,6 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Open hand sweeps across the forehead',
     hint: 'Sweep your flat hand across your forehead',
-    clip: '/clips/FEVER.mp4',
   },
 
   WATER: {
@@ -460,7 +454,6 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'none', actor: 'dominant', pivot: 'nondominant', minDurationS: 0, required: false },
     description: 'Three fingers (W shape) held at the chin',
     hint: 'Three fingers up like a W at your chin',
-    clip: '/clips/WATER.mp4',
   },
 
   HOSPITAL: {
@@ -486,7 +479,6 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Two-finger H shape near opposite shoulder, draw a cross',
     hint: 'Two fingers (H) by your shoulder — draw a small cross',
-    clip: '/clips/HOSPITAL.mp4',
   },
 
   DIZZY: {
@@ -512,7 +504,6 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Open hand circles near the face',
     hint: 'Circle your open hand around near your face',
-    clip: '/clips/DIZZY.mp4',
   },
 
   // --- Hospital signs (v2: 4 additional signs, no clips yet) ---
@@ -587,6 +578,7 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'repeated', actor: 'dominant', pivot: 'nondominant', minDurationS: 0.6, required: true },
     description: 'Both open hands on chest, rise and fall',
     hint: 'Place both hands on your chest and move them in and out — breathing!',
+    clip: '/clips/BREATHE.mp4',
   },
 
   TEACHER: {

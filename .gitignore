@@ -16,15 +16,25 @@ env/
 *.task
 
 # --- Raw recordings (large). NOTE: committed landmark fixtures in tests/fixtures/*.json
-#     are NOT ignored — the confusor tests depend on them. ---
+#     are NOT ignored — the confusor tests depend on them. web/public/clips/*.mp4 are the app's
+#     shipped sign-demo videos (compressed, <100KB each) and ARE meant to be tracked — see
+#     web/.gitignore, which already carries this same exception; this negation is needed too
+#     since gitignore patterns are evaluated cascading from the repo root. ---
 recordings/
 *.mp4
 *.avi
 *.mov
+!web/public/clips/*.mp4
 
 # --- ML dataset: bulk landmark extraction output (regenerable, huge with ASL Citizen).
-#     The small hand-recorded fixtures in tests/fixtures/ stay tracked; this bulk does not. ---
-data/
+#     The small hand-recorded fixtures in tests/fixtures/ stay tracked; this bulk does not.
+#     Exception: data/galt_archive/*.py — the Blender/encoding pipeline scripts are real,
+#     reusable source code (not regenerable data) and are meant to be tracked; the FBX/PNG/MP4/
+#     GIF files alongside them stay ignored (large, regenerable from the archive + these scripts). ---
+data/*
+!data/galt_archive/
+data/galt_archive/*
+!data/galt_archive/*.py
 ml/runs/
 ml/inspect_out/
 ml/inspect_merged/
