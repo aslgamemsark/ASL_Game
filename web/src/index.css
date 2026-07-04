@@ -1,48 +1,125 @@
 @import "tailwindcss";
 
+/*
+ * Theme tokens — light values sourced from the "Stitch" design mockups (Material 3 palette);
+ * dark values are our original shipped palette, kept byte-identical so the default (dark) look
+ * doesn't shift for existing users. Toggling adds/removes `.light` on <html>; `.dark` values
+ * are also declared explicitly so an explicit dark selection is unambiguous.
+ */
+:root,
+.dark {
+  --rt-z-purple: #7C3AED;
+  --rt-z-purple-dark: #5B21B6;
+  --rt-z-purple-deep: #2D1464;
+  --rt-z-purple-light: #A78BFA;
+  --rt-z-purple-glow: #C4B5FD;
+
+  --rt-z-orange: #F97316;
+  --rt-z-orange-dark: #EA580C;
+  --rt-z-orange-bright: #FDBA74;
+
+  --rt-z-teal: #14B8A6;
+  --rt-z-teal-dark: #0F766E;
+  --rt-z-teal-light: #5EEAD4;
+  --rt-z-yellow: #5EEAD4;
+
+  --rt-z-green: #34D399;
+  --rt-z-green-dark: #059669;
+  --rt-z-red: #EF4444;
+  --rt-z-blue: #60A5FA;
+  --rt-z-cream: #FFF8E7;
+
+  --rt-z-gray-50: #F5F3FF;
+  --rt-z-gray-100: #EDE9FE;
+  --rt-z-gray-200: #D4CCEF;
+  --rt-z-gray-300: #A89BB5;
+  --rt-z-gray-400: #7C6F8A;
+  --rt-z-gray-500: #4C3D6B;
+
+  --rt-z-bg: #0D0A1E;
+  --rt-z-card: #18103A;
+  --rt-z-surface: #221548;
+  --rt-z-surface-hover: #2D1B5C;
+
+  --rt-body-bg: #0D0A1E;
+  --rt-body-text: #F5F3FF;
+  --rt-scrollbar-thumb: #221548;
+}
+
+.light {
+  --rt-z-purple: #630ED4;
+  --rt-z-purple-dark: #5A00C6;
+  --rt-z-purple-deep: #25005A;
+  --rt-z-purple-light: #D2BBFF;
+  --rt-z-purple-glow: #D2BBFF;
+
+  --rt-z-orange: #FD761A;
+  --rt-z-orange-dark: #9D4300;
+  --rt-z-orange-bright: #FFB690;
+
+  --rt-z-teal: #005766;
+  --rt-z-teal-dark: #004E5C;
+  --rt-z-teal-light: #4CD7F6;
+  --rt-z-yellow: #4CD7F6;
+
+  --rt-z-green: #059669;
+  --rt-z-green-dark: #047857;
+  --rt-z-red: #BA1A1A;
+  --rt-z-blue: #2563EB;
+  --rt-z-cream: #FFF8E7;
+
+  --rt-z-gray-50: #131B2E;
+  --rt-z-gray-100: #283044;
+  --rt-z-gray-200: #4A4455;
+  --rt-z-gray-300: #6B6478;
+  --rt-z-gray-400: #7B7487;
+  --rt-z-gray-500: #CCC3D8;
+
+  --rt-z-bg: #FAF8FF;
+  --rt-z-card: #F2F3FF;
+  --rt-z-surface: #EAEDFF;
+  --rt-z-surface-hover: #E2E7FF;
+
+  --rt-body-bg: #FAF8FF;
+  --rt-body-text: #131B2E;
+  --rt-scrollbar-thumb: #DAE2FD;
+}
+
 @theme {
-  /* ── Zippy character palette ── */
+  /* ── Zippy character palette (values route through runtime vars above for theming) ── */
 
-  /* Purple — brand / primary (body colour) */
-  --color-z-purple: #7C3AED;
-  --color-z-purple-dark: #5B21B6;
-  --color-z-purple-deep: #2D1464;
-  --color-z-purple-light: #A78BFA;
-  --color-z-purple-glow: #C4B5FD;
+  --color-z-purple: var(--rt-z-purple);
+  --color-z-purple-dark: var(--rt-z-purple-dark);
+  --color-z-purple-deep: var(--rt-z-purple-deep);
+  --color-z-purple-light: var(--rt-z-purple-light);
+  --color-z-purple-glow: var(--rt-z-purple-glow);
 
-  /* Orange — nose / streak / energy */
-  --color-z-orange: #F97316;
-  --color-z-orange-dark: #EA580C;
-  --color-z-orange-bright: #FDBA74;
+  --color-z-orange: var(--rt-z-orange);
+  --color-z-orange-dark: var(--rt-z-orange-dark);
+  --color-z-orange-bright: var(--rt-z-orange-bright);
 
-  /* Feroze / Teal — hair / XP / knowledge */
-  --color-z-teal: #14B8A6;
-  --color-z-teal-dark: #0F766E;
-  --color-z-teal-light: #5EEAD4;
+  --color-z-teal: var(--rt-z-teal);
+  --color-z-teal-dark: var(--rt-z-teal-dark);
+  --color-z-teal-light: var(--rt-z-teal-light);
+  --color-z-yellow: var(--rt-z-yellow);
 
-  /* z-yellow repurposed → teal-light so all XP text glows teal */
-  --color-z-yellow: #5EEAD4;
+  --color-z-green: var(--rt-z-green);
+  --color-z-green-dark: var(--rt-z-green-dark);
+  --color-z-red: var(--rt-z-red);
+  --color-z-blue: var(--rt-z-blue);
+  --color-z-cream: var(--rt-z-cream);
 
-  /* Status */
-  --color-z-green: #34D399;
-  --color-z-green-dark: #059669;
-  --color-z-red: #EF4444;
-  --color-z-blue: #60A5FA;
-  --color-z-cream: #FFF8E7;
+  --color-z-gray-50: var(--rt-z-gray-50);
+  --color-z-gray-100: var(--rt-z-gray-100);
+  --color-z-gray-200: var(--rt-z-gray-200);
+  --color-z-gray-300: var(--rt-z-gray-300);
+  --color-z-gray-400: var(--rt-z-gray-400);
+  --color-z-gray-500: var(--rt-z-gray-500);
 
-  /* Neutrals (subtle purple tint) */
-  --color-z-gray-50: #F5F3FF;
-  --color-z-gray-100: #EDE9FE;
-  --color-z-gray-200: #D4CCEF;
-  --color-z-gray-300: #A89BB5;
-  --color-z-gray-400: #7C6F8A;
-  --color-z-gray-500: #4C3D6B;
-
-  /* Surfaces — deeper purple-black to make the vivid purple pop */
-  --color-z-bg: #0D0A1E;
-  --color-z-card: #18103A;
-  --color-z-surface: #221548;
-  --color-z-surface-hover: #2D1B5C;
+  --color-z-bg: var(--rt-z-bg);
+  --color-z-card: var(--rt-z-card);
+  --color-z-surface: var(--rt-z-surface);
+  --color-z-surface-hover: var(--rt-z-surface-hover);
 
   --font-sans: 'Quicksand', sans-serif;
 }
@@ -57,11 +134,12 @@
 
 body {
   margin: 0;
-  background-color: #0D0A1E;
-  color: #F5F3FF;
+  background-color: var(--rt-body-bg);
+  color: var(--rt-body-text);
   font-family: 'Quicksand', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 *, *::before, *::after {
@@ -75,6 +153,6 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #221548;
+  background: var(--rt-scrollbar-thumb);
   border-radius: 3px;
 }
