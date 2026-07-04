@@ -25,6 +25,13 @@ a navigable map of what exists and why, kept updated as work lands (not a one-ti
   a pattern (like the H/N/U letter aliasing) is safe to reuse elsewhere
 
 ## Session work logs (`Workstreams/`, newest session first)
+**2026-07-04 sign demo clips:**
+- [[Workstream-I-Sign-Demo-Clips]] — replaced all human/webcam sign-demo videos with renders of
+  the StudioGalt archive's own 3D character; extensive dataset research (3D-LEX, NVIDIA Signs,
+  and ~10 others ruled out); corrected the earlier [[VIDEO_RETARGET_HANDOFF]] "collapsed pose"
+  finding — the retargeting math WAS fixed this session, but a separate hand-contact limitation is
+  the real reason ybot retargeting is parked in favor of archive-native renders
+
 **2026-07-03 growth roadmap:**
 - [[Workstream-A-Classroom]] — the new Classroom/School scenario, signs, and `model_v6` training
 - [[Workstream-B-Mobile]] — responsive + performance fixes

@@ -75,3 +75,45 @@ interrupted) — recorded here so they're reviewable, not silently baked in.
     route-level code-splitting wouldn't obviously help without profiling exactly what's in each
     chunk first. Left as a genuine open question rather than either a "quick fix" (would have
     fixed the wrong thing) or a false "confirmed problem" claim.
+
+# Decisions log — 2026-07-04 sign demo clips session
+
+See [[Workstream-I-Sign-Demo-Clips]] for full context on all of these.
+
+13. **Default policy: render each sign on its own mocap source's native character; treat ybot
+    retargeting as an optional, parked enhancement, never a blocker.** Confirmed this session that
+    the earlier "collapsed pose" retargeting failure (see [[VIDEO_RETARGET_HANDOFF]]) had a real,
+    fixable root cause (Blender's glTF exporter writes rotations relative to each bone's OWN rest
+    pose — a data semantics mismatch across differently-rest-posed rigs, not a fundamental flaw in
+    doing this in code) — but a SEPARATE, genuine limitation (rotation-only retargeting can't make
+    two hands from different-proportioned rigs actually touch) makes ybot retargeting unsuitable
+    for contact signs like COFFEE specifically. Rather than solve that per-sign, the simpler,
+    zero-risk default is to just render the source character directly. Revisit only if character
+    consistency across signs becomes a priority worth the remaining risk.
+14. **3D-LEX and NVIDIA Signs dataset access requests both sent, neither blocks current work.**
+    Explicit 2026-07-18 timeout set (not an indefinite wait) — if neither replies by then, ship
+    with what the archive already covers and treat the rest as a standing gap, not a blocker.
+15. **No human/webcam video anywhere in the app, full stop** — explicit user rule, applied even to
+    the 3 signs (THANK_YOU, WANT, YES) that have no replacement source yet. They show a placeholder
+    instead of being left on the old webcam clips.
+16. **Fixed two live, unrelated bugs found while auditing `signs.ts` for this work**: 8 signs with
+    `clip:` fields pointing at nonexistent files (404 in production), and `ReferenceClip.tsx` had no
+    fallback for a missing/broken clip. Neither was part of the original ask; both are real
+    correctness bugs, not scope creep — see [[Workstream-I-Sign-Demo-Clips]].
+17. **Root `.gitignore`'s blanket `*.mp4` was still shadowing `web/public/clips/`** despite an
+    earlier commit's message claiming clips were unblocked (that commit only edited
+    `web/.gitignore`; root-level rules cascade and still applied). Fixed with a targeted negation
+    rather than removing the blanket rule (which exists to keep large video files out of the repo
+    elsewhere). Also discovered `data/` is fully gitignored — correct for the ML dataset bulk it
+    holds, but it meant every Blender pipeline script written this session (and the earlier
+    `retargetGaltClip.ts` session) was untracked and invisible to git. Added a narrow exception for
+    `data/galt_archive/*.py` only, keeping the large FBX/PNG/MP4 intermediates ignored.
+18. **Could not complete a live browser click-through verification** (lesson screen → sign →
+    clip playing) — traced to the preview tab reporting `document.visibilityState: "hidden"`,
+    which throttles `requestAnimationFrame` and stalls this app's `framer-motion`
+    `AnimatePresence mode="wait"` screen transitions. Several workarounds attempted (visibility
+    property overrides, an rAF shim, mocking `getUserMedia`, bypassing onboarding via
+    `localStorage`) — each made real progress but didn't fully unstick it. Reported this limitation
+    to the user honestly and asked them to verify manually, rather than claim an unverified visual
+    pass. Everything else (file integrity, data wiring, tests, build, frame-by-frame contact-sheet
+    review) was verified directly.

@@ -69,8 +69,80 @@ operators, or manually copying pose bones with constraints) so a human eye and m
 software — not hand-rolled quaternion composition — does the rest-pose reconciliation, and only
 the ALREADY-ON-YBOT result goes through `extractBakedAnimation.ts` (which needs no retarget math,
 just a straight per-bone local-rotation copy — exactly why it's the one thing that's worked).
-**Recommendation: stop writing new cross-rig retarget math in TypeScript.** Route all third-party
-mocap (Galt archive, DeepMotion output) through Blender's retarget tools first.
+~~**Recommendation: stop writing new cross-rig retarget math in TypeScript.** Route all third-party
+mocap (Galt archive, DeepMotion output) through Blender's retarget tools first.~~ **Superseded
+2026-07-04 — see below. The TypeScript math itself was not the flaw; read on before avoiding it.**
+
+## THIRD UPDATE (2026-07-04): root cause correctly diagnosed and fixed — but a DIFFERENT, real
+## limitation is the actual blocker now, and the shipping decision routes around it entirely
+
+The "SECOND REJECTION" entry above is **stale and would mislead a future session if taken at face
+value** — it's kept for history, but do not treat "these poses were deleted, don't regenerate" as
+still true. Here's what actually happened next:
+
+**The collapsed/tipped-over failure had a precise, findable root cause, not a vague "cross-rig math
+in code is unreliable" problem.** Blender's glTF exporter writes each bone's animated rotation
+channel as a value **relative to that bone's own rest pose** (standard, correct glTF semantics).
+`retargetGaltClip.ts`'s first version copied these values onto ybot's bones directly — valid ONLY
+when both rigs share an identical rest pose (true for HELLO_bake, since that was authored ON ybot
+itself; false for the Galt archive, whose rig has an additional corrective root bone, `Locator_Root`,
+that ybot doesn't have). This is a **data semantics mismatch**, not evidence that rest-to-rest
+retargeting is inherently unreliable in code.
+
+**The fix**, rewritten into `retargetGaltClip.ts` (still the same file/tool, corrected):
+for every animated bone `B`, `newLocal[B] = inverse(ybotParentWorldRest[B]) * galtWorldOrientation[B]`,
+where `galtWorldOrientation[B]` is computed via full forward-kinematics through **Galt's own rest
+hierarchy** (root `Locator_Root` down through `B`) using the ANIMATED rotations, and
+`ybotParentWorldRest[B]` is `B`'s parent's world-rest orientation on ybot's own skeleton. This
+correctly absorbs the corrective root bone and any rest-pose difference, per bone, without any
+Blender-side hierarchy surgery (two earlier attempts at that — deleting/reparenting `Locator_Root`
+in Edit Mode — produced bit-for-bit identical wrong output both times, because Blender's exporter
+bakes each bone's channel relative to ITS OWN rest at export time; editing rest pose after the fact
+doesn't retroactively change already-exported animation data).
+
+**Verified more rigorously than the old "FK-readback PASS" this doc already warned is misleading**:
+instead of checking whether a solver reproduces its own reference number, this fix was checked by
+independently replaying the retargeted pose data through forward kinematics and reading out ACTUAL
+WORLD POSITIONS of key bones (Hips, Spine2, Head, feet, hands) — confirmed the character stands
+upright with proportions matching ybot's own rest pose almost exactly (Hips≈0.998m, Head≈1.58m,
+feet≈0.105m — compare directly against ybot's own undeformed rest pose, which gives the identical
+numbers), with hands moving plausibly through each sign. **Caveat, stated honestly: this was
+verified numerically, not via a live on-screen screenshot** — the preview browser tooling in this
+session's environment couldn't render the WebGL avatar canvas (unrelated infrastructure issue, not
+a pipeline bug) — so a human hasn't yet SEEN this corrected version in `/avatarlab`. Do not treat
+"numerically verified" as equivalent to "visually confirmed"; that visual check is still owed.
+
+**Separately, also got Blender's own retarget tooling working**, per this doc's own earlier
+recommendation: the free **Rokoko Studio Live** Blender add-on's built-in retargeting operators
+(`rsl.build_bone_list` / `rsl.retarget_animation`) do the same rest-pose reconciliation, via
+mature, tested software rather than hand-rolled math — exactly what was recommended. Required
+patching for Blender 5.x API changes (the add-on predates Blender 5's layered-action system;
+9 call-site fixes, all in `data/galt_archive/patch_rokoko_blender51.py`, a real working, reusable
+patch — apply it once after installing the add-on, idempotent). Confirmed working: retargeted
+COFFEE onto ybot in 0.65 seconds, character stands upright, real motion, real finger curls — this
+IS a second, independent, Blender-native retargeting path.
+
+**But both routes (the corrected TS math AND the patched Rokoko add-on) share the SAME real,
+confirmed limitation**: for two-hand-CONTACT signs (COFFEE — the dominant fist must physically
+touch/circle over the other fist), only bone ROTATIONS transfer between rigs of different
+proportions; the hands end up close but not quite touching. Confirmed by direct visual
+side-by-side comparison (Galt's own character: clean, touching, stacked fists; ybot after either
+retarget route: same overall motion, fists visibly not meeting). This is NOT the same bug as the
+tip-over — it's a structural limitation of rotation-only retargeting between differently-proportioned
+rigs, not something either tool's bug fix addresses.
+
+**What this means for the "stop writing TS retarget math" recommendation above: it's too broad.**
+The TypeScript math can be made correct (proven). The real open problem is hand-contact accuracy,
+which affects BOTH approaches equally — it isn't a reason to prefer one over the other. It's a
+reason to avoid ybot retargeting ENTIRELY for contact signs, regardless of which tool does it.
+
+**The actual shipping decision (2026-07-04), which sidesteps this whole question**: rather than
+resolve the hand-contact problem, the signs shipped this session render the StudioGalt archive's
+OWN character directly (no retargeting at all — guaranteed correct since it's native motion on its
+native rig). See `docs/vault/Workstreams/Workstream-I-Sign-Demo-Clips.md` for the full account.
+**ybot retargeting (either route) is now a PARKED, optional future enhancement** — worth revisiting
+if/when hand-contact correction is solved, or for non-contact signs where character consistency
+matters more than this limitation. Not a blocker for anything currently shipping.
 
 ---
 
