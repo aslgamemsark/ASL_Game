@@ -4,7 +4,7 @@ import { useUserStore } from '@/stores/useUserStore';
 import { getShopItem } from '@/data/shop';
 import { getBadge } from '@/data/badges';
 
-export type SideNavScreen = 'home' | 'shop' | 'friends' | 'settings';
+export type SideNavScreen = 'home' | 'shop' | 'friends' | 'settings' | 'profile';
 
 interface Props {
   active: SideNavScreen | null;
@@ -12,6 +12,7 @@ interface Props {
   onShop: () => void;
   onFriends: () => void;
   onSettings: () => void;
+  onProfile: () => void;
 }
 
 const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
@@ -20,7 +21,7 @@ const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'friends', label: 'Friends', icon: '🤝' },
 ];
 
-export function SideNav({ active, onHome, onShop, onFriends, onSettings }: Props) {
+export function SideNav({ active, onHome, onShop, onFriends, onSettings, onProfile }: Props) {
   const { user, username, signOut } = useAuth();
   const { equippedAvatar, activeBadge } = useUserStore();
   const avatarIcon = equippedAvatar
@@ -32,6 +33,7 @@ export function SideNav({ active, onHome, onShop, onFriends, onSettings }: Props
     shop: onShop,
     friends: onFriends,
     settings: onSettings,
+    profile: onProfile,
   };
 
   return (
@@ -78,6 +80,17 @@ export function SideNav({ active, onHome, onShop, onFriends, onSettings }: Props
             </motion.button>
           );
         })}
+        <motion.button
+          onClick={onProfile}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+            active === 'profile' ? 'bg-z-purple/20 text-z-purple' : 'text-z-gray-300 hover:bg-white/5'
+          }`}
+          whileHover={{ x: 2 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <span className="text-lg">{avatarIcon}</span>
+          Me
+        </motion.button>
       </nav>
 
       <div className="flex flex-col gap-1 pt-4 mt-4 border-t border-white/5">

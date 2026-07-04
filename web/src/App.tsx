@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { HomePage } from '@/pages/HomePage';
+import type { Tab } from '@/components/home/BottomNav';
 import { LessonPage } from '@/pages/LessonPage';
 import { PracticePage } from '@/pages/PracticePage';
 import { StoryPage } from '@/pages/StoryPage';
@@ -36,6 +37,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>(
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );
+  const [homeTab, setHomeTab] = useState<Tab>('learn');
 
   const goHome = () => setScreen({ type: 'home' });
   const showSideNav = SIDE_NAV_SCREENS.includes(screen.type as SideNavScreen);
@@ -44,11 +46,12 @@ export default function App() {
     <>
       {showSideNav && (
         <SideNav
-          active={screen.type as SideNavScreen}
-          onHome={goHome}
+          active={screen.type === 'home' && homeTab === 'profile' ? 'profile' : (screen.type as SideNavScreen)}
+          onHome={() => { goHome(); setHomeTab('learn'); }}
           onShop={() => setScreen({ type: 'shop' })}
           onFriends={() => setScreen({ type: 'friends' })}
           onSettings={() => setScreen({ type: 'settings' })}
+          onProfile={() => { goHome(); setHomeTab('profile'); }}
         />
       )}
       <div className={showSideNav ? 'lg:pl-64' : ''}>
@@ -67,6 +70,8 @@ export default function App() {
               onOpenShop={() => setScreen({ type: 'shop' })}
               onOpenFriends={() => setScreen({ type: 'friends' })}
               onStartMultiplayer={() => setScreen({ type: 'multiplayer' })}
+              tab={homeTab}
+              onTabChange={setHomeTab}
             />
           )}
 
