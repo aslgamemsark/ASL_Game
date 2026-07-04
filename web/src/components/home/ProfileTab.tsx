@@ -194,14 +194,14 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
               <p className="text-xl font-bold text-z-purple-light">🤟 {signs}</p>
               <p className="text-[11px] text-z-gray-400 mt-0.5">Signs</p>
             </div>
-            <div className="w-px bg-white/10" />
+            <div className="w-px bg-z-gray-500/40" />
             <div className="text-center">
               <p className="text-xl font-bold text-z-yellow">🪙 {gold}</p>
               <p className="text-[11px] text-z-gray-400 mt-0.5">Gold</p>
             </div>
             {bestSpeed && (
               <>
-                <div className="w-px bg-white/10" />
+                <div className="w-px bg-z-gray-500/40" />
                 <div className="text-center">
                   <p className="text-xl font-bold text-blue-400">⚡ {bestSpeed.score}</p>
                   <p className="text-[11px] text-z-gray-400 mt-0.5">Best speed</p>

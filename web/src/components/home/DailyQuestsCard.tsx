@@ -90,7 +90,7 @@ export function DailyQuestsCard() {
 
               {/* Progress row */}
               <div className="flex items-center gap-3">
-                <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div className="flex-1 h-1.5 bg-z-gray-500/40 rounded-full overflow-hidden">
                   <motion.div
                     className="h-full rounded-full"
                     style={{
