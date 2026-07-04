@@ -80,16 +80,18 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
             <span className="font-bold text-xs text-z-purple-light">{signs}</span>
           </motion.div>
 
-          {/* Gold 🪙 — tapping opens shop */}
-          <motion.div
-            className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-pointer"
+          {/* Gold 🪙 — tapping opens shop. A real <button> (keyboard + screen-reader reachable),
+              with the tap area expanded past the visual pill to clear the 44px touch minimum. */}
+          <motion.button
+            aria-label={`Open shop — ${gold} gold`}
+            className="relative flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-pointer after:absolute after:-inset-y-2.5 after:-inset-x-1.5 after:content-['']"
             onClick={onOpenShop}
             whileHover={{ scale: 1.08, backgroundColor: 'rgba(250, 204, 21, 0.14)', transition: { duration: 0.2 } }}
             whileTap={{ scale: 0.92 }}
           >
             <span className="text-sm">🪙</span>
             <span className="font-bold text-xs text-z-yellow">{gold}</span>
-          </motion.div>
+          </motion.button>
         </div>
       </div>
     </div>

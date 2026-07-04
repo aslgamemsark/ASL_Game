@@ -26,14 +26,34 @@ except ImportError as exc:  # pragma: no cover - guidance, not logic
 from core.landmarks import (
     Frame,
     Hand,
+    POSE_LEFT_ELBOW,
+    POSE_LEFT_HIP,
     POSE_LEFT_SHOULDER,
+    POSE_LEFT_WRIST,
     POSE_MOUTH_LEFT,
     POSE_MOUTH_RIGHT,
+    POSE_RIGHT_ELBOW,
+    POSE_RIGHT_HIP,
     POSE_RIGHT_SHOULDER,
+    POSE_RIGHT_WRIST,
 )
+
+# Joint name -> pose landmark index, for the OPTIONAL world-landmark dict populated when
+# `Capture(want_world_landmarks=True)`. See docs/VIDEO_RETARGET_HANDOFF.md.
+_WORLD_POSE_JOINTS = {
+    "left_shoulder": POSE_LEFT_SHOULDER,
+    "right_shoulder": POSE_RIGHT_SHOULDER,
+    "left_elbow": POSE_LEFT_ELBOW,
+    "right_elbow": POSE_RIGHT_ELBOW,
+    "left_wrist": POSE_LEFT_WRIST,
+    "right_wrist": POSE_RIGHT_WRIST,
+    "left_hip": POSE_LEFT_HIP,
+    "right_hip": POSE_RIGHT_HIP,
+}
 
 DEFAULT_HAND_MODEL = os.path.join("models", "hand_landmarker.task")
 DEFAULT_POSE_MODEL = os.path.join("models", "pose_landmarker_lite.task")
+DEFAULT_FACE_MODEL = os.path.join("models", "face_landmarker.task")
 
 
 class Capture:
@@ -47,14 +67,32 @@ class Capture:
         self,
         hand_model: str = DEFAULT_HAND_MODEL,
         pose_model: str = DEFAULT_POSE_MODEL,
+        face_model: str = DEFAULT_FACE_MODEL,
         num_hands: int = 2,
+        want_world_landmarks: bool = False,
+        want_face_blendshapes: bool = False,
     ):
+        # OPTIONAL, additive, default OFF (avatar video-retarget pipeline only — see
+        # docs/VIDEO_RETARGET_HANDOFF.md). The Tasks API always computes world landmarks alongside
+        # image landmarks; this flag only controls whether `process()` reads and attaches them to
+        # the returned Frame. Default False => zero behavior change for every existing caller
+        # (live game, tools/extract_dataset.py, tools/wlasl_extract.py).
+        self._want_world_landmarks = want_world_landmarks
+        # OPTIONAL, additive, default OFF (facial non-manual marker support — see core/schema.py's
+        # NmmReq). No current sign requires this, so no existing caller needs the extra model file
+        # or the per-frame face-detection cost unless it opts in.
+        self._want_face_blendshapes = want_face_blendshapes
         for path, what in ((hand_model, "hand"), (pose_model, "pose")):
             if not os.path.exists(path):
                 raise FileNotFoundError(
                     f"Missing MediaPipe {what} model: {path}\n"
                     f"Download it into models/ — see models/README.md."
                 )
+        if want_face_blendshapes and not os.path.exists(face_model):
+            raise FileNotFoundError(
+                f"Missing MediaPipe face model: {face_model}\n"
+                f"Download it into models/ — see models/README.md."
+            )
 
         base = mp.tasks.BaseOptions
         running_mode = mp_vision.RunningMode.VIDEO
@@ -78,6 +116,16 @@ class Capture:
                 num_poses=1,
             )
         )
+        self._face = None
+        if want_face_blendshapes:
+            self._face = mp_vision.FaceLandmarker.create_from_options(
+                mp_vision.FaceLandmarkerOptions(
+                    base_options=base(model_asset_path=face_model),
+                    running_mode=running_mode,
+                    num_faces=1,
+                    output_face_blendshapes=True,
+                )
+            )
         self._last_ts_ms = -1
 
     def process(self, bgr_image: np.ndarray, timestamp_ms: int, t_seconds: Optional[float] = None) -> Frame:
@@ -97,6 +145,7 @@ class Capture:
 
         hand_res = self._hand.detect_for_video(mp_image, timestamp_ms)
         pose_res = self._pose.detect_for_video(mp_image, timestamp_ms)
+        face_res = self._face.detect_for_video(mp_image, timestamp_ms) if self._face is not None else None
 
         frame = Frame(
             t=timestamp_ms / 1000.0 if t_seconds is None else t_seconds,
@@ -105,10 +154,18 @@ class Capture:
         )
 
         if hand_res.hand_landmarks:
-            for lms, handedness in zip(hand_res.hand_landmarks, hand_res.handedness):
+            world_by_index = (
+                hand_res.hand_world_landmarks
+                if self._want_world_landmarks and hand_res.hand_world_landmarks
+                else None
+            )
+            for i, (lms, handedness) in enumerate(zip(hand_res.hand_landmarks, hand_res.handedness)):
                 label = handedness[0].category_name  # "Left" / "Right"
                 pts = np.array([[lm.x * w, lm.y * h, lm.z] for lm in lms], dtype=float)
-                frame.hands.append(Hand(handedness=label, points=pts))
+                world_pts = None
+                if world_by_index is not None and i < len(world_by_index):
+                    world_pts = np.array([[wl.x, wl.y, wl.z] for wl in world_by_index[i]], dtype=float)
+                frame.hands.append(Hand(handedness=label, points=pts, world_points=world_pts))
 
         if pose_res.pose_landmarks:
             pose = pose_res.pose_landmarks[0]
@@ -118,11 +175,25 @@ class Capture:
             ml, mr = pose[POSE_MOUTH_LEFT], pose[POSE_MOUTH_RIGHT]
             frame.mouth = np.array([(ml.x + mr.x) * 0.5 * w, (ml.y + mr.y) * 0.5 * h], dtype=float)
 
+            if self._want_world_landmarks and pose_res.pose_world_landmarks:
+                world_pose = pose_res.pose_world_landmarks[0]
+                frame.pose_world = {
+                    name: np.array([world_pose[idx].x, world_pose[idx].y, world_pose[idx].z], dtype=float)
+                    for name, idx in _WORLD_POSE_JOINTS.items()
+                    if idx < len(world_pose)
+                }
+
+        if face_res is not None and face_res.face_blendshapes:
+            categories = face_res.face_blendshapes[0]
+            frame.face_blendshapes = {c.category_name: float(c.score) for c in categories}
+
         return frame
 
     def close(self) -> None:
         self._hand.close()
         self._pose.close()
+        if self._face is not None:
+            self._face.close()
 
     def __enter__(self) -> "Capture":
         return self

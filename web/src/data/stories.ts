@@ -53,11 +53,64 @@ export const COFFEE_SHOP_STORY: StoryScript = {
       npcResponse: "Milk it is! 🥛",
     },
     {
+      npcText: "It's happy hour — want a second cup? Sign MORE if you do!",
+      npcMood: 'surprised',
+      requiredSignId: 'MORE',
+      hint: 'Two claw hands, tap your fingertips together',
+      npcResponse: "You got it — one more coming right up! ☕☕",
+    },
+    {
       npcText: "Here's your coffee! That'll be $4.50.",
       npcMood: 'happy',
       requiredSignId: 'THANK_YOU',
       hint: 'Flat hand from chin, move outward',
       npcResponse: "You're welcome! Have a great day! 💜",
+    },
+  ],
+};
+
+export const COFFEE_SHOP_RUSH_STORY: StoryScript = {
+  id: 'coffee-story-2',
+  title: 'Coffee Shop: Rush Hour',
+  description: "It's the morning rush — keep up with Zippy!",
+  npcName: 'Zippy',
+  npcEmoji: '🤟',
+  backgroundEmoji: '⏰',
+  lines: [
+    {
+      npcText: "Whoa, it's slammed this morning — quick, say hello!",
+      npcMood: 'surprised',
+      requiredSignId: 'HELLO',
+      hint: 'Wave hello!',
+      npcResponse: "Hey! Line's already out the door. 👋",
+    },
+    {
+      npcText: "No time to chat — what do you want?",
+      npcMood: 'neutral',
+      requiredSignId: 'COFFEE',
+      hint: 'Two fists, grind the top over the bottom',
+      npcResponse: "Coffee, got it — brewing now! ☕",
+    },
+    {
+      npcText: "The next customer wants one too — sign WANT for them.",
+      npcMood: 'curious',
+      requiredSignId: 'WANT',
+      hint: 'Both open hands, pull down toward you',
+      npcResponse: "Two coffees coming up! ☕☕",
+    },
+    {
+      npcText: "We're out of regular cups — is MORE okay, in a bigger one?",
+      npcMood: 'surprised',
+      requiredSignId: 'MORE',
+      hint: 'Two claw hands, tap your fingertips together',
+      npcResponse: "Big cup it is — crisis averted! 😅",
+    },
+    {
+      npcText: "Rush is finally over — thanks for hanging in there!",
+      npcMood: 'happy',
+      requiredSignId: 'THANK_YOU',
+      hint: 'Flat hand from chin, move outward',
+      npcResponse: "You're a lifesaver. See you tomorrow! 💜",
     },
   ],
 };
@@ -129,4 +182,64 @@ export const HOSPITAL_STORY: StoryScript = {
   ],
 };
 
-export const STORIES: StoryScript[] = [COFFEE_SHOP_STORY, HOSPITAL_STORY];
+export const CLASSROOM_STORY: StoryScript = {
+  id: 'classroom-story',
+  title: 'At School',
+  description: 'Meet your teacher and make a new friend',
+  npcName: 'Ms. Rowan',
+  npcEmoji: '👩‍🏫',
+  backgroundEmoji: '🏫',
+  lines: [
+    {
+      npcText: "Good morning! Welcome to class — can you say hello?",
+      npcMood: 'happy',
+      requiredSignId: 'HELLO',
+      hint: 'Wave hello!',
+      npcResponse: "Hello! Glad you're here! 👋",
+    },
+    {
+      npcText: "I'm your teacher — do you know the sign for TEACHER?",
+      npcMood: 'curious',
+      requiredSignId: 'TEACHER',
+      hint: 'Hands at your temples, move outward twice',
+      npcResponse: "That's right, that's me! 🍎",
+    },
+    {
+      npcText: "Time for our lesson — please WRITE down today's date.",
+      npcMood: 'neutral',
+      requiredSignId: 'WRITE',
+      hint: 'Pinch a pen and scribble on your other palm',
+      npcResponse: "Great handwriting! ✍️",
+    },
+    {
+      npcText: "Now let's READ the first chapter together.",
+      npcMood: 'neutral',
+      requiredSignId: 'READ',
+      hint: 'Sweep a V-hand down your other palm',
+      npcResponse: "Wonderful reading! 📖",
+    },
+    {
+      npcText: "There's a new student next to you — what's their NAME?",
+      npcMood: 'curious',
+      requiredSignId: 'NAME',
+      hint: 'Cross your H-hands and tap together twice',
+      npcResponse: "Nice to meet them! 🙋",
+    },
+    {
+      npcText: "You two seem to get along — are you FRIENDs now?",
+      npcMood: 'surprised',
+      requiredSignId: 'FRIEND',
+      hint: 'Hook your index fingers and tap together twice',
+      npcResponse: "A new friendship! That's wonderful. 🤝",
+    },
+    {
+      npcText: "Class is over — thank you for a great lesson today!",
+      npcMood: 'happy',
+      requiredSignId: 'THANK_YOU',
+      hint: 'Flat hand from chin, move outward',
+      npcResponse: "You're welcome — see you tomorrow! 🎒",
+    },
+  ],
+};
+
+export const STORIES: StoryScript[] = [COFFEE_SHOP_STORY, COFFEE_SHOP_RUSH_STORY, HOSPITAL_STORY, CLASSROOM_STORY];

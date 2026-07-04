@@ -36,6 +36,18 @@ export const WORLDS: World[] = [
     badgeId: 'hospital_story',
     storyId: 'hospital-story',
   },
+  {
+    id: 'classroom',
+    title: 'Classroom',
+    emoji: '🏫',
+    description: 'Teachers, friends, and everyday school signs',
+    color: '#3B82F6',
+    bgGradient: 'linear-gradient(135deg, #1E3A8A, #3B82F6)',
+    unlockCondition: 'hospital-story',
+    unitIds: ['unit-5', 'unit-6'],
+    badgeId: 'classroom_story',
+    storyId: 'classroom-story',
+  },
 ];
 
 export function getWorld(id: string): World | undefined {

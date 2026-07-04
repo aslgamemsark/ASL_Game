@@ -24,7 +24,12 @@ export const GATE_CONFIDENCE = 0.7;
 
 /**
  * Verbose classifier logging during testing. Logs every gate decision (prompt, top-k, pass/veto)
- * and stashes the last vote on window.__lastVote for manual inspection. Turn off for release.
+ * and stashes the last vote on window.__lastVote for manual inspection.
+ *
+ * Forced on (2026-07-03, user request) while testing the new model_v6 classes — was briefly
+ * gated on `import.meta.env.DEV` for the same reason CLAUDE.md's licensing checklist exists:
+ * don't ship debug logging in production. Flip back to `import.meta.env.DEV` before any real
+ * release; don't leave this hardcoded `true`.
  */
 export const CLASSIFIER_DEBUG = true;
 

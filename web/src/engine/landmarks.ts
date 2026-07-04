@@ -47,6 +47,11 @@ export interface Frame {
   leftShoulder: number[] | null;
   rightShoulder: number[] | null;
   mouth: number[] | null;
+  // OPTIONAL, additive (facial non-manual marker support — see engine/schema.ts's NmmReq).
+  // The 52 ARKit-standard blendshape scores in [0, 1], keyed by category name (e.g.
+  // "browInnerUp"), only populated when Capture is constructed with wantFaceBlendshapes. null
+  // when not requested or no face detected this frame.
+  faceBlendshapes: Record<string, number> | null;
 }
 
 export function frameShoulderWidth(f: Frame): number | null {
@@ -86,6 +91,7 @@ export function frameFromDict(d: {
   left_shoulder?: number[] | null;
   right_shoulder?: number[] | null;
   mouth?: number[] | null;
+  face_blendshapes?: Record<string, number> | null;
 }): Frame {
   return {
     t: d.t,
@@ -95,6 +101,7 @@ export function frameFromDict(d: {
     leftShoulder: d.left_shoulder ?? null,
     rightShoulder: d.right_shoulder ?? null,
     mouth: d.mouth ?? null,
+    faceBlendshapes: d.face_blendshapes ?? null,
   };
 }
 

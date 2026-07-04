@@ -68,6 +68,7 @@ _RATIOS = {
     "claw":   [1.3, 1.3, 1.3, 1.3],
     "n":      [1.6, 1.6, 1.0, 1.0],   # 2 fingers (index+middle)
     "h":      [1.6, 1.6, 1.0, 1.0],   # same as n
+    "v":      [1.6, 1.6, 1.0, 1.0],   # same as n/h — see core/handshape.py's _PATTERNS note
     "w":      [1.6, 1.6, 1.6, 1.0],   # 3 fingers (index+middle+ring)
     "middle": [1.0, 1.6, 1.0, 1.0],   # middle only
 }

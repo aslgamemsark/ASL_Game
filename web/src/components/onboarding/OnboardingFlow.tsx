@@ -80,15 +80,10 @@ export function OnboardingFlow({ onComplete }: Props) {
               🤟
             </motion.div>
 
-            <h1
-              className="text-4xl font-bold mb-3"
-              style={{
-                background: 'linear-gradient(90deg, #A78BFA, #14B8A6)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              Welcome to SignUp
+            {/* Solid color, not gradient-clipped text: emphasis belongs to weight/color, and the
+                TopBar wordmark is the app's single deliberate gradient-text brand mark. */}
+            <h1 className="text-4xl font-bold mb-3 text-white">
+              Welcome to <span className="text-z-purple-light">SignUp</span>
             </h1>
             <p className="text-z-gray-300 text-lg mb-10">Your journey into ASL starts here</p>
 

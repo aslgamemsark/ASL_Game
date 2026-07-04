@@ -1,0 +1,51 @@
+{
+  "poseId": "THANKYOU_auth_03",
+  "signName": "THANK_YOU",
+  "frameFraction": 1,
+  "sourceGlb": "",
+  "avatarVersion": "ed9f8934",
+  "generatorVersion": "authorSignKeyframes@1.0.0",
+  "extractedAt": "2026-07-02T00:16:45.957Z",
+  "notes": "CODE-AUTHORED (experiment: model-authored keyframes, no Blender source). Arm extended toward the listener, palm up — offering the thanks.",
+  "bones": {
+    "mixamorig:RightArm": {
+      "rotation": [
+        0.45750016828610823,
+        -0.052724553407191344,
+        -0.6518736635776998,
+        0.6024738337206297
+      ],
+      "translation": [
+        2.384185791015625e-7,
+        12.922285079956055,
+        -0.000017762424249667674
+      ]
+    },
+    "mixamorig:RightForeArm": {
+      "rotation": [
+        0.07557457404858114,
+        0.7915716252324765,
+        -0.2459579132723582,
+        0.5542644540112244
+      ],
+      "translation": [
+        -5.502370186150074e-7,
+        27.4046688079834,
+        -0.0000124437556223711
+      ]
+    },
+    "mixamorig:RightHand": {
+      "rotation": [
+        -2.963428470947882e-7,
+        -2.066467580386089e-9,
+        -2.066302844105916e-9,
+        1.0000011506478768
+      ],
+      "translation": [
+        0.00001291496755584376,
+        27.61445426940918,
+        -0.000007573439233965473
+      ]
+    }
+  }
+}

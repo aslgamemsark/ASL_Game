@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WORLDS } from '@/data/worlds';
 import { LESSON_UNITS, LESSON_SKIP_COST } from '@/data/lessons';
+import { STORIES } from '@/data/stories';
 import { useUserStore } from '@/stores/useUserStore';
 import { LessonNode } from './LessonNode';
 
@@ -108,12 +109,16 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
             </motion.div>
             <div className="flex flex-col items-center gap-7">
               {unit.nodes.map((node, nodeIdx) => {
-                if (node.id === selectedWorld.storyId) {
+                // A node is a "story" card whenever its id matches ANY registered story, not just
+                // the world's primary one — lets a world host more than one story (e.g. a second,
+                // harder chapter) without widening World.storyId's single-value badge/unlock role.
+                const isStoryNode = node.id === selectedWorld.storyId || STORIES.some((s) => s.id === node.id);
+                if (isStoryNode) {
                   const status = getNodeStatus(node.id);
                   return (
                     <motion.button
                       key={node.id}
-                      onClick={() => selectedWorld.storyId && onStartStory(selectedWorld.storyId)}
+                      onClick={() => onStartStory(node.id)}
                       disabled={status === 'locked'}
                       className={`flex items-center gap-3 px-5 py-3 rounded-2xl border text-left w-64 ${
                         status === 'locked'
@@ -205,13 +210,13 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                   {!unlocked && <span className="text-2xl shrink-0">🔒</span>}
                   {unlocked && done === total && total > 0 && <span className="text-2xl shrink-0">✅</span>}
                   {unlocked && (done < total || total === 0) && (
-                    <span className="text-white/40 text-sm font-bold shrink-0 mt-1">{done}/{total}</span>
+                    <span className="text-white/70 text-sm font-bold shrink-0 mt-1">{done}/{total}</span>
                   )}
                 </div>
 
                 {unlocked ? (
                   <>
-                    <div className="flex items-center justify-between text-xs text-white/50 mb-1.5">
+                    <div className="flex items-center justify-between text-xs text-white/75 mb-1.5">
                       <span>{done} of {total} lessons</span>
                       <span>{Math.round(pct)}%</span>
                     </div>
@@ -225,8 +230,8 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                     </div>
                   </>
                 ) : (
-                  <p className="text-white/35 text-xs mt-1">
-                    Complete {world.unlockCondition?.replace(/-/g, ' ')} to unlock
+                  <p className="text-white/60 text-xs mt-1">
+                    Finish {world.unlockCondition?.replace(/-/g, ' ')} to open this world!
                   </p>
                 )}
               </div>

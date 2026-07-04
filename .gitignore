@@ -53,3 +53,6 @@ htmlcov/
 supabase/.temp/
 
 .vercel
+
+# --- impeccable's local cache (regenerable, per-machine) ---
+.impeccable/

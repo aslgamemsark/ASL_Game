@@ -34,6 +34,12 @@ export function StreakCard() {
       />
       <div className="absolute -bottom-4 -left-4 w-28 h-28 bg-z-purple-light/10 rounded-full blur-2xl pointer-events-none" />
 
+      {/* Several translucent-white captions here (freeze count, "Today's goal" label, milestone
+          footer) measured 2.5-3.6:1 against the gradient's bright end - all fail the 4.5:1 AA
+          floor. Same scrim fix already used on PracticeTab/SpeedChallengePage, applied once here
+          instead of hand-tuning each opacity value. */}
+      <div className="absolute inset-0 bg-black/20 rounded-3xl pointer-events-none" />
+
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -110,14 +116,14 @@ export function StreakCard() {
         <div className="flex items-center justify-between mt-3">
           <div className="flex items-center gap-1.5">
             <span className="text-sm">🧊</span>
-            <span className="text-xs text-white/60">
+            <span className="text-xs text-white/80">
               {streakFreezes} freeze{streakFreezes !== 1 ? 's' : ''} left
             </span>
           </div>
           <AnimatePresence>
             {nextMilestone && streak > 0 && (
               <motion.span
-                className="text-xs text-white/50"
+                className="text-xs text-white/80"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >

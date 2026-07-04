@@ -1,4 +1,4 @@
-export type HandShapeKind = 'fist' | 's' | 'a' | 'index' | 'open' | 'claw' | 'v' | 'l' | 'y' | 'w' | 'h' | 'n' | 'middle';
+export type HandShapeKind = 'fist' | 's' | 'a' | 'index' | 'open' | 'claw' | 'v' | 'l' | 'y' | 'w' | 'h' | 'n' | 'middle' | 'i';
 
 export type Anchor =
   | 'other_hand'
@@ -25,6 +25,7 @@ export interface LocationReq {
   maxDistRatio: number;
   minDistRatio: number;
   vertical?: 'above' | 'below' | null;
+  useClosestApproach?: boolean;
   required: boolean;
   minConfidence: number;
 }
@@ -38,6 +39,8 @@ export interface MovementReq {
   direction?: [number, number];
   minDisplacementRatio?: number;
   minApproachRatio?: number;
+  minCycles?: number;
+  minAmplitudeRatio?: number;
   minDurationS: number;
   required: boolean;
 }

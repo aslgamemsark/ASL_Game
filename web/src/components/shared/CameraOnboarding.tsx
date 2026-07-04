@@ -35,7 +35,7 @@ export function CameraOnboarding({ onContinue }: Props) {
           </div>
           <div className="flex items-start gap-3">
             <span className="text-z-green text-lg">✓</span>
-            <p className="text-sm text-z-gray-200">Works offline once loaded</p>
+            <p className="text-sm text-z-gray-200">Recognition runs on your device, not a server</p>
           </div>
         </div>
 

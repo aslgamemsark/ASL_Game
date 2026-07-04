@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { AvatarLabPage } from '@/avatar/viewer/AvatarLabPage';
 import { HomePage } from '@/pages/HomePage';
 import type { Tab } from '@/components/home/BottomNav';
 import { LessonPage } from '@/pages/LessonPage';
@@ -41,6 +42,15 @@ export default function App() {
 
   const goHome = () => setScreen({ type: 'home' });
   const showSideNav = SIDE_NAV_SCREENS.includes(screen.type as SideNavScreen);
+
+  // Dev-only debug environment (spec Rule 18: "debug inside AvatarLab, not inside the game").
+  // Deliberately NOT wired into the Screen state machine or navigation — it's a separate tool, not
+  // a game screen. Checked AFTER all hooks (Rules of Hooks) but before the game's own render tree.
+  // import.meta.env.DEV is statically false in `vite build`, so bundlers dead-code-eliminate this
+  // branch out of production entirely.
+  if (import.meta.env.DEV && window.location.pathname === '/avatarlab') {
+    return <AvatarLabPage />;
+  }
 
   return (
     <>

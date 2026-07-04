@@ -113,6 +113,12 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       let passFrames = 0;
       const PASS_THRESHOLD = 6;
 
+      // Cap MediaPipe processing to ~28fps instead of raw display refresh rate (60-120fps on most
+      // mobile screens) — halves battery/thermal load with no effect on the rolling-window
+      // verifier, which windows by elapsed time, not frame count.
+      const MIN_FRAME_INTERVAL_MS = 1000 / 28;
+      let lastProcessMs = 0;
+
       const tick = () => {
         if (!runningRef.current || !signRef.current) return;
 
@@ -120,6 +126,13 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           rafRef.current = requestAnimationFrame(tick);
           return;
         }
+
+        const nowMs = performance.now();
+        if (nowMs - lastProcessMs < MIN_FRAME_INTERVAL_MS) {
+          rafRef.current = requestAnimationFrame(tick);
+          return;
+        }
+        lastProcessMs = nowMs;
 
         try {
           const tsMs = performance.now();

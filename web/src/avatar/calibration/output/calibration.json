@@ -1,0 +1,841 @@
+{
+  "avatarVersion": "ed9f8934",
+  "generatorVersion": "calibration-engine@0.1.0",
+  "generatedAt": "2026-06-30T23:48:49.069Z",
+  "sourceFile": "E:\\ASL_Game\\web\\public\\models\\avatar\\ybot.glb",
+  "shoulderWidthMeters": 0.375216035678786,
+  "bones": {
+    "mixamorig:Hips": {
+      "name": "mixamorig:Hips",
+      "restChildDirections": {
+        "mixamorig:Spine": {
+          "x": 0.00008598658216537403,
+          "y": 0.9924382530433671,
+          "z": -0.12274488381410198
+        },
+        "mixamorig:LeftUpLeg": {
+          "x": 0.8078134863873991,
+          "y": -0.5894177713637634,
+          "z": -0.004905304395229165
+        },
+        "mixamorig:RightUpLeg": {
+          "x": -0.8079163855953445,
+          "y": -0.5892767563584395,
+          "z": -0.004900847093198775
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:Spine": 9.999072369118837,
+        "mixamorig:LeftUpLeg": 11.294528886563448,
+        "mixamorig:RightUpLeg": 11.294525754917847
+      }
+    },
+    "mixamorig:Spine": {
+      "name": "mixamorig:Spine",
+      "restChildDirections": {
+        "mixamorig:Spine1": {
+          "x": -1.261680587935234e-10,
+          "y": 0.9999999999999947,
+          "z": 1.0303040664378081e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:Spine1": 11.731991767883363
+      }
+    },
+    "mixamorig:Spine1": {
+      "name": "mixamorig:Spine1",
+      "restChildDirections": {
+        "mixamorig:Spine2": {
+          "x": 4.5951665764489455e-12,
+          "y": 0.9999999999999946,
+          "z": -1.0391706511020674e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:Spine2": 13.458846092224194
+      }
+    },
+    "mixamorig:Spine2": {
+      "name": "mixamorig:Spine2",
+      "restChildDirections": {
+        "mixamorig:Neck": {
+          "x": 0.0000016926506884851235,
+          "y": 0.998297958657333,
+          "z": 0.05831968567933949
+        },
+        "mixamorig:LeftShoulder": {
+          "x": 0.5555841254188931,
+          "y": 0.8286017503354354,
+          "z": 0.06888700112195625
+        },
+        "mixamorig:RightShoulder": {
+          "x": -0.5555713768403506,
+          "y": 0.8286102101232126,
+          "z": 0.06888806076006682
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:Neck": 15.053361922854453,
+        "mixamorig:LeftShoulder": 10.989918882071041,
+        "mixamorig:RightShoulder": 10.989940187431579
+      }
+    },
+    "mixamorig:Neck": {
+      "name": "mixamorig:Neck",
+      "restChildDirections": {
+        "mixamorig:Head": {
+          "x": 2.3729791992532381e-7,
+          "y": 0.9566480778142951,
+          "z": 0.29124638231943456
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:Head": 10.789587747344985
+      }
+    },
+    "mixamorig:Head": {
+      "name": "mixamorig:Head",
+      "restChildDirections": {
+        "mixamorig:HeadTop_End": {
+          "x": 0.000007871261742701507,
+          "y": 0.9411223800615455,
+          "z": 0.33806606704213205
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:HeadTop_End": 19.63048171029271
+      }
+    },
+    "mixamorig:HeadTop_End": {
+      "name": "mixamorig:HeadTop_End",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    },
+    "mixamorig:LeftShoulder": {
+      "name": "mixamorig:LeftShoulder",
+      "restChildDirections": {
+        "mixamorig:LeftArm": {
+          "x": -1.3837637355150848e-8,
+          "y": 0.9999999999996338,
+          "z": -8.556917129134958e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftArm": 12.922287940983736
+      }
+    },
+    "mixamorig:LeftArm": {
+      "name": "mixamorig:LeftArm",
+      "restChildDirections": {
+        "mixamorig:LeftForeArm": {
+          "x": 5.27412633579129e-7,
+          "y": 0.999999999999826,
+          "z": 2.6423462980206374e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftForeArm": 27.404674530034065
+      }
+    },
+    "mixamorig:LeftForeArm": {
+      "name": "mixamorig:LeftForeArm",
+      "restChildDirections": {
+        "mixamorig:LeftHand": {
+          "x": 1.405019764670084e-8,
+          "y": 0.999999999999817,
+          "z": 6.048023868807314e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHand": 27.61445999146013
+      }
+    },
+    "mixamorig:LeftHand": {
+      "name": "mixamorig:LeftHand",
+      "restChildDirections": {
+        "mixamorig:LeftHandThumb1": {
+          "x": -0.5668061891531607,
+          "y": 0.7151311714083258,
+          "z": 0.40904541510427284
+        },
+        "mixamorig:LeftHandIndex1": {
+          "x": -0.22416361904124568,
+          "y": 0.9743775401624949,
+          "z": 0.018414155566216495
+        },
+        "mixamorig:LeftHandMiddle1": {
+          "x": -9.144088970525218e-7,
+          "y": 0.9999999999993631,
+          "z": -6.614746138241494e-7
+        },
+        "mixamorig:LeftHandRing1": {
+          "x": 0.1795196437042526,
+          "y": 0.9837540555862947,
+          "z": -0.0008097171207765981
+        },
+        "mixamorig:LeftHandPinky1": {
+          "x": 0.39746161695155974,
+          "y": 0.9174216962272786,
+          "z": 0.019018263372726187
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandThumb1": 5.2980576871877565,
+        "mixamorig:LeftHandIndex1": 12.589182648076417,
+        "mixamorig:LeftHandMiddle1": 12.77552509308675,
+        "mixamorig:LeftHandRing1": 12.347607439986295,
+        "mixamorig:LeftHandPinky1": 11.890046809874297
+      }
+    },
+    "mixamorig:LeftHandThumb1": {
+      "name": "mixamorig:LeftHandThumb1",
+      "restChildDirections": {
+        "mixamorig:LeftHandThumb2": {
+          "x": 0.0000011054215399416676,
+          "y": 0.9999999999991124,
+          "z": -7.437666887646726e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandThumb2": 4.7449851036113895
+      }
+    },
+    "mixamorig:LeftHandThumb2": {
+      "name": "mixamorig:LeftHandThumb2",
+      "restChildDirections": {
+        "mixamorig:LeftHandThumb3": {
+          "x": -0.0000014553930992250477,
+          "y": 0.9999999999981249,
+          "z": -0.0000012775122900322736
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandThumb3": 4.3821129798971326
+      }
+    },
+    "mixamorig:LeftHandThumb3": {
+      "name": "mixamorig:LeftHandThumb3",
+      "restChildDirections": {
+        "mixamorig:LeftHandThumb4": {
+          "x": -0.0000016197460693048343,
+          "y": 0.9999999999986177,
+          "z": -3.7552786392866946e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandThumb4": 3.4590833187151087
+      }
+    },
+    "mixamorig:LeftHandThumb4": {
+      "name": "mixamorig:LeftHandThumb4",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    },
+    "mixamorig:LeftHandIndex1": {
+      "name": "mixamorig:LeftHandIndex1",
+      "restChildDirections": {
+        "mixamorig:LeftHandIndex2": {
+          "x": -7.889433880023072e-8,
+          "y": 0.999999999999159,
+          "z": 0.0000012944942495916682
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandIndex2": 3.8919713497194595
+      }
+    },
+    "mixamorig:LeftHandIndex2": {
+      "name": "mixamorig:LeftHandIndex2",
+      "restChildDirections": {
+        "mixamorig:LeftHandIndex3": {
+          "x": 8.583728166463185e-9,
+          "y": 0.9999999999955792,
+          "z": 0.000002973459681693722
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandIndex3": 3.4151632785948096
+      }
+    },
+    "mixamorig:LeftHandIndex3": {
+      "name": "mixamorig:LeftHandIndex3",
+      "restChildDirections": {
+        "mixamorig:LeftHandIndex4": {
+          "x": 2.2078183531661026e-7,
+          "y": 0.9999999999998314,
+          "z": -5.371144050636669e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandIndex4": 3.0779948234563297
+      }
+    },
+    "mixamorig:LeftHandIndex4": {
+      "name": "mixamorig:LeftHandIndex4",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    },
+    "mixamorig:LeftHandMiddle1": {
+      "name": "mixamorig:LeftHandMiddle1",
+      "restChildDirections": {
+        "mixamorig:LeftHandMiddle2": {
+          "x": 4.226473618837999e-8,
+          "y": 0.9999999999998894,
+          "z": -4.6841069201471314e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandMiddle2": 3.613964796066684
+      }
+    },
+    "mixamorig:LeftHandMiddle2": {
+      "name": "mixamorig:LeftHandMiddle2",
+      "restChildDirections": {
+        "mixamorig:LeftHandMiddle3": {
+          "x": 0.000008435210141445807,
+          "y": 0.9999999999640996,
+          "z": 8.049525826611881e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandMiddle3": 3.4597623349478153
+      }
+    },
+    "mixamorig:LeftHandMiddle3": {
+      "name": "mixamorig:LeftHandMiddle3",
+      "restChildDirections": {
+        "mixamorig:LeftHandMiddle4": {
+          "x": -0.000008409441016282001,
+          "y": 0.9999999999642887,
+          "z": 8.390612757967009e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandMiddle4": 3.68019557012349
+      }
+    },
+    "mixamorig:LeftHandMiddle4": {
+      "name": "mixamorig:LeftHandMiddle4",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    },
+    "mixamorig:LeftHandRing1": {
+      "name": "mixamorig:LeftHandRing1",
+      "restChildDirections": {
+        "mixamorig:LeftHandRing2": {
+          "x": 1.235389295789546e-7,
+          "y": 0.9999999999903805,
+          "z": 0.000004384502830021636
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandRing2": 3.601185560261082
+      }
+    },
+    "mixamorig:LeftHandRing2": {
+      "name": "mixamorig:LeftHandRing2",
+      "restChildDirections": {
+        "mixamorig:LeftHandRing3": {
+          "x": -4.017756520050966e-7,
+          "y": 0.999999999998494,
+          "z": 0.0000016883864236768276
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandRing3": 3.30731487274668
+      }
+    },
+    "mixamorig:LeftHandRing3": {
+      "name": "mixamorig:LeftHandRing3",
+      "restChildDirections": {
+        "mixamorig:LeftHandRing4": {
+          "x": -0.0000065679226497048345,
+          "y": 0.9999999999784006,
+          "z": 2.4717612293053116e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandRing4": 3.660100698550125
+      }
+    },
+    "mixamorig:LeftHandRing4": {
+      "name": "mixamorig:LeftHandRing4",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    },
+    "mixamorig:LeftHandPinky1": {
+      "name": "mixamorig:LeftHandPinky1",
+      "restChildDirections": {
+        "mixamorig:LeftHandPinky2": {
+          "x": -1.0703892580457702e-7,
+          "y": 0.9999999999999618,
+          "z": -2.5479804931112573e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandPinky2": 4.136662006378332
+      }
+    },
+    "mixamorig:LeftHandPinky2": {
+      "name": "mixamorig:LeftHandPinky2",
+      "restChildDirections": {
+        "mixamorig:LeftHandPinky3": {
+          "x": -4.755675054888025e-7,
+          "y": 0.9999999999924442,
+          "z": 0.0000038581866059841695
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandPinky3": 2.5948283672528825
+      }
+    },
+    "mixamorig:LeftHandPinky3": {
+      "name": "mixamorig:LeftHandPinky3",
+      "restChildDirections": {
+        "mixamorig:LeftHandPinky4": {
+          "x": -2.9036227892295364e-7,
+          "y": 0.9999999999947357,
+          "z": -0.000003231747387667336
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftHandPinky4": 2.923860311523571
+      }
+    },
+    "mixamorig:LeftHandPinky4": {
+      "name": "mixamorig:LeftHandPinky4",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    },
+    "mixamorig:RightShoulder": {
+      "name": "mixamorig:RightShoulder",
+      "restChildDirections": {
+        "mixamorig:RightArm": {
+          "x": 1.845018722510245e-8,
+          "y": 0.9999999999990551,
+          "z": -0.0000013745575290861248
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightArm": 12.922285079968265
+      }
+    },
+    "mixamorig:RightArm": {
+      "name": "mixamorig:RightArm",
+      "restChildDirections": {
+        "mixamorig:RightForeArm": {
+          "x": -2.007822179754488e-8,
+          "y": 0.9999999999998966,
+          "z": -4.540742933096407e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightForeArm": 27.40466880798623
+      }
+    },
+    "mixamorig:RightForeArm": {
+      "name": "mixamorig:RightForeArm",
+      "restChildDirections": {
+        "mixamorig:RightHand": {
+          "x": 4.676886760043214e-7,
+          "y": 0.9999999999998529,
+          "z": -2.7425634271375357e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHand": 27.61445426941324
+      }
+    },
+    "mixamorig:RightHand": {
+      "name": "mixamorig:RightHand",
+      "restChildDirections": {
+        "mixamorig:RightHandThumb1": {
+          "x": 0.5668063499604836,
+          "y": 0.7151297147215894,
+          "z": 0.4090477389824956
+        },
+        "mixamorig:RightHandIndex1": {
+          "x": 0.22416419658882966,
+          "y": 0.9743773931431512,
+          "z": 0.018414904269130488
+        },
+        "mixamorig:RightHandMiddle1": {
+          "x": 0.0000013281666980394899,
+          "y": 0.9999999999980334,
+          "z": 0.0000014728123970808557
+        },
+        "mixamorig:RightHandRing1": {
+          "x": -0.17951935740830102,
+          "y": 0.983754107843111,
+          "z": -0.0008097021153177621
+        },
+        "mixamorig:RightHandPinky1": {
+          "x": -0.39746175841467135,
+          "y": 0.9174216280262831,
+          "z": 0.019018596886249385
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandThumb1": 5.2980608110728316,
+        "mixamorig:RightHandIndex1": 12.589175738827983,
+        "mixamorig:RightHandMiddle1": 12.775520324732156,
+        "mixamorig:RightHandRing1": 12.347591273308474,
+        "mixamorig:RightHandPinky1": 11.890034180072764
+      }
+    },
+    "mixamorig:RightHandThumb1": {
+      "name": "mixamorig:RightHandThumb1",
+      "restChildDirections": {
+        "mixamorig:RightHandThumb2": {
+          "x": -2.63794942995662e-7,
+          "y": 0.9999999999999643,
+          "z": -4.41245613282218e-8
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandThumb2": 4.744964122772386
+      }
+    },
+    "mixamorig:RightHandThumb2": {
+      "name": "mixamorig:RightHandThumb2",
+      "restChildDirections": {
+        "mixamorig:RightHandThumb3": {
+          "x": -9.249168798779724e-7,
+          "y": 0.9999999999802075,
+          "z": 0.000006223285300946877
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandThumb3": 4.382140636530825
+      }
+    },
+    "mixamorig:RightHandThumb3": {
+      "name": "mixamorig:RightHandThumb3",
+      "restChildDirections": {
+        "mixamorig:RightHandThumb4": {
+          "x": 0.0000032395086614959815,
+          "y": 0.999999999951371,
+          "z": -0.000009314698021251467
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandThumb4": 3.4590656759036844
+      }
+    },
+    "mixamorig:RightHandThumb4": {
+      "name": "mixamorig:RightHandThumb4",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    },
+    "mixamorig:RightHandIndex1": {
+      "name": "mixamorig:RightHandIndex1",
+      "restChildDirections": {
+        "mixamorig:RightHandIndex2": {
+          "x": 1.4205614844676878e-8,
+          "y": 0.9999999999973948,
+          "z": 0.000002282575275039101
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandIndex2": 3.891967058191902
+      }
+    },
+    "mixamorig:RightHandIndex2": {
+      "name": "mixamorig:RightHandIndex2",
+      "restChildDirections": {
+        "mixamorig:RightHandIndex3": {
+          "x": -0.0000036869000528864623,
+          "y": 0.9999999999925766,
+          "z": 0.0000011197453136282151
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandIndex3": 3.415163040186485
+      }
+    },
+    "mixamorig:RightHandIndex3": {
+      "name": "mixamorig:RightHandIndex3",
+      "restChildDirections": {
+        "mixamorig:RightHandIndex4": {
+          "x": -4.7271619313656307e-7,
+          "y": 0.9999999999871967,
+          "z": 0.000005038174014419727
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandIndex4": 3.0779848099148968
+      }
+    },
+    "mixamorig:RightHandIndex4": {
+      "name": "mixamorig:RightHandIndex4",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    },
+    "mixamorig:RightHandMiddle1": {
+      "name": "mixamorig:RightHandMiddle1",
+      "restChildDirections": {
+        "mixamorig:RightHandMiddle2": {
+          "x": -3.7175998157586834e-8,
+          "y": 0.9999999999999981,
+          "z": -4.831891043824169e-8
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandMiddle2": 3.6139547824859686
+      }
+    },
+    "mixamorig:RightHandMiddle2": {
+      "name": "mixamorig:RightHandMiddle2",
+      "restChildDirections": {
+        "mixamorig:RightHandMiddle3": {
+          "x": -0.000008604710112556023,
+          "y": 0.999999999961908,
+          "z": -0.0000014638871376333705
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandMiddle3": 3.459754705560866
+      }
+    },
+    "mixamorig:RightHandMiddle3": {
+      "name": "mixamorig:RightHandMiddle3",
+      "restChildDirections": {
+        "mixamorig:RightHandMiddle4": {
+          "x": 0.000007538141914022377,
+          "y": 0.9999999999562553,
+          "z": -0.00000553768346509069
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandMiddle4": 3.6801934243858425
+      }
+    },
+    "mixamorig:RightHandMiddle4": {
+      "name": "mixamorig:RightHandMiddle4",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    },
+    "mixamorig:RightHandRing1": {
+      "name": "mixamorig:RightHandRing1",
+      "restChildDirections": {
+        "mixamorig:RightHandRing2": {
+          "x": 2.179050730209909e-7,
+          "y": 0.9999999999998618,
+          "z": -4.785179995223789e-7
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandRing2": 3.601189613342783
+      }
+    },
+    "mixamorig:RightHandRing2": {
+      "name": "mixamorig:RightHandRing2",
+      "restChildDirections": {
+        "mixamorig:RightHandRing3": {
+          "x": -2.9534624914970747e-7,
+          "y": 0.9999999999985292,
+          "z": -0.0000016895089566685635
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandRing3": 3.3073170185137757
+      }
+    },
+    "mixamorig:RightHandRing3": {
+      "name": "mixamorig:RightHandRing3",
+      "restChildDirections": {
+        "mixamorig:RightHandRing4": {
+          "x": 0.000006084096192390433,
+          "y": 0.9999999999805205,
+          "z": 0.0000013937891491782064
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandRing4": 3.660115957331429
+      }
+    },
+    "mixamorig:RightHandRing4": {
+      "name": "mixamorig:RightHandRing4",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    },
+    "mixamorig:RightHandPinky1": {
+      "name": "mixamorig:RightHandPinky1",
+      "restChildDirections": {
+        "mixamorig:RightHandPinky2": {
+          "x": -2.4010267214865004e-7,
+          "y": 0.9999999999991519,
+          "z": -0.0000012799303936487138
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandPinky2": 4.136649131778411
+      }
+    },
+    "mixamorig:RightHandPinky2": {
+      "name": "mixamorig:RightHandPinky2",
+      "restChildDirections": {
+        "mixamorig:RightHandPinky3": {
+          "x": 1.1163750597324344e-7,
+          "y": 0.999999999994127,
+          "z": -0.0000034254090090384017
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandPinky3": 2.594838857665996
+      }
+    },
+    "mixamorig:RightHandPinky3": {
+      "name": "mixamorig:RightHandPinky3",
+      "restChildDirections": {
+        "mixamorig:RightHandPinky4": {
+          "x": -2.189027956445522e-7,
+          "y": 0.9999999999948107,
+          "z": -0.000003214153069936982
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightHandPinky4": 2.9238655567320917
+      }
+    },
+    "mixamorig:RightHandPinky4": {
+      "name": "mixamorig:RightHandPinky4",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    },
+    "mixamorig:LeftUpLeg": {
+      "name": "mixamorig:LeftUpLeg",
+      "restChildDirections": {
+        "mixamorig:LeftLeg": {
+          "x": -2.0536514116230666e-8,
+          "y": 0.9999999999999998,
+          "z": -4.711157311279602e-9
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftLeg": 40.599445343017585
+      }
+    },
+    "mixamorig:LeftLeg": {
+      "name": "mixamorig:LeftLeg",
+      "restChildDirections": {
+        "mixamorig:LeftFoot": {
+          "x": -1.10158211942337e-8,
+          "y": 0.9999999999999998,
+          "z": -1.2117431938566711e-8
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftFoot": 42.09901428222657
+      }
+    },
+    "mixamorig:LeftFoot": {
+      "name": "mixamorig:LeftFoot",
+      "restChildDirections": {
+        "mixamorig:LeftToeBase": {
+          "x": 4.2036603954599366e-8,
+          "y": 0.9999999999999991,
+          "z": 0
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftToeBase": 15.721559524536147
+      }
+    },
+    "mixamorig:LeftToeBase": {
+      "name": "mixamorig:LeftToeBase",
+      "restChildDirections": {
+        "mixamorig:LeftToe_End": {
+          "x": -1.303851604461669e-8,
+          "y": 0.9999999999999993,
+          "z": 3.427267074584959e-8
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:LeftToe_End": 10.000000000000007
+      }
+    },
+    "mixamorig:LeftToe_End": {
+      "name": "mixamorig:LeftToe_End",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    },
+    "mixamorig:RightUpLeg": {
+      "name": "mixamorig:RightUpLeg",
+      "restChildDirections": {
+        "mixamorig:RightLeg": {
+          "x": -9.06906800292975e-9,
+          "y": 1,
+          "z": -1.810770615709769e-9
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightLeg": 40.59944152832031
+      }
+    },
+    "mixamorig:RightLeg": {
+      "name": "mixamorig:RightLeg",
+      "restChildDirections": {
+        "mixamorig:RightFoot": {
+          "x": 5.843648818484652e-9,
+          "y": 1,
+          "z": 4.93877853930774e-9
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightFoot": 42.09902572631836
+      }
+    },
+    "mixamorig:RightFoot": {
+      "name": "mixamorig:RightFoot",
+      "restChildDirections": {
+        "mixamorig:RightToeBase": {
+          "x": -8.176836856990908e-8,
+          "y": 0.999999999999996,
+          "z": 3.601704772551495e-8
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightToeBase": 15.721558570861879
+      }
+    },
+    "mixamorig:RightToeBase": {
+      "name": "mixamorig:RightToeBase",
+      "restChildDirections": {
+        "mixamorig:RightToe_End": {
+          "x": 3.054738336061317e-8,
+          "y": 0.9999999999999993,
+          "z": 1.639127887642658e-8
+        }
+      },
+      "restChildLengths": {
+        "mixamorig:RightToe_End": 9.99999904632569
+      }
+    },
+    "mixamorig:RightToe_End": {
+      "name": "mixamorig:RightToe_End",
+      "restChildDirections": {},
+      "restChildLengths": {}
+    }
+  },
+  "hands": {
+    "left": {
+      "palmRestNormalLocal": {
+        "x": -0.0027610403301744487,
+        "y": -0.01952990222032304,
+        "z": 0.9998054608650424
+      }
+    },
+    "right": {
+      "palmRestNormalLocal": {
+        "x": -0.002760424684903487,
+        "y": 0.01953053320978492,
+        "z": -0.9998054502392455
+      }
+    }
+  },
+  "notes": [
+    "Bone roll / axis-twist is NOT calibrated. The retargeting math (M5/M6) uses minimal (shortest-arc) rotations from a calibrated rest direction to a measured target direction, which never reads or needs twist-around-own-axis. Per spec Appendix A Rule 3, that twist is unobservable from a single RGB camera and must not be invented. If a later milestone needs it, it must be added here explicitly, not assumed zero."
+  ]
+}

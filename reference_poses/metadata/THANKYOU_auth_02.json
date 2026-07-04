@@ -1,0 +1,51 @@
+{
+  "poseId": "THANKYOU_auth_02",
+  "signName": "THANK_YOU",
+  "frameFraction": 0.6,
+  "sourceGlb": "",
+  "avatarVersion": "ed9f8934",
+  "generatorVersion": "authorSignKeyframes@1.0.0",
+  "extractedAt": "2026-07-02T00:16:45.956Z",
+  "notes": "CODE-AUTHORED (experiment: model-authored keyframes, no Blender source). Mid-arc: hand moving forward and down, palm rotating up.",
+  "bones": {
+    "mixamorig:RightArm": {
+      "rotation": [
+        0.6270918671263859,
+        -0.06723519425238828,
+        -0.39831612034492403,
+        0.6660178400082124
+      ],
+      "translation": [
+        2.384185791015625e-7,
+        12.922285079956055,
+        -0.000017762424249667674
+      ]
+    },
+    "mixamorig:RightForeArm": {
+      "rotation": [
+        0.22781230306911116,
+        0.23687951405053226,
+        -0.6844137439258229,
+        0.6508217972044495
+      ],
+      "translation": [
+        -5.502370186150074e-7,
+        27.4046688079834,
+        -0.0000124437556223711
+      ]
+    },
+    "mixamorig:RightHand": {
+      "rotation": [
+        -2.963428470947882e-7,
+        -2.066467580386089e-9,
+        -2.0663029065559613e-9,
+        1.0000011506478752
+      ],
+      "translation": [
+        0.00001291496755584376,
+        27.61445426940918,
+        -0.000007573439233965473
+      ]
+    }
+  }
+}

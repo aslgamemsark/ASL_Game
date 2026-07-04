@@ -1,225 +1,164 @@
-# ASL Learning Game
+# ASL_Game
 
 A gamified **American Sign Language (ASL)** learning app. The player is shown a prompt inside a
 themed scenario (a coffee shop, a hospital, …) and must perform the correct ASL sign in front of
-their webcam to progress — lessons, story mode, timed challenges, leaderboards, and an XP/streak
-system, all gated by a webcam-driven sign recognizer.
+their webcam to progress.
 
-**Live app:** React/TypeScript, running entirely client-side (no video ever leaves the browser).
-**Origin:** started as a Python desktop prototype (`core/`, `scenarios/`) that proved out the
-recognition design before being ported to the web (`web/`), which is now the primary product.
+## How recognition works (and the bug we refuse to repeat)
 
----
+Every ASL sign is defined by five parameters: **handshape, location, movement, palm orientation,
+non-manual markers**. Recognition is **rule-based geometry** over MediaPipe hand + pose
+landmarks — this Python prototype has no ML model; the browser port (`web/`) additionally runs a
+trained classifier, but strictly as a **veto-only disambiguation layer** on top of the same
+rule-based checks, never a replacement for them.
 
-## The core engineering decision: rules first, ML as a veto
-
-Most "sign recognition" demos train a classifier on video and call it done. That throws away the
-one thing that makes a *learning* tool useful: telling the user **which part of the sign** they
-got wrong (your handshape was right, but you didn't move). So this app is built in two layers:
-
-1. **A rule-based verifier** (ported 1:1 from Python to TypeScript) that scores every sign on
-   five independent parameters — **handshape, location, movement, palm orientation, non-manual
-   markers** — over a rolling ~1.5–2s window of MediaPipe landmarks. This produces the live
-   per-parameter checklist ("✅ handshape, ❌ movement") that is the app's actual differentiator.
-2. **A trained Bi-GRU classifier**, layered *on top* of the rules as a **veto-only gate**: it can
-   only reject a rule-pass when it's confident (≥70%) the user actually signed something else. It
-   can never approve a sign the rules rejected, and it never silently overrides the per-parameter
-   feedback. An imperfect classifier degrading to "rules alone" is a safe failure mode; an
-   imperfect classifier blocking a correct sign is not.
-
-The cardinal rule behind layer 1: **a sign that requires movement is never approved from a single
-frame.** An early version of this app passed COFFEE for two motionless fists because it only
-inspected one frame — that class of bug is now structurally prevented (the schema *requires* a
-movement spec be enforced if declared; see [CLAUDE.md](CLAUDE.md)).
-
----
-
-## Architecture
-
-```mermaid
-flowchart LR
-    subgraph Browser
-        Cam[Webcam] --> MP[MediaPipe Tasks Vision<br/>Hand + Pose landmarks]
-        MP --> Buf[RollingBuffer<br/>~2s of frames]
-        Buf --> Verify[Rule Verifier<br/>per-parameter scores]
-        Verify -- rule pass --> Gate{ML Gate<br/>veto-only}
-        Buf -. landmark snapshot .-> Gate
-        Gate -- pass --> UI[Sign Coach UI<br/>+ XP / streak / lessons]
-        Gate -- veto --> Hint[Additive hint,<br/>rule bars unchanged]
-        Verify -- per-param scores --> UI
-    end
-    Gate --> Log[sign_attempts row<br/>rule + AI + outcome]
-    Gate -. opt-in .-> Train[training_samples row<br/>landmark snapshot]
-    Log --> Supabase[(Supabase Postgres)]
-    Train --> Supabase
-    Supabase --> Insights[Personal Insights<br/>struggle signs, AI veto rate,<br/>accuracy over time]
-    Supabase --> Export[tools/export_supabase_samples.py]
-    Export --> Retrain[ml/dataset.py + ml/train.py<br/>next model_vN]
-```
-
-The right-hand loop (attempt logging → Insights → export → retrain) is what turns real practice
-sessions into the next model version — see [Data collection](#data-collection--analytics) below.
-
----
-
-## Screenshots
-
-> _TODO: drop screenshots/GIFs here — home screen, a lesson in progress with the per-parameter
-> checklist, the AI-debug console output, and the Insights panel._
-
----
-
-## AI pipeline
-
-```
-ASL Citizen (licensed) + WLASL (research license)
-        │  tools/extract_dataset.py — batch MediaPipe extraction, signer-disjoint split
-        ▼
-   Frame-format JSON  (data/landmarks/<SIGN>/<clip>.json)
-        │  ml/dataset.py — shoulder-width-normalized features, resampled to a fixed-length
-        │                  sequence, cached as one .npz (never re-parsed from JSON during training)
-        ▼
-   ml/inspect.py — visual gate: every sign sampled back as a stick-figure render BEFORE training
-        │
-        ▼
-   ml/train.py — Bidirectional GRU (TF/Keras), landmark augmentation (rotation/scale/jitter/
-        │        time-resample; mirroring intentionally excluded — see comments), evaluated on
-        │        HELD-OUT SIGNERS, versioned under ml/runs/model_vN/
-        ▼
-   ml/sanitize_tfjs.py — strips Keras-only regularizer metadata TF.js can't deserialize
-        ▼
-   web/public/models/signs/  (model.json + weights, loaded lazily in the browser)
-        │
-        ▼
-   web/src/engine/gate.ts — veto-only combination with the rule verifier
-```
-
-Two non-obvious fixes that cost real debugging time and are worth calling out:
-- **`reset_after=False`** must be set on every Keras `GRU` layer — the default is the cuDNN
-  variant, which TF.js's GRU op rejects outright. All earlier model versions were silently
-  unloadable in the browser until this was found.
-- **L2 regularizer metadata** in the exported `model.json` is a training-only artifact TF.js
-  can't deserialize (`Unknown regularizer: L2`) — `ml/sanitize_tfjs.py` nulls it post-export
-  (inference-equivalent; regularization only matters during training).
-
-## Technologies used
-
-| Layer | Stack |
-|---|---|
-| Recognition (rules) | MediaPipe Tasks Vision (Hand + Pose), numpy/TypeScript geometry, ported 1:1 Python → TS |
-| ML training | Python, TensorFlow/Keras (Bidirectional GRU), MediaPipe (batch landmark extraction) |
-| ML inference | TensorFlow.js, lazily code-split (`import('@tensorflow/tfjs')`) so the ~1MB chunk only loads if a model is deployed |
-| Web app | React 19, TypeScript, Vite, Tailwind CSS v4, Framer Motion, Zustand |
-| Backend | Supabase (Postgres + Auth + Row-Level Security) — auth, progress sync, leaderboards, attempt logging, training-data collection |
-| Python prototype | OpenCV, MediaPipe, pytest (214 tests) — the recognition ground truth the TS port is checked against |
-
-## Dataset
-
-- **[ASL Citizen](https://www.microsoft.com/en-us/research/project/asl-citizen/)** (licensed) —
-  84k videos, 2,731 signs, 52 signers. The primary training source.
-- **WLASL** (authorized 2026-06-30) — added for signer diversity per sign after the first model
-  (trained on ASL Citizen alone, ~30 clips/gloss) showed clear overfitting on thin classes.
-  ⚠️ **WLASL has a non-commercial / research-oriented license and a history of source-video
-  takedowns.** It is used here for training/experiments only — verify its license terms before
-  any commercial release of a model trained on it. `ASLLVD` is excluded entirely.
-- **Our own recordings**, growing via the in-app data-collection pipeline below — this is the
-  only fully-owned, commercially clean dataset in the mix, and it's the one that scales with
-  actual usage.
-- Splits are **signer-disjoint** (whole signers held out for val/test, never split by video) to
-  avoid leaking signer mannerisms into the reported accuracy.
-
-## Results — `model_v4`
-
-Bidirectional GRU, 18 signs, trained on the ASL Citizen + WLASL merge:
-
-| Metric | Value |
-|---|---|
-| Test accuracy | **85.3%** |
-| Macro F1 | **85.4%** |
-| Weighted F1 | 85.2% |
-| Test clips | 273 |
-
-Per-class F1 ranges from 0.67 (MEDICINE — confusable handshape) to 1.00 (WATER, EMERGENCY). The
-**EMERGENCY** result is a deliberate caveat, not a brag: it has only **5 total clips** (1 in the
-test split), so its 1.00 F1 is statistically meaningless — flagged here rather than left to look
-like a strength. This is exactly the kind of class the data-collection loop below exists to fix.
-
-## Data collection + analytics
-
-Every camera-driven attempt — pass, AI-veto, or explicit skip — is logged
-(`web/src/hooks/useRecognition.ts`'s `onAttempt` callback, fired from the same gate-evaluation
-point that already has the rule result, the AI vote, and the landmark snapshot). Two things come
-out of that:
-
-1. **Personal Insights** (Profile → Insights): toughest signs, average attempts-to-pass, lesson
-   completion %, AI veto rate, and a 14-day accuracy sparkline. Computed from `security_invoker`
-   Postgres views over `sign_attempts`, so Row-Level Security already scopes everything to "your
-   own data" — no separate access-control logic needed.
-2. **Training data**: when a user hasn't opted out (`profiles.collect_training_data`, on by
-   default, toggleable in Insights), the landmark snapshot for that attempt is also saved to
-   `training_samples`. `tools/export_supabase_samples.py` pulls those rows with the Supabase
-   service-role key (never shipped to the client) and writes them out in the exact Frame-JSON
-   format the training pipeline already consumes — closing the loop from "someone played the
-   game" to "the next model has more data" with zero manual relabeling.
-
-No video is ever uploaded — only hand/pose coordinate sequences (~50–200KB JSON per attempt).
+The cardinal rule: **a sign that requires movement is never approved from a single frame.**
+Movement is measured over a rolling ~1.5–2 second window of frames. (An earlier version passed
+COFFEE for two motionless fists because it only inspected one frame — that class of bug is now
+structurally prevented. See [CLAUDE.md](CLAUDE.md).)
 
 ## Project structure
 
 ```
 ASL_Game/
-├── core/              # Python recognition engine (ground truth for the TS port)
-├── signs/             # sign definitions as data (Python)
-├── scenarios/         # Python desktop prototype scenarios (coffee_shop, hospital_shop)
-├── tools/             # landmark extraction, fixture recorder, Supabase export
-├── tests/             # Python confusor regression tests (214 tests)
-├── ml/                # dataset builder, inspector gate, Bi-GRU training, TF.js export
-├── supabase/
-│   └── schema.sql     # full Postgres schema (idempotent, re-runnable)
-└── web/                # the live product
-    └── src/
-        ├── engine/     # TS port of core/ — landmarks, verifier, ML gate, classifier
-        ├── hooks/      # useRecognition, useClassifier, useProgressSync, useInsights, …
-        ├── pages/      # LessonPage, StoryPage, PracticePage, SpeedChallengePage, …
-        └── components/insights/  # Insights panel (struggle signs, accuracy sparkline)
+├── core/            # SHARED recognition engine (never duplicated per scenario)
+├── signs/           # sign definitions as data
+├── scenarios/
+│   ├── coffee_shop/   # Saad's themed scenario (presentation + assets only)
+│   ├── hospital_shop/ # hospital scenario (see scenarios/hospital_shop/README.md)
+│   └── classroom/     # classroom scenario (ownership not yet assigned)
+├── tools/           # landmark fixture recorder + dataset extraction/vocab-mapping scripts
+├── tests/           # confusor regression tests
+├── ml/              # trained-classifier pipeline (dataset → inspect → train → deploy)
+├── models/          # MediaPipe .task model files (downloaded, git-ignored)
+├── web/             # the React/TypeScript port — same recognition schema, browser-side,
+│                    #   with the trained classifier as an optional disambiguation layer
+└── docs/            # architecture/handoff docs, plus docs/vault/ — an Obsidian-compatible
+                     #   knowledge base (open docs/ as the vault); start at
+                     #   docs/vault/00-Index.md
 ```
+
+`core/` does recognition and is shared by every scenario. `scenarios/<name>/` only owns its
+look (background, prompts, animations). This split is deliberate — see [CLAUDE.md](CLAUDE.md).
+
+This README covers the **Python prototype** specifically. The browser port (`web/`) mirrors the
+same five-parameter schema and confusor-test discipline — see `docs/vault/Architecture.md` for
+how the two engines stay in sync, and `web/README.md` for running the web app itself.
 
 ## Setup
 
-**Python prototype** (recognition engine, ML training):
+1. Python **3.10+**.
+2. Create a virtual environment and install dependencies:
+   ```bash
+   python -m venv .venv
+   # Windows:        .venv\Scripts\activate
+   # macOS / Linux:  source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+3. Download the MediaPipe Tasks model files (one-time) into `models/` — see
+   [models/README.md](models/README.md).
+
+## Running
+
+> Activate the venv and make sure the models are downloaded first.
+
+**Play the coffee-shop scenario:**
 ```bash
-python -m venv .venv && .venv\Scripts\activate     # Windows
-pip install -r requirements.txt
-python -m scenarios.coffee_shop.main --debug        # live per-parameter score bars
-pytest                                               # 214 tests
+python -m scenarios.coffee_shop.main            # play
+python -m scenarios.coffee_shop.main --debug    # + live per-parameter score bars
 ```
+A lesson of **3 levels / 12 signs** — Greetings (HELLO, PLEASE, THANK YOU, YOU), Cafe Order
+(COFFEE, WANT, YES), Fingerspelling (A, B, L, V, Y). Each correct sign earns **+10**; finish a
+level for a level-complete card, then the next, ending in a total-score summary. Press `r` to
+replay, `q` to quit.
 
-**Web app** (the live product):
+**Play the hospital scenario:**
 ```bash
-cd web
-npm install
-cp .env.example .env.local   # add Supabase URL + anon key to enable auth/sync (optional)
-npm run dev                  # classifier inactive in dev (see note below)
-npm run preview              # production build — classifier active, this is how to test the AI gate locally
+python -m scenarios.hospital_shop.main          # play
+python -m scenarios.hospital_shop.main --debug  # + live per-parameter score bars
 ```
-> The dev server's dependency optimizer mis-bundles `@tensorflow/tfjs`; the rule engine and
-> full gameplay work fine under `npm run dev`, but to exercise the ML gate locally, build and
-> run `npm run preview` (matches what Vercel actually serves).
+Treat a queue of patients — **HELP, PAIN, MEDICINE, EMERGENCY**. Keys: `q` quit, `n` next patient.
+See [scenarios/hospital_shop/README.md](scenarios/hospital_shop/README.md) for how to perform each
+sign and the edge-case test framework.
 
-**Re-running the Supabase schema** (idempotent — safe against the live DB):
-```sql
--- paste supabase/schema.sql into the Supabase SQL editor
+**Dev tools:**
+```bash
+python -m tools.demo_landmarks                  # raw landmarks + inter-hand distance
+python -m tools.demo_verify --sign COFFEE       # live per-parameter verifier scorecard
+python -m tools.record_fixture --name <name> --sign COFFEE   # record a JSON fixture
 ```
 
-## Future work
+## Tests
 
-- **Cross-user analytics dashboard** — Insights today is scoped to "your own data" via RLS; an
-  admin view aggregating across all users (most-failed sign app-wide, etc.) is a deliberate next
-  step once there's enough usage to make it interesting.
-- **More EMERGENCY data** — the one class with too few samples to trust its reported metric.
-- **Scale to full ASL Citizen** (2,731 signs) — the extraction/training pipeline already
-  supports it; today's 18-sign model only covers the in-game vocabulary.
-- **Mobile camera performance** — MediaPipe Tasks Vision on lower-end mobile browsers hasn't
-  been profiled yet.
-- **Social features (Phase B)** — friends/challenges scaffolding exists; multiplayer head-to-head
-  matches are next.
+```bash
+pytest                       # or: pytest tests/test_coffee.py -v
+```
+Each sign ships a **correct** fixture and a **confusor** (the likeliest false positive). The
+confusor must fail on the *right* parameter — that's the regression lock against the single-frame
+bug. The hospital signs additionally ship an **idle** fixture (hands present but not performing the
+sign) that must fail on movement — the lock against false positives. See
+[scenarios/hospital_shop/README.md](scenarios/hospital_shop/README.md).
+
+## Adding a new sign (safe workflow)
+
+1. **Define it** in `signs/<name>.py`, marking **every** parameter the sign requires. The schema
+   refuses to let you declare a movement and leave it unenforced (try it — `Sign.__post_init__`
+   raises). Register it in `signs/__init__.py`.
+2. **Record fixtures** — a correct one and a confusor:
+   ```bash
+   python -m tools.record_fixture --name <sign>_correct  --sign <SIGN>
+   python -m tools.record_fixture --name <sign>_confusor --sign <SIGN>
+   ```
+3. **Calibrate live** with `python -m tools.demo_verify --sign <SIGN>` — watch the bars and the
+   movement readout, then tune the sign's thresholds (see below).
+4. **Add a test** asserting correct → PASS and confusor → FAIL on the right parameter.
+5. **Run the pre-ship checklist** (below) before merging.
+6. If the sign shares a handshape/location with an existing one (a **minimal pair**), flag it —
+   that's where rule-based detection gets fragile and is the signal it may be time for ML.
+
+## Where the tuning knobs live
+
+All recognition tuning is **per-sign data** in `signs/<name>.py` — never buried in the engine:
+
+| Knob | Field (in the sign's `MovementReq` / `LocationReq` / `HandShapeReq`) | What it does |
+|------|------|------|
+| Rotation needed | `min_total_rotation_deg` (COFFEE: 360) | how much circling counts as a grind |
+| Circle messiness allowed | `radius_tolerance_ratio` (COFFEE: 1.0) | how irregular a real circle can be |
+| Lift distance (linear) | `min_displacement_ratio` (HELP: 0.15) | min directed travel for a linear move |
+| Hands-closing (converge) | `min_approach_ratio` (PAIN: 0.15) | how far the inter-hand gap must shrink |
+| Oscillations (repeated) | `min_cycles` (MEDICINE: 2, EMERGENCY: 3) | back-and-forth cycles for a repeated move |
+| Hands-together distance | `LocationReq.max_dist_ratio` (COFFEE: 0.9) | max gap between hands (shoulder-widths) |
+| Per-parameter pass bar | `min_confidence` (default 0.6) | threshold each parameter must clear |
+
+Engine-level shared constants live in `core/` (e.g. `_RADIUS_CV_FREE` in `core/movement.py`,
+`SMOOTH_SECONDS` in `core/verifier.py`) — change these only deliberately; they affect every sign.
+
+## Robustness notes
+
+- **`HandStabilizer`** (`core/landmarks.py`) carries a recently-seen hand forward for ~0.3s to
+  bridge brief MediaPipe dropouts (closed fists are its weak spot). Used in live play, **not** in
+  the recorder (fixtures stay raw).
+- **Lighting / camera** quality matters more than any threshold — a missing landmark can't be
+  recovered by rules *or* ML. Good light + hands fully in frame is the cheapest robustness win.
+- **Next robustness lever (not yet built):** a per-user calibration step ("make a fist") to
+  personalize handshape thresholds instead of global constants.
+
+## Pre-ship checklist (run before merging any new sign)
+
+1. Does the definition mark **every** parameter the sign requires — not just handshape/location
+   if movement matters?
+2. Does movement use the **rolling buffer** (multiple frames), never a single frame?
+3. Show the **confusor** fixture failing, and confirm **which** parameter caused the fail.
+4. Show the **correct** fixture passing.
+5. `pytest` green.
+
+## Roadmap
+
+- **v1 (this Python prototype):** rule-based math, desktop, scenario by scenario. Still the
+  source of truth for the sign schema — the browser port mirrors it, not the other way around.
+- **Done:** ported recognition to the browser (`web/`, MediaPipe Tasks Vision / TypeScript);
+  added a trained Bi-GRU classifier as a client-side, veto-only disambiguation layer
+  (`ml/`, `web/src/engine/classifier.ts`) — see `docs/vault/ML-Pipeline.md`; added Supabase for
+  user progress/auth/leaderboards (`web/`, not used for recognition).
+- **Not yet built:** per-user calibration (a "make a fist" onboarding step to personalize
+  handshape thresholds instead of global constants).

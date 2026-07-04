@@ -1,0 +1,23 @@
+{
+  "HELLO": {
+    "frameCount": 43,
+    "fps": 30,
+    "maxPositionErrorMeters": 6.441028032700551e-15,
+    "meanPositionErrorMeters": 2.0579402989120165e-15,
+    "pass": true
+  },
+  "THANK_YOU": {
+    "frameCount": 43,
+    "fps": 30,
+    "maxPositionErrorMeters": 1.09255831689271e-14,
+    "meanPositionErrorMeters": 4.101593175103747e-15,
+    "pass": true
+  },
+  "COFFEE": {
+    "frameCount": 55,
+    "fps": 30,
+    "maxPositionErrorMeters": 9.033160713548322e-15,
+    "meanPositionErrorMeters": 4.0136758939714935e-15,
+    "pass": true
+  }
+}

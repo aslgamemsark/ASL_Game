@@ -18,6 +18,9 @@ Saad owns the coffee-shop scenario; a teammate owns another scenario.
   source-video takedowns. It is fine for model training and experiments, but **verify WLASL's
   license terms before any COMMERCIAL release** of a model trained on it. We still do NOT use
   ASLLVD. Keep collecting our own landmark recordings — that remains our proprietary set.
+  See `docs/LICENSING_CHECKLIST.md` for the full pre-commercial-release checklist (datasets,
+  the ybot avatar rig, reference clips, model files, npm dependencies) — work through it before
+  charging money for the app, not before.
 - **Stack (v1):** Python, MediaPipe Hand + Pose (Tasks API), OpenCV (game UI + webcam), numpy
   (geometry). Future: React + TypeScript frontend, Supabase/Postgres for user progress — NOT
   for sign recognition.
@@ -60,17 +63,35 @@ never raw pixels, so the system works regardless of how close the user sits to t
 - `signs/` — shared sign definitions (pure data).
 - `scenarios/<name>/` — each developer's workspace; owns **only** its presentation/theme
   (background, prompts, success animation) plus a thin `main.py`. `coffee_shop/` = Saad,
-  `hospital_shop/` = teammate.
+  `hospital_shop/` = teammate. `classroom/` was added 2026-07-03 (ownership not yet assigned).
 - `core/game.py` — shared game mechanics (PiP webcam, score HUD, success flash, prompt banner).
 - `tools/` — landmark fixture recorder. `tests/` — confusor regression tests.
 
 ## CURRENT STATUS
 
-Coffee-shop scenario in progress. First sign: **COFFEE** (dominant S-hand circling over a
-stationary non-dominant S-hand). Static control: fingerspelled **letter A**.
+Three scenarios exist: `coffee_shop`, `hospital_shop`, and `classroom` (added 2026-07-03).
+24 signs total (7 fingerspelled letters + word signs) across all three, each with confusor
+tests in both the Python and TypeScript engines. A trained Bi-GRU ML classifier
+(`web/public/models/signs/`) runs as a veto-only disambiguation layer alongside the rule
+verifier — see `docs/vault/00-Index.md` (an Obsidian-compatible notes vault, open `docs/` as
+the vault root) for a fuller map of what exists and why, kept updated as work lands.
 
 ## WHEN ASKED TO ADD OR FIX A SIGN
 
 Follow the pattern above. If anyone describes a check that only looks at handshape and location
 for a sign that involves movement, **push back** and ask for the movement spec before writing
 the check.
+
+## AVATAR ENGINE — MANDATORY READING BEFORE TOUCHING IT
+
+The 3D avatar work lives on branch `claude/avatar-lab-prototype` (module `web/src/avatar/`).
+**Before authoring sign animations, finger curls, or changing the animation path, read
+`docs/AVATAR_AUTHORING_HANDOFF.md`** — it records verified rig conventions, three confirmed
+authoring defects with root causes and prescribed fixes, and the rules that stopped earlier
+models from shipping broken poses (FK readback before every write; measure the rig, never assume
+axis conventions; Blender keyframes from the user outrank code-authored math).
+
+**Active effort (approved 2026-07-02): video-driven arm retargeting from ASL Citizen.** Plan,
+research findings, per-sign risks, and current implementation state are in
+`docs/VIDEO_RETARGET_HANDOFF.md` — read it before touching this pipeline. Pilot signs (must
+work): HELLO, YOU, COFFEE, WANT, HOSPITAL.

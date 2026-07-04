@@ -1,6 +1,6 @@
 """Coffee-shop scenario entry point.
 
-A lesson of 3 levels (12 signs): Greetings, Cafe Order, Fingerspelling. Each correct sign earns
+A lesson of 3 levels (13 signs): Greetings, Cafe Order, Fingerspelling. Each correct sign earns
 +10, advances, and rolls into a level-complete card then the next level, ending in a summary.
 Success fires ONLY on an overall verifier pass (every required parameter cleared).
 
@@ -22,7 +22,7 @@ from core.verifier import movement_debug, verify
 from scenarios.coffee_shop.scene import CoffeeShopScene
 from signs import (
     COFFEE, HELLO, LETTER_A, LETTER_B, LETTER_L, LETTER_V, LETTER_Y,
-    PLEASE, THANK_YOU, WANT, YES, YOU,
+    MORE, PLEASE, THANK_YOU, WANT, YES, YOU,
 )
 
 
@@ -37,6 +37,7 @@ def build_levels() -> list[Level]:
         Level("Cafe Order", [
             Prompt(COFFEE, "COFFEE - two fists, grind the top over the bottom"),
             Prompt(WANT, "WANT - both open hands, pull down toward you"),
+            Prompt(MORE, "MORE - both claw hands, tap fingertips together"),
             Prompt(YES, "YES - a fist, nod it up and down"),
         ]),
         Level("Fingerspelling", [

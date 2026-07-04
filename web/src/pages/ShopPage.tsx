@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SHOP_ITEMS, RARITY_COLOR, type ShopItem, type CosmeticType } from '@/data/shop';
 import { useUserStore } from '@/stores/useUserStore';
+import { useSounds } from '@/hooks/useSounds';
 
 const SECTIONS: { type: CosmeticType; title: string; icon: string }[] = [
   { type: 'border', title: 'Borders', icon: '🖼' },
@@ -14,6 +15,7 @@ interface Props {
 
 export function ShopPage({ onExit }: Props) {
   const { gold, ownedCosmetics, equippedBorder, equippedAvatar, purchaseCosmetic, equipBorder, equipAvatar } = useUserStore();
+  const { purchase, wrong } = useSounds();
   const [selected, setSelected] = useState<ShopItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -24,8 +26,13 @@ export function ShopPage({ onExit }: Props) {
 
   const handleBuy = (item: ShopItem) => {
     const ok = purchaseCosmetic(item.id, item.goldPrice);
-    if (ok) showToast(`Unlocked "${item.title}"! 🎉`);
-    else showToast('Not enough Gold 🪙');
+    if (ok) {
+      purchase();
+      showToast(`Unlocked "${item.title}"! 🎉`);
+    } else {
+      wrong();
+      showToast('Not enough Gold 🪙');
+    }
   };
 
   const handleEquip = (item: ShopItem) => {

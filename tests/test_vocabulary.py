@@ -16,7 +16,7 @@ from core.landmarks import (
     RING_MCP, RING_TIP, PINKY_MCP, PINKY_TIP,
 )
 from core.verifier import verify
-from signs import HELLO, LETTER_B, LETTER_L, LETTER_V, LETTER_Y, WANT, YES, YOU
+from signs import HELLO, LETTER_B, LETTER_I, LETTER_L, LETTER_V, LETTER_W, LETTER_Y, WANT, YES, YOU
 
 S = 60.0
 _MCP = {"index": (INDEX_MCP, -0.30), "middle": (MIDDLE_MCP, -0.10),
@@ -68,6 +68,18 @@ class TestHandshapeDiscrimination:
         assert handshape_confidence(y, "y") > 0.6
         assert handshape_confidence(y, "v") < 0.5
 
+    def test_w(self):
+        w = make_hand((0, 0), ("index", "middle", "ring"))
+        assert handshape_confidence(w, "w") > 0.6
+        assert handshape_confidence(w, "v") < 0.6           # V needs ring curled
+
+    def test_i_vs_y(self):
+        # I is pinky-only with the thumb tucked in — must NOT be confused with Y (thumb+pinky).
+        i = make_hand((0, 0), ("pinky",), thumb_out=False)
+        y = make_hand((0, 0), ("pinky",), thumb_out=True)
+        assert handshape_confidence(i, "i") > 0.6
+        assert handshape_confidence(y, "i") < 0.6
+
 
 def _static_buffer(hand_factory):
     buf = RollingBuffer(2.0)
@@ -86,6 +98,8 @@ class TestStaticLetters:
             (LETTER_V, lambda c: make_hand(c, ("index", "middle"))),
             (LETTER_L, lambda c: make_hand(c, ("index",), thumb_out=True)),
             (LETTER_Y, lambda c: make_hand(c, ("pinky",), thumb_out=True)),
+            (LETTER_W, lambda c: make_hand(c, ("index", "middle", "ring"))),
+            (LETTER_I, lambda c: make_hand(c, ("pinky",), thumb_out=False)),
             (YOU, lambda c: make_hand(c, ("index",), thumb_out=False)),
         ]
         for sign, factory in cases:
@@ -94,6 +108,12 @@ class TestStaticLetters:
     def test_wrong_handshape_fails(self):
         # a fist is not the letter V
         result = verify(_static_buffer(lambda c: make_hand(c, (), thumb_out=False)), LETTER_V)
+        assert not result.passed
+        assert "handshape_dominant" in result.failing_required
+
+    def test_letter_i_rejects_letter_y_handshape(self):
+        # Y (thumb+pinky out) must not accidentally pass as I (pinky only, thumb tucked).
+        result = verify(_static_buffer(lambda c: make_hand(c, ("pinky",), thumb_out=True)), LETTER_I)
         assert not result.passed
         assert "handshape_dominant" in result.failing_required
 

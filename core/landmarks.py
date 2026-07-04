@@ -35,6 +35,12 @@ POSE_MOUTH_LEFT = 9
 POSE_MOUTH_RIGHT = 10
 POSE_LEFT_SHOULDER = 11
 POSE_RIGHT_SHOULDER = 12
+POSE_LEFT_ELBOW = 13
+POSE_RIGHT_ELBOW = 14
+POSE_LEFT_WRIST = 15
+POSE_RIGHT_WRIST = 16
+POSE_LEFT_HIP = 23
+POSE_RIGHT_HIP = 24
 
 
 @dataclass
@@ -43,6 +49,11 @@ class Hand:
 
     handedness: str            # "Left" or "Right", from the image's perspective
     points: np.ndarray         # shape (21, 3): x_px, y_px, z (MediaPipe relative depth)
+    # OPTIONAL, additive (avatar video-retarget pipeline only — see docs/VIDEO_RETARGET_HANDOFF.md).
+    # MediaPipe HandLandmarker's `hand_world_landmarks`: shape (21, 3), METERS, roughly hand-centered
+    # (NOT wrist-relative, NOT pixel-space, NOT the same origin as `points`). None when not requested
+    # or not detected. Existing recognition/training consumers never read this field.
+    world_points: Optional[np.ndarray] = None
 
     @property
     def wrist(self) -> np.ndarray:
@@ -54,11 +65,19 @@ class Hand:
         return self.points[list(PALM_POINTS), :2].mean(axis=0)
 
     def to_dict(self) -> dict:
-        return {"handedness": self.handedness, "points": self.points.tolist()}
+        d = {"handedness": self.handedness, "points": self.points.tolist()}
+        if self.world_points is not None:
+            d["world_points"] = self.world_points.tolist()
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "Hand":
-        return cls(handedness=d["handedness"], points=np.asarray(d["points"], dtype=float))
+        wp = d.get("world_points")
+        return cls(
+            handedness=d["handedness"],
+            points=np.asarray(d["points"], dtype=float),
+            world_points=None if wp is None else np.asarray(wp, dtype=float),
+        )
 
 
 @dataclass
@@ -72,6 +91,19 @@ class Frame:
     left_shoulder: Optional[np.ndarray] = None        # (x, y) px
     right_shoulder: Optional[np.ndarray] = None       # (x, y) px
     mouth: Optional[np.ndarray] = None                # (x, y) px — real face anchor for chin signs
+    # OPTIONAL, additive (avatar video-retarget pipeline only — see docs/VIDEO_RETARGET_HANDOFF.md).
+    # MediaPipe PoseLandmarker's `pose_world_landmarks`: METERS, origin at the mid-hip point (that
+    # joint is always ~(0,0,0)). Keys present only for joints actually detected this frame:
+    # left_shoulder, right_shoulder, left_elbow, right_elbow, left_wrist, right_wrist, left_hip,
+    # right_hip — each a (3,) np.ndarray. None (the whole dict) when not requested or pose missed
+    # entirely this frame. Existing recognition/training consumers never read this field.
+    pose_world: Optional[dict] = None
+    # OPTIONAL, additive (facial non-manual marker support). MediaPipe FaceLandmarker's
+    # `face_blendshapes`, requested only when `Capture(want_face_blendshapes=True)`: the 52
+    # ARKit-standard blendshape scores in [0, 1], keyed by category name (e.g. "browInnerUp",
+    # "mouthPucker"). None when not requested or no face detected this frame. Existing
+    # recognition/training consumers never read this field.
+    face_blendshapes: Optional[dict] = None
 
     @property
     def shoulder_width(self) -> Optional[float]:
@@ -98,7 +130,7 @@ class Frame:
         return self.has_both_hands and self.shoulder_width is not None
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "t": self.t,
             "width": self.width,
             "height": self.height,
@@ -107,9 +139,15 @@ class Frame:
             "right_shoulder": None if self.right_shoulder is None else self.right_shoulder.tolist(),
             "mouth": None if self.mouth is None else self.mouth.tolist(),
         }
+        if self.pose_world is not None:
+            d["pose_world"] = {k: v.tolist() for k, v in self.pose_world.items()}
+        if self.face_blendshapes is not None:
+            d["face_blendshapes"] = dict(self.face_blendshapes)
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "Frame":
+        pw = d.get("pose_world")
         return cls(
             t=d["t"],
             width=d["width"],
@@ -118,6 +156,8 @@ class Frame:
             left_shoulder=None if d.get("left_shoulder") is None else np.asarray(d["left_shoulder"], float),
             right_shoulder=None if d.get("right_shoulder") is None else np.asarray(d["right_shoulder"], float),
             mouth=None if d.get("mouth") is None else np.asarray(d["mouth"], float),
+            pose_world=None if pw is None else {k: np.asarray(v, float) for k, v in pw.items()},
+            face_blendshapes=d.get("face_blendshapes"),
         )
 
 

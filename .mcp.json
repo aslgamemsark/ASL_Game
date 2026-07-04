@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "seekstone": {
+      "command": "npx",
+      "args": ["-y", "seekstone"],
+      "env": {
+        "SEEKSTONE_VAULT": "E:\\ASL_Game\\docs"
+      }
+    }
+  }
+}

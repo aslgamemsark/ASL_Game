@@ -308,9 +308,14 @@ export function SpeedChallengePage({ onExit }: Props) {
                     }}
                   >
                     <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+                    {/* Same WCAG contrast fix as PracticeTab's "Coffee Shop Story" card: the
+                        title had no explicit text color (inherits the near-white body default)
+                        directly on a mid-bright gradient across all 3 tiers - a scrim keeps the
+                        gradient intact while giving text enough contrast to read on. */}
+                    <div className="absolute inset-0 bg-black/30 rounded-2xl" />
                     <div className="relative flex items-center justify-between">
                       <div>
-                        <h3 className="text-lg font-bold">{cfg.icon} {cfg.label}</h3>
+                        <h3 className="text-lg font-bold text-white">{cfg.icon} {cfg.label}</h3>
                         <p className="text-white/70 text-sm mt-0.5">
                           {cfg.timePerSign}s per sign · {cfg.xpMult}× XP · {cfg.signsMult}× Signs 🤟
                         </p>
