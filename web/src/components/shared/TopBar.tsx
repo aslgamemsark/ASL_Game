@@ -33,7 +33,7 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
 
   return (
     <div className="sticky top-0 z-50 bg-z-bg/90 backdrop-blur-md border-b border-z-purple-deep/50">
-      <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
+      <div className="max-w-lg mx-auto lg:max-w-none flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
           <motion.button
             onClick={onOpenProfile}
@@ -45,7 +45,7 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
             {profileIcon}
           </motion.button>
           <span
-            className="font-bold text-xl tracking-tight"
+            className="font-bold text-xl tracking-tight lg:hidden"
             style={{
               background: 'linear-gradient(90deg, #A78BFA 0%, #14B8A6 100%)',
               WebkitBackgroundClip: 'text',
@@ -54,7 +54,7 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
           >SignUp</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto">
           {/* Streak */}
           <motion.div
             className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default"
