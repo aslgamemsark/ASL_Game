@@ -67,6 +67,7 @@ SHAPE_SPECS: dict[str, tuple[tuple[float, float, float, float], bool]] = {
     "v":      ((1.0, 1.0, 0.0, 0.0), False),
     "l":      ((1.0, 0.0, 0.0, 0.0), True),   # index + thumb
     "y":      ((0.0, 0.0, 0.0, 1.0), True),   # pinky + thumb
+    "i":      ((0.0, 0.0, 0.0, 1.0), False),  # pinky only — LETTER_I
     "n":      ((1.0, 1.0, 0.0, 0.0), False),
     "h":      ((1.0, 1.0, 0.0, 0.0), False),
     "u":      ((1.0, 1.0, 0.0, 0.0), False),
