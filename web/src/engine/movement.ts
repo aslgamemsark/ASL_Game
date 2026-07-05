@@ -202,10 +202,53 @@ export function convergeConfidence(
   return Math.min(touchScore, approachScore);
 }
 
+function tracedConfidence(actorTraj: Traj, shoulderWidth: number, req: MovementReq): number {
+  const template = req.traceTemplate ?? [];
+  const nPhases = template.length;
+  if (nPhases < 2 || actorTraj.length < nPhases * 2 || shoulderWidth <= 0) return 0;
+
+  const ts = actorTraj.map(([t]) => t);
+  const pts = actorTraj.map(([, c]) => c as [number, number]);
+  const duration = ts[ts.length - 1] - ts[0];
+  if (duration < req.minDurationS) return 0;
+
+  let totalPath = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1];
+    totalPath += Math.sqrt(dx * dx + dy * dy);
+  }
+  if (totalPath / shoulderWidth < req.minDisplacementRatio) return 0;
+
+  const tolDeg = req.traceToleranceDeg ?? 60;
+  const tolCos = Math.cos((tolDeg * Math.PI) / 180);
+  const tStart = ts[0];
+  const phaseScores: number[] = [];
+
+  for (let i = 0; i < nPhases; i++) {
+    const tLo = tStart + (i * duration) / nPhases;
+    const tHi = tStart + ((i + 1) * duration) / nPhases;
+    const phase = pts.filter((_, j) => ts[j] >= tLo && ts[j] <= tHi);
+    if (phase.length < 2) { phaseScores.push(0); continue; }
+
+    const dispX = phase[phase.length - 1][0] - phase[0][0];
+    const dispY = phase[phase.length - 1][1] - phase[0][1];
+    const mag = Math.sqrt(dispX * dispX + dispY * dispY);
+    if (mag < 1e-6) { phaseScores.push(0); continue; }
+
+    const targetRad = (template[i] * Math.PI) / 180;
+    const dot = (dispX / mag) * Math.cos(targetRad) + (dispY / mag) * Math.sin(targetRad);
+    phaseScores.push(Math.max(0, Math.min(1, (dot - tolCos) / Math.max(1 - tolCos, 1e-6))));
+  }
+
+  if (phaseScores.some(s => s === 0)) return 0;
+  return Math.pow(phaseScores.reduce((a, b) => a * b, 1), 1 / nPhases);
+}
+
 export function movementConfidence(actorTraj: Traj, shoulderWidth: number, req: MovementReq): number {
   if (req.kind === MovementKind.NONE) return 1.0;
   if (req.kind === MovementKind.CIRCULAR) return circularConfidence(actorTraj, shoulderWidth, req);
   if (req.kind === MovementKind.LINEAR) return linearConfidence(actorTraj, shoulderWidth, req);
   if (req.kind === MovementKind.REPEATED) return repeatedConfidence(actorTraj, shoulderWidth, req);
+  if (req.kind === MovementKind.TRACED) return tracedConfidence(actorTraj, shoulderWidth, req);
   return 0;
 }

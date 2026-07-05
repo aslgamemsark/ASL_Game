@@ -69,6 +69,7 @@ class MovementKind(str, Enum):
     CIRCULAR = "circular"
     REPEATED = "repeated"
     CONVERGE = "converge"            # two hands closing toward each other (e.g. PAIN)
+    TRACED = "traced"                # hand traces a specific path (e.g. letter J or Z in the air)
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,13 @@ class MovementReq:
 
     # converge (PAIN): minimum shrinkage of inter-hand gap, in shoulder-widths
     min_approach_ratio: float = 0.15
+
+    # traced (J, Z): expected direction angles for each phase of the stroke, degrees.
+    # Convention: 0°=right, 90°=down (image y increases downward), 180°=left, 270°=up.
+    # The trajectory is split into len(trace_template) equal time windows; each window's
+    # net displacement vector must align with the corresponding angle within trace_tolerance_deg.
+    trace_template: Tuple[float, ...] = ()
+    trace_tolerance_deg: float = 60.0
 
     # shared
     min_duration_s: float = 0.6

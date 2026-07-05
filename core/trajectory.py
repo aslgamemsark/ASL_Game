@@ -110,6 +110,42 @@ def oscillation_path(center, axis, amplitude: float, cycles: float, n: int,
     return c[None, :] + offset[:, None] * a[None, :]
 
 
+def traced_path(start, template_deg: tuple, amplitude: float, n: int,
+                easing: Easing = ease_sine_in_out) -> np.ndarray:
+    """Generate a path that moves through a sequence of direction phases.
+
+    `template_deg` is a sequence of direction angles in degrees (0=right, 90=down, 180=left,
+    270=up). The path starts at `start` and each phase moves `amplitude` units in the specified
+    direction. Returns exactly `n` frames by interpolating along the piecewise-linear skeleton.
+    """
+    s = _as_vec(start)
+    # Build the skeleton waypoints: start + one waypoint per phase
+    waypoints = [s]
+    pos = s.copy()
+    for deg in template_deg:
+        rad = np.radians(deg)
+        pos = pos + np.array([np.cos(rad), np.sin(rad)]) * amplitude
+        waypoints.append(pos.copy())
+    waypoints = np.array(waypoints)  # (n_phases+1) x 2
+
+    # Compute cumulative arc length along the skeleton
+    seg_lens = np.linalg.norm(np.diff(waypoints, axis=0), axis=1)
+    cum_len = np.concatenate([[0.0], np.cumsum(seg_lens)])
+    total_len = cum_len[-1]
+
+    # Resample to n evenly-spaced points along arc length (with easing applied to the parameter)
+    u = normalized_time(n, easing)   # 0..1 eased
+    arc_targets = u * total_len
+    result = np.empty((n, waypoints.shape[1]))
+    for i, target in enumerate(arc_targets):
+        # find which segment this arc length falls in
+        seg = int(np.searchsorted(cum_len, target, side='right')) - 1
+        seg = np.clip(seg, 0, len(seg_lens) - 1)
+        t_along = 0.0 if seg_lens[seg] < 1e-9 else (target - cum_len[seg]) / seg_lens[seg]
+        result[i] = waypoints[seg] + t_along * (waypoints[seg + 1] - waypoints[seg])
+    return result
+
+
 def converge_paths(start_a, start_b, n: int, gap_close_frac: float = 0.6,
                    easing: Easing = ease_sine_in_out) -> tuple[np.ndarray, np.ndarray]:
     """Two hands moving toward their shared midpoint, closing the gap by `gap_close_frac`.

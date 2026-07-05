@@ -106,6 +106,17 @@ export const LETTER_Y = createSign({
   movement: { kind: MovementKind.NONE, required: false },
 });
 
+export const LETTER_Z = createSign({
+  name: 'LETTER_Z', twoHanded: false,
+  dominant: { kind: 'index', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: {
+    kind: MovementKind.TRACED, actor: DOMINANT,
+    traceTemplate: [0, 135, 0], traceToleranceDeg: 60,
+    minDisplacementRatio: 0.25, minDurationS: 0.6, required: true,
+  },
+});
+
 export const LETTER_W = createSign({
   name: 'LETTER_W', twoHanded: false,
   dominant: { kind: 'w', required: true },
@@ -118,6 +129,17 @@ export const LETTER_I = createSign({
   dominant: { kind: 'i', required: true },
   location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
   movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_J = createSign({
+  name: 'LETTER_J', twoHanded: false,
+  dominant: { kind: 'i', required: true, minConfidence: 0.5 },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: {
+    kind: MovementKind.TRACED, actor: DOMINANT,
+    traceTemplate: [90, 180], traceToleranceDeg: 65,
+    minDisplacementRatio: 0.20, minDurationS: 0.5, required: true,
+  },
 });
 
 export const LETTER_D = createSign({
@@ -370,7 +392,7 @@ export const FRIEND = createSign({
   movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.05, minDurationS: 0.5, required: true },
 });
 
-export const COFFEE_SIGNS = [COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES, MORE, LETTER_A, LETTER_B, LETTER_D, LETTER_F, LETTER_G, LETTER_H, LETTER_I, LETTER_K, LETTER_L, LETTER_N, LETTER_O, LETTER_P, LETTER_Q, LETTER_R, LETTER_T, LETTER_U, LETTER_V, LETTER_W, LETTER_Y, YOU] as const;
+export const COFFEE_SIGNS = [COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES, MORE, LETTER_A, LETTER_B, LETTER_D, LETTER_F, LETTER_G, LETTER_H, LETTER_I, LETTER_J, LETTER_K, LETTER_L, LETTER_N, LETTER_O, LETTER_P, LETTER_Q, LETTER_R, LETTER_T, LETTER_U, LETTER_V, LETTER_W, LETTER_Y, LETTER_Z, YOU] as const;
 export const HOSPITAL_SIGNS = [HELP, PAIN, MEDICINE, EMERGENCY, DOCTOR, NURSE, SICK, FEVER, WATER, BREATHE, HOSPITAL, DIZZY] as const;
 export const CLASSROOM_SIGNS = [HELLO, PLEASE, THANK_YOU, TEACHER, WRITE, READ, NAME, FRIEND] as const;
 

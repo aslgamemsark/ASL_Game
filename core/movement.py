@@ -193,6 +193,62 @@ def converge_confidence(traj_a, traj_b, shoulder_width: float, req: MovementReq)
     return float(min(touch_score, approach_score))
 
 
+def traced_confidence(actor_traj, shoulder_width: float, req: MovementReq) -> float:
+    """Score how closely the trajectory matches a sequence of expected direction vectors.
+
+    The trajectory is split into len(req.trace_template) equal-duration phases. Each phase's
+    net displacement is compared to the expected direction angle (0°=right, 90°=down in image
+    coords, 180°=left, 270°=up). Phases too small to measure (sub-pixel motion within a phase)
+    contribute 0. Overall score is the geometric mean of per-phase scores so every phase must
+    be directionally correct — one phase scoring 0 kills the total.
+    """
+    n_phases = len(req.trace_template)
+    if n_phases < 2 or len(actor_traj) < n_phases * 2:
+        return 0.0
+    if shoulder_width is None or shoulder_width <= 0:
+        return 0.0
+
+    ts, pts = _series(actor_traj)
+    duration = float(ts[-1] - ts[0])
+    if duration < req.min_duration_s:
+        return 0.0
+
+    # Minimum total path length (not net displacement — need to actually move through each phase)
+    total_path = float(np.linalg.norm(np.diff(pts, axis=0), axis=1).sum()) / shoulder_width
+    if total_path < req.min_displacement_ratio:
+        return 0.0
+
+    tol_cos = float(np.cos(np.radians(req.trace_tolerance_deg)))
+    phase_scores: list[float] = []
+    t_start = float(ts[0])
+
+    for i, target_deg in enumerate(req.trace_template):
+        t_lo = t_start + i * duration / n_phases
+        t_hi = t_start + (i + 1) * duration / n_phases
+        mask = (ts >= t_lo) & (ts <= t_hi)
+        phase_pts = pts[mask]
+        if len(phase_pts) < 2:
+            phase_scores.append(0.0)
+            continue
+
+        disp = phase_pts[-1] - phase_pts[0]
+        mag = float(np.linalg.norm(disp))
+        if mag < 1e-6:
+            phase_scores.append(0.0)
+            continue
+
+        target_rad = np.radians(target_deg)
+        target_vec = np.array([np.cos(target_rad), np.sin(target_rad)])
+        dot = float(np.dot(disp / mag, target_vec))
+        # Linear ramp: 1.0 at exact match, 0.0 at the tolerance boundary, 0.0 beyond it
+        phase_score = float(np.clip((dot - tol_cos) / max(1.0 - tol_cos, 1e-6), 0.0, 1.0))
+        phase_scores.append(phase_score)
+
+    if not phase_scores or any(s == 0.0 for s in phase_scores):
+        return 0.0
+    return float(np.prod(phase_scores) ** (1.0 / len(phase_scores)))  # geometric mean
+
+
 def movement_confidence(actor_traj, shoulder_width: float, req: MovementReq) -> float:
     """Dispatch on the required movement kind. NONE trivially satisfied; CONVERGE uses two trajs."""
     if req.kind == MovementKind.NONE:
@@ -203,5 +259,7 @@ def movement_confidence(actor_traj, shoulder_width: float, req: MovementReq) -> 
         return linear_confidence(actor_traj, shoulder_width, req)
     if req.kind == MovementKind.REPEATED:
         return repeated_confidence(actor_traj, shoulder_width, req)
+    if req.kind == MovementKind.TRACED:
+        return traced_confidence(actor_traj, shoulder_width, req)
     # CONVERGE needs two trajectories — called directly from the verifier; return 0 if reached here.
     return 0.0

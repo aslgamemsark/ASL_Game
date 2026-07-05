@@ -205,6 +205,11 @@ def _plan_centers(sign: Sign, body: Body, n: int):
         dom, ndom = tj.converge_paths(start_a, start_b, n, gap_close_frac=0.6)
         return dom, ndom
 
+    if mv.kind == MovementKind.TRACED:
+        amp = max(mv.min_displacement_ratio * 1.2, 0.20) * sw / max(len(mv.trace_template), 1)
+        dom = tj.traced_path(base, mv.trace_template, amp, n)
+        return dom, None
+
     dom = np.tile(base, (n, 1))
     return dom, (np.tile(ndom_base, (n, 1)) if sign.two_handed else None)
 
