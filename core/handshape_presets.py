@@ -61,6 +61,7 @@ SHAPE_SPECS: dict[str, tuple[tuple[float, float, float, float], bool]] = {
     "b":      ((1.0, 1.0, 1.0, 1.0), True),
     "5":      ((1.0, 1.0, 1.0, 1.0), True),
     "claw":   ((0.40, 0.40, 0.40, 0.40), True),
+    "flat_o": ((0.65, 0.65, 0.65, 0.65), False),  # lightly curled fingertips, near thumb — MORE
     "index":  ((1.0, 0.0, 0.0, 0.0), False),
     "point":  ((1.0, 0.0, 0.0, 0.0), False),
     "1":      ((1.0, 0.0, 0.0, 0.0), False),

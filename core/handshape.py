@@ -131,6 +131,24 @@ def claw_confidence(hand: Hand) -> float:
     return float(base * penalty)
 
 
+def flat_o_confidence(hand: Hand) -> float:
+    """Flattened-O: fingertips lightly curled toward the thumb (MORE), NOT the deeper curl of a claw.
+
+    Real recorded MORE takes are noisy: mean finger curl ranged from ~0.02 to ~0.17 across separate
+    attempts at the "same" gesture — well under claw's 0.25 floor (tuned for MEDICINE/EMERGENCY's
+    deeper bent-5), which reads even a good attempt as exactly 0. The documented wrong-shape
+    confusor (a genuinely flat/open hand) measures curl ~0 with no observed variance, so there is a
+    wide, safe margin between "any real attempt" and "flat open hand" — this floor is set low enough
+    to clear the WEAKEST observed real attempt rather than the average one.
+    """
+    curls = _all_curls(hand)
+    m = float(np.mean(curls))
+    base = float(np.clip(m / 0.05, 0.0, 1.0))   # 0 at flat, full credit by curl ~0.05
+    spread = float(np.std(curls))
+    penalty = float(np.clip(1.0 - max(0.0, spread - 0.15) / 0.35, 0.0, 1.0))
+    return float(base * penalty)
+
+
 # --------------------------------------------------------------------------- exact patterns
 # 1 = must be extended, 0 = must be curled, absent = don't care. Scored by _match as the MIN over
 # the listed fingers, so EVERY condition must hold — an open hand can't pass a 2- or 3-finger shape
@@ -168,6 +186,7 @@ _DISPATCH = {
     "b": open_confidence,
     "5": open_confidence,
     "claw": claw_confidence,
+    "flat_o": flat_o_confidence,
 }
 
 

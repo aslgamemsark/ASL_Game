@@ -82,6 +82,19 @@ function clawConfidence(hand: Hand): number {
   return base * penalty;
 }
 
+// Flattened-O (MORE): real recorded takes are noisy, mean curl ranged ~0.02-0.17 across attempts
+// at the "same" gesture — well under claw's 0.25 floor (tuned for MEDICINE/EMERGENCY's deeper
+// bent-5). The wrong-shape confusor (flat/open hand) measures curl ~0 with no observed variance,
+// so this floor is set low enough to clear the WEAKEST observed real attempt, not the average one.
+function flatOConfidence(hand: Hand): number {
+  const curls = allCurls(hand);
+  const m = mean(curls);
+  const base = clip(m / 0.05, 0, 1);
+  const spread = std(curls);
+  const penalty = clip(1.0 - Math.max(0, spread - 0.15) / 0.35, 0, 1);
+  return base * penalty;
+}
+
 const PATTERNS: Record<string, Record<string, number>> = {
   point: { index: 1, middle: 0, ring: 0, pinky: 0 },
   '1': { index: 1, middle: 0, ring: 0, pinky: 0 },
@@ -115,6 +128,7 @@ const DISPATCH: Record<string, (hand: Hand) => number> = {
   b: openConfidence,
   '5': openConfidence,
   claw: clawConfidence,
+  flat_o: flatOConfidence,
 };
 
 export function handshapeConfidence(hand: Hand, kind: string): number {

@@ -125,6 +125,11 @@ export function repeatedConfidence(actorTraj: Traj, shoulderWidth: number, req: 
 
   const sigMean = arrMean(signal);
   const centered = signal.map((v) => v - sigMean);
+  // A percentile-of-itself floor was tried here and reverted: natural hand tremor while HOLDING
+  // STILL is self-similar noise, so a threshold relative to its own spread always clears it too.
+  // Verified against a real recorded "hold still, no signing" take: the max-based floor below
+  // correctly scores it well under the pass threshold; the percentile version false-passed it.
+  // Mirrors core/movement.py.
   const maxAbs = Math.max(...centered.map(Math.abs));
   const noise = 0.25 * maxAbs;
   let crossings = 0;
@@ -142,9 +147,23 @@ export function repeatedConfidence(actorTraj: Traj, shoulderWidth: number, req: 
   return Math.min(cycleScore, ampScore);
 }
 
+export type PointsTraj = [number, number[][]][]; // (t, all 21 landmark points)[]
+
+const CONVERGE_TAIL_S = 0.6;      // how far back to look for "how close did they just get"
+const CONVERGE_TOUCH_RATIO = 0.25; // closest-point distance below this reads as a real touch
+
+// How close the two hands' nearest points got, after genuinely being farther apart.
+//
+// Uses CLOSEST-POINT distance (fingertip to fingertip), not palm-center distance: palm centers
+// stay a hand-width apart even when fingertips actually touch, so a center-based gap never gets
+// close to the real "did they touch" signal — a live test found that natural arm drift/settling
+// over several seconds could shrink the center-to-center gap by as much as a deliberate approach,
+// without fingers ever coming close. Verified against real recordings: genuine touches reach
+// closest-point distance ~0.02-0.07 shoulder-widths; both a frozen held-apart pose AND incidental
+// drift stay ~0.6-0.75 the whole time.
 export function convergeConfidence(
-  trajA: Traj,
-  trajB: Traj,
+  trajA: PointsTraj,
+  trajB: PointsTraj,
   shoulderWidth: number,
   req: MovementReq
 ): number {
@@ -154,35 +173,33 @@ export function convergeConfidence(
   const ts = trajA.slice(0, n).map(([t]) => t);
   if (ts[ts.length - 1] - ts[0] < req.minDurationS) return 0;
 
-  const gap = [];
+  const gap: number[] = [];
   for (let i = 0; i < n; i++) {
-    const dx = trajA[i][1][0] - trajB[i][1][0];
-    const dy = trajA[i][1][1] - trajB[i][1][1];
-    gap.push(Math.sqrt(dx * dx + dy * dy) / shoulderWidth);
-  }
-
-  const k = Math.max(1, Math.floor(n / 4));
-  const startGap = arrMean(gap.slice(0, k));
-  const endGap = arrMean(gap.slice(n - k));
-  const approach = startGap - endGap;
-
-  let mono = 0;
-  if (n > 1) {
-    let dec = 0;
-    for (let i = 1; i < gap.length; i++) {
-      if (gap[i] < gap[i - 1]) dec++;
+    const pa = trajA[i][1];
+    const pb = trajB[i][1];
+    let best = Infinity;
+    for (const a of pa) {
+      for (const b of pb) {
+        const dx = a[0] - b[0], dy = a[1] - b[1];
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < best) best = d;
+      }
     }
-    mono = dec / (gap.length - 1);
+    gap.push(best / shoulderWidth);
   }
 
-  let magScore: number;
-  if (req.minApproachRatio > 0) {
-    magScore = clip(approach / req.minApproachRatio, 0, 1);
-  } else {
-    magScore = approach > 0 ? 1 : 0;
-  }
+  const tailStart = ts[ts.length - 1] - CONVERGE_TAIL_S;
+  const tailGaps = gap.filter((_, i) => ts[i] >= tailStart);
+  const recentMin = Math.min(...tailGaps);
+  const windowMax = Math.max(...gap);
 
-  return clip(magScore * (0.5 + 0.5 * mono), 0, 1);
+  const touchScore = clip((CONVERGE_TOUCH_RATIO - recentMin) / CONVERGE_TOUCH_RATIO, 0, 1);
+  const approach = windowMax - recentMin;
+  const approachScore = clip(approach / Math.max(req.minApproachRatio, 1e-6), 0, 1);
+  // Need BOTH a real touch AND a genuine approach from farther away: touchScore alone would accept
+  // hands that started already touching and never moved; approachScore alone would accept hands
+  // that got closer without ever actually touching.
+  return Math.min(touchScore, approachScore);
 }
 
 export function movementConfidence(actorTraj: Traj, shoulderWidth: number, req: MovementReq): number {

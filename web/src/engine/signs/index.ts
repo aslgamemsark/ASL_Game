@@ -50,8 +50,10 @@ export const YES = createSign({
 
 export const MORE = createSign({
   name: 'MORE', twoHanded: true,
-  dominant: { kind: 'claw', required: true, minConfidence: 0.5 },
-  nondominant: { kind: 'claw', required: true, minConfidence: 0.5 },
+  // claw's floor (mean curl > 0.25) is tuned for MEDICINE/EMERGENCY's deeper bent-5; a real
+  // flattened-O MORE take measured mean curl ~0.10-0.17, which claw reads as exactly 0.
+  dominant: { kind: 'flat_o', required: true, minConfidence: 0.4 },
+  nondominant: { kind: 'flat_o', required: true, minConfidence: 0.4 },
   location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 1.5, required: false },
   movement: { kind: MovementKind.CONVERGE, actor: DOMINANT, minApproachRatio: 0.15, minDurationS: 0.4, required: true },
 });
@@ -226,6 +228,9 @@ export const TEACHER = createSign({
   dominant: { kind: 'open', required: true, minConfidence: 0.5 },
   nondominant: { kind: 'open', required: true, minConfidence: 0.5 },
   location: { anchor: Anchor.FOREHEAD, actingHand: DOMINANT, maxDistRatio: 0.8, required: true },
+  // minCycles=1 was tried and reverted: a live test found that simply holding two hands still
+  // near the forehead could score ~1 cycle from tracking jitter alone (near-face hand tracking is
+  // noisy). 2 cycles sometimes needs a retry to register, but that's safer than passing on no motion.
   movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.08, minDurationS: 0.5, required: true },
 });
 
@@ -250,16 +255,26 @@ export const READ = createSign({
 
 export const NAME = createSign({
   name: 'NAME', twoHanded: true,
-  dominant: { kind: 'h', required: true, minConfidence: 0.5 },
+  // A real recorded take measured the tapping hand's fingers naturally curling somewhat on
+  // contact; the wrong-shape confusor scores 0.0 (huge margin), so 0.3 still rejects a genuinely
+  // different handshape while tolerating in-motion blur on the moving hand. Only the dominant
+  // (moving) hand gets this tolerance — a live test found loosening nondominant too let it hold
+  // almost any shape, since that hand never moves and so never has an in-motion-blur excuse.
+  dominant: { kind: 'h', required: true, minConfidence: 0.3 },
   nondominant: { kind: 'h', required: true, minConfidence: 0.5 },
-  location: { anchor: Anchor.OTHER_HAND, actingHand: DOMINANT, useClosestApproach: true, maxDistRatio: 0.4, required: true },
+  // 0.4 gave full credit to hands merely hovering close — a live test found a double-tap could
+  // pass without touching. A real recorded tap measured closest-approach down to ~0.01-0.06; 0.15
+  // still clears genuine contact with margin while rejecting a near-miss hover.
+  location: { anchor: Anchor.OTHER_HAND, actingHand: DOMINANT, useClosestApproach: true, maxDistRatio: 0.15, required: true },
   movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.04, minDurationS: 0.4, required: true },
 });
 
 export const FRIEND = createSign({
   name: 'FRIEND', twoHanded: true,
-  dominant: { kind: 'index', required: true, minConfidence: 0.5 },
-  nondominant: { kind: 'index', required: true, minConfidence: 0.5 },
+  // 0.5 used to sit exactly on the boundary a genuinely curled ("hook") index finger scores
+  // (index bent halfway + rest curled = 0.5 too), so a loosely closed hand read as a pass.
+  dominant: { kind: 'index', required: true, minConfidence: 0.65 },
+  nondominant: { kind: 'index', required: true, minConfidence: 0.65 },
   location: { anchor: Anchor.OTHER_HAND, actingHand: DOMINANT, useClosestApproach: true, maxDistRatio: 0.35, required: true },
   movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.05, minDurationS: 0.5, required: true },
 });

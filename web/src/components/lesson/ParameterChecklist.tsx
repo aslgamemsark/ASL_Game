@@ -30,6 +30,7 @@ const HANDSHAPE_HINTS: Record<string, string> = {
   b: 'Open your hand flat, fingers together',
   '5': 'Spread your fingers open wide',
   claw: 'Curve your fingers into a claw shape',
+  flat_o: 'Curl your fingertips lightly toward your thumb',
   n: 'Curl your index and middle finger down',
   h: 'Extend index and middle finger together',
   u: 'Extend index and middle finger together',

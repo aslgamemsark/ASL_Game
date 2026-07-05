@@ -96,9 +96,16 @@ def test_oscillation_has_cycles():
 
 
 def test_converge_closes_gap():
+    # converge_confidence now takes CLOSEST-POINT trajectories (all landmarks, not just a center) —
+    # wrap each single-point path as a 1-point "hand" so the pairwise-min distance reduces to plain
+    # point-to-point distance, same as the real single-point converge path being modeled here.
+    # It also now requires the gap to close to near ACTUAL touch (ratio < 0.25), not just shrink by
+    # some fraction of an arbitrary starting gap — gap_close_frac=0.9 lands the endpoint at ~0.06.
     req = MovementReq(kind=MovementKind.CONVERGE, min_approach_ratio=0.15, min_duration_s=0.6)
-    pa, pb = tj.converge_paths((250, 250), (250 + 0.6 * 180, 250), 30, gap_close_frac=0.6)
-    assert mv.converge_confidence(_traj(pa), _traj(pb), 180.0, req) > 0.7
+    pa, pb = tj.converge_paths((250, 250), (250 + 0.6 * 180, 250), 30, gap_close_frac=0.9)
+    traj_a = _traj([[p] for p in pa])
+    traj_b = _traj([[p] for p in pb])
+    assert mv.converge_confidence(traj_a, traj_b, 180.0, req) > 0.7
 
 
 def test_easing_is_monotonic_and_bounded():

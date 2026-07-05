@@ -28,8 +28,12 @@ from core.schema import (
 FRIEND = Sign(
     name="FRIEND",
     two_handed=True,
-    dominant=HandShapeReq(kind="index", required=True, min_confidence=0.5),
-    nondominant=HandShapeReq(kind="index", required=True, min_confidence=0.5),
+    # 0.5 used to sit exactly on the boundary a genuinely curled ("hook") index finger scores
+    # against index_confidence (index bent halfway + rest curled = 0.5 too), so a loosely closed
+    # hand read as a pass. 0.65 requires the index closer to straight, matching WRITE/FRIEND's
+    # other index-gated calls.
+    dominant=HandShapeReq(kind="index", required=True, min_confidence=0.65),
+    nondominant=HandShapeReq(kind="index", required=True, min_confidence=0.65),
     location=LocationReq(
         anchor=Anchor.OTHER_HAND,
         acting_hand=DOMINANT,
