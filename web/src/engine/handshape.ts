@@ -1,6 +1,6 @@
 import { clip, mean, std } from './math-utils';
 import type { Hand } from './landmarks';
-import { WRIST, THUMB_TIP, INDEX_MCP, INDEX_TIP, MIDDLE_MCP, MIDDLE_TIP, RING_MCP, RING_TIP, PINKY_MCP, PINKY_TIP } from './landmarks';
+import { WRIST, THUMB_TIP, INDEX_MCP, INDEX_TIP, MIDDLE_MCP, MIDDLE_PIP, MIDDLE_TIP, RING_MCP, RING_TIP, PINKY_MCP, PINKY_TIP } from './landmarks';
 
 type FingerPair = [number, number]; // [tip, mcp]
 const FINGER_LM: Record<string, FingerPair> = {
@@ -40,6 +40,36 @@ function allCurls(hand: Hand): number[] {
 function thumbExtended(hand: Hand): number {
   const d = dist2d(xy(hand, THUMB_TIP), xy(hand, INDEX_MCP)) / handScale(hand);
   return clip((d - 0.5) / (1.2 - 0.5), 0, 1);
+}
+
+function thumbDist(hand: Hand, idx: number): number {
+  return dist2d(xy(hand, THUMB_TIP), xy(hand, idx)) / handScale(hand);
+}
+
+// 0deg = wrist->middle-MCP points straight up the image, 90deg = sideways, 180deg = downward.
+// 0deg = this finger's MCP->TIP vector points straight up the image, 90deg = sideways, 180deg =
+// downward. A real recorded G measured the WRIST->MIDDLE-MCP vector (whole-palm orientation) at
+// only ~10deg even with a clean sideways G, because people rotate a single extended finger at its
+// own knuckle rather than rotating the whole forearm — the palm barely turns. The finger's own
+// direction measured ~80deg on the same recording, which is what actually distinguishes G/H
+// (sideways) and P/Q (downward) from their upright counterparts (D/L, K/V/U).
+function fingerDirectionDeg(hand: Hand, tipIdx: number, mcpIdx: number): number {
+  const mcp = xy(hand, mcpIdx);
+  const tip = xy(hand, tipIdx);
+  const v: [number, number] = [tip[0] - mcp[0], tip[1] - mcp[1]];
+  const n = Math.sqrt(v[0] * v[0] + v[1] * v[1]);
+  if (n < 1e-6) return 0;
+  const cosA = (v[0] * 0 + v[1] * -1) / n;
+  return (Math.acos(clip(cosA, -1, 1)) * 180) / Math.PI;
+}
+
+function orientationScore(hand: Hand, tipIdx: number, mcpIdx: number, targetDeg: number, tolerance = 35): number {
+  const angle = fingerDirectionDeg(hand, tipIdx, mcpIdx);
+  return clip(1.0 - Math.abs(angle - targetDeg) / tolerance, 0, 1);
+}
+
+function fingerSpread(hand: Hand, tipA: number, tipB: number): number {
+  return dist2d(xy(hand, tipA), xy(hand, tipB)) / handScale(hand);
 }
 
 export function extensions(hand: Hand): Record<string, number> {
@@ -95,10 +125,67 @@ function flatOConfidence(hand: Hand): number {
   return base * penalty;
 }
 
+// Distance bands (hand-scale units) for "thumb tip touching a fingertip".
+const PINCH_NEAR = 0.35;
+const PINCH_FAR = 0.9;
+
+function pinchScore(hand: Hand, tipIdx: number): number {
+  const d = thumbDist(hand, tipIdx);
+  return clip((PINCH_FAR - d) / (PINCH_FAR - PINCH_NEAR), 0, 1);
+}
+
+// Letter F: thumb and index tip touch (forming a small circle); middle/ring/pinky extended.
+function fConfidence(hand: Hand): number {
+  const pinch = pinchScore(hand, INDEX_TIP);
+  const ext = extensions(hand);
+  const others = Math.min(ext.middle, ext.ring, ext.pinky);
+  return Math.min(pinch, others);
+}
+
+// Letter O: all four fingertips curl in to meet the thumb, forming a rounded circle. Distinct
+// from flatO's very light curl and claw's deeper, thumb-unconstrained curl — O specifically
+// requires the thumb to be near the fingertips too, not just the fingers curling on their own.
+function oConfidence(hand: Hand): number {
+  const curls = allCurls(hand);
+  const m = mean(curls);
+  const curlScore = clip(1.0 - Math.abs(m - 0.5) / 0.35, 0, 1);
+  const pinch = pinchScore(hand, INDEX_TIP);
+  const spread = std(curls);
+  const penalty = clip(1.0 - Math.max(0, spread - 0.15) / 0.35, 0, 1);
+  return Math.min(curlScore, pinch) * penalty;
+}
+
+// Letter D: index extended upward; middle/ring/pinky curl in; thumb stays tucked (not held out
+// to the side like L).
+function dConfidence(hand: Hand): number {
+  const curls = allCurls(hand);
+  const indexExtended = 1.0 - curls[0];
+  const restCurled = Math.min(...curls.slice(1));
+  const thumbTucked = 1.0 - thumbExtended(hand);
+  return Math.min(indexExtended, restCurled, thumbTucked);
+}
+
+// Letter T: closed fist with the thumb tip tucked between the index and middle knuckles
+// (distinct from A's thumb resting alongside the index).
+// A real recorded pair found the thumb-to-MCP-midpoint distance runs the OPPOSITE direction from
+// the original assumption: a relaxed plain fist's thumb sits close to that midpoint (~0.18
+// hand-scale units), while a deliberate T pushes the thumb tip farther up between the knuckles
+// (~0.35-0.37). This is a band around T's real value, not a one-sided threshold — L/A/Y hold the
+// thumb out to the side at ~1.25, even farther than T.
+function tConfidence(hand: Hand): number {
+  const fistScore = mean(allCurls(hand));
+  const mcpMid: [number, number] = [
+    (xy(hand, INDEX_MCP)[0] + xy(hand, MIDDLE_MCP)[0]) / 2,
+    (xy(hand, INDEX_MCP)[1] + xy(hand, MIDDLE_MCP)[1]) / 2,
+  ];
+  const d = dist2d(xy(hand, THUMB_TIP), mcpMid) / handScale(hand);
+  const thumbBetween = clip(1.0 - Math.abs(d - 0.35) / 0.14, 0, 1);
+  return Math.min(fistScore, thumbBetween);
+}
+
 const PATTERNS: Record<string, Record<string, number>> = {
   point: { index: 1, middle: 0, ring: 0, pinky: 0 },
   '1': { index: 1, middle: 0, ring: 0, pinky: 0 },
-  v: { index: 1, middle: 1, ring: 0, pinky: 0 },
   l: { thumb: 1, index: 1, middle: 0, ring: 0, pinky: 0 },
   y: { thumb: 1, index: 0, middle: 0, ring: 0, pinky: 1 },
   // strict min-based: averaged version let open hands score 0.5+
@@ -119,6 +206,131 @@ function matchPattern(hand: Hand, pattern: Record<string, number>): number {
   return scores.length > 0 ? Math.min(...scores) : 0;
 }
 
+// Letter V: index + middle extended AND held apart (spread) — a real recorded confusor found the
+// plain finger-count pattern alone (used elsewhere for N/H/U) lets a JOINED 2-finger hand pass as
+// V too, since extension alone doesn't check separation between the two fingertips.
+function vConfidence(hand: Hand): number {
+  const patternScore = matchPattern(hand, { index: 1, middle: 1, ring: 0, pinky: 0 });
+  const spread = dist2d(xy(hand, INDEX_TIP), xy(hand, MIDDLE_TIP)) / handScale(hand);
+  const spreadScore = clip((spread - 0.15) / (0.40 - 0.15), 0, 1);
+  return Math.min(patternScore, spreadScore);
+}
+
+// High when index+middle tips are held CLOSE together (opposite of V's spread requirement).
+// High when index+middle tips are held CLOSE together (opposite of V's spread requirement). A
+// real recorded H (fingers deliberately held together) measured spread ~0.255 hand-scale units —
+// the original 0.05-0.20 "together" band was calibrated too tight. A real plain V measured ~0.816
+// on the same metric, so this band has a wide, safe gap: full credit up to ~0.15, fading by 0.6.
+function togetherScore(hand: Hand): number {
+  const spread = fingerSpread(hand, INDEX_TIP, MIDDLE_TIP);
+  return clip((0.60 - spread) / (0.60 - 0.15), 0, 1);
+}
+
+// Letter H: index+middle extended TOGETHER (not spread like V), hand rotated sideways.
+// Dispatched as "letter_h", NOT "h" — HOSPITAL/NAME already use kind="h" for their own,
+// differently-calibrated 2-finger check; reusing "h" here would silently change their behavior.
+function letterHConfidence(hand: Hand): number {
+  const patternScore = matchPattern(hand, { index: 1, middle: 1, ring: 0, pinky: 0 });
+  const together = togetherScore(hand);
+  const orient = orientationScore(hand, INDEX_TIP, INDEX_MCP, 90);
+  return Math.min(patternScore, together, orient);
+}
+
+// Letter U: index+middle extended TOGETHER, held upright (not rotated like H).
+function uConfidence(hand: Hand): number {
+  const patternScore = matchPattern(hand, { index: 1, middle: 1, ring: 0, pinky: 0 });
+  const together = togetherScore(hand);
+  const orient = orientationScore(hand, INDEX_TIP, INDEX_MCP, 0);
+  return Math.min(patternScore, together, orient);
+}
+
+// Letter K: index+middle spread apart (like V), thumb touches the middle finger's BASE (MCP),
+// not its tip — distinct from V (no thumb constraint) and F (thumb touches index tip).
+// How close the thumb tip is to K/P's real touch distance from the middle-MCP. A real recorded
+// pair found this runs the OPPOSITE direction from the original assumption (same mistake as T's
+// thumb-position bug): a relaxed V's thumb naturally rests close to the middle-MCP already
+// (~0.17 hand-scale units), so reusing the generic "touching" pinch score always saturated to
+// 1.0 for a plain V. Genuine K reaches the thumb tip FARTHER out to the middle-MCP (~0.46-0.53) —
+// this is a band around K's real value, not a "closer is better" pinch.
+function kThumbTouch(hand: Hand): number {
+  const d = thumbDist(hand, MIDDLE_MCP);
+  return clip(1.0 - Math.abs(d - 0.49) / 0.20, 0, 1);
+}
+
+function kConfidence(hand: Hand): number {
+  const vPattern = matchPattern(hand, { index: 1, middle: 1, ring: 0, pinky: 0 });
+  const spread = fingerSpread(hand, INDEX_TIP, MIDDLE_TIP);
+  const spreadScore = clip((spread - 0.15) / (0.40 - 0.15), 0, 1);
+  const thumbTouch = kThumbTouch(hand);
+  return Math.min(vPattern, spreadScore, thumbTouch);
+}
+
+// Letter G: index extended, thumb held out roughly parallel (like L), hand rotated sideways so
+// the index points across rather than up.
+function gConfidence(hand: Hand): number {
+  const indexPattern = matchPattern(hand, { index: 1, middle: 0, ring: 0, pinky: 0 });
+  const thumbOut = thumbExtended(hand);
+  const orient = orientationScore(hand, INDEX_TIP, INDEX_MCP, 90);
+  return Math.min(indexPattern, thumbOut, orient);
+}
+
+// Letter Q: same handshape as G, rotated to point downward instead of sideways.
+function qConfidence(hand: Hand): number {
+  const indexPattern = matchPattern(hand, { index: 1, middle: 0, ring: 0, pinky: 0 });
+  const thumbOut = thumbExtended(hand);
+  const orient = orientationScore(hand, INDEX_TIP, INDEX_MCP, 180);
+  return Math.min(indexPattern, thumbOut, orient);
+}
+
+// When the hand points downward (P), the thumb rests near MIDDLE_PIP (~0.25), not MIDDLE_MCP
+// (~0.86 away — the opposite side of the hand from where K's thumb touches).
+function pThumbPos(hand: Hand): number {
+  const d = thumbDist(hand, MIDDLE_PIP);
+  return clip(1.0 - Math.abs(d - 0.25) / 0.18, 0, 1);
+}
+
+// Letter P: K-like V-shape with both fingers pointing downward, thumb near middle-PIP.
+function pConfidence(hand: Hand): number {
+  const vPattern = matchPattern(hand, { index: 1, middle: 1, ring: 0, pinky: 0 });
+  const spread = fingerSpread(hand, INDEX_TIP, MIDDLE_TIP);
+  const spreadScore = clip((spread - 0.15) / (0.40 - 0.15), 0, 1);
+  const thumbTouch = pThumbPos(hand);
+  const orient = orientationScore(hand, MIDDLE_TIP, MIDDLE_MCP, 180);
+  return Math.min(vPattern, spreadScore, thumbTouch, orient);
+}
+
+// Letter R: index and middle extended and CROSSED (their left-right order at the tip is swapped
+// relative to their order at the knuckle), ring+pinky curled.
+function rConfidence(hand: Hand): number {
+  const bothExtended = Math.min(
+    1.0 - fingerCurl(hand, INDEX_TIP, INDEX_MCP),
+    1.0 - fingerCurl(hand, MIDDLE_TIP, MIDDLE_MCP)
+  );
+  const ext = extensions(hand);
+  const restCurled = Math.min(1.0 - ext.ring, 1.0 - ext.pinky);
+  const mcpDx = xy(hand, MIDDLE_MCP)[0] - xy(hand, INDEX_MCP)[0];
+  const tipDx = xy(hand, MIDDLE_TIP)[0] - xy(hand, INDEX_TIP)[0];
+  const scale = handScale(hand);
+  const crossing = mcpDx !== 0 ? (-Math.sign(mcpDx) * tipDx) / scale : 0;
+  const crossedScore = clip(crossing / 0.15, 0, 1);
+  return Math.min(bothExtended, restCurled, crossedScore);
+}
+
+// Letter N: closed fist, thumb tucked under the index and middle fingers specifically (distinct
+// from a plain fist/A/T's thumb placement). Same 2D-distance-to-knuckle-line approach as T; may
+// share T's real-world ambiguity between "under" and "nearby". Dispatched as "letter_n", NOT
+// "n" — NURSE already uses kind="n" for its own, differently-calibrated 2-finger check.
+function letterNConfidence(hand: Hand): number {
+  const fistScore = mean(allCurls(hand));
+  const mcpMid: [number, number] = [
+    (xy(hand, INDEX_MCP)[0] + xy(hand, MIDDLE_MCP)[0]) / 2,
+    (xy(hand, INDEX_MCP)[1] + xy(hand, MIDDLE_MCP)[1]) / 2,
+  ];
+  const d = dist2d(xy(hand, THUMB_TIP), mcpMid) / handScale(hand);
+  const thumbUnder = clip(1.0 - Math.abs(d - 0.20) / 0.12, 0, 1);
+  return Math.min(fistScore, thumbUnder);
+}
+
 const DISPATCH: Record<string, (hand: Hand) => number> = {
   fist: fistConfidence,
   s: fistConfidence,
@@ -129,6 +341,19 @@ const DISPATCH: Record<string, (hand: Hand) => number> = {
   '5': openConfidence,
   claw: clawConfidence,
   flat_o: flatOConfidence,
+  f: fConfidence,
+  o: oConfidence,
+  d: dConfidence,
+  t: tConfidence,
+  v: vConfidence,
+  letter_h: letterHConfidence,
+  u: uConfidence,
+  k: kConfidence,
+  letter_n: letterNConfidence,
+  g: gConfidence,
+  q: qConfidence,
+  p: pConfidence,
+  r: rConfidence,
 };
 
 export function handshapeConfidence(hand: Hand, kind: string): number {

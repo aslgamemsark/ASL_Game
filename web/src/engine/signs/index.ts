@@ -120,6 +120,97 @@ export const LETTER_I = createSign({
   movement: { kind: MovementKind.NONE, required: false },
 });
 
+export const LETTER_D = createSign({
+  name: 'LETTER_D', twoHanded: false,
+  dominant: { kind: 'd', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_F = createSign({
+  name: 'LETTER_F', twoHanded: false,
+  dominant: { kind: 'f', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_O = createSign({
+  name: 'LETTER_O', twoHanded: false,
+  dominant: { kind: 'o', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_T = createSign({
+  name: 'LETTER_T', twoHanded: false,
+  dominant: { kind: 't', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_G = createSign({
+  name: 'LETTER_G', twoHanded: false,
+  dominant: { kind: 'g', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_H = createSign({
+  name: 'LETTER_H', twoHanded: false,
+  dominant: { kind: 'letter_h', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_K = createSign({
+  name: 'LETTER_K', twoHanded: false,
+  dominant: { kind: 'k', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_N = createSign({
+  name: 'LETTER_N', twoHanded: false,
+  dominant: { kind: 'letter_n', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_P = createSign({
+  name: 'LETTER_P', twoHanded: false,
+  // A real recorded P measured middle-finger extension at ~0.47 against the default 0.6
+  // threshold — fully extending the middle finger while pointing downward is measurably harder
+  // than the same K shape upright. Orientation/spread/thumb checks still reject a wrong-
+  // orientation confusor, so lowering just this sign's threshold is safe.
+  dominant: { kind: 'p', required: true, minConfidence: 0.4 },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_Q = createSign({
+  name: 'LETTER_Q', twoHanded: false,
+  // A real recorded Q measured thumb-extension at ~0.48 against the default 0.6 threshold —
+  // pointing the whole hand downward compresses how far the thumb reaches from the camera's
+  // perspective. Orientation/index-extension checks still reject a wrong-orientation confusor.
+  dominant: { kind: 'q', required: true, minConfidence: 0.4 },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_R = createSign({
+  name: 'LETTER_R', twoHanded: false,
+  dominant: { kind: 'r', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_U = createSign({
+  name: 'LETTER_U', twoHanded: false,
+  dominant: { kind: 'u', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
 // --- Hospital signs ---
 
 export const HELP = createSign({
@@ -279,7 +370,7 @@ export const FRIEND = createSign({
   movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.05, minDurationS: 0.5, required: true },
 });
 
-export const COFFEE_SIGNS = [COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES, MORE, LETTER_A, LETTER_B, LETTER_I, LETTER_L, LETTER_V, LETTER_W, LETTER_Y, YOU] as const;
+export const COFFEE_SIGNS = [COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES, MORE, LETTER_A, LETTER_B, LETTER_D, LETTER_F, LETTER_G, LETTER_H, LETTER_I, LETTER_K, LETTER_L, LETTER_N, LETTER_O, LETTER_P, LETTER_Q, LETTER_R, LETTER_T, LETTER_U, LETTER_V, LETTER_W, LETTER_Y, YOU] as const;
 export const HOSPITAL_SIGNS = [HELP, PAIN, MEDICINE, EMERGENCY, DOCTOR, NURSE, SICK, FEVER, WATER, BREATHE, HOSPITAL, DIZZY] as const;
 export const CLASSROOM_SIGNS = [HELLO, PLEASE, THANK_YOU, TEACHER, WRITE, READ, NAME, FRIEND] as const;
 

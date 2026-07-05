@@ -40,6 +40,17 @@ const HANDSHAPE_HINTS: Record<string, string> = {
   y: 'Make a "Y" — thumb and pinky out, rest curled',
   middle: 'Extend just your middle finger',
   i: 'Make a fist, raise just your pinky, thumb tucked in',
+  d: 'Point your index up, curl the rest toward your thumb',
+  f: 'Touch thumb and index into a circle, other three fingers up',
+  o: 'Curl every fingertip in to touch the thumb',
+  t: 'Make a fist, tuck your thumb between the first two fingers',
+  g: 'Point sideways with index and thumb, like L turned on its side',
+  letter_h: 'Two fingers together, pointing sideways',
+  k: 'Make a V, touch your thumb to the base of your middle finger',
+  letter_n: 'Make a fist, tuck your thumb under the first two fingers',
+  p: 'Make a K, then point it toward the ground',
+  q: 'Make a G, then point it toward the ground',
+  r: 'Cross your index and middle fingers',
 };
 
 const LOCATION_HINTS: Record<Anchor, string> = {

@@ -12,7 +12,13 @@ const S = 60;
 const MCP: Record<string, [number, number]> = { index: [5, -0.3], middle: [9, -0.1], ring: [13, 0.1], pinky: [17, 0.3] };
 const TIP: Record<string, number> = { index: 8, middle: 12, ring: 16, pinky: 20 };
 
-function makeHand(center: [number, number], extended: string[] = [], thumbOut = false, handed: 'Left' | 'Right' = 'Right'): Hand {
+function makeHand(
+  center: [number, number],
+  extended: string[] = [],
+  thumbOut = false,
+  handed: 'Left' | 'Right' = 'Right',
+  spread = 1.0
+): Hand {
   const [cx, cy] = center;
   const pts: [number, number, number][] = Array.from({ length: 21 }, () => [0, 0, 0]);
   pts[0] = [cx, cy + 0.5 * S, 0];
@@ -20,7 +26,8 @@ function makeHand(center: [number, number], extended: string[] = [], thumbOut = 
   for (const [name, [mcpIdx, fx]] of Object.entries(MCP)) {
     pts[mcpIdx] = [cx + fx * S, mcpY, 0];
     const tipIdx = TIP[name];
-    pts[tipIdx] = extended.includes(name) ? [cx + fx * S, mcpY - 0.9 * S, 0] : [cx + fx * S, mcpY + 0.15 * S, 0];
+    const tipFx = (name === 'index' || name === 'middle') ? fx * spread : fx;
+    pts[tipIdx] = extended.includes(name) ? [cx + tipFx * S, mcpY - 0.9 * S, 0] : [cx + fx * S, mcpY + 0.15 * S, 0];
   }
   pts[2] = [cx - 0.3 * S, mcpY, 0];
   pts[4] = thumbOut ? [cx - 1.0 * S, mcpY, 0] : [cx - 0.25 * S, mcpY + 0.1 * S, 0];
@@ -46,6 +53,11 @@ describe('letter handshape discrimination', () => {
     const w = makeHand([0, 0], ['index', 'middle', 'ring']);
     expect(handshapeConfidence(w, 'w')).toBeGreaterThan(0.6);
     expect(handshapeConfidence(w, 'v')).toBeLessThan(0.6); // V needs ring curled
+  });
+
+  it('v: rejects a joined 2-finger hand (real U shape) — spread must be checked, not just extension', () => {
+    const joined = makeHand([0, 0], ['index', 'middle'], false, 'Right', 0.3);
+    expect(handshapeConfidence(joined, 'v')).toBeLessThan(0.6);
   });
 
   it('i: pinky-only with thumb tucked passes; Y (thumb+pinky) does not', () => {
@@ -74,7 +86,7 @@ describe('static letters pass with their own handshape', () => {
   });
 
   it('LETTER_V is unaffected (still passes on 2-finger, fails on 3-finger)', () => {
-    const pass = verify(staticBuffer((c) => makeHand(c, ['index', 'middle'])), LETTER_V);
+    const pass = verify(staticBuffer((c) => makeHand(c, ['index', 'middle'], false, 'Right', 1.5)), LETTER_V);
     expect(resultPassed(pass)).toBe(true);
   });
 });

@@ -50,6 +50,22 @@ _CHAIN_EXTENDED = np.array([1.30, 1.58, 1.82])
 _THUMB_CMC = np.array([-0.25, -0.20])
 _THUMB_TIP_OUT = np.array([-1.25, -0.25])
 _THUMB_TIP_TUCKED = np.array([0.00, -0.62])
+# T-specific: thumb tip wedged between the index/middle knuckles, distinct from the generic
+# tucked position (which fist/S/etc. reuse) — T is the only shape needing this exact spot. A real
+# recorded pair found genuine T's thumb sits ~0.35 hand-scale units from the index/middle-MCP
+# midpoint (farther than a relaxed fist's ~0.18, not closer as originally assumed).
+_THUMB_TIP_BETWEEN = np.array([-0.15, -0.60])
+# O/F-specific: thumb tip reaches toward the (partially curled) index fingertip to form the
+# pinch/circle, distinct from the generic tucked position.
+_THUMB_TIP_PINCH = np.array([-0.40, -1.05])
+# K-specific: thumb tip touches the middle finger's BASE (MCP) — calibrated for the upright K shape.
+_THUMB_TIP_K_TOUCH = np.array([-0.05, -0.50])
+# P-specific: after the 185.71° rotation (hand pointing down), the thumb's pre-rotation position
+# that lands near MIDDLE_PIP (~0.25 units) in the final pose. P checks MIDDLE_PIP, not MIDDLE_MCP.
+_THUMB_TIP_P_TOUCH = np.array([-0.15, -1.05])
+# N-specific: thumb tucked under the index/middle fingers specifically, a different depth than
+# T's "between the knuckles" position.
+_THUMB_TIP_N_UNDER = np.array([-0.12, -0.80])
 
 # (index, middle, ring, pinky) extension, thumb_extended. Aliases share one spec so a sign asking for
 # "s" and one asking for "fist" animate identically — the same reuse the recognition dispatch relies on.
@@ -74,7 +90,24 @@ SHAPE_SPECS: dict[str, tuple[tuple[float, float, float, float], bool]] = {
     "u":      ((1.0, 1.0, 0.0, 0.0), False),
     "w":      ((1.0, 1.0, 1.0, 0.0), False),
     "middle": ((0.0, 1.0, 0.0, 0.0), False),
+    "f":      ((0.30, 1.0, 1.0, 1.0), False),   # index curls toward thumb; rest extended
+    "o":      ((0.50, 0.50, 0.50, 0.50), False),  # moderate curl, all fingertips toward thumb
+    "d":      ((1.0, 0.0, 0.0, 0.0), False),    # index up, thumb tucked (not out like L)
+    "t":      ((0.0, 0.0, 0.0, 0.0), False),    # fist, thumb tucked between index/middle
+    "g":      ((1.0, 0.0, 0.0, 0.0), True),     # index + thumb out, like L but rotated sideways
+    "letter_h": ((1.0, 1.0, 0.0, 0.0), False),  # index+middle together, rotated sideways
+    "k":      ((1.0, 1.0, 0.0, 0.0), False),    # index+middle spread, thumb touches middle base
+    "letter_n": ((0.0, 0.0, 0.0, 0.0), False),  # fist, thumb tucked under index/middle
+    "p":      ((1.0, 1.0, 0.0, 0.0), False),    # same as k, rotated to point downward
+    "q":      ((1.0, 0.0, 0.0, 0.0), True),     # same as g, rotated to point downward
+    "r":      ((1.0, 1.0, 0.0, 0.0), False),    # index+middle extended and crossed
 }
+
+# Extra whole-hand rotation (degrees) applied after the base shape is built, for letters whose
+# defining feature is hand ORIENTATION rather than finger extension (G/H point sideways, P/Q
+# point downward — see local_hand()'s corresponding predicate for why 2D extension alone can't
+# capture this).
+_ROTATION_DEG = {"g": 110.225, "letter_h": 90.0, "p": 185.71, "q": 200.225}
 
 
 def supported_shapes() -> list[str]:
@@ -127,9 +160,21 @@ def _finger_chain(name: str, extension: float) -> np.ndarray:
     return np.array([unit * (m * reach) for m in mults])
 
 
-def _thumb_chain(extended: bool) -> np.ndarray:
+def _thumb_chain(extended: bool, between: bool = False, pinch: bool = False,
+                 k_touch: bool = False, p_touch: bool = False, n_under: bool = False) -> np.ndarray:
     """thumb mcp, ip, tip (3 points, 2D). cmc is fixed; the rest interpolate cmc->tip."""
-    tip = _THUMB_TIP_OUT if extended else _THUMB_TIP_TUCKED
+    if between:
+        tip = _THUMB_TIP_BETWEEN
+    elif pinch:
+        tip = _THUMB_TIP_PINCH
+    elif k_touch:
+        tip = _THUMB_TIP_K_TOUCH
+    elif p_touch:
+        tip = _THUMB_TIP_P_TOUCH
+    elif n_under:
+        tip = _THUMB_TIP_N_UNDER
+    else:
+        tip = _THUMB_TIP_OUT if extended else _THUMB_TIP_TUCKED
     return np.array([_THUMB_CMC + (tip - _THUMB_CMC) * f for f in (0.40, 0.72, 1.0)])
 
 
@@ -148,7 +193,14 @@ def local_hand(kind: str, scale: float = CANON_SCALE, mirror: bool = False) -> n
     extensions, thumb_out = SHAPE_SPECS[key]
 
     pts = np.zeros((21, 3), dtype=float)        # index 0 = wrist = origin
-    mcp_t, ip_t, tip_t = _thumb_chain(thumb_out)
+    mcp_t, ip_t, tip_t = _thumb_chain(
+        thumb_out,
+        between=(key == "t"),
+        pinch=(key in ("o", "f")),
+        k_touch=(key == "k"),
+        p_touch=(key == "p"),
+        n_under=(key == "letter_n"),
+    )
     pts[1, :2] = _THUMB_CMC                       # thumb cmc
     pts[2, :2], pts[3, :2], pts[4, :2] = mcp_t, ip_t, tip_t   # mcp, ip, tip
 
@@ -159,7 +211,29 @@ def local_hand(kind: str, scale: float = CANON_SCALE, mirror: bool = False) -> n
         chain = _finger_chain(name, e)           # pip, dip, tip
         pts[i + 1, :2], pts[i + 2, :2], pts[i + 3, :2] = chain
 
+    if key == "r":
+        # Letter R: index and middle fingers cross — swap their DIP/TIP x-offset from center so
+        # each finger's tip ends up on the OTHER finger's side, same reach as ring/pinky's setback.
+        index_i, middle_i = base["index"], base["middle"]
+        pts[index_i + 2, 0], pts[middle_i + 2, 0] = pts[middle_i + 2, 0], pts[index_i + 2, 0]
+        pts[index_i + 3, 0], pts[middle_i + 3, 0] = pts[middle_i + 3, 0], pts[index_i + 3, 0]
+    elif key in ("letter_h", "u"):
+        # H/U: index+middle held TOGETHER (not spread like V/K) — pull both fingers' pip/dip/tip
+        # in toward the midline between their two MCPs.
+        index_i, middle_i = base["index"], base["middle"]
+        mid_x = (_MCP["index"][0] + _MCP["middle"][0]) / 2.0
+        for joint in (1, 2, 3):
+            pts[index_i + joint, 0] = mid_x + (pts[index_i + joint, 0] - mid_x) * 0.05
+            pts[middle_i + joint, 0] = mid_x + (pts[middle_i + joint, 0] - mid_x) * 0.05
+
     pts[:, :2] *= scale
+
+    rotate_deg = _ROTATION_DEG.get(key, 0.0)
+    if rotate_deg:
+        rad = np.radians(rotate_deg)
+        rot = np.array([[np.cos(rad), -np.sin(rad)], [np.sin(rad), np.cos(rad)]])
+        pts[:, :2] = pts[:, :2] @ rot.T
+
     if mirror:
         pts[:, 0] *= -1.0
     return pts

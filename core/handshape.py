@@ -29,6 +29,7 @@ from core.landmarks import (
     INDEX_MCP,
     INDEX_TIP,
     MIDDLE_MCP,
+    MIDDLE_PIP,
     MIDDLE_TIP,
     RING_MCP,
     RING_TIP,
@@ -75,6 +76,40 @@ def _thumb_extended(hand: Hand) -> float:
     """1.0 = thumb sticking out alongside the hand, 0.0 = tucked/across the palm."""
     d = float(np.linalg.norm(_xy(hand, THUMB_TIP) - _xy(hand, INDEX_MCP))) / _hand_scale(hand)
     return float(np.clip((d - 0.5) / (1.2 - 0.5), 0.0, 1.0))
+
+
+def _thumb_dist(hand: Hand, idx: int) -> float:
+    """Distance from thumb tip to another landmark, in hand-scale units."""
+    return float(np.linalg.norm(_xy(hand, THUMB_TIP) - _xy(hand, idx))) / _hand_scale(hand)
+
+
+def _finger_direction_deg(hand: Hand, tip_idx: int, mcp_idx: int) -> float:
+    """0deg = this finger's MCP->TIP vector points straight up the image, 90deg = sideways
+    (either direction), 180deg = pointing straight down.
+
+    A real recorded G measured the WRIST->MIDDLE-MCP vector (whole-palm orientation) at only ~10
+    degrees even with a clean sideways G, because people rotate a single extended finger at its
+    own knuckle rather than rotating the whole forearm — the palm barely turns. The finger's own
+    direction measured ~80deg on the same recording, which is what actually distinguishes G/H
+    (sideways) and P/Q (downward) from their upright counterparts (D/L, K/V/U).
+    """
+    v = _xy(hand, tip_idx) - _xy(hand, mcp_idx)
+    n = float(np.linalg.norm(v))
+    if n < 1e-6:
+        return 0.0
+    up = np.array([0.0, -1.0])
+    cos_a = float(np.dot(v, up) / n)
+    return float(np.degrees(np.arccos(np.clip(cos_a, -1.0, 1.0))))
+
+
+def _orientation_score(hand: Hand, tip_idx: int, mcp_idx: int, target_deg: float, tolerance: float = 35.0) -> float:
+    angle = _finger_direction_deg(hand, tip_idx, mcp_idx)
+    return float(np.clip(1.0 - abs(angle - target_deg) / tolerance, 0.0, 1.0))
+
+
+def _finger_spread(hand: Hand, tip_a: int, tip_b: int) -> float:
+    """Distance between two fingertips, in hand-scale units."""
+    return float(np.linalg.norm(_xy(hand, tip_a) - _xy(hand, tip_b))) / _hand_scale(hand)
 
 
 def extensions(hand: Hand) -> dict:
@@ -149,6 +184,209 @@ def flat_o_confidence(hand: Hand) -> float:
     return float(base * penalty)
 
 
+# --------------------------------------------------------------------------- pinch-based letters
+# Distance bands (hand-scale units) for "thumb tip touching a fingertip":
+_PINCH_NEAR = 0.35   # at/inside this distance, fully counts as touching
+_PINCH_FAR = 0.90    # at/beyond this distance, fully counts as not touching
+
+
+def _pinch_score(hand: Hand, tip_idx: int) -> float:
+    d = _thumb_dist(hand, tip_idx)
+    return float(np.clip((_PINCH_FAR - d) / (_PINCH_FAR - _PINCH_NEAR), 0.0, 1.0))
+
+
+def f_confidence(hand: Hand) -> float:
+    """Letter F: thumb and index tip touch (forming a small circle); middle/ring/pinky extended."""
+    pinch = _pinch_score(hand, INDEX_TIP)
+    ext = extensions(hand)
+    others = float(min(ext["middle"], ext["ring"], ext["pinky"]))
+    return float(min(pinch, others))
+
+
+def o_confidence(hand: Hand) -> float:
+    """Letter O: all four fingertips curl in to meet the thumb, forming a rounded circle.
+
+    Distinct from flat_o (MORE)'s very light curl and from claw's deeper, thumb-unconstrained
+    curl: O specifically requires the THUMB to be near the fingertips too, not just the fingers
+    curling on their own.
+    """
+    curls = _all_curls(hand)
+    m = float(np.mean(curls))
+    curl_score = float(np.clip(1.0 - abs(m - 0.5) / 0.35, 0.0, 1.0))  # peaks around curl ~0.5
+    pinch = _pinch_score(hand, INDEX_TIP)
+    spread = float(np.std(curls))
+    penalty = float(np.clip(1.0 - max(0.0, spread - 0.15) / 0.35, 0.0, 1.0))
+    return float(min(curl_score, pinch) * penalty)
+
+
+def d_confidence(hand: Hand) -> float:
+    """Letter D: index extended upward; middle/ring/pinky curl in toward the thumb, which stays
+    tucked (not held out to the side like L)."""
+    curls = _all_curls(hand)
+    index_extended = 1.0 - curls[0]
+    rest_curled = float(min(curls[1:]))
+    thumb_tucked = 1.0 - _thumb_extended(hand)
+    return float(min(index_extended, rest_curled, thumb_tucked))
+
+
+def t_confidence(hand: Hand) -> float:
+    """Letter T: closed fist with the thumb tip tucked between the index and middle knuckles
+    (distinct from A's thumb resting alongside the index).
+
+    A real recorded pair found the distance from thumb tip to the index/middle-MCP midpoint runs
+    the OPPOSITE direction from the original assumption: a relaxed plain fist's thumb sits CLOSE
+    to that midpoint (~0.18 hand-scale units), while a deliberate T pushes the thumb tip further
+    up between the knuckles, LANDING FARTHER from it (~0.35-0.37). This is a band around T's real
+    value, not a one-sided "closer is better" threshold — L/A/Y hold the thumb out to the side at
+    ~1.25, even farther than T, so a one-sided "farther is better" rule would also (wrongly) accept
+    those.
+    """
+    fist_score = float(np.mean(_all_curls(hand)))
+    mcp_mid = (_xy(hand, INDEX_MCP) + _xy(hand, MIDDLE_MCP)) / 2.0
+    d = float(np.linalg.norm(_xy(hand, THUMB_TIP) - mcp_mid)) / _hand_scale(hand)
+    thumb_between = float(np.clip(1.0 - abs(d - 0.35) / 0.14, 0.0, 1.0))
+    return float(min(fist_score, thumb_between))
+
+
+def v_confidence(hand: Hand) -> float:
+    """Letter V: index + middle extended AND held apart (spread) — a real recorded confusor found
+    the plain finger-count pattern alone (used elsewhere for N/H/U) lets a JOINED 2-finger hand
+    pass as V too, since extension alone doesn't check separation between the two fingertips."""
+    pattern_score = _match(hand, {"index": 1, "middle": 1, "ring": 0, "pinky": 0})
+    spread = float(np.linalg.norm(_xy(hand, INDEX_TIP) - _xy(hand, MIDDLE_TIP))) / _hand_scale(hand)
+    spread_score = float(np.clip((spread - 0.15) / (0.40 - 0.15), 0.0, 1.0))
+    return float(min(pattern_score, spread_score))
+
+
+def _together_score(hand: Hand) -> float:
+    """High when index+middle tips are held CLOSE together (opposite of V's spread requirement).
+
+    A real recorded H (fingers deliberately held together) measured spread ~0.255 hand-scale
+    units — the original 0.05-0.20 "together" band was calibrated too tight and scored it 0. A
+    real plain V measured ~0.816 on the same metric, so there is a wide, safe gap to place this
+    band in: full credit up to ~0.15, fading out by 0.6, well short of V's real value.
+    """
+    spread = _finger_spread(hand, INDEX_TIP, MIDDLE_TIP)
+    return float(np.clip((0.60 - spread) / (0.60 - 0.15), 0.0, 1.0))
+
+
+def letter_h_confidence(hand: Hand) -> float:
+    """Letter H: index+middle extended TOGETHER (not spread like V), hand rotated sideways.
+
+    Dispatched as "letter_h", NOT "h" — HOSPITAL and NAME already use kind="h" for their own,
+    differently-calibrated 2-finger check (no orientation/spread constraint); reusing "h" here
+    would silently change their behavior.
+    """
+    pattern_score = _match(hand, {"index": 1, "middle": 1, "ring": 0, "pinky": 0})
+    together = _together_score(hand)
+    orient = _orientation_score(hand, INDEX_TIP, INDEX_MCP, target_deg=90.0)
+    return float(min(pattern_score, together, orient))
+
+
+def u_confidence(hand: Hand) -> float:
+    """Letter U: index+middle extended TOGETHER, held upright (not rotated like H)."""
+    pattern_score = _match(hand, {"index": 1, "middle": 1, "ring": 0, "pinky": 0})
+    together = _together_score(hand)
+    orient = _orientation_score(hand, INDEX_TIP, INDEX_MCP, target_deg=0.0)
+    return float(min(pattern_score, together, orient))
+
+
+def _k_thumb_touch(hand: Hand) -> float:
+    """How close the thumb tip is to K/P's real touch distance from the middle-MCP.
+
+    A real recorded pair found this runs the OPPOSITE direction from the original assumption
+    (same mistake as T's thumb-position bug): a relaxed V's thumb naturally rests close to the
+    middle-MCP already (~0.17 hand-scale units, since the thumb's resting position is near the
+    palm center) — reusing the generic "touching" pinch score always saturated to 1.0 for a plain
+    V, so V freely passed as K. Genuine K reaches the thumb tip FARTHER out to the middle-MCP
+    (~0.46-0.53), so this is a band around K's real value, not a "closer is better" pinch.
+    """
+    d = _thumb_dist(hand, MIDDLE_MCP)
+    return float(np.clip(1.0 - abs(d - 0.49) / 0.20, 0.0, 1.0))
+
+
+def k_confidence(hand: Hand) -> float:
+    """Letter K: index+middle spread apart (like V), thumb touches the middle finger's BASE
+    (MCP), not its tip — distinct from V (no thumb constraint) and F (thumb touches index tip)."""
+    v_pattern = _match(hand, {"index": 1, "middle": 1, "ring": 0, "pinky": 0})
+    spread = _finger_spread(hand, INDEX_TIP, MIDDLE_TIP) / 1.0
+    spread_score = float(np.clip((spread - 0.15) / (0.40 - 0.15), 0.0, 1.0))
+    thumb_touch = _k_thumb_touch(hand)
+    return float(min(v_pattern, spread_score, thumb_touch))
+
+
+def g_confidence(hand: Hand) -> float:
+    """Letter G: index extended, thumb held out roughly parallel to it (like L), hand rotated
+    sideways so the index points across rather than up.
+
+    Uses the INDEX FINGER's own MCP->TIP direction, not the whole hand's wrist->palm direction —
+    a real recorded G measured the whole-palm angle at only ~10deg even with a clean sideways G,
+    since people rotate the finger at its own knuckle rather than the whole forearm; the finger's
+    own direction measured ~80deg on the same recording.
+    """
+    index_pattern = _match(hand, {"index": 1, "middle": 0, "ring": 0, "pinky": 0})
+    thumb_out = _thumb_extended(hand)
+    orient = _orientation_score(hand, INDEX_TIP, INDEX_MCP, target_deg=90.0)
+    return float(min(index_pattern, thumb_out, orient))
+
+
+def q_confidence(hand: Hand) -> float:
+    """Letter Q: same handshape as G, rotated to point downward instead of sideways."""
+    index_pattern = _match(hand, {"index": 1, "middle": 0, "ring": 0, "pinky": 0})
+    thumb_out = _thumb_extended(hand)
+    orient = _orientation_score(hand, INDEX_TIP, INDEX_MCP, target_deg=180.0)
+    return float(min(index_pattern, thumb_out, orient))
+
+
+def _p_thumb_pos(hand: Hand) -> float:
+    """Thumb-position check for P: when the hand points downward the thumb naturally rests near
+    MIDDLE_PIP (~0.25 hand-scale units), NOT the MIDDLE_MCP it targets in K (which ends up ~0.86
+    away — the opposite side of the hand). Band-pass calibrated from real P recordings."""
+    d = _thumb_dist(hand, MIDDLE_PIP)
+    return float(np.clip(1.0 - abs(d - 0.25) / 0.18, 0.0, 1.0))
+
+
+def p_confidence(hand: Hand) -> float:
+    """Letter P: K-like V-shape with both fingers pointing downward, thumb near middle-PIP."""
+    v_pattern = _match(hand, {"index": 1, "middle": 1, "ring": 0, "pinky": 0})
+    spread = _finger_spread(hand, INDEX_TIP, MIDDLE_TIP)
+    spread_score = float(np.clip((spread - 0.15) / (0.40 - 0.15), 0.0, 1.0))
+    thumb_touch = _p_thumb_pos(hand)
+    orient = _orientation_score(hand, MIDDLE_TIP, MIDDLE_MCP, target_deg=180.0)
+    return float(min(v_pattern, spread_score, thumb_touch, orient))
+
+
+def r_confidence(hand: Hand) -> float:
+    """Letter R: index and middle extended and CROSSED (their left-right order at the tip is
+    swapped relative to their order at the knuckle), ring+pinky curled."""
+    both_extended = float(min(1.0 - _finger_curl(hand, INDEX_TIP, INDEX_MCP),
+                              1.0 - _finger_curl(hand, MIDDLE_TIP, MIDDLE_MCP)))
+    ext = extensions(hand)
+    rest_curled = float(min(1.0 - ext["ring"], 1.0 - ext["pinky"]))
+    mcp_dx = _xy(hand, MIDDLE_MCP)[0] - _xy(hand, INDEX_MCP)[0]
+    tip_dx = _xy(hand, MIDDLE_TIP)[0] - _xy(hand, INDEX_TIP)[0]
+    scale = _hand_scale(hand)
+    # Positive when the tip order has flipped relative to the knuckle order (crossed).
+    crossing = -np.sign(mcp_dx) * tip_dx / scale if mcp_dx != 0 else 0.0
+    crossed_score = float(np.clip(crossing / 0.15, 0.0, 1.0))
+    return float(min(both_extended, rest_curled, crossed_score))
+
+
+def letter_n_confidence(hand: Hand) -> float:
+    """Letter N: closed fist, thumb tucked under the index and middle fingers specifically
+    (distinct from a plain fist/A/T's thumb placement). Same 2D-distance-to-knuckle-line
+    approach as T; may share T's real-world ambiguity between "under" and "nearby".
+
+    Dispatched as "letter_n", NOT "n" — NURSE already uses kind="n" for its own,
+    differently-calibrated 2-finger check; reusing "n" here would silently change its behavior.
+    """
+    fist_score = float(np.mean(_all_curls(hand)))
+    mcp_mid = (_xy(hand, INDEX_MCP) + _xy(hand, MIDDLE_MCP)) / 2.0
+    d = float(np.linalg.norm(_xy(hand, THUMB_TIP) - mcp_mid)) / _hand_scale(hand)
+    thumb_under = float(np.clip(1.0 - abs(d - 0.20) / 0.12, 0.0, 1.0))
+    return float(min(fist_score, thumb_under))
+
+
 # --------------------------------------------------------------------------- exact patterns
 # 1 = must be extended, 0 = must be curled, absent = don't care. Scored by _match as the MIN over
 # the listed fingers, so EVERY condition must hold — an open hand can't pass a 2- or 3-finger shape
@@ -156,7 +394,6 @@ def flat_o_confidence(hand: Hand) -> float:
 _PATTERNS = {
     "point": dict(index=1, middle=0, ring=0, pinky=0),
     "1": dict(index=1, middle=0, ring=0, pinky=0),
-    "v": dict(index=1, middle=1, ring=0, pinky=0),
     "l": dict(thumb=1, index=1, middle=0, ring=0, pinky=0),
     "y": dict(thumb=1, index=0, middle=0, ring=0, pinky=1),
     # finger-count shapes for the hospital signs (every finger condition required):
@@ -187,6 +424,19 @@ _DISPATCH = {
     "5": open_confidence,
     "claw": claw_confidence,
     "flat_o": flat_o_confidence,
+    "f": f_confidence,
+    "o": o_confidence,
+    "d": d_confidence,
+    "t": t_confidence,
+    "v": v_confidence,
+    "letter_h": letter_h_confidence,
+    "u": u_confidence,
+    "k": k_confidence,
+    "letter_n": letter_n_confidence,
+    "g": g_confidence,
+    "q": q_confidence,
+    "p": p_confidence,
+    "r": r_confidence,
 }
 
 

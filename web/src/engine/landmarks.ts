@@ -5,6 +5,7 @@ export const THUMB_TIP = 4;
 export const INDEX_MCP = 5;
 export const INDEX_TIP = 8;
 export const MIDDLE_MCP = 9;
+export const MIDDLE_PIP = 10;
 export const MIDDLE_TIP = 12;
 export const RING_MCP = 13;
 export const RING_TIP = 16;
