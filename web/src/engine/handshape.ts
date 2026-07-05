@@ -60,10 +60,13 @@ function aConfidence(hand: Hand): number {
 }
 
 function indexConfidence(hand: Hand): number {
+  // Both conditions are required via Math.min(), not averaged: an averaged 0.5/0.5 split let a
+  // fully OPEN hand (index extended, nothing curled) score exactly 0.5 — equal to WRITE/FRIEND's
+  // minConfidence threshold, so a flat palm could pass as the pinch/point handshape.
   const curls = allCurls(hand);
   const indexExtended = 1.0 - curls[0];
-  const restCurled = mean(curls.slice(1));
-  return clip(indexExtended * 0.5 + restCurled * 0.5, 0, 1);
+  const restCurled = Math.min(...curls.slice(1));
+  return clip(Math.min(indexExtended, restCurled), 0, 1);
 }
 
 function openConfidence(hand: Hand): number {
@@ -77,21 +80,6 @@ function clawConfidence(hand: Hand): number {
   const spread = std(curls);
   const penalty = clip(1.0 - Math.max(0, spread - 0.15) / 0.35, 0, 1);
   return base * penalty;
-}
-
-function nConfidence(hand: Hand): number {
-  const c = allCurls(hand);
-  return clip(mean([1.0 - c[0], 1.0 - c[1], c[2], c[3]]), 0, 1);
-}
-
-function wConfidence(hand: Hand): number {
-  const c = allCurls(hand);
-  return clip(mean([1.0 - c[0], 1.0 - c[1], 1.0 - c[2], c[3]]), 0, 1);
-}
-
-function middleConfidence(hand: Hand): number {
-  const c = allCurls(hand);
-  return clip(mean([c[0], 1.0 - c[1], c[2], c[3]]), 0, 1);
 }
 
 const PATTERNS: Record<string, Record<string, number>> = {
@@ -127,9 +115,6 @@ const DISPATCH: Record<string, (hand: Hand) => number> = {
   b: openConfidence,
   '5': openConfidence,
   claw: clawConfidence,
-  n: nConfidence,
-  w: wConfidence,
-  middle: middleConfidence,
 };
 
 export function handshapeConfidence(hand: Hand, kind: string): number {

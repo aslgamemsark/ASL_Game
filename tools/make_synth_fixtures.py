@@ -65,13 +65,23 @@ _RATIOS = {
     "fist":   [1.0, 1.0, 1.0, 1.0],
     "a":      [1.0, 1.0, 1.0, 1.0],
     "index":  [1.6, 1.0, 1.0, 1.0],
+    "point":  [1.6, 1.0, 1.0, 1.0],   # alias of index — LETTER_A/1-point family
     "claw":   [1.3, 1.3, 1.3, 1.3],
     "n":      [1.6, 1.6, 1.0, 1.0],   # 2 fingers (index+middle)
     "h":      [1.6, 1.6, 1.0, 1.0],   # same as n
     "v":      [1.6, 1.6, 1.0, 1.0],   # same as n/h — see core/handshape.py's _PATTERNS note
     "w":      [1.6, 1.6, 1.6, 1.0],   # 3 fingers (index+middle+ring)
     "middle": [1.0, 1.6, 1.0, 1.0],   # middle only
+    "y":      [1.0, 1.0, 1.0, 1.6],   # pinky only extended + thumb OUT — LETTER_Y
+    "i":      [1.0, 1.0, 1.0, 1.6],   # pinky only extended, thumb CURLED — LETTER_I (see thumb table)
+    "l":      [1.6, 1.0, 1.0, 1.0],   # index only extended + thumb OUT — LETTER_L
 }
+
+# Shapes whose thumb sticks OUT alongside the hand (make_hand's default is tucked-against-index,
+# correct for fist/index/claw/etc; "a"/"y"/"l" all specifically require an extended thumb, and an
+# "i" built with the SAME tucked thumb as e.g. "index" is exactly the confusor we need — a real
+# thumb-out Y-hand must NOT satisfy "i" (see core/handshape.py's "thumb=0 required for i" note).
+_THUMB_OUT_SHAPES = {"a", "y", "l"}
 
 # fill (unused-by-scorers) joints so each hand is a plausible 21-point array
 _SEG = {(INDEX_MCP, INDEX_TIP): (6, 7), (MIDDLE_MCP, MIDDLE_TIP): (10, 11),
@@ -96,8 +106,8 @@ def make_hand(handedness: str, center_target, shape: str) -> Hand:
         pts[_MCPS[k], :2] = mcp
         pts[_TIPS[k], :2] = tip
 
-    # thumb: extended alongside for "a", tucked near the index MCP otherwise
-    if shape == "a":
+    # thumb: extended alongside for "a"/"y"/"l", tucked near the index MCP otherwise
+    if shape in _THUMB_OUT_SHAPES:
         pts[THUMB_TIP, :2] = wrist + UP * (0.2 * D) + np.array([-1.05 * D, 0.0])
     else:
         pts[THUMB_TIP, :2] = pts[INDEX_MCP, :2] + np.array([-0.15 * D, 0.10 * D])

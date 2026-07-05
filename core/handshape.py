@@ -96,11 +96,17 @@ def a_confidence(hand: Hand) -> float:
 
 
 def index_confidence(hand: Hand) -> float:
-    """Index finger extended, the other three curled (1-hand / D / pointing)."""
+    """Index finger extended, the other three curled (1-hand / D / pointing).
+
+    Both conditions are required via min(), not averaged: an averaged 0.5/0.5 split let a fully
+    OPEN hand (index extended, but nothing curled) score exactly 0.5 — equal to WRITE/FRIEND's
+    min_confidence threshold, so a flat palm could pass as the pinch/point handshape. min() matches
+    every other two-condition scorer in this module (a_confidence, the _PATTERNS dispatch).
+    """
     curls = _all_curls(hand)
     index_extended = 1.0 - curls[0]
-    rest_curled = float(np.mean(curls[1:]))
-    return float(np.clip(index_extended * 0.5 + rest_curled * 0.5, 0.0, 1.0))
+    rest_curled = float(min(curls[1:]))
+    return float(np.clip(min(index_extended, rest_curled), 0.0, 1.0))
 
 
 def open_confidence(hand: Hand) -> float:
