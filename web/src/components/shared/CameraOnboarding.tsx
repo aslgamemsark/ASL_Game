@@ -31,7 +31,7 @@ export function CameraOnboarding({ onContinue }: Props) {
           </div>
           <div className="flex items-start gap-3">
             <span className="text-z-green text-lg">✓</span>
-            <p className="text-sm text-z-gray-200">No video recording or storage</p>
+            <p className="text-sm text-z-gray-200">Optional replay stays on your device and is never uploaded</p>
           </div>
           <div className="flex items-start gap-3">
             <span className="text-z-green text-lg">✓</span>

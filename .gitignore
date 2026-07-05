@@ -40,6 +40,7 @@ ml/inspect_out/
 ml/inspect_merged/
 ml/inspect_*/
 calibration_log.json
+tools/calibration_logs/
 
 # --- Landmark dataset deliverable for the teammate (regenerable; send directly, not via git) ---
 asl_landmarks_for_friend.zip

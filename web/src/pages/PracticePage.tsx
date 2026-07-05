@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCamera } from '@/hooks/useCamera';
+import { useAttemptRecorder } from '@/hooks/useAttemptRecorder';
 import { useRecognition } from '@/hooks/useRecognition';
 import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
+import { ReplayCompare } from '@/components/lesson/ReplayCompare';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { logSignAttempt } from '@/hooks/useProgressSync';
@@ -16,7 +18,7 @@ import { getSignsDueForReview, pickReceptiveDistractors } from '@/data/spaced-re
 import type { VerifyResult } from '@/engine/verifier';
 
 type Mode = 'menu' | 'expressive' | 'receptive' | 'done';
-type CardPhase = 'prompt' | 'result';
+type CardPhase = 'prompt' | 'result' | 'replay';
 
 interface Props {
   onExit: () => void;
@@ -27,7 +29,12 @@ interface Props {
 export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Props) {
   const { signAccuracy, recordSign, addXp, recordPracticeSession } = useUserStore();
   const { user } = useAuth();
-  const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera();
+  const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera();
+  const recorder = useAttemptRecorder();
+  const [replayEnabled, setReplayEnabled] = useState(
+    () => localStorage.getItem('signup-replay-enabled') === '1'
+  );
+  const [passResult, setPassResult] = useState<VerifyResult | null>(null);
   const sounds = useSounds();
   const { burst } = useConfetti();
   const [mode, setMode] = useState<Mode>('menu');
@@ -47,9 +54,11 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
   const allSignIds = Object.keys(SIGNS);
 
   const handlePass = useCallback(
-    (_result: VerifyResult) => {
+    (result: VerifyResult) => {
       if (mode !== 'expressive' || cardPhase !== 'prompt') return;
       setCardPhase('result');
+      setPassResult(result);
+      if (replayEnabled) recorder.stop();
       sounds.correct();
       burst();
       if (currentSignId) {
@@ -69,7 +78,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
         }
       }, 1500);
     },
-    [mode, cardPhase, currentSignId, queueIdx, queue.length, recordSign, addXp]
+    [mode, cardPhase, currentSignId, queueIdx, queue.length, recordSign, addXp, replayEnabled, recorder]
   );
 
   const { classifier, logVote } = useClassifier();
@@ -98,6 +107,11 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
         recognition.stopLoop();
         recognition.startLoop(videoRef.current, currentEngineSign);
         loopStartedRef.current = currentEngineSign.name;
+        setPassResult(null);
+        if (replayEnabled) {
+          const stream = getStream();
+          if (stream) recorder.start(stream);
+        }
       }
     }
   });
@@ -107,6 +121,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
       clearTimeout(timerRef.current);
       stopCam();
       recognition.stopLoop();
+      recorder.discard();
     };
   }, []);
 
@@ -187,6 +202,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
       recordSign(currentSignId, false);
       if (user) logSignAttempt(user.id, currentSignId, false);
     }
+    recorder.discard();
     loopStartedRef.current = null;
     if (queueIdx + 1 < queue.length) {
       setQueueIdx((p) => p + 1);
@@ -269,6 +285,24 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
                   <span className="text-3xl">🧠</span>
                 </div>
               </motion.button>
+
+              {recorder.supported && (
+                <label className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-z-card border border-white/5 cursor-pointer">
+                  <span className="text-sm text-z-gray-200">
+                    Record my attempts for replay
+                    <span className="block text-[11px] text-z-gray-500">Stays on your device, never uploaded</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={replayEnabled}
+                    onChange={(e) => {
+                      setReplayEnabled(e.target.checked);
+                      localStorage.setItem('signup-replay-enabled', e.target.checked ? '1' : '0');
+                    }}
+                    className="w-5 h-5 accent-z-purple-light"
+                  />
+                </label>
+              )}
             </motion.div>
           )}
 
@@ -311,6 +345,24 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
                     </button>
                   </div>
                 </>
+              ) : cardPhase === 'replay' && recorder.replayUrl ? (
+                <ReplayCompare
+                  attemptUrl={recorder.replayUrl}
+                  clipUrl={currentSignData.clip}
+                  signName={currentSignData.name}
+                  hint={currentSignData.hint}
+                  params={passResult?.params}
+                  sign={currentEngineSign}
+                  onContinue={() => {
+                    recorder.discard();
+                    if (queueIdx + 1 < queue.length) {
+                      setQueueIdx((p) => p + 1);
+                      setCardPhase('prompt');
+                    } else {
+                      setMode('done');
+                    }
+                  }}
+                />
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center gap-3">
                   <motion.div
@@ -322,6 +374,17 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
                   </motion.div>
                   <h2 className="text-xl font-bold text-z-green">Nice!</h2>
                   <p className="text-z-yellow font-bold">+5 XP</p>
+                  {replayEnabled && recorder.replayUrl && (
+                    <button
+                      onClick={() => {
+                        clearTimeout(timerRef.current);
+                        setCardPhase('replay');
+                      }}
+                      className="mt-2 text-xs text-z-purple-light hover:text-white px-3 py-1.5 rounded-lg border border-z-purple-light/40"
+                    >
+                      ▶ Watch replay
+                    </button>
+                  )}
                 </div>
               )}
             </motion.div>

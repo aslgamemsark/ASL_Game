@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCamera } from '@/hooks/useCamera';
+import { useAttemptRecorder } from '@/hooks/useAttemptRecorder';
 import { useRecognition } from '@/hooks/useRecognition';
 import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
@@ -9,6 +10,7 @@ import { CameraOnboarding } from '@/components/shared/CameraOnboarding';
 import { LessonHeader } from '@/components/lesson/LessonHeader';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
+import { ReplayCompare } from '@/components/lesson/ReplayCompare';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { logSignAttempt } from '@/hooks/useProgressSync';
@@ -17,7 +19,7 @@ import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { getLessonById } from '@/data/lessons';
 import type { VerifyResult } from '@/engine/verifier';
 
-type Phase = 'intro' | 'signing' | 'success' | 'complete';
+type Phase = 'intro' | 'signing' | 'success' | 'replay' | 'complete';
 
 interface Props {
   lessonId: string;
@@ -28,7 +30,12 @@ export function LessonPage({ lessonId, onExit }: Props) {
   const lesson = getLessonById(lessonId);
   const { addXp, addDailyMinutes, completeLesson, recordSign } = useUserStore();
   const { user } = useAuth();
-  const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera();
+  const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera();
+  const recorder = useAttemptRecorder();
+  const [replayEnabled] = useState(
+    () => localStorage.getItem('signup-replay-enabled') === '1'
+  );
+  const [passResult, setPassResult] = useState<VerifyResult | null>(null);
   const sounds = useSounds();
   const { burst, bigCelebration } = useConfetti();
   const [phase, setPhase] = useState<Phase>('intro');
@@ -43,9 +50,11 @@ export function LessonPage({ lessonId, onExit }: Props) {
   const currentEngineSign = currentSignId ? ENGINE_SIGNS[currentSignId] : null;
 
   const handlePass = useCallback(
-    (_result: VerifyResult) => {
+    (result: VerifyResult) => {
       if (phase !== 'signing') return;
       setPhase('success');
+      setPassResult(result);
+      if (replayEnabled) recorder.stop();
       sounds.correct();
       burst();
       const xp = 10;
@@ -70,7 +79,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
         }
       }, 1800);
     },
-    [phase, promptIdx, signIds, currentSignId, lessonId, addXp, recordSign, completeLesson]
+    [phase, promptIdx, signIds, currentSignId, lessonId, addXp, recordSign, completeLesson, replayEnabled, recorder]
   );
 
   const { classifier, logVote } = useClassifier();
@@ -101,6 +110,11 @@ export function LessonPage({ lessonId, onExit }: Props) {
         recognition.startLoop(videoRef.current, currentEngineSign);
         loopStartedForSign.current = currentEngineSign.name;
         console.log('[SignUp] Recognition loop started for', currentEngineSign.name);
+        setPassResult(null);
+        if (replayEnabled) {
+          const stream = getStream();
+          if (stream) recorder.start(stream);
+        }
       }
     }
   });
@@ -110,6 +124,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
       clearTimeout(timerRef.current);
       stopCam();
       recognition.stopLoop();
+      recorder.discard();
     };
   }, []);
 
@@ -138,6 +153,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
       recordSign(currentSignId, false);
       if (user) logSignAttempt(user.id, currentSignId, false);
     }
+    recorder.discard();
     loopStartedForSign.current = null;
     if (promptIdx + 1 < signIds.length) {
       setPromptIdx((prev) => prev + 1);
@@ -300,7 +316,42 @@ export function LessonPage({ lessonId, onExit }: Props) {
               >
                 +10 XP
               </motion.div>
+              {replayEnabled && recorder.replayUrl && (
+                <button
+                  onClick={() => {
+                    clearTimeout(timerRef.current);
+                    setPhase('replay');
+                  }}
+                  className="mt-2 text-xs text-z-purple-light hover:text-white px-3 py-1.5 rounded-lg border border-z-purple-light/40"
+                >
+                  ▶ Watch replay
+                </button>
+              )}
             </motion.div>
+          )}
+
+          {/* --- REPLAY --- */}
+          {phase === 'replay' && recorder.replayUrl && currentSignData && (
+            <ReplayCompare
+              attemptUrl={recorder.replayUrl}
+              clipUrl={currentSignData.clip}
+              signName={currentSignData.name}
+              hint={currentSignData.hint}
+              params={passResult?.params}
+              sign={currentEngineSign}
+              onContinue={() => {
+                recorder.discard();
+                if (promptIdx + 1 < signIds.length) {
+                  setPromptIdx((prev) => prev + 1);
+                  setPhase('signing');
+                } else {
+                  setPhase('complete');
+                  completeLesson(lessonId);
+                  sounds.levelUp();
+                  bigCelebration();
+                }
+              }}
+            />
           )}
 
           {/* --- COMPLETE --- */}

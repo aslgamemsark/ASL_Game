@@ -1,7 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { ParamScore } from '@/engine/verifier';
-import { paramCleared } from '@/engine/verifier';
 import { Anchor, PalmFacing, type Sign } from '@/engine/schema';
+import { advanceGateState, initGateState, type GateState } from '@/engine/coachingGate';
 
 const FRIENDLY_NAMES: Record<string, string> = {
   handshape_dominant: 'Hand shape',
@@ -100,10 +101,30 @@ interface Props {
 }
 
 export function ParameterChecklist({ params, sign }: Props) {
+  // Per-parameter confidence-gate state, keyed by param name, sustained across frames so a
+  // single noisy frame can't flip a specific (possibly wrong) coaching tip on or off. See
+  // engine/coachingGate.ts — 'cleared' is immediate, 'confident-fail' requires a sustained
+  // streak, everything else is a neutral "still working on it" state with no specific hint.
+  const gatesRef = useRef<Record<string, GateState>>({});
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    let changed = false;
+    for (const param of params) {
+      const prev = gatesRef.current[param.name] ?? initGateState();
+      const next = advanceGateState(prev, param.score, param.threshold, param.required);
+      if (next.status !== prev.status || next.failStreak !== prev.failStreak) changed = true;
+      gatesRef.current[param.name] = next;
+    }
+    if (changed) setTick((t) => t + 1);
+  }, [params]);
+
   return (
     <div className="space-y-2">
       {params.map((param, i) => {
-        const cleared = paramCleared(param);
+        const gate = gatesRef.current[param.name] ?? initGateState();
+        const cleared = gate.status === 'cleared';
+        const confidentFail = gate.status === 'confident-fail';
         const pct = Math.min(100, Math.round((param.score / Math.max(param.threshold, 0.01)) * 100));
         const hint = hintFor(param, sign);
 
@@ -113,7 +134,7 @@ export function ParameterChecklist({ params, sign }: Props) {
             className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border ${
               cleared
                 ? 'bg-z-green/10 border-z-green/30'
-                : param.required
+                : confidentFail
                   ? 'bg-z-red/8 border-z-red/20'
                   : 'bg-z-surface/30 border-white/5'
             }`}
@@ -124,28 +145,33 @@ export function ParameterChecklist({ params, sign }: Props) {
             <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${
               cleared
                 ? 'bg-z-green text-white'
-                : param.required
+                : confidentFail
                   ? 'bg-z-red/30 text-z-red'
-                  : 'bg-z-gray-500/30 text-z-gray-400'
+                  : param.required
+                    ? 'bg-z-gray-500/30 text-z-gray-300'
+                    : 'bg-z-gray-500/30 text-z-gray-400'
             }`}>
-              {cleared ? '✓' : param.required ? '✗' : '—'}
+              {cleared ? '✓' : confidentFail ? '✗' : param.required ? '…' : '—'}
             </div>
 
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-semibold ${
-                cleared ? 'text-z-green' : param.required ? 'text-z-gray-100' : 'text-z-gray-400'
+                cleared ? 'text-z-green' : confidentFail ? 'text-z-gray-100' : 'text-z-gray-400'
               }`}>
                 {FRIENDLY_NAMES[param.name] || param.name}
               </p>
-              {!cleared && param.required && hint && (
+              {confidentFail && hint && (
                 <p className="text-xs text-z-gray-300 mt-0.5">{hint}</p>
+              )}
+              {!cleared && !confidentFail && param.required && (
+                <p className="text-xs text-z-gray-500 mt-0.5">Keep trying…</p>
               )}
             </div>
 
             <div className="w-20 h-2 bg-z-surface rounded-full overflow-hidden">
               <motion.div
                 className={`h-full rounded-full ${
-                  cleared ? 'bg-z-green' : param.required ? 'bg-z-purple-light' : 'bg-z-gray-400'
+                  cleared ? 'bg-z-green' : confidentFail ? 'bg-z-red' : 'bg-z-purple-light'
                 }`}
                 initial={{ width: 0 }}
                 animate={{ width: `${pct}%` }}

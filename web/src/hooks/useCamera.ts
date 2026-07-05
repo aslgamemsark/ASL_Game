@@ -58,5 +58,9 @@ export function useCamera() {
     };
   }, []);
 
-  return { videoRef, status, start, stop };
+  // Live stream accessor for consumers that need the raw MediaStream (e.g. the attempt
+  // recorder). A getter (not the ref) so callers can't mutate/stop tracks we own.
+  const getStream = useCallback(() => streamRef.current, []);
+
+  return { videoRef, status, start, stop, getStream };
 }
