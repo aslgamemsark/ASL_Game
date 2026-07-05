@@ -2,12 +2,22 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import { Capture } from '@/engine/capture';
 import { RollingBuffer, HandStabilizer } from '@/engine/landmarks';
 import { verify, type VerifyResult, resultPassed } from '@/engine/verifier';
-import { gatePass, gateHint, type GateDecision } from '@/engine/gate';
+import { gatePass, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
 import { topK, type SignClassifier } from '@/engine/classifier';
 import { GATE_CONFIDENCE } from '@/config/classifier';
 import type { Sign } from '@/engine/schema';
 
 export type RecognitionStatus = 'loading' | 'ready' | 'running' | 'error';
+
+/** Decision for one verification event, for telemetry — see onVerified below. */
+export type VerificationDecision = 'pass' | 'veto' | 'no-classifier';
+
+export interface VerificationEntry {
+  signName: string;
+  params: VerifyResult['params'];
+  vote: ClassifierVote | null;
+  decision: VerificationDecision;
+}
 
 interface UseRecognitionOpts {
   onPass?: (result: VerifyResult) => void;
@@ -17,6 +27,14 @@ interface UseRecognitionOpts {
   onHint?: (msg: string | null) => void;
   /** Fired for every gate decision (vote + top-k + pass/veto) — for debug logging/overlays. */
   onVote?: (decision: GateDecision) => void;
+  /**
+   * Fired for every rule-pass event (both PASS and VETO — never for an ordinary rule-fail,
+   * since that's every other frame and not worth logging), carrying the full per-parameter
+   * score breakdown plus the classifier's vote when available. Intended for telemetry (see
+   * useProgressSync.logVerification) to find real "the rule passed something questionable"
+   * cases from actual play, not just a manual calibration session.
+   */
+  onVerified?: (entry: VerificationEntry) => void;
   /** Min model probability for the prompted sign to allow a pass. */
   gateConfidence?: number;
 }
@@ -36,6 +54,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   hintCallbackRef.current = opts?.onHint;
   const voteCallbackRef = useRef(opts?.onVote);
   voteCallbackRef.current = opts?.onVote;
+  const verifiedCallbackRef = useRef(opts?.onVerified);
+  verifiedCallbackRef.current = opts?.onVerified;
   const classifierRef = useRef<SignClassifier | null | undefined>(opts?.classifier);
   classifierRef.current = opts?.classifier;
   // Veto threshold: the classifier only overrides a rule-pass when it's at least this confident
@@ -156,6 +176,12 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                         topK: vote ? topK(vote, 3) : [],
                         hint,
                       });
+                      verifiedCallbackRef.current?.({
+                        signName: gatedSign.name,
+                        params: vr.params,
+                        vote,
+                        decision: passed ? 'pass' : 'veto',
+                      });
                       if (passed) {
                         passCallbackRef.current?.(vr);
                         hintCallbackRef.current?.(null);
@@ -168,6 +194,12 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 }
               } else {
                 console.log('[SignUp] PASS:', sign.name, vr.params.map(p => `${p.name}=${p.score.toFixed(2)}`).join(' '));
+                verifiedCallbackRef.current?.({
+                  signName: sign.name,
+                  params: vr.params,
+                  vote: null,
+                  decision: 'no-classifier',
+                });
                 passCallbackRef.current?.(vr);
               }
             }

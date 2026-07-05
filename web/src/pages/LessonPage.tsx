@@ -13,7 +13,8 @@ import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { ReplayCompare } from '@/components/lesson/ReplayCompare';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { logSignAttempt } from '@/hooks/useProgressSync';
+import { logSignAttempt, logVerification } from '@/hooks/useProgressSync';
+import type { VerificationEntry } from '@/hooks/useRecognition';
 import { SIGNS } from '@/data/signs';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { getLessonById } from '@/data/lessons';
@@ -82,8 +83,15 @@ export function LessonPage({ lessonId, onExit }: Props) {
     [phase, promptIdx, signIds, currentSignId, lessonId, addXp, recordSign, completeLesson, replayEnabled, recorder]
   );
 
+  const handleVerified = useCallback(
+    (entry: VerificationEntry) => {
+      if (user) logVerification(user.id, entry);
+    },
+    [user]
+  );
+
   const { classifier, logVote } = useClassifier();
-  const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote });
+  const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote, onVerified: handleVerified });
   const loopStartedForSign = useRef<string | null>(null);
 
   useEffect(() => {

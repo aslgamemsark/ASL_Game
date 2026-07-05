@@ -58,6 +58,33 @@ create index if not exists sign_attempts_week_idx
   on public.sign_attempts (user_id, attempted_at desc);
 
 
+-- ── 3b. SIGN VERIFICATION LOG ───────────────────────────────
+-- Per-parameter score breakdown + classifier vote for every rule-verifier PASS or VETO event
+-- (not every fail — that's every other frame). Distinct from sign_attempts (which is just a
+-- pass/fail boolean for the leaderboard): this is telemetry for finding real false-pass edge
+-- cases from actual play — a rule-pass the classifier disagreed with (even below veto
+-- threshold) is exactly the "minor edge case" signal that a single manual calibration session
+-- can't surface. Never carries video/landmarks, only the already-computed numeric scores —
+-- consistent with the project's "recognition stays on-device" rule.
+create table if not exists public.sign_verification_log (
+  id           bigint generated always as identity primary key,
+  user_id      uuid references public.profiles on delete cascade not null,
+  sign_id      text        not null,
+  decision     text        check (decision in ('pass', 'veto', 'no-classifier')) not null,
+  param_scores jsonb       not null,   -- ParamScore[]: [{name, score, threshold, required}, ...]
+  classifier_vote jsonb,               -- {topSign, confidence, perSign} or null (no model / disabled)
+  logged_at    timestamptz default now()
+);
+
+alter table public.sign_verification_log enable row level security;
+
+create policy "verification_log_own" on public.sign_verification_log
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create index if not exists sign_verification_log_sign_idx
+  on public.sign_verification_log (sign_id, logged_at desc);
+
+
 -- ── 4. FRIENDSHIPS ──────────────────────────────────────────
 create table if not exists public.friendships (
   requester_id uuid references public.profiles on delete cascade,

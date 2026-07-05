@@ -11,7 +11,8 @@ import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { ReplayCompare } from '@/components/lesson/ReplayCompare';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { logSignAttempt } from '@/hooks/useProgressSync';
+import { logSignAttempt, logVerification } from '@/hooks/useProgressSync';
+import type { VerificationEntry } from '@/hooks/useRecognition';
 import { SIGNS } from '@/data/signs';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { getSignsDueForReview, pickReceptiveDistractors } from '@/data/spaced-repetition';
@@ -81,8 +82,15 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
     [mode, cardPhase, currentSignId, queueIdx, queue.length, recordSign, addXp, replayEnabled, recorder]
   );
 
+  const handleVerified = useCallback(
+    (entry: VerificationEntry) => {
+      if (user) logVerification(user.id, entry);
+    },
+    [user]
+  );
+
   const { classifier, logVote } = useClassifier();
-  const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote });
+  const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote, onVerified: handleVerified });
 
   useEffect(() => {
     recognition.init();

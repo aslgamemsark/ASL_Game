@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { useUserStore } from '@/stores/useUserStore';
 import type { SignStats } from '@/types/user';
+import type { VerificationEntry } from '@/hooks/useRecognition';
 
 const DEBOUNCE_MS = 3000;
 
@@ -87,5 +88,24 @@ export async function logSignAttempt(userId: string, signId: string, passed: boo
   if (!supabaseReady) return;
   await supabase.from('sign_attempts').insert(
     { user_id: userId, sign_id: signId, passed } as Record<string, unknown>
+  );
+}
+
+// Call this on every rule-verifier PASS or VETO event (see useRecognition's onVerified) to
+// build a real dataset of per-parameter scores + classifier agreement from actual play — the
+// "the scores pass on minor edge cases" complaint needs numbers to fix, not just a feeling.
+// No-ops silently when Supabase isn't configured or the classifier didn't run, matching
+// logSignAttempt's existing gating pattern; never sends video/landmarks, only these already-
+// computed numeric scores.
+export async function logVerification(userId: string, entry: VerificationEntry) {
+  if (!supabaseReady) return;
+  await supabase.from('sign_verification_log').insert(
+    {
+      user_id: userId,
+      sign_id: entry.signName,
+      decision: entry.decision,
+      param_scores: entry.params as unknown as Record<string, unknown>,
+      classifier_vote: entry.vote as unknown as Record<string, unknown> | null,
+    } as Record<string, unknown>
   );
 }
