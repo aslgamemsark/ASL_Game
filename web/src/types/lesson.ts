@@ -8,7 +8,7 @@ export interface LessonNode {
   status: LessonNodeStatus;
   xpReward: number;
   iconEmoji: string;
-  scenario: 'coffee_shop' | 'hospital' | 'classroom';
+  scenario: 'coffee_shop' | 'hospital' | 'classroom' | 'greetings';
 }
 
 export interface LessonUnit {

@@ -1,14 +1,29 @@
 import { motion } from 'framer-motion';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useUserStore } from '@/stores/useUserStore';
 
 interface Props {
   onExit: () => void;
 }
 
+const DEV_ACCOUNTS = ['abdurrafay.khan04@gmail.com', 'msaad9632'];
+
 export function SettingsPage({ onExit }: Props) {
   const { theme, setTheme } = useTheme();
   const { user, username, signOut } = useAuth();
+  const { vibrationEnabled, toggleVibration } = useSettingsStore();
+  const { addGold, addSigns } = useUserStore();
+
+  const isDevAccount =
+    (user?.email && DEV_ACCOUNTS.includes(user.email)) ||
+    (username && DEV_ACCOUNTS.includes(username));
+
+  const giveTestCredits = () => {
+    addGold(10000);
+    addSigns(10000);
+  };
 
   return (
     <div className="min-h-screen bg-z-bg lg:pl-64">
@@ -21,12 +36,9 @@ export function SettingsPage({ onExit }: Props) {
         <h1 className="font-bold text-lg flex-1">Settings</h1>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 pt-6 pb-24">
-        <motion.div
-          className="bg-z-card border border-white/5 rounded-2xl p-5 mb-5"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+      <div className="max-w-lg mx-auto px-4 pt-6 pb-24 space-y-5">
+        {/* Appearance */}
+        <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">Appearance</h2>
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-semibold">Dark theme</span>
@@ -34,9 +46,7 @@ export function SettingsPage({ onExit }: Props) {
               role="switch"
               aria-checked={theme === 'dark'}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${
-                theme === 'dark' ? 'bg-z-purple' : 'bg-z-gray-500'
-              }`}
+              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'bg-z-purple' : 'bg-z-gray-500'}`}
             >
               <motion.span
                 className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
@@ -47,20 +57,39 @@ export function SettingsPage({ onExit }: Props) {
           </div>
         </motion.div>
 
-        <motion.div
-          className="bg-z-card border border-white/5 rounded-2xl p-5"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-        >
+        {/* Accessibility */}
+        <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }}>
+          <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">Accessibility</h2>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">{vibrationEnabled ? '📳' : '🔕'}</span>
+              <div>
+                <p className="font-semibold text-sm">Vibrations</p>
+                <p className="text-xs text-z-gray-400">Haptic feedback for correct/wrong signs</p>
+              </div>
+            </div>
+            <button
+              role="switch"
+              aria-checked={vibrationEnabled}
+              onClick={toggleVibration}
+              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${vibrationEnabled ? 'bg-z-purple' : 'bg-z-gray-500'}`}
+            >
+              <motion.span
+                className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
+                animate={{ x: vibrationEnabled ? 24 : 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              />
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Account */}
+        <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
           <h2 className="font-bold text-sm mb-3 text-z-gray-300 uppercase tracking-wide">Account</h2>
           {user ? (
             <>
               <p className="text-sm text-z-gray-300 mb-3">Signed in as <span className="font-semibold text-white">{username ?? user.email}</span></p>
-              <button
-                onClick={signOut}
-                className="w-full py-2.5 rounded-xl bg-z-red/15 text-z-red font-bold text-sm"
-              >
+              <button onClick={signOut} className="w-full py-2.5 rounded-xl bg-z-red/15 text-z-red font-bold text-sm">
                 Log out
               </button>
             </>
@@ -68,6 +97,20 @@ export function SettingsPage({ onExit }: Props) {
             <p className="text-sm text-z-gray-400">You're not signed in.</p>
           )}
         </motion.div>
+
+        {/* Testing — only visible to dev accounts */}
+        {isDevAccount && (
+          <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
+            <h2 className="font-bold text-sm mb-1 text-z-gray-300 uppercase tracking-wide">Testing</h2>
+            <p className="text-xs text-z-gray-500 mb-4">Add credits to test shop features</p>
+            <button
+              onClick={giveTestCredits}
+              className="w-full py-2.5 rounded-xl bg-z-yellow/15 text-z-yellow font-bold text-sm"
+            >
+              🪙 Add 10,000 Gold &amp; 🤟 10,000 Signs
+            </button>
+          </motion.div>
+        )}
       </div>
     </div>
   );

@@ -6,10 +6,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { useInsights } from '@/hooks/useInsights';
 import { AuthModal } from '@/components/auth/AuthModal';
+import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { BadgesSection } from '@/components/home/BadgesSection';
 import { StruggleBarList } from '@/components/insights/StruggleBarList';
 import { AccuracySparkline } from '@/components/insights/AccuracySparkline';
 import { getBadge } from '@/data/badges';
+import { getRankProgress } from '@/data/ranks';
 import { SHOP_ITEMS, getShopItem } from '@/data/shop';
 import { supabaseReady } from '@/lib/supabase';
 import { SIGNS } from '@/data/signs';
@@ -65,11 +67,12 @@ interface ProfileTabProps {
 export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProps = {}) {
   const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, collectTrainingData, setCollectTrainingData, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
-  const { soundEnabled, toggleSound } = useSettingsStore();
+  const { vibrationEnabled, toggleVibration } = useSettingsStore();
   const { user, username, signOut } = useAuth();
   const { rows, loading: lbLoading } = useLeaderboard();
   const { struggleSigns, vetoStats, dailyAccuracy, overallAvgAttempts, loading: insightsLoading } = useInsights();
   const [showAuth, setShowAuth] = useState(false);
+  const [showSetUsername, setShowSetUsername] = useState(false);
   const [levelBurst, setLevelBurst] = useState(0);
   const [lbTab, setLbTab] = useState<LBTab>('weekly');
   const [profileSection, setProfileSection] = useState<'stats' | 'insights' | 'badges'>('stats');
@@ -95,7 +98,19 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
                   : activeBadge ? (getBadge(activeBadge)?.icon ?? '🤟') : '🤟'}
               </div>
               <div>
-                <p className="font-bold text-sm">{username ?? '…'}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-bold text-sm">@{username ?? '…'}</p>
+                  <button
+                    onClick={() => setShowSetUsername(true)}
+                    className="text-z-gray-500 hover:text-z-gray-300 transition-colors"
+                    title="Change username"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </button>
+                </div>
                 <p className="text-z-gray-400 text-xs">Progress syncing</p>
               </div>
             </div>
@@ -137,6 +152,41 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
           <p className="text-z-gray-400 text-xs mt-0.5">{badges.length} badge{badges.length !== 1 ? 's' : ''} earned</p>
         )}
       </motion.div>
+
+      {/* Rank card */}
+      {(() => {
+        const { rank, next, progress } = getRankProgress(xp);
+        return (
+          <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 mb-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{rank.emoji}</span>
+                <div>
+                  <p className="font-bold text-sm">{rank.name}</p>
+                  <p className="text-[11px] text-z-gray-400">{xp.toLocaleString()} XP total</p>
+                </div>
+              </div>
+              {next && (
+                <div className="text-right">
+                  <p className="text-[11px] text-z-gray-400">Next rank</p>
+                  <p className="text-xs font-bold text-z-gray-300">{next.emoji} {next.name}</p>
+                  <p className="text-[10px] text-z-gray-500">{(next.minXp - xp).toLocaleString()} XP away</p>
+                </div>
+              )}
+            </div>
+            <div className="h-2 bg-z-surface rounded-full overflow-hidden">
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: 'linear-gradient(90deg, #7B2FBE, #A855F7)' }}
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.round(progress * 100)}%` }}
+                transition={{ duration: 0.8, ease: 'easeOut' }}
+              />
+            </div>
+            {!next && <p className="text-[11px] text-z-yellow text-center mt-2 font-bold">Max rank reached! 🌟</p>}
+          </motion.div>
+        );
+      })()}
 
       {/* Stats / Insights / Badges section toggle */}
       <div className="flex bg-z-surface/50 rounded-xl p-1 mb-5">
@@ -292,13 +342,13 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
           {/* Settings */}
           <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 mb-5 flex items-center justify-between" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>
             <div className="flex items-center gap-3">
-              <span className="text-xl">{soundEnabled ? '🔊' : '🔇'}</span>
-              <p className="font-bold text-sm">Sound effects</p>
+              <span className="text-xl">{vibrationEnabled ? '📳' : '🔕'}</span>
+              <p className="font-bold text-sm">Vibrations</p>
             </div>
             <button
-              onClick={toggleSound}
-              aria-label={soundEnabled ? 'Mute sound effects' : 'Unmute sound effects'}
-              className={`w-11 h-6 rounded-full flex items-center px-0.5 transition-colors ${soundEnabled ? 'bg-z-purple justify-end' : 'bg-white/10 justify-start'}`}
+              onClick={toggleVibration}
+              aria-label={vibrationEnabled ? 'Disable vibrations' : 'Enable vibrations'}
+              className={`w-11 h-6 rounded-full flex items-center px-0.5 transition-colors ${vibrationEnabled ? 'bg-z-purple justify-end' : 'bg-white/10 justify-start'}`}
             >
               <motion.span layout className="w-5 h-5 rounded-full bg-white block" />
             </button>
@@ -457,6 +507,7 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
       )}
 
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+      {showSetUsername && <SetUsernameModal mode="rename" onClose={() => setShowSetUsername(false)} />}
     </div>
   );
 }

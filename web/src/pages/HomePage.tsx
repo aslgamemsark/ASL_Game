@@ -18,6 +18,7 @@ interface Props {
     autoStart?: boolean;
     bonusGoldOnPerfect?: number;
     heading?: string;
+    hideReferenceClip?: boolean;
   }) => void;
   onStartStory: (id: string) => void;
   onStartSpeed: () => void;
@@ -95,13 +96,14 @@ export function HomePage({
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
               <AlphabetTab
-                onStartLettersPractice={(ids) => onStartPractice({ filterSignIds: ids })}
+                onStartLettersPractice={(ids) => onStartPractice({ filterSignIds: ids, hideReferenceClip: true })}
                 onTestMemory={(ids) =>
                   onStartPractice({
                     filterSignIds: ids,
                     autoStart: true,
                     bonusGoldOnPerfect: 15,
                     heading: 'Letter Test',
+                    hideReferenceClip: true,
                   })
                 }
               />

@@ -1,22 +1,28 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-/**
- * Local UI preferences — deliberately separate from useUserStore (which syncs progress to
- * Supabase). A sound preference has no reason to round-trip through the server or merge across
- * devices, so it gets its own small persisted store instead of widening UserProgress.
- */
 interface SettingsStore {
-  soundEnabled: boolean;
-  toggleSound: () => void;
+  vibrationEnabled: boolean;
+  toggleVibration: () => void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
-      soundEnabled: true,
-      toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
+      vibrationEnabled: true,
+      toggleVibration: () => set((s) => ({ vibrationEnabled: !s.vibrationEnabled })),
     }),
-    { name: 'asl-game-settings' }
+    {
+      name: 'asl-game-settings',
+      // Migrate from old soundEnabled key
+      migrate: (persisted: unknown) => {
+        const s = persisted as Record<string, unknown>;
+        if ('soundEnabled' in s && !('vibrationEnabled' in s)) {
+          return { vibrationEnabled: s.soundEnabled as boolean };
+        }
+        return s as unknown as SettingsStore;
+      },
+      version: 1,
+    }
   )
 );

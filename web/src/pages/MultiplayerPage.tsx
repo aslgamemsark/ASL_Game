@@ -25,6 +25,10 @@ interface MatchState {
 
 interface Props {
   onExit: () => void;
+  /** When set, auto-creates a room with this ID and waits for the opponent (challenger flow). */
+  autoHostRoomId?: string;
+  /** When set, auto-joins this room code (challenged-player flow). */
+  autoJoinCode?: string;
 }
 
 const ALL_SIGNS = Object.keys(SIGNS);
@@ -35,8 +39,8 @@ function pickSigns(n: number): string[] {
   return shuffled.slice(0, n);
 }
 
-export function MultiplayerPage({ onExit }: Props) {
-  const { user } = useAuth();
+export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
+  const { user, username } = useAuth();
   const { addSigns, addGold } = useUserStore();
   const sounds = useSounds();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera();
@@ -45,12 +49,18 @@ export function MultiplayerPage({ onExit }: Props) {
   const [phase, setPhase] = useState<Phase>('lobby');
   const [joinCode, setJoinCode] = useState('');
   const [matchState, setMatchState] = useState<MatchState | null>(null);
+  const matchStateRef = useRef<MatchState | null>(null);
   const [roundSignIds, setRoundSignIds] = useState<string[]>([]);
+  const roundSignIdsRef = useRef<string[]>([]);
   const [guessOptions, setGuessOptions] = useState<string[]>([]);
   const [guessResult, setGuessResult] = useState<'correct' | 'wrong' | null>(null);
   const [opponentSigned, setOpponentSigned] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const loopRef = useRef<string | null>(null);
+
+  // Keep refs in sync so channel event callbacks always see the latest values (avoid stale closures)
+  useEffect(() => { matchStateRef.current = matchState; }, [matchState]);
+  useEffect(() => { roundSignIdsRef.current = roundSignIds; }, [roundSignIds]);
 
   useEffect(() => {
     recognition.init();
@@ -65,10 +75,11 @@ export function MultiplayerPage({ onExit }: Props) {
   }
 
   function advanceRound(iSigned: boolean, opponentSigned: boolean) {
-    if (!matchState) return;
-    const nextRound = matchState.round + 1;
-    const myNewScore = matchState.myScore + (iSigned ? 1 : 0);
-    const opNewScore = matchState.opponentScore + (opponentSigned ? 1 : 0);
+    const ms = matchStateRef.current;
+    if (!ms) return;
+    const nextRound = ms.round + 1;
+    const myNewScore = ms.myScore + (iSigned ? 1 : 0);
+    const opNewScore = ms.opponentScore + (opponentSigned ? 1 : 0);
 
     if (nextRound > ROUNDS) {
       setMatchState((s) => s ? { ...s, myScore: myNewScore, opponentScore: opNewScore } : s);
@@ -81,13 +92,13 @@ export function MultiplayerPage({ onExit }: Props) {
       return;
     }
 
-    const nextSign = roundSignIds[nextRound - 1] ?? ALL_SIGNS[0];
+    const nextSign = roundSignIdsRef.current[nextRound - 1] ?? ALL_SIGNS[0];
     setMatchState((s) => s ? { ...s, round: nextRound, myScore: myNewScore, opponentScore: opNewScore, currentSign: nextSign } : s);
     setOpponentSigned(false);
     setGuessResult(null);
 
     // Alternate roles each round
-    const amSigner = nextRound % 2 === (user?.id ?? '' < (matchState.opponentId) ? 1 : 0);
+    const amSigner = nextRound % 2 === ((user?.id ?? '') < ms.opponentId ? 1 : 0);
     setPhase(amSigner ? 'signer' : 'guesser');
     if (!amSigner) buildGuessOptions(nextSign);
   }
@@ -98,9 +109,16 @@ export function MultiplayerPage({ onExit }: Props) {
     setGuessOptions(opts);
   }
 
-  const createRoom = async () => {
+  // Auto-host or auto-join when launched from a challenge
+  useEffect(() => {
+    if (autoHostRoomId) createRoom(autoHostRoomId);
+    else if (autoJoinCode) joinRoom(autoJoinCode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const createRoom = async (overrideRoomId?: string) => {
     if (!user) return;
-    const roomId = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const roomId = overrideRoomId ?? Math.random().toString(36).slice(2, 8).toUpperCase();
     const signs = pickSigns(ROUNDS);
     setRoundSignIds(signs);
     setStatusMsg(`Room code: ${roomId} — Share with a friend!`);
@@ -131,15 +149,17 @@ export function MultiplayerPage({ onExit }: Props) {
       advanceRound(false, true);
     });
     ch.on('broadcast', { event: 'guess' }, ({ payload }) => {
-      const correct = payload.signId === matchState?.currentSign;
+      const correct = payload.signId === matchStateRef.current?.currentSign;
       advanceRound(correct, false);
     });
     ch.subscribe();
   };
 
-  const joinRoom = async () => {
-    if (!user || !joinCode.trim()) return;
-    const roomId = joinCode.trim().toUpperCase();
+  const joinRoom = async (overrideCode?: string) => {
+    if (!user) return;
+    const code = overrideCode ?? joinCode;
+    if (!code.trim()) return;
+    const roomId = code.trim().toUpperCase();
     setPhase('waiting');
     setStatusMsg('Joining room…');
 
@@ -168,11 +188,11 @@ export function MultiplayerPage({ onExit }: Props) {
       advanceRound(false, true);
     });
     ch.on('broadcast', { event: 'guess' }, ({ payload }) => {
-      const correct = payload.signId === matchState?.currentSign;
+      const correct = payload.signId === matchStateRef.current?.currentSign;
       advanceRound(correct, false);
     });
     ch.subscribe(async () => {
-      await ch.send({ type: 'broadcast', event: 'join', payload: { userId: user.id, username: user.email?.split('@')[0] ?? 'Player' } });
+      await ch.send({ type: 'broadcast', event: 'join', payload: { userId: user.id, username: username ?? user.email?.split('@')[0] ?? 'Player' } });
       setStatusMsg('Connected! Waiting for host…');
     });
   };
@@ -226,7 +246,7 @@ export function MultiplayerPage({ onExit }: Props) {
                 <h2 className="text-2xl font-bold">Sign & Guess</h2>
                 <p className="text-z-gray-300 text-sm mt-1">Sign it, your friend guesses it.</p>
               </div>
-              <motion.button onClick={createRoom}
+              <motion.button onClick={() => createRoom()}
                 className="w-full max-w-xs py-3 rounded-2xl font-bold text-white"
                 style={{ background: 'linear-gradient(135deg,#7C3AED,#A78BFA)' }}
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
@@ -238,7 +258,7 @@ export function MultiplayerPage({ onExit }: Props) {
                   <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                     placeholder="XXXXXX"
                     className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:outline-none focus:border-z-purple/60" />
-                  <motion.button onClick={joinRoom} disabled={!joinCode.trim()}
+                  <motion.button onClick={() => joinRoom()} disabled={!joinCode.trim()}
                     className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-40"
                     whileTap={{ scale: 0.96 }}>
                     Join

@@ -316,6 +316,60 @@ function rConfidence(hand: Hand): number {
   return Math.min(bothExtended, restCurled, crossedScore);
 }
 
+// Letter C: all fingers and thumb curved into a C-shape with an open gap between thumb and index.
+// Distinct from O (O closes the gap with a pinch) and fist (C is much less curled).
+function cConfidence(hand: Hand): number {
+  const curls = allCurls(hand);
+  const m = mean(curls);
+  const curlScore = clip(1.0 - Math.abs(m - 0.35) / 0.25, 0, 1);
+  const thumbOut = thumbExtended(hand);
+  const spread = std(curls);
+  const uniformity = clip(1.0 - Math.max(0, spread - 0.15) / 0.35, 0, 1);
+  return Math.min(curlScore, thumbOut) * uniformity;
+}
+
+// Letter E: all four fingers bent at the middle knuckle toward the palm, thumb tucked under.
+// High uniform curl + thumb not extended to side. Distinct from S (S has thumb across knuckles;
+// E bends all fingers uniformly, thumb stays under not to the side).
+function eConfidence(hand: Hand): number {
+  const curls = allCurls(hand);
+  const m = mean(curls);
+  const curlScore = clip((m - 0.45) / 0.25, 0, 1);
+  const thumbIn = 1.0 - thumbExtended(hand);
+  const spread = std(curls);
+  const uniformity = clip(1.0 - Math.max(0, spread - 0.15) / 0.35, 0, 1);
+  return Math.min(curlScore, thumbIn) * uniformity;
+}
+
+// Letter M: closed fist with thumb tucked under index, middle, AND ring fingers (one more than N).
+function mConfidence(hand: Hand): number {
+  const fistScore = mean(allCurls(hand));
+  const mcpMidX = (xy(hand, INDEX_MCP)[0] + xy(hand, MIDDLE_MCP)[0] + xy(hand, RING_MCP)[0]) / 3;
+  const mcpMidY = (xy(hand, INDEX_MCP)[1] + xy(hand, MIDDLE_MCP)[1] + xy(hand, RING_MCP)[1]) / 3;
+  const d = dist2d(xy(hand, THUMB_TIP), [mcpMidX, mcpMidY]) / handScale(hand);
+  const thumbUnder = clip(1.0 - Math.abs(d - 0.20) / 0.15, 0, 1);
+  return Math.min(fistScore, thumbUnder);
+}
+
+// Letter S: closed fist with thumb wrapped across the FRONT of all fingers (not to the side like
+// A, and not between knuckles like T). Scored as fist + thumb not extended.
+// Dispatched as 'letter_s' NOT 's' — 's' is a plain-fist alias used by other signs without any
+// thumb constraint; adding one there would silently change their behavior.
+function letterSConfidence(hand: Hand): number {
+  const fistScore = mean(allCurls(hand));
+  const thumbIn = 1.0 - thumbExtended(hand);
+  return Math.min(fistScore, thumbIn);
+}
+
+// Letter X: index finger hooked into a bent/hook shape (mid-curl), other three fingers curled.
+// Distinct from 'index' (index fully extended) and fist (index fully curled).
+function xConfidence(hand: Hand): number {
+  const curls = allCurls(hand);
+  const indexHooked = clip(1.0 - Math.abs(curls[0] - 0.5) / 0.25, 0, 1);
+  const restCurled = Math.min(curls[1], curls[2], curls[3]);
+  return Math.min(indexHooked, restCurled);
+}
+
 // Letter N: closed fist, thumb tucked under the index and middle fingers specifically (distinct
 // from a plain fist/A/T's thumb placement). Same 2D-distance-to-knuckle-line approach as T; may
 // share T's real-world ambiguity between "under" and "nearby". Dispatched as "letter_n", NOT
@@ -354,6 +408,11 @@ const DISPATCH: Record<string, (hand: Hand) => number> = {
   q: qConfidence,
   p: pConfidence,
   r: rConfidence,
+  c: cConfidence,
+  e: eConfidence,
+  m: mConfidence,
+  letter_s: letterSConfidence,
+  x: xConfidence,
 };
 
 export function handshapeConfidence(hand: Hand, kind: string): number {

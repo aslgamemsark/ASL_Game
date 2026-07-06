@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { validateUsername } from '@/lib/username';
 import { supabaseReady } from '@/lib/supabase';
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
 }
 
 type Tab = 'signin' | 'signup';
+type UsernameStatus = 'idle' | 'checking' | 'ok' | 'error';
 
 export function AuthModal({ onClose }: Props) {
   const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
@@ -15,9 +17,35 @@ export function AuthModal({ onClose }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
+  const [usernameMsg, setUsernameMsg] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced username availability check
+  useEffect(() => {
+    if (tab !== 'signup') return;
+    if (username.length < 3) {
+      setUsernameStatus('idle');
+      setUsernameMsg('');
+      return;
+    }
+    setUsernameStatus('checking');
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const msg = await validateUsername(username);
+      if (msg) {
+        setUsernameStatus('error');
+        setUsernameMsg(msg);
+      } else {
+        setUsernameStatus('ok');
+        setUsernameMsg('Available!');
+      }
+    }, 600);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [username, tab]);
 
   if (!supabaseReady) {
     return (
@@ -37,6 +65,7 @@ export function AuthModal({ onClose }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (tab === 'signup' && usernameStatus === 'error') return;
     setError(null);
     setLoading(true);
 
@@ -82,7 +111,7 @@ export function AuthModal({ onClose }: Props) {
             className={`flex-1 py-1.5 rounded-lg text-sm font-bold transition-colors ${
               tab === t ? 'bg-z-purple text-white' : 'text-z-gray-300'
             }`}
-            onClick={() => { setTab(t); setError(null); }}
+            onClick={() => { setTab(t); setError(null); setUsernameStatus('idle'); setUsernameMsg(''); }}
           >
             {t === 'signin' ? 'Sign in' : 'Sign up'}
           </button>
@@ -91,17 +120,43 @@ export function AuthModal({ onClose }: Props) {
 
       <form onSubmit={handleSubmit} className="space-y-3">
         {tab === 'signup' && (
-          <input
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-            minLength={3}
-            maxLength={20}
-            required
-            autoComplete="username"
-          />
+          <div>
+            <div className="relative">
+              <input
+                className={`w-full bg-white/5 border rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none transition-colors pr-10 ${
+                  usernameStatus === 'error' ? 'border-red-500/60 focus:border-red-500' :
+                  usernameStatus === 'ok'    ? 'border-green-500/60 focus:border-green-500' :
+                  'border-white/10 focus:border-z-purple'
+                }`}
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+                minLength={3}
+                maxLength={20}
+                required
+                autoComplete="username"
+              />
+              {/* Status indicator */}
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none">
+                {usernameStatus === 'checking' && <span className="text-z-gray-400 text-xs">…</span>}
+                {usernameStatus === 'ok'       && <span className="text-green-400">✓</span>}
+                {usernameStatus === 'error'    && <span className="text-red-400">✗</span>}
+              </span>
+            </div>
+            {usernameMsg && (
+              <p className={`text-xs mt-1 px-1 ${usernameStatus === 'ok' ? 'text-green-400' : 'text-red-400'}`}>
+                {usernameMsg}
+              </p>
+            )}
+            <p className="text-[10px] text-z-gray-500 mt-1 px-1">
+              3–20 characters · letters, numbers, underscores only · unique
+            </p>
+            <p className="text-[10px] text-z-gray-600 mt-1 px-1">
+              ⚠️ Choose carefully — future changes require a Rename Card from the Shop (🪙 150)
+            </p>
+          </div>
         )}
+
         <input
           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
           type="email"
@@ -128,7 +183,7 @@ export function AuthModal({ onClose }: Props) {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || (tab === 'signup' && usernameStatus === 'error')}
           className="w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm disabled:opacity-50 transition-opacity"
         >
           {loading ? '…' : tab === 'signin' ? 'Sign in' : 'Create account'}
@@ -166,13 +221,10 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
-        {/* Backdrop */}
         <motion.div
           className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           onClick={onClose}
         />
-
-        {/* Sheet */}
         <motion.div
           className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl"
           initial={{ y: 40, opacity: 0 }}

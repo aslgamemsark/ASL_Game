@@ -7,6 +7,7 @@ import { useSounds } from '@/hooks/useSounds';
 const SECTIONS: { type: CosmeticType; title: string; icon: string }[] = [
   { type: 'border', title: 'Borders', icon: '🖼' },
   { type: 'avatar', title: 'Avatars', icon: '😊' },
+  { type: 'consumable', title: 'Consumables', icon: '🎫' },
 ];
 
 interface Props {
@@ -14,7 +15,7 @@ interface Props {
 }
 
 export function ShopPage({ onExit }: Props) {
-  const { gold, ownedCosmetics, equippedBorder, equippedAvatar, purchaseCosmetic, equipBorder, equipAvatar } = useUserStore();
+  const { gold, ownedCosmetics, equippedBorder, equippedAvatar, renameCards, purchaseCosmetic, purchaseRenameCard, equipBorder, equipAvatar } = useUserStore();
   const { purchase, wrong } = useSounds();
   const [selected, setSelected] = useState<ShopItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -25,6 +26,12 @@ export function ShopPage({ onExit }: Props) {
   };
 
   const handleBuy = (item: ShopItem) => {
+    if (item.type === 'consumable') {
+      const ok = purchaseRenameCard();
+      if (ok) { purchase(); showToast('Rename Card added! 🎟️'); }
+      else     { wrong();   showToast('Not enough Gold 🪙'); }
+      return;
+    }
     const ok = purchaseCosmetic(item.id, item.goldPrice);
     if (ok) {
       purchase();
@@ -41,7 +48,7 @@ export function ShopPage({ onExit }: Props) {
     setSelected(null);
   };
 
-  const isOwned = (id: string) => ownedCosmetics.includes(id);
+  const isOwned = (item: ShopItem) => item.type === 'consumable' ? false : ownedCosmetics.includes(item.id);
   const isEquipped = (item: ShopItem) =>
     (item.type === 'border' && equippedBorder === item.id) ||
     (item.type === 'avatar' && equippedAvatar === item.id);
@@ -75,8 +82,10 @@ export function ShopPage({ onExit }: Props) {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {items.map((item, i) => {
-                  const owned = isOwned(item.id);
+                  const owned = isOwned(item);
                   const equipped = isEquipped(item);
+                  const isConsumable = item.type === 'consumable';
+                  const consumableCount = isConsumable && item.id === 'rename_card' ? renameCards : 0;
                   return (
                     <motion.button
                       key={item.id}
@@ -114,6 +123,11 @@ export function ShopPage({ onExit }: Props) {
                         ) : (
                           <span className="flex items-center gap-1 text-sm font-bold text-z-yellow">
                             🪙 {item.goldPrice}
+                          </span>
+                        )}
+                        {isConsumable && consumableCount > 0 && (
+                          <span className="text-[11px] font-bold bg-z-purple/20 text-z-purple-light px-2 py-0.5 rounded-lg">
+                            ×{consumableCount}
                           </span>
                         )}
                       </div>
@@ -155,7 +169,24 @@ export function ShopPage({ onExit }: Props) {
                 </div>
               </div>
 
-              {isOwned(selected.id) ? (
+              {selected.type === 'consumable' ? (
+                <>
+                  {selected.id === 'rename_card' && renameCards > 0 && (
+                    <p className="text-center text-xs text-z-purple-light mb-3">
+                      You own {renameCards} rename card{renameCards !== 1 ? 's' : ''}
+                    </p>
+                  )}
+                  <motion.button
+                    onClick={() => handleBuy(selected)}
+                    disabled={gold < selected.goldPrice}
+                    className="w-full py-3 rounded-2xl font-bold text-base text-white disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg,#B45309,#F59E0B)' }}
+                    whileTap={{ scale: 0.97 }}
+                  >
+                    Buy for 🪙 {selected.goldPrice}
+                  </motion.button>
+                </>
+              ) : isOwned(selected) ? (
                 <motion.button
                   onClick={() => handleEquip(selected)}
                   className={`w-full py-3 rounded-2xl font-bold text-base ${

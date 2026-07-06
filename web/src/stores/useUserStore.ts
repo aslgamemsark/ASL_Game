@@ -43,6 +43,7 @@ function defaultProgress(): UserProgress {
     equippedBorder: null,
     equippedAvatar: null,
     friends: [],
+    renameCards: 0,
     collectTrainingData: true,
   };
 }
@@ -73,6 +74,8 @@ interface UserStore extends UserProgress {
   toggleShowcaseBadge: (id: string) => void;
   recordSpeedResult: (tier: SpeedTier, score: number, combo: number, signsEarned: number) => void;
   purchaseCosmetic: (itemId: string, goldPrice: number) => boolean;
+  purchaseRenameCard: () => boolean;
+  consumeRenameCard: () => boolean;
   unlockWorldWithGold: (worldId: string, cost: number) => boolean;
   equipBorder: (itemId: string | null) => void;
   equipAvatar: (itemId: string | null) => void;
@@ -408,6 +411,20 @@ export const useUserStore = create<UserStore>()(
         const s = get();
         if (s.gold < goldPrice || s.ownedCosmetics.includes(itemId)) return false;
         set((st) => ({ gold: st.gold - goldPrice, ownedCosmetics: [...st.ownedCosmetics, itemId] }));
+        return true;
+      },
+
+      purchaseRenameCard: () => {
+        const s = get();
+        if (s.gold < 150) return false;
+        set((st) => ({ gold: st.gold - 150, renameCards: st.renameCards + 1 }));
+        return true;
+      },
+
+      consumeRenameCard: () => {
+        const s = get();
+        if (s.renameCards <= 0) return false;
+        set((st) => ({ renameCards: st.renameCards - 1 }));
         return true;
       },
 

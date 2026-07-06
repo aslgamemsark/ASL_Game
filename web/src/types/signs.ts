@@ -1,4 +1,7 @@
-export type HandShapeKind = 'fist' | 's' | 'a' | 'index' | 'open' | 'claw' | 'v' | 'l' | 'y' | 'w' | 'h' | 'n' | 'middle' | 'i';
+export type HandShapeKind =
+  | 'fist' | 's' | 'a' | 'index' | 'open' | 'claw' | 'v' | 'l' | 'y' | 'w' | 'h' | 'n' | 'middle' | 'i'
+  | 'd' | 'f' | 'o' | 't' | 'g' | 'letter_h' | 'k' | 'letter_n' | 'p' | 'q' | 'r' | 'u'
+  | 'c' | 'e' | 'm' | 'letter_s' | 'x';
 
 export type Anchor =
   | 'other_hand'
@@ -9,7 +12,7 @@ export type Anchor =
   | 'belly'
   | 'shoulder';
 
-export type MovementKind = 'none' | 'linear' | 'circular' | 'repeated' | 'converge';
+export type MovementKind = 'none' | 'linear' | 'circular' | 'repeated' | 'converge' | 'traced';
 
 export type PalmFacing = 'up' | 'down' | 'forward' | 'back' | 'left' | 'right';
 
@@ -41,6 +44,8 @@ export interface MovementReq {
   minApproachRatio?: number;
   minCycles?: number;
   minAmplitudeRatio?: number;
+  traceTemplate?: number[];
+  traceToleranceDeg?: number;
   minDurationS: number;
   required: boolean;
 }

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { getSharedCapture } from '@/engine/capture';
 import { useClassifier } from '@/hooks/useClassifier';
 import { AvatarLabPage } from '@/avatar/viewer/AvatarLabPage';
@@ -18,17 +18,20 @@ import { SideNav, type SideNavScreen } from '@/components/shared/SideNav';
 import { STORIES } from '@/data/stories';
 import { useProgressSync } from '@/hooks/useProgressSync';
 import { useUserStore } from '@/stores/useUserStore';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase, supabaseReady } from '@/lib/supabase';
+import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 
 type Screen =
   | { type: 'home' }
   | { type: 'onboarding' }
   | { type: 'lesson'; lessonId: string }
-  | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; bonusGoldOnPerfect?: number; heading?: string }
+  | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; bonusGoldOnPerfect?: number; heading?: string; hideReferenceClip?: boolean }
   | { type: 'story'; storyId: string }
   | { type: 'speed' }
   | { type: 'shop' }
   | { type: 'friends' }
-  | { type: 'multiplayer' }
+  | { type: 'multiplayer'; autoHostRoomId?: string; autoJoinCode?: string }
   | { type: 'settings' };
 
 // Focused-task screens suppress the side nav (matches hiding chrome during a lesson).
@@ -45,13 +48,67 @@ export default function App() {
     void getSharedCapture();
   }, []);
   const { onboardingComplete } = useUserStore();
+  const { user, username, needsUsernameSetup, loading: authLoading } = useAuth();
   const [screen, setScreen] = useState<Screen>(
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );
+
+  // Returning users who are already logged in skip onboarding regardless of local store state
+  useEffect(() => {
+    if (!authLoading && user && screen.type === 'onboarding') {
+      setScreen({ type: 'home' });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading]);
   const [homeTab, setHomeTab] = useState<Tab>('learn');
+  const [incomingChallenge, setIncomingChallenge] = useState<{ from: string; roomId: string } | null>(null);
 
   const goHome = () => setScreen({ type: 'home' });
   const showSideNav = SIDE_NAV_SCREENS.includes(screen.type as SideNavScreen);
+
+  // Subscribe to incoming challenge notifications while logged in
+  useEffect(() => {
+    if (!user || !supabaseReady) return;
+    const ch = supabase.channel(`challenge_${user.id}`);
+    ch.on('broadcast', { event: 'challenge' }, ({ payload }) => {
+      setIncomingChallenge({ from: payload.from as string, roomId: payload.roomId as string });
+    });
+    ch.subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.id]);
+
+  // Called from FriendsPage: create a room, notify the friend, navigate to multiplayer as host
+  const handleChallengeFriend = useCallback(async (friendId: string, friendUsername: string) => {
+    if (!user || !supabaseReady) return;
+    const roomId = Math.random().toString(36).slice(2, 8).toUpperCase();
+    // Broadcast challenge to friend's personal channel
+    const ch = supabase.channel(`challenge_${friendId}`);
+    ch.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        ch.send({
+          type: 'broadcast',
+          event: 'challenge',
+          payload: { from: username ?? 'Someone', roomId, fromId: user.id },
+        });
+        setTimeout(() => supabase.removeChannel(ch), 2000);
+      }
+    });
+    // Navigate to multiplayer as the host with the pre-generated room ID
+    setScreen({ type: 'multiplayer', autoHostRoomId: roomId });
+    void friendUsername; // used in the notification received on the other side
+  }, [user, username]);
+
+  // Block render until auth session is restored so returning users never see the onboarding flash.
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-z-bg flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-5xl mb-4 animate-pulse">🤟</p>
+          <p className="text-z-gray-500 text-sm">Loading…</p>
+        </div>
+      </div>
+    );
+  }
 
   // Dev-only debug environment (spec Rule 18: "debug inside AvatarLab, not inside the game").
   // Deliberately NOT wired into the Screen state machine or navigation — it's a separate tool, not
@@ -117,6 +174,7 @@ export default function App() {
               autoStartExpressive={screen.autoStart}
               bonusGoldOnPerfect={screen.bonusGoldOnPerfect}
               heading={screen.heading}
+              hideReferenceClip={screen.hideReferenceClip}
             />
           )}
 
@@ -135,11 +193,16 @@ export default function App() {
           )}
 
           {screen.type === 'friends' && (
-            <FriendsPage key="friends" onExit={goHome} />
+            <FriendsPage key="friends" onExit={goHome} onChallengeFriend={handleChallengeFriend} />
           )}
 
           {screen.type === 'multiplayer' && (
-            <MultiplayerPage key="multiplayer" onExit={goHome} />
+            <MultiplayerPage
+              key="multiplayer"
+              onExit={goHome}
+              autoHostRoomId={screen.autoHostRoomId}
+              autoJoinCode={screen.autoJoinCode}
+            />
           )}
 
           {screen.type === 'settings' && (
@@ -147,6 +210,46 @@ export default function App() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Username setup modal for Google/OAuth users */}
+      {needsUsernameSetup && <SetUsernameModal onClose={() => {}} />}
+
+      {/* Incoming challenge notification — visible anywhere in the app */}
+      <AnimatePresence>
+        {incomingChallenge && (
+          <motion.div
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-z-card border border-z-purple/40 rounded-2xl px-5 py-4 shadow-2xl shadow-z-purple/20 min-w-[280px]"
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 280 }}
+          >
+            <span className="text-2xl">⚔️</span>
+            <div className="flex-1">
+              <p className="font-bold text-sm">Challenge from <span className="text-z-purple-light">@{incomingChallenge.from}</span>!</p>
+              <p className="text-xs text-z-gray-400 mt-0.5">1v1 Sign &amp; Guess</p>
+            </div>
+            <div className="flex gap-2">
+              <motion.button
+                className="text-xs px-3 py-1.5 rounded-xl font-bold bg-z-purple text-white"
+                whileTap={{ scale: 0.96 }}
+                onClick={() => {
+                  setScreen({ type: 'multiplayer', autoJoinCode: incomingChallenge.roomId });
+                  setIncomingChallenge(null);
+                }}
+              >
+                Join
+              </motion.button>
+              <button
+                className="text-xs px-3 py-1.5 rounded-xl font-bold border border-white/15 text-z-gray-400"
+                onClick={() => setIncomingChallenge(null)}
+              >
+                Dismiss
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

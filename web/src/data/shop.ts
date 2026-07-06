@@ -1,4 +1,4 @@
-export type CosmeticType = 'border' | 'avatar' | 'chest_skin';
+export type CosmeticType = 'border' | 'avatar' | 'chest_skin' | 'consumable';
 
 export interface ShopItem {
   id: string;
@@ -29,6 +29,9 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'avatar_rock',     title: 'Rock On',        description: 'Replace your avatar with 🤘',              type: 'avatar',  icon: '🤘', goldPrice: 8,   preview: '🤘', rarity: 'rare'      },
   { id: 'avatar_star',     title: 'Star Power',     description: 'Replace your avatar with ⭐',              type: 'avatar',  icon: '⭐', goldPrice: 15,  preview: '⭐', rarity: 'epic'      },
   { id: 'avatar_crown',    title: 'Royal Crown',    description: 'Replace your avatar with 👑',              type: 'avatar',  icon: '👑', goldPrice: 50,  preview: '👑', rarity: 'legendary' },
+
+  // Consumables
+  { id: 'rename_card', title: 'Username Rename Card', description: 'One-time use — change your username once per card', type: 'consumable', icon: '🎟️', goldPrice: 150, preview: '', rarity: 'rare' },
 ];
 
 export function getShopItem(id: string): ShopItem | undefined {
