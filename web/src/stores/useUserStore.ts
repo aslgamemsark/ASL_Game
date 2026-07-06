@@ -38,6 +38,7 @@ function defaultProgress(): UserProgress {
     speedHighScores: {},
     totalCorrectSigns: 0,
     pendingChests: [],
+    unlockedWorldIds: [],
     ownedCosmetics: [],
     equippedBorder: null,
     equippedAvatar: null,
@@ -72,6 +73,7 @@ interface UserStore extends UserProgress {
   toggleShowcaseBadge: (id: string) => void;
   recordSpeedResult: (tier: SpeedTier, score: number, combo: number, signsEarned: number) => void;
   purchaseCosmetic: (itemId: string, goldPrice: number) => boolean;
+  unlockWorldWithGold: (worldId: string, cost: number) => boolean;
   equipBorder: (itemId: string | null) => void;
   equipAvatar: (itemId: string | null) => void;
   openChest: (chestId: string) => { signs: number; gold: number };
@@ -406,6 +408,16 @@ export const useUserStore = create<UserStore>()(
         const s = get();
         if (s.gold < goldPrice || s.ownedCosmetics.includes(itemId)) return false;
         set((st) => ({ gold: st.gold - goldPrice, ownedCosmetics: [...st.ownedCosmetics, itemId] }));
+        return true;
+      },
+
+      // Alternative to finishing the previous world's story — either one unlocks a world, so
+      // this only ever ADDS to unlockedWorldIds and never touches completedLessons (which would
+      // falsely mark a story "done" the player never actually played).
+      unlockWorldWithGold: (worldId, cost) => {
+        const s = get();
+        if (s.gold < cost || s.unlockedWorldIds.includes(worldId)) return false;
+        set((st) => ({ gold: st.gold - cost, unlockedWorldIds: [...st.unlockedWorldIds, worldId] }));
         return true;
       },
 

@@ -54,6 +54,8 @@ export interface UserProgress {
   speedHighScores: Record<string, SpeedHighScore>;
   totalCorrectSigns: number;
   pendingChests: Chest[];
+  /** World ids unlocked by spending gold instead of finishing the previous world's story. */
+  unlockedWorldIds: string[];
   ownedCosmetics: string[];
   equippedBorder: string | null;
   equippedAvatar: string | null;

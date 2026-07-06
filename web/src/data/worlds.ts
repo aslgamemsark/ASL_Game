@@ -1,3 +1,5 @@
+export const WORLD_UNLOCK_GOLD_COST = 150;
+
 export interface World {
   id: string;
   title: string;

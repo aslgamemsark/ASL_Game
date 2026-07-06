@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WORLDS } from '@/data/worlds';
+import { WORLDS, WORLD_UNLOCK_GOLD_COST } from '@/data/worlds';
 import { LESSON_UNITS, LESSON_SKIP_COST } from '@/data/lessons';
 import { STORIES } from '@/data/stories';
 import { useUserStore } from '@/stores/useUserStore';
@@ -12,14 +12,17 @@ interface Props {
 }
 
 export function WorldMap({ onSelectLesson, onStartStory }: Props) {
-  const { completedLessons, signs, skipLesson } = useUserStore();
+  const { completedLessons, signs, skipLesson, gold, unlockedWorldIds, unlockWorldWithGold } = useUserStore();
   const [selectedWorldId, setSelectedWorldId] = useState<string | null>(null);
 
   const selectedWorld = WORLDS.find((w) => w.id === selectedWorldId);
 
+  // A world opens either by finishing the previous world's story, OR by paying gold instead —
+  // the two are independent paths, so unlockedWorldIds never touches completedLessons (that
+  // would falsely mark a story "done" that was actually skipped).
   function isWorldUnlocked(world: (typeof WORLDS)[0]): boolean {
     if (!world.unlockCondition) return true;
-    return completedLessons.includes(world.unlockCondition);
+    return completedLessons.includes(world.unlockCondition) || unlockedWorldIds.includes(world.id);
   }
 
   function getWorldProgress(world: (typeof WORLDS)[0]) {
@@ -181,22 +184,63 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
           const { done, total } = getWorldProgress(world);
           const pct = total > 0 ? (done / total) * 100 : 0;
 
+          if (!unlocked) {
+            // A locked card can't be a <button> itself once it contains its own "Unlock for
+            // gold" button — nested buttons are invalid HTML — so it renders as a plain
+            // container with only the gold-unlock control being interactive.
+            const canAfford = gold >= WORLD_UNLOCK_GOLD_COST;
+            return (
+              <motion.div
+                key={world.id}
+                className="w-full rounded-2xl overflow-hidden border border-white/5 text-left relative opacity-90"
+                style={{ background: 'linear-gradient(135deg,#1a1a2e,#16213e)' }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <div className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-4xl grayscale opacity-70">{world.emoji}</span>
+                      <div>
+                        <h3 className="font-bold text-lg text-white">{world.title}</h3>
+                        <p className="text-white/60 text-xs mt-0.5 max-w-[180px]">{world.description}</p>
+                      </div>
+                    </div>
+                    <span className="text-2xl shrink-0">🔒</span>
+                  </div>
+
+                  <p className="text-white/60 text-xs mt-1 mb-3">
+                    Finish {world.unlockCondition?.replace(/-/g, ' ')} to open this world!
+                  </p>
+
+                  <button
+                    onClick={() => unlockWorldWithGold(world.id, WORLD_UNLOCK_GOLD_COST)}
+                    disabled={!canAfford}
+                    className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+                      canAfford
+                        ? 'bg-z-yellow/20 text-z-yellow hover:bg-z-yellow/30 cursor-pointer'
+                        : 'bg-white/5 text-white/30 cursor-not-allowed'
+                    }`}
+                  >
+                    🪙 Unlock for {WORLD_UNLOCK_GOLD_COST}
+                  </button>
+                </div>
+              </motion.div>
+            );
+          }
+
           return (
             <motion.button
               key={world.id}
-              onClick={() => unlocked && setSelectedWorldId(world.id)}
-              disabled={!unlocked}
-              className={`w-full rounded-2xl overflow-hidden border text-left relative ${
-                unlocked
-                  ? 'border-white/10'
-                  : 'border-white/5 opacity-55 cursor-default'
-              }`}
-              style={{ background: unlocked ? world.bgGradient : 'linear-gradient(135deg,#1a1a2e,#16213e)' }}
+              onClick={() => setSelectedWorldId(world.id)}
+              className="w-full rounded-2xl overflow-hidden border border-white/10 text-left relative"
+              style={{ background: world.bgGradient }}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              whileHover={unlocked ? { scale: 1.02, boxShadow: `0 14px 40px ${world.color}44` } : {}}
-              whileTap={unlocked ? { scale: 0.98 } : {}}
+              whileHover={{ scale: 1.02, boxShadow: `0 14px 40px ${world.color}44` }}
+              whileTap={{ scale: 0.98 }}
             >
               <div className="p-5">
                 <div className="flex items-start justify-between mb-3">
@@ -207,33 +251,24 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                       <p className="text-white/60 text-xs mt-0.5 max-w-[180px]">{world.description}</p>
                     </div>
                   </div>
-                  {!unlocked && <span className="text-2xl shrink-0">🔒</span>}
-                  {unlocked && done === total && total > 0 && <span className="text-2xl shrink-0">✅</span>}
-                  {unlocked && (done < total || total === 0) && (
+                  {done === total && total > 0 && <span className="text-2xl shrink-0">✅</span>}
+                  {(done < total || total === 0) && (
                     <span className="text-white/70 text-sm font-bold shrink-0 mt-1">{done}/{total}</span>
                   )}
                 </div>
 
-                {unlocked ? (
-                  <>
-                    <div className="flex items-center justify-between text-xs text-white/75 mb-1.5">
-                      <span>{done} of {total} lessons</span>
-                      <span>{Math.round(pct)}%</span>
-                    </div>
-                    <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
-                      <motion.div
-                        className="h-full rounded-full bg-white/65"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.8, ease: 'easeOut', delay: i * 0.1 + 0.2 }}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-white/60 text-xs mt-1">
-                    Finish {world.unlockCondition?.replace(/-/g, ' ')} to open this world!
-                  </p>
-                )}
+                <div className="flex items-center justify-between text-xs text-white/75 mb-1.5">
+                  <span>{done} of {total} lessons</span>
+                  <span>{Math.round(pct)}%</span>
+                </div>
+                <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-white/65"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.8, ease: 'easeOut', delay: i * 0.1 + 0.2 }}
+                  />
+                </div>
               </div>
             </motion.button>
           );
