@@ -81,22 +81,30 @@ function BoardList({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.03 }}
           >
+            {/* Rank number / medal */}
+            <div className="w-8 text-center shrink-0">
+              {medal ? (
+                <span className="text-lg">{medal}</span>
+              ) : (
+                <span className="text-xs font-bold text-z-gray-400 tabular-nums">{i + 1}</span>
+              )}
+            </div>
+
             {/* Avatar (equipped avatar/badge + equipped border, matching Me tab / side nav) */}
             <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg shrink-0 ${borderClasses}`}>
               {avatarIcon}
             </div>
 
-            {/* Name + rank tier name */}
+            {/* Name */}
             <div className="flex-1 min-w-0">
               <p className={`font-bold text-sm truncate ${isMe ? 'text-z-purple-light' : 'text-white'}`}>
                 {isMe ? `${row.username} (you)` : row.username}
               </p>
-              <p className="text-[11px] text-z-gray-400">{rank.name}</p>
             </div>
 
-            {/* Position + XP + streak, stacked */}
+            {/* Rank tier name + XP + streak, stacked */}
             <div className="text-right shrink-0">
-              <p className="text-xs font-bold text-z-gray-400 tabular-nums">{medal ?? `#${i + 1}`}</p>
+              <p className="text-xs font-bold text-z-gray-400">{rank.name}</p>
               <p className="text-sm font-bold text-z-yellow tabular-nums">{row.total_xp.toLocaleString()} XP</p>
               {row.streak > 0 && (
                 <p className="text-[11px] text-z-gray-400">🔥 {row.streak}d</p>
