@@ -4,11 +4,13 @@ import { useUserStore } from '@/stores/useUserStore';
 import { getShopItem } from '@/data/shop';
 import { getBadge } from '@/data/badges';
 
-export type SideNavScreen = 'home' | 'shop' | 'friends' | 'settings' | 'profile';
+export type SideNavScreen = 'home' | 'review' | 'alphabet' | 'shop' | 'friends' | 'settings' | 'profile';
 
 interface Props {
   active: SideNavScreen | null;
   onHome: () => void;
+  onReview: () => void;
+  onAlphabet: () => void;
   onShop: () => void;
   onFriends: () => void;
   onSettings: () => void;
@@ -17,11 +19,13 @@ interface Props {
 
 const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'home', label: 'Journey', icon: '🗺️' },
+  { id: 'review', label: 'Review', icon: '🪞' },
+  { id: 'alphabet', label: 'ABCs', icon: '🔤' },
   { id: 'shop', label: 'Shop', icon: '🪙' },
   { id: 'friends', label: 'Friends', icon: '🤝' },
 ];
 
-export function SideNav({ active, onHome, onShop, onFriends, onSettings, onProfile }: Props) {
+export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onSettings, onProfile }: Props) {
   const { user, username, signOut } = useAuth();
   const { equippedAvatar, activeBadge } = useUserStore();
   const avatarIcon = equippedAvatar
@@ -30,6 +34,8 @@ export function SideNav({ active, onHome, onShop, onFriends, onSettings, onProfi
 
   const handlers: Record<SideNavScreen, () => void> = {
     home: onHome,
+    review: onReview,
+    alphabet: onAlphabet,
     shop: onShop,
     friends: onFriends,
     settings: onSettings,

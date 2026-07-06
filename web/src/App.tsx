@@ -56,8 +56,14 @@ export default function App() {
     <>
       {showSideNav && (
         <SideNav
-          active={screen.type === 'home' && homeTab === 'profile' ? 'profile' : (screen.type as SideNavScreen)}
+          active={
+            screen.type === 'home' && homeTab !== 'learn'
+              ? (homeTab as SideNavScreen)
+              : (screen.type as SideNavScreen)
+          }
           onHome={() => { goHome(); setHomeTab('learn'); }}
+          onReview={() => { goHome(); setHomeTab('review'); }}
+          onAlphabet={() => { goHome(); setHomeTab('alphabet'); }}
           onShop={() => setScreen({ type: 'shop' })}
           onFriends={() => setScreen({ type: 'friends' })}
           onSettings={() => setScreen({ type: 'settings' })}
