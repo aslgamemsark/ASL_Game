@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Capture } from '@/engine/capture';
+import { Capture, getSharedCapture } from '@/engine/capture';
 import { RollingBuffer, HandStabilizer, type Frame } from '@/engine/landmarks';
 import { verify, type VerifyResult, resultPassed } from '@/engine/verifier';
 import { gatePass, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
@@ -93,8 +93,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     }
     setStatus('loading');
     try {
-      const cap = new Capture();
-      await cap.init();
+      const cap = await getSharedCapture();
       captureRef.current = cap;
       console.log('[SignUp] MediaPipe initialized');
       setStatus('ready');
@@ -278,7 +277,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     return () => {
       runningRef.current = false;
       cancelAnimationFrame(rafRef.current);
-      captureRef.current?.close();
+      // Capture is a shared, app-wide singleton now (see getSharedCapture) — don't close it here,
+      // that would break every other mounted page still using it.
     };
   }, []);
 

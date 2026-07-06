@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { getSharedCapture } from '@/engine/capture';
+import { useClassifier } from '@/hooks/useClassifier';
 import { AvatarLabPage } from '@/avatar/viewer/AvatarLabPage';
 import { HomePage } from '@/pages/HomePage';
 import type { Tab } from '@/components/home/BottomNav';
@@ -34,6 +36,14 @@ const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'settings'
 
 export default function App() {
   useProgressSync();
+  // Warm the MediaPipe + AI-classifier caches as soon as the app opens (onboarding/home screen)
+  // instead of waiting for the first lesson mount — both are module-level singletons (see
+  // getSharedCapture, useClassifier's loadOnce), so this download only ever happens once and
+  // whichever lesson/practice/story page mounts next picks up the already-loading/loaded result.
+  useClassifier();
+  useEffect(() => {
+    void getSharedCapture();
+  }, []);
   const { onboardingComplete } = useUserStore();
   const [screen, setScreen] = useState<Screen>(
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }

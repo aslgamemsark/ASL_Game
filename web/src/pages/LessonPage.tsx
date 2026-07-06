@@ -82,7 +82,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
       // Same reasoning as PracticePage: don't race a hidden auto-advance timer against the
       // "Watch replay" button when replay is on — give an explicit choice instead.
       if (!replayEnabled) {
-        timerRef.current = setTimeout(advancePrompt, 1800);
+        timerRef.current = setTimeout(advancePrompt, 1200);
       }
     },
     [phase, currentSignId, addXp, addDailyMinutes, recordSign, replayEnabled, recorder, advancePrompt]
@@ -317,14 +317,35 @@ export function LessonPage({ lessonId, onExit }: Props) {
                 />
               )}
 
-              {/* Visible webcam mirror — reads from the hidden video element */}
-              <WebcamMirror videoRef={videoRef} />
+              {(camStatus === 'denied' || camStatus === 'error' || recognition.status === 'error') ? (
+                <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center">
+                  <p className="text-sm font-bold text-z-red">
+                    {camStatus === 'denied' ? 'Camera access denied' : 'Camera unavailable'}
+                  </p>
+                  <p className="text-xs text-z-gray-300 mt-1">
+                    {camStatus === 'denied'
+                      ? 'Live coaching needs your camera. Allow camera access in your browser settings, then try again.'
+                      : 'Something went wrong starting the camera. Try again, or check that no other app is using it.'}
+                  </p>
+                  <button
+                    onClick={() => startCam()}
+                    className="mt-3 text-xs font-bold text-white bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Visible webcam mirror — reads from the hidden video element */}
+                  <WebcamMirror videoRef={videoRef} />
 
-              {recognition.result && (
-                <ParameterChecklist
-                  params={recognition.result.params}
-                  sign={currentEngineSign}
-                />
+                  {recognition.result && (
+                    <ParameterChecklist
+                      params={recognition.result.params}
+                      sign={currentEngineSign}
+                    />
+                  )}
+                </>
               )}
 
               <div className="flex items-center justify-between mt-auto pt-2">

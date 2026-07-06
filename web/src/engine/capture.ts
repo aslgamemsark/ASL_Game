@@ -177,3 +177,21 @@ export class Capture {
     this._ready = false;
   }
 }
+
+let sharedCapture: Capture | null = null;
+let sharedCaptureInit: Promise<Capture> | null = null;
+
+/**
+ * Module-level singleton so the MediaPipe WASM runtime + hand/pose models download and
+ * initialize ONCE per app session. Previously every lesson/practice/story page created its own
+ * Capture and closed it on unmount, so re-entering a lesson re-did the full CDN fetch + model
+ * init every time. Callers can also fire this early (e.g. on app mount) so the download overlaps
+ * with onboarding/home-screen browsing instead of blocking "Start Signing".
+ */
+export function getSharedCapture(): Promise<Capture> {
+  if (!sharedCaptureInit) {
+    sharedCapture = new Capture();
+    sharedCaptureInit = sharedCapture.init().then(() => sharedCapture!);
+  }
+  return sharedCaptureInit;
+}
