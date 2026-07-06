@@ -192,7 +192,6 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Two claw hands tap fingertips together',
     hint: 'Bring your fingertips together for another round!',
-    clip: '/clips/MORE.mp4',
   },
   LETTER_A: {
     name: 'LETTER_A',
@@ -836,7 +835,6 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'repeated', actor: 'dominant', pivot: 'nondominant', minAmplitudeRatio: 0.08, minDurationS: 0.5, required: true },
     description: 'Both open hands move outward from the temples, twice',
     hint: 'Hands start at your temples, then move forward and out — twice',
-    clip: '/clips/TEACHER.mp4',
   },
 
   WRITE: {
@@ -856,7 +854,6 @@ export const SIGNS: Record<string, SignDef> = {
     orientation: { hand: 'nondominant', facing: 'up', required: false },
     description: 'Pinched dominant hand scribbles back and forth on the open palm',
     hint: 'Pretend to hold a pen and scribble on your other palm',
-    clip: '/clips/WRITE.mp4',
   },
 
   READ: {
@@ -876,7 +873,6 @@ export const SIGNS: Record<string, SignDef> = {
     orientation: { hand: 'nondominant', facing: 'up', required: false },
     description: 'V-hand (your "eyes") sweeps down over your open palm',
     hint: 'Make a V with your fingers and sweep it down your other palm',
-    clip: '/clips/READ.mp4',
   },
 
   NAME: {
@@ -896,7 +892,6 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'repeated', actor: 'dominant', pivot: 'nondominant', minAmplitudeRatio: 0.04, minDurationS: 0.4, required: true },
     description: 'Two H-hands cross and tap together, twice',
     hint: 'Cross your fingers like an H and tap them together',
-    clip: '/clips/NAME.mp4',
   },
 
   FRIEND: {
@@ -916,6 +911,5 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'repeated', actor: 'dominant', pivot: 'nondominant', minAmplitudeRatio: 0.05, minDurationS: 0.5, required: true },
     description: 'Hooked index fingers link and tap together, twice',
     hint: 'Hook your index fingers together and tap them, twice',
-    clip: '/clips/FRIEND.mp4',
   },
 };

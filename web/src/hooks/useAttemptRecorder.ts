@@ -57,11 +57,10 @@ export function useAttemptRecorder() {
     chunksRef.current = [];
   }, []);
 
-  /** Begin one fresh SEGMENT_MS-bounded recording, discarding whatever was recording before. */
-  const startSegment = useCallback(() => {
+  /** Construct + start a brand-new MediaRecorder on the current stream. */
+  const createAndStart = useCallback(() => {
     const stream = streamRef.current;
     if (!stream) return;
-    teardownCurrentRecorder();
     let recorder: MediaRecorder;
     try {
       const mimeType = pickMimeType();
@@ -70,12 +69,35 @@ export function useAttemptRecorder() {
       console.warn('[SignUp] MediaRecorder unavailable, replay disabled:', e);
       return;
     }
+    chunksRef.current = [];
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
     recorderRef.current = recorder;
     recorder.start();
-  }, [teardownCurrentRecorder]);
+  }, []);
+
+  /**
+   * Begin one fresh SEGMENT_MS-bounded recording, discarding whatever was recording before.
+   * MediaRecorder.stop() is ASYNC — the previous recorder isn't actually done with the stream's
+   * tracks the instant .stop() returns. Constructing a second MediaRecorder on the same
+   * MediaStream before the first one's 'stop' event fires raced two recorders against the same
+   * tracks, which silently produced an empty/broken segment on Chrome — the exact bug that made
+   * replay disappear entirely once a prompt ran past the first 4s segment boundary (i.e. almost
+   * every real attempt, since reading the prompt before signing easily takes that long). Fix:
+   * only construct the new recorder once the old one has actually finished stopping.
+   */
+  const startSegment = useCallback(() => {
+    if (!streamRef.current) return;
+    const prev = recorderRef.current;
+    if (prev && prev.state !== 'inactive') {
+      prev.ondataavailable = null;
+      prev.onstop = createAndStart;
+      try { prev.stop(); } catch { createAndStart(); }
+    } else {
+      createAndStart();
+    }
+  }, [createAndStart]);
 
   /** Start (or restart) recording an attempt. Discards any previous replay. */
   const start = useCallback((stream: MediaStream) => {
