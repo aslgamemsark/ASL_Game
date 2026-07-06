@@ -50,6 +50,18 @@ export function LessonPage({ lessonId, onExit }: Props) {
   const currentSignData = currentSignId ? SIGNS[currentSignId] : null;
   const currentEngineSign = currentSignId ? ENGINE_SIGNS[currentSignId] : null;
 
+  const advancePrompt = useCallback(() => {
+    if (promptIdx + 1 < signIds.length) {
+      setPromptIdx((prev) => prev + 1);
+      setPhase('signing');
+    } else {
+      setPhase('complete');
+      completeLesson(lessonId);
+      sounds.levelUp();
+      bigCelebration();
+    }
+  }, [promptIdx, signIds.length, completeLesson, lessonId, sounds, bigCelebration]);
+
   const handlePass = useCallback(
     (result: VerifyResult) => {
       if (phase !== 'signing') return;
@@ -67,19 +79,13 @@ export function LessonPage({ lessonId, onExit }: Props) {
         recordSign(currentSignId, true);
       }
 
-      timerRef.current = setTimeout(() => {
-        if (promptIdx + 1 < signIds.length) {
-          setPromptIdx((prev) => prev + 1);
-          setPhase('signing');
-        } else {
-          setPhase('complete');
-          completeLesson(lessonId);
-          sounds.levelUp();
-          bigCelebration();
-        }
-      }, 1800);
+      // Same reasoning as PracticePage: don't race a hidden auto-advance timer against the
+      // "Watch replay" button when replay is on — give an explicit choice instead.
+      if (!replayEnabled) {
+        timerRef.current = setTimeout(advancePrompt, 1800);
+      }
     },
-    [phase, promptIdx, signIds, currentSignId, lessonId, addXp, recordSign, completeLesson, replayEnabled, recorder]
+    [phase, currentSignId, addXp, addDailyMinutes, recordSign, replayEnabled, recorder, advancePrompt]
   );
 
   const handleVerified = useCallback(
@@ -307,6 +313,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
                 <ReferenceClip
                   clipUrl={currentSignData.clip}
                   signName={currentSignData.name}
+                  compact
                 />
               )}
 
@@ -359,16 +366,22 @@ export function LessonPage({ lessonId, onExit }: Props) {
               >
                 +10 XP
               </motion.div>
-              {replayEnabled && recorder.replayUrl && (
-                <button
-                  onClick={() => {
-                    clearTimeout(timerRef.current);
-                    setPhase('replay');
-                  }}
-                  className="mt-2 text-xs text-z-purple-light hover:text-white px-3 py-1.5 rounded-lg border border-z-purple-light/40"
-                >
-                  ▶ Watch replay
-                </button>
+              {replayEnabled && (
+                <div className="flex flex-col items-center gap-2 mt-2">
+                  <button
+                    onClick={() => setPhase('replay')}
+                    disabled={!recorder.replayUrl}
+                    className="text-xs text-z-purple-light hover:text-white px-3 py-1.5 rounded-lg border border-z-purple-light/40 disabled:opacity-40"
+                  >
+                    {recorder.replayUrl ? '▶ Watch replay' : 'Preparing replay…'}
+                  </button>
+                  <button
+                    onClick={() => { recorder.discard(); advancePrompt(); }}
+                    className="text-xs text-z-gray-300 hover:text-white px-3 py-1.5 rounded-lg border border-z-gray-500/30"
+                  >
+                    Next word →
+                  </button>
+                </div>
               )}
             </motion.div>
           )}
@@ -384,15 +397,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
               sign={currentEngineSign}
               onContinue={() => {
                 recorder.discard();
-                if (promptIdx + 1 < signIds.length) {
-                  setPromptIdx((prev) => prev + 1);
-                  setPhase('signing');
-                } else {
-                  setPhase('complete');
-                  completeLesson(lessonId);
-                  sounds.levelUp();
-                  bigCelebration();
-                }
+                advancePrompt();
               }}
             />
           )}

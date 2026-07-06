@@ -4,11 +4,18 @@ import { useRef, useState, useCallback, useEffect } from 'react';
  * Records the learner's own sign attempt from the existing camera MediaStream so they can
  * replay it next to the reference demo (self-review). Strictly in-memory and on-device:
  * the blob lives only in this hook's state as an object URL, is never uploaded anywhere,
- * and is revoked on discard/unmount. Recording the WHOLE attempt (rather than a rolling
- * last-N-seconds buffer) is deliberate — WebM chunks are only playable from the first chunk
- * (codec init segment), so dropping old chunks would yield an unplayable blob. Attempts are
- * seconds long at 640x480, so memory is a non-issue.
+ * and is revoked on discard/unmount.
+ *
+ * A real rolling buffer isn't possible with MediaRecorder — WebM chunks are only playable
+ * from the first chunk (codec init segment), so dropping OLD chunks from a single long
+ * recording yields an unplayable blob. Instead this restarts a brand-new short recording
+ * every SEGMENT_MS: each segment is its own complete, independently-playable file, and only
+ * the most recent one is kept. The recognition loop runs continuously while the learner
+ * retries a sign (there's no discrete "new attempt" event to hook), so without this a single
+ * recorder just keeps recording across every retry — by the time you finally pass on try #4,
+ * the "replay" would be the whole multi-attempt session, not the ~3-4s that actually passed.
  */
+const SEGMENT_MS = 4000;
 
 function pickMimeType(): string | undefined {
   if (typeof MediaRecorder === 'undefined') return undefined;
@@ -24,6 +31,8 @@ function pickMimeType(): string | undefined {
 export function useAttemptRecorder() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const segmentTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [replayUrl, setReplayUrl] = useState<string | null>(null);
   const replayUrlRef = useRef<string | null>(null);
 
@@ -37,19 +46,22 @@ export function useAttemptRecorder() {
     setReplayUrl(null);
   }, []);
 
-  /** Start (or restart) recording an attempt. Discards any previous replay. */
-  const start = useCallback((stream: MediaStream) => {
-    if (!supported) return;
-    // Tear down any in-flight recorder without producing a replay.
+  /** Tear down whatever's currently recording without keeping its blob — we're rolling forward. */
+  const teardownCurrentRecorder = useCallback(() => {
     const prev = recorderRef.current;
     if (prev && prev.state !== 'inactive') {
       prev.ondataavailable = null;
       prev.onstop = null;
       try { prev.stop(); } catch { /* already stopped */ }
     }
-    revokeCurrent();
     chunksRef.current = [];
+  }, []);
 
+  /** Begin one fresh SEGMENT_MS-bounded recording, discarding whatever was recording before. */
+  const startSegment = useCallback(() => {
+    const stream = streamRef.current;
+    if (!stream) return;
+    teardownCurrentRecorder();
     let recorder: MediaRecorder;
     try {
       const mimeType = pickMimeType();
@@ -63,10 +75,26 @@ export function useAttemptRecorder() {
     };
     recorderRef.current = recorder;
     recorder.start();
-  }, [supported, revokeCurrent]);
+  }, [teardownCurrentRecorder]);
 
-  /** Stop recording and expose the finished attempt as a playable object URL. */
+  /** Start (or restart) recording an attempt. Discards any previous replay. */
+  const start = useCallback((stream: MediaStream) => {
+    if (!supported) return;
+    revokeCurrent();
+    streamRef.current = stream;
+    startSegment();
+    if (segmentTimerRef.current) clearInterval(segmentTimerRef.current);
+    // Roll to a brand-new segment periodically so a long string of retries on the same sign
+    // never leaves more than ~SEGMENT_MS of trailing footage in the recorder.
+    segmentTimerRef.current = setInterval(startSegment, SEGMENT_MS);
+  }, [supported, revokeCurrent, startSegment]);
+
+  /** Stop recording and expose the CURRENT (at most SEGMENT_MS old) segment as a replay. */
   const stop = useCallback(() => {
+    if (segmentTimerRef.current) {
+      clearInterval(segmentTimerRef.current);
+      segmentTimerRef.current = null;
+    }
     const recorder = recorderRef.current;
     if (!recorder || recorder.state === 'inactive') return;
     recorder.onstop = () => {
@@ -82,19 +110,18 @@ export function useAttemptRecorder() {
 
   /** Throw away the recording (and any in-flight recorder) without keeping a replay. */
   const discard = useCallback(() => {
-    const recorder = recorderRef.current;
-    if (recorder && recorder.state !== 'inactive') {
-      recorder.ondataavailable = null;
-      recorder.onstop = null;
-      try { recorder.stop(); } catch { /* already stopped */ }
+    if (segmentTimerRef.current) {
+      clearInterval(segmentTimerRef.current);
+      segmentTimerRef.current = null;
     }
-    chunksRef.current = [];
+    teardownCurrentRecorder();
     revokeCurrent();
-  }, [revokeCurrent]);
+  }, [teardownCurrentRecorder, revokeCurrent]);
 
   // Hard cleanup on unmount — nothing survives leaving the screen.
   useEffect(() => {
     return () => {
+      if (segmentTimerRef.current) clearInterval(segmentTimerRef.current);
       const recorder = recorderRef.current;
       if (recorder && recorder.state !== 'inactive') {
         recorder.ondataavailable = null;

@@ -60,6 +60,15 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
   const currentEngineSign = currentSignId ? ENGINE_SIGNS[currentSignId] : null;
   const allSignIds = Object.keys(SIGNS);
 
+  const advanceQueue = useCallback(() => {
+    if (queueIdx + 1 < queue.length) {
+      setQueueIdx((p) => p + 1);
+      setCardPhase('prompt');
+    } else {
+      setMode('done');
+    }
+  }, [queueIdx, queue.length]);
+
   const handlePass = useCallback(
     (result: VerifyResult) => {
       if (mode !== 'expressive' || cardPhase !== 'prompt') return;
@@ -75,16 +84,14 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
       setSessionXp((p) => p + 5);
       setSessionCorrect((p) => p + 1);
 
-      timerRef.current = setTimeout(() => {
-        if (queueIdx + 1 < queue.length) {
-          setQueueIdx((p) => p + 1);
-          setCardPhase('prompt');
-        } else {
-          setMode('done');
-        }
-      }, 1500);
+      // When replay is on, don't race a hidden auto-advance timer against the "Watch replay"
+      // button — that gave people ~1.5s to notice and tap it before the app moved on without
+      // asking. Show both choices explicitly instead and wait for a real tap either way.
+      if (!replayEnabled) {
+        timerRef.current = setTimeout(advanceQueue, 1500);
+      }
     },
-    [mode, cardPhase, currentSignId, queueIdx, queue.length, recordSign, addXp, replayEnabled, recorder]
+    [mode, cardPhase, currentSignId, replayEnabled, recorder, recordSign, addXp, advanceQueue]
   );
 
   const handleVerified = useCallback(
@@ -400,7 +407,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
                   </div>
 
                   {currentSignData.clip && (
-                    <ReferenceClip clipUrl={currentSignData.clip} signName={currentSignData.name} />
+                    <ReferenceClip clipUrl={currentSignData.clip} signName={currentSignData.name} compact />
                   )}
 
                   <WebcamMirror videoRef={videoRef} />
@@ -431,12 +438,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
                   sign={currentEngineSign}
                   onContinue={() => {
                     recorder.discard();
-                    if (queueIdx + 1 < queue.length) {
-                      setQueueIdx((p) => p + 1);
-                      setCardPhase('prompt');
-                    } else {
-                      setMode('done');
-                    }
+                    advanceQueue();
                   }}
                 />
               ) : (
@@ -450,16 +452,22 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
                   </motion.div>
                   <h2 className="text-xl font-bold text-z-green">Nice!</h2>
                   <p className="text-z-yellow font-bold">+5 XP</p>
-                  {replayEnabled && recorder.replayUrl && (
-                    <button
-                      onClick={() => {
-                        clearTimeout(timerRef.current);
-                        setCardPhase('replay');
-                      }}
-                      className="mt-2 text-xs text-z-purple-light hover:text-white px-3 py-1.5 rounded-lg border border-z-purple-light/40"
-                    >
-                      ▶ Watch replay
-                    </button>
+                  {replayEnabled && (
+                    <div className="flex flex-col items-center gap-2 mt-2">
+                      <button
+                        onClick={() => setCardPhase('replay')}
+                        disabled={!recorder.replayUrl}
+                        className="text-xs text-z-purple-light hover:text-white px-3 py-1.5 rounded-lg border border-z-purple-light/40 disabled:opacity-40"
+                      >
+                        {recorder.replayUrl ? '▶ Watch replay' : 'Preparing replay…'}
+                      </button>
+                      <button
+                        onClick={() => { recorder.discard(); advanceQueue(); }}
+                        className="text-xs text-z-gray-300 hover:text-white px-3 py-1.5 rounded-lg border border-z-gray-500/30"
+                      >
+                        Next word →
+                      </button>
+                    </div>
                   )}
                 </div>
               )}

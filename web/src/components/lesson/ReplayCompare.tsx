@@ -48,7 +48,7 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
       </div>
 
       <div className={sideBySide ? 'grid grid-cols-2 gap-3' : ''}>
-        <div className="relative rounded-2xl overflow-hidden bg-z-surface aspect-video">
+        <div className="relative rounded-2xl overflow-hidden bg-z-surface aspect-[4/3]">
           <video
             ref={attemptRef}
             src={attemptUrl}
@@ -56,7 +56,7 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
             muted
             playsInline
             autoPlay
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             style={{ transform: 'scaleX(-1)' }}
           />
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2">
@@ -65,7 +65,7 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
         </div>
 
         {sideBySide && (
-          <div className="relative rounded-2xl overflow-hidden bg-z-surface aspect-video">
+          <div className="relative rounded-2xl overflow-hidden bg-z-surface aspect-[4/3]">
             <video
               ref={referenceRef}
               src={clipUrl}
@@ -73,7 +73,7 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
               muted
               playsInline
               autoPlay
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2">
               <p className="text-white text-xs font-bold">Reference</p>
