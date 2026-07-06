@@ -23,6 +23,7 @@ export const ALL_BADGES: BadgeDef[] = [
   { id: 'streak_100',     title: 'Inferno',         description: '100-day signing streak',                      icon: '⚡',  rarity: 'epic',      goldReward: 50 },
   { id: 'lesson_5',       title: 'Quick Learner',   description: 'Complete 5 lessons',                          icon: '📚',  rarity: 'common',    goldReward: 2  },
   { id: 'lesson_all',     title: 'Graduate',        description: 'Complete all available lessons',              icon: '🎓',  rarity: 'rare',      goldReward: 10 },
+  { id: 'greetings_story', title: 'Friendly Face',  description: 'Complete the Say Hello story',                icon: '👋',  rarity: 'common',    goldReward: 3  },
   { id: 'coffee_story',   title: 'Coffee Master',   description: 'Complete the Coffee Shop story',              icon: '☕',  rarity: 'common',    goldReward: 5  },
   { id: 'coffee_story_2', title: 'Rush Hour Hero',  description: 'Complete the Coffee Shop: Rush Hour story',   icon: '⏰',  rarity: 'rare',      goldReward: 8  },
   { id: 'hospital_story', title: 'Medical Expert',  description: 'Complete the Hospital story',                 icon: '🏥',  rarity: 'rare',      goldReward: 8  },

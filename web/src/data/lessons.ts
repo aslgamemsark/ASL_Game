@@ -4,6 +4,44 @@ export const LESSON_SKIP_COST = 40;
 
 export const LESSON_UNITS: LessonUnit[] = [
   {
+    id: 'unit-0',
+    title: 'Say Hello',
+    description: 'Your very first signs',
+    color: '#14B8A6',
+    nodes: [
+      {
+        id: 'greetings-intro',
+        title: 'Say Hello',
+        description: 'Wave hello and be polite',
+        signIds: ['HELLO', 'PLEASE', 'YOU'],
+        status: 'current',
+        xpReward: 15,
+        iconEmoji: '👋',
+        scenario: 'greetings',
+      },
+      {
+        id: 'friend-intro',
+        title: 'Make a Friend',
+        description: 'Ask a name and make a friend',
+        signIds: ['NAME', 'FRIEND', 'MORE'],
+        status: 'locked',
+        xpReward: 15,
+        iconEmoji: '🤝',
+        scenario: 'greetings',
+      },
+      {
+        id: 'greetings-story',
+        title: 'Meet Zippy',
+        description: 'Say hi to Zippy — role-play!',
+        signIds: ['HELLO', 'PLEASE', 'YOU', 'NAME', 'FRIEND'],
+        status: 'locked',
+        xpReward: 30,
+        iconEmoji: '🌟',
+        scenario: 'greetings',
+      },
+    ],
+  },
+  {
     id: 'unit-1',
     title: 'Getting Started',
     description: 'Learn your first signs',
@@ -162,6 +200,16 @@ export const LESSON_UNITS: LessonUnit[] = [
     color: '#3B82F6',
     nodes: [
       {
+        id: 'classroom-basics',
+        title: 'Classroom Basics',
+        description: 'Teacher, write, read, and friend',
+        signIds: ['TEACHER', 'WRITE', 'READ', 'NAME', 'FRIEND'],
+        status: 'current',
+        xpReward: 25,
+        iconEmoji: '📚',
+        scenario: 'classroom',
+      },
+      {
         id: 'classroom-greetings',
         title: 'Classroom Greetings',
         description: 'Say hello and be polite at school',
@@ -169,16 +217,6 @@ export const LESSON_UNITS: LessonUnit[] = [
         status: 'locked',
         xpReward: 15,
         iconEmoji: '🎒',
-        scenario: 'classroom',
-      },
-      {
-        id: 'classroom-basics',
-        title: 'Classroom Basics',
-        description: 'Teacher, write, read, and friend',
-        signIds: ['TEACHER', 'WRITE', 'READ', 'NAME', 'FRIEND'],
-        status: 'locked',
-        xpReward: 25,
-        iconEmoji: '📚',
         scenario: 'classroom',
       },
       {

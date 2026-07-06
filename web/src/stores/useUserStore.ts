@@ -323,6 +323,7 @@ export const useUserStore = create<UserStore>()(
           streak_100:     s.streak >= 100,
           lesson_5:       s.completedLessons.length >= 5,
           lesson_all:     s.completedLessons.length >= 14,
+          greetings_story: s.completedLessons.includes('greetings-story'),
           coffee_story:   s.completedLessons.includes('coffee-story'),
           coffee_story_2: s.completedLessons.includes('coffee-story-2'),
           hospital_story: s.completedLessons.includes('hospital-story'),

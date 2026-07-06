@@ -16,6 +16,52 @@ export interface StoryScript {
   lines: DialogueLine[];
 }
 
+export const GREETINGS_STORY: StoryScript = {
+  id: 'greetings-story',
+  title: 'Meet Zippy',
+  description: 'Say hello and make a new friend',
+  npcName: 'Zippy',
+  npcEmoji: '🤟',
+  backgroundEmoji: '🌟',
+  lines: [
+    {
+      npcText: "Hi there! I'm Zippy — can you say hello back?",
+      npcMood: 'happy',
+      requiredSignId: 'HELLO',
+      hint: 'Wave hello!',
+      npcResponse: "Yay, hi! 👋",
+    },
+    {
+      npcText: "Nice to meet you! Can you sign PLEASE for me?",
+      npcMood: 'curious',
+      requiredSignId: 'PLEASE',
+      hint: 'Circle your open hand on your chest',
+      npcResponse: "Aw, so polite! 😊",
+    },
+    {
+      npcText: "Now point to yourself — sign YOU pointing this way!",
+      npcMood: 'neutral',
+      requiredSignId: 'YOU',
+      hint: 'Point your index finger forward',
+      npcResponse: "That's you alright! 😄",
+    },
+    {
+      npcText: "What's your NAME? Go ahead and sign it!",
+      npcMood: 'curious',
+      requiredSignId: 'NAME',
+      hint: 'Cross your H-hands and tap together twice',
+      npcResponse: "Great to know you! 🙋",
+    },
+    {
+      npcText: "I think we're going to be great FRIENDs!",
+      npcMood: 'surprised',
+      requiredSignId: 'FRIEND',
+      hint: 'Hook your index fingers and tap together twice',
+      npcResponse: "Friends forever! Welcome to SignUp! 🌟",
+    },
+  ],
+};
+
 export const COFFEE_SHOP_STORY: StoryScript = {
   id: 'coffee-story',
   title: 'At the Coffee Shop',
@@ -242,4 +288,4 @@ export const CLASSROOM_STORY: StoryScript = {
   ],
 };
 
-export const STORIES: StoryScript[] = [COFFEE_SHOP_STORY, COFFEE_SHOP_RUSH_STORY, HOSPITAL_STORY, CLASSROOM_STORY];
+export const STORIES: StoryScript[] = [GREETINGS_STORY, COFFEE_SHOP_STORY, COFFEE_SHOP_RUSH_STORY, HOSPITAL_STORY, CLASSROOM_STORY];
