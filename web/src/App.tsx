@@ -13,6 +13,7 @@ import { ShopPage } from '@/pages/ShopPage';
 import { FriendsPage } from '@/pages/FriendsPage';
 import { MultiplayerPage } from '@/pages/MultiplayerPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { LeaderboardPage } from '@/pages/LeaderboardPage';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { SideNav, type SideNavScreen } from '@/components/shared/SideNav';
 import { STORIES } from '@/data/stories';
@@ -32,10 +33,11 @@ type Screen =
   | { type: 'shop' }
   | { type: 'friends' }
   | { type: 'multiplayer'; autoHostRoomId?: string; autoJoinCode?: string }
-  | { type: 'settings' };
+  | { type: 'settings' }
+  | { type: 'leaderboard' };
 
 // Focused-task screens suppress the side nav (matches hiding chrome during a lesson).
-const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'settings'];
+const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboard', 'settings'];
 
 export default function App() {
   useProgressSync();
@@ -126,13 +128,16 @@ export default function App() {
           active={
             screen.type === 'home' && homeTab !== 'learn'
               ? (homeTab as SideNavScreen)
-              : (screen.type as SideNavScreen)
+              : (['home', 'shop', 'friends', 'leaderboard', 'settings'].includes(screen.type)
+                  ? (screen.type as SideNavScreen)
+                  : null)
           }
           onHome={() => { goHome(); setHomeTab('learn'); }}
           onReview={() => { goHome(); setHomeTab('review'); }}
           onAlphabet={() => { goHome(); setHomeTab('alphabet'); }}
           onShop={() => setScreen({ type: 'shop' })}
           onFriends={() => setScreen({ type: 'friends' })}
+          onLeaderboard={() => setScreen({ type: 'leaderboard' })}
           onSettings={() => setScreen({ type: 'settings' })}
           onProfile={() => { goHome(); setHomeTab('profile'); }}
         />
@@ -207,6 +212,10 @@ export default function App() {
 
           {screen.type === 'settings' && (
             <SettingsPage key="settings" onExit={goHome} />
+          )}
+
+          {screen.type === 'leaderboard' && (
+            <LeaderboardPage key="leaderboard" onExit={goHome} />
           )}
         </AnimatePresence>
       </div>

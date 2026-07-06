@@ -4,7 +4,7 @@ import { useUserStore } from '@/stores/useUserStore';
 import { getShopItem } from '@/data/shop';
 import { getBadge } from '@/data/badges';
 
-export type SideNavScreen = 'home' | 'review' | 'alphabet' | 'shop' | 'friends' | 'settings' | 'profile';
+export type SideNavScreen = 'home' | 'review' | 'alphabet' | 'shop' | 'friends' | 'leaderboard' | 'settings' | 'profile';
 
 interface Props {
   active: SideNavScreen | null;
@@ -13,6 +13,7 @@ interface Props {
   onAlphabet: () => void;
   onShop: () => void;
   onFriends: () => void;
+  onLeaderboard: () => void;
   onSettings: () => void;
   onProfile: () => void;
 }
@@ -23,9 +24,10 @@ const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'alphabet', label: 'ABCs', icon: '🔤' },
   { id: 'shop', label: 'Shop', icon: '🪙' },
   { id: 'friends', label: 'Friends', icon: '🤝' },
+  { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
 ];
 
-export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onSettings, onProfile }: Props) {
+export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onLeaderboard, onSettings, onProfile }: Props) {
   const { user, username, signOut } = useAuth();
   const { equippedAvatar, activeBadge } = useUserStore();
   const avatarIcon = equippedAvatar
@@ -38,6 +40,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
     alphabet: onAlphabet,
     shop: onShop,
     friends: onFriends,
+    leaderboard: onLeaderboard,
     settings: onSettings,
     profile: onProfile,
   };
