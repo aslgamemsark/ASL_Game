@@ -18,7 +18,7 @@ import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { getSignsDueForReview, pickReceptiveDistractors } from '@/data/spaced-repetition';
 import type { VerifyResult } from '@/engine/verifier';
 
-type Mode = 'menu' | 'expressive' | 'receptive' | 'mixed' | 'done';
+type Mode = 'loading' | 'menu' | 'expressive' | 'receptive' | 'mixed' | 'done';
 type CardPhase = 'prompt' | 'result' | 'replay';
 type QuestionType = 'expressive' | 'receptive';
 
@@ -47,7 +47,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   const [passResult, setPassResult] = useState<VerifyResult | null>(null);
   const sounds = useSounds();
   const { burst, bigCelebration } = useConfetti();
-  const [mode, setMode] = useState<Mode>('menu');
+  // Auto-start flows begin in 'loading' (not 'menu') so the mode-choice menu never flashes
+  // on screen for a frame before the auto-start effect below replaces it.
+  const [mode, setMode] = useState<Mode>(() => (autoStartExpressive || autoStartMixed) ? 'loading' : 'menu');
+  const [showClip, setShowClip] = useState(!hideReferenceClip);
   const [queue, setQueue] = useState<string[]>([]);
   const [queueIdx, setQueueIdx] = useState(0);
   const [itemTypes, setItemTypes] = useState<QuestionType[]>([]);
@@ -248,21 +251,6 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
-  const startReceptive = () => {
-    const pool = filterSignIds ?? allSignIds;
-    const signs = pool
-      .filter((id) => SIGNS[id]?.clip)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 8);
-    setQueue(signs);
-    setQueueIdx(0);
-    setCardPhase('prompt');
-    setSelectedAnswer(null);
-    setSessionXp(0);
-    setSessionCorrect(0);
-    setMode('receptive');
-  };
-
   const handleReceptiveAnswer = (answerId: string) => {
     if (cardPhase !== 'prompt') return;
     setSelectedAnswer(answerId);
@@ -352,23 +340,44 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
           </svg>
         </button>
         <h1 className="font-bold text-lg">
-          {mode === 'menu'
-            ? 'Review'
-            : mode === 'mixed'
-              ? (heading ?? 'Test Yourself')
-              : mode === 'expressive'
-                ? (heading ?? 'Sign It')
-                : mode === 'receptive'
-                  ? 'Sign Quiz'
-                  : (heading ?? 'Done')}
+          {mode === 'loading'
+            ? (heading ?? '')
+            : mode === 'menu'
+              ? 'Review'
+              : mode === 'mixed'
+                ? (heading ?? 'Test Yourself')
+                : mode === 'expressive'
+                  ? (heading ?? (showClip ? 'Sign It' : 'Sign Quiz'))
+                  : mode === 'receptive'
+                    ? 'Sign Quiz'
+                    : (heading ?? 'Done')}
         </h1>
-        {mode !== 'menu' && mode !== 'done' && (
+        {mode !== 'menu' && mode !== 'done' && mode !== 'loading' && (
           <span className="ml-auto text-sm text-z-gray-400">{queueIdx + 1}/{queue.length}</span>
         )}
       </div>
 
       <div className="flex-1 max-w-lg mx-auto w-full px-4 pb-6 flex flex-col">
         <AnimatePresence mode="wait">
+          {/* --- LOADING (bridges the gap between mount and auto-start completing) --- */}
+          {mode === 'loading' && (
+            <motion.div
+              key="loading"
+              className="flex-1 flex items-center justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="text-4xl"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              >
+                ⚙️
+              </motion.div>
+            </motion.div>
+          )}
+
           {/* --- MENU --- */}
           {mode === 'menu' && (
             <motion.div
@@ -381,7 +390,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
               <h2 className="text-2xl font-bold mb-2">Choose a mode</h2>
 
               <motion.button
-                onClick={startExpressive}
+                onClick={() => { setShowClip(true); startExpressive(); }}
                 disabled={recognition.status === 'loading'}
                 className="w-full rounded-2xl p-5 text-left border border-white/5 disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg, #7B2FBE, #A855F7)' }}
@@ -391,22 +400,23 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-bold">Sign It</h3>
-                    <p className="text-purple-200 text-sm mt-1">See a word, sign it to the camera</p>
+                    <p className="text-purple-200 text-sm mt-1">Camera + demo clip to follow along</p>
                   </div>
                   <span className="text-3xl">🤟</span>
                 </div>
               </motion.button>
 
               <motion.button
-                onClick={startReceptive}
-                className="w-full rounded-2xl p-5 text-left bg-z-card border border-white/5"
+                onClick={() => { setShowClip(false); startExpressive(); }}
+                disabled={recognition.status === 'loading'}
+                className="w-full rounded-2xl p-5 text-left bg-z-card border border-white/5 disabled:opacity-50"
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-bold">Sign Quiz</h3>
-                    <p className="text-z-gray-300 text-sm mt-1">Watch a clip, pick the right word</p>
+                    <p className="text-z-gray-300 text-sm mt-1">Camera only — from memory, no clip</p>
                   </div>
                   <span className="text-3xl">🧠</span>
                 </div>
@@ -451,7 +461,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
 
                   <WebcamMirror
                     videoRef={videoRef}
-                    overlayClipUrl={!hideReferenceClip ? currentSignData.clip : undefined}
+                    overlayClipUrl={showClip ? currentSignData.clip : undefined}
                   />
 
                   {recognition.result && (
@@ -473,7 +483,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
               ) : cardPhase === 'replay' && recorder.replayUrl ? (
                 <ReplayCompare
                   attemptUrl={recorder.replayUrl}
-                  clipUrl={hideReferenceClip ? undefined : currentSignData.clip}
+                  clipUrl={showClip ? currentSignData.clip : undefined}
                   signName={currentSignData.name}
                   hint={currentSignData.hint}
                   params={passResult?.params}
