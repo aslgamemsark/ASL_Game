@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { useUserStore } from '@/stores/useUserStore';
@@ -25,7 +25,15 @@ function getMedal(i: number) {
   return null;
 }
 
-function BoardList({ rows, userId, loading }: { rows: BoardRow[]; userId?: string; loading: boolean }) {
+function BoardList({
+  rows, userId, loading, relations, onAddFriend,
+}: {
+  rows: BoardRow[];
+  userId?: string;
+  loading: boolean;
+  relations?: Map<string, 'accepted' | 'pendingSent' | 'pendingReceived'>;
+  onAddFriend?: (id: string, username: string) => void;
+}) {
   if (loading) {
     return (
       <div className="flex flex-col gap-2">
@@ -95,6 +103,23 @@ function BoardList({ rows, userId, loading }: { rows: BoardRow[]; userId?: strin
                 <p className="text-[11px] text-z-gray-400">🔥 {row.streak}d</p>
               )}
             </div>
+
+            {/* Friend action — only for other users when signed in */}
+            {userId && row.id !== userId && onAddFriend && (() => {
+              const rel = relations?.get(row.id);
+              if (rel === 'accepted') return <span className="text-[11px] text-z-gray-500 shrink-0">Friends ✓</span>;
+              if (rel === 'pendingSent') return <span className="text-[11px] text-z-gray-500 shrink-0">Pending</span>;
+              if (rel === 'pendingReceived') return <span className="text-[11px] text-z-gray-500 shrink-0">Incoming</span>;
+              return (
+                <motion.button
+                  onClick={() => onAddFriend(row.id, row.username)}
+                  className="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-z-purple/20 text-z-purple-light border border-z-purple/30"
+                  whileTap={{ scale: 0.94 }}
+                >
+                  + Add
+                </motion.button>
+              );
+            })()}
           </motion.div>
         );
       })}
@@ -110,6 +135,40 @@ export function LeaderboardPage({ onExit }: Props) {
   const [friendRows, setFriendRows] = useState<BoardRow[]>([]);
   const [worldLoading, setWorldLoading] = useState(false);
   const [friendLoading, setFriendLoading] = useState(false);
+  const [relations, setRelations] = useState<Map<string, 'accepted' | 'pendingSent' | 'pendingReceived'>>(new Map());
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
+
+  // Load friendship relations for the current user
+  useEffect(() => {
+    if (!user || !supabaseReady) return;
+    supabase
+      .from('friendships')
+      .select('requester_id, addressee_id, status')
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+      .then(({ data }) => {
+        const map = new Map<string, 'accepted' | 'pendingSent' | 'pendingReceived'>();
+        ((data ?? []) as { requester_id: string; addressee_id: string; status: string }[]).forEach((r) => {
+          const otherId = r.requester_id === user.id ? r.addressee_id : r.requester_id;
+          if (r.status === 'accepted') map.set(otherId, 'accepted');
+          else if (r.requester_id === user.id) map.set(otherId, 'pendingSent');
+          else map.set(otherId, 'pendingReceived');
+        });
+        setRelations(map);
+      });
+  }, [user]);
+
+  const sendFriendRequest = async (targetId: string, targetUsername: string) => {
+    if (!user || !supabaseReady) return;
+    const { error } = await supabase.from('friendships').insert({
+      requester_id: user.id,
+      addressee_id: targetId,
+    } as Record<string, string>);
+    if (error) { showToast(`Error: ${error.message}`); return; }
+    setRelations((prev) => new Map(prev).set(targetId, 'pendingSent'));
+    showToast(`Friend request sent to ${targetUsername} 📨`);
+  };
 
   // Load world leaderboard (top 50 by total_xp)
   useEffect(() => {
@@ -229,7 +288,7 @@ export function LeaderboardPage({ onExit }: Props) {
 
         {/* Content */}
         {tab === 'world' && (
-          <BoardList rows={worldRows} userId={user?.id} loading={worldLoading} />
+          <BoardList rows={worldRows} userId={user?.id} loading={worldLoading} relations={relations} onAddFriend={user ? sendFriendRequest : undefined} />
         )}
 
         {tab === 'region' && (
@@ -268,6 +327,17 @@ export function LeaderboardPage({ onExit }: Props) {
           )
         )}
       </div>
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-50 whitespace-nowrap"
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

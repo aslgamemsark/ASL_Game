@@ -156,8 +156,6 @@ export default function App() {
               onStartStory={(id) => setScreen({ type: 'story', storyId: id })}
               onStartSpeed={() => setScreen({ type: 'speed' })}
               onOpenShop={() => setScreen({ type: 'shop' })}
-              onOpenFriends={() => setScreen({ type: 'friends' })}
-              onStartMultiplayer={() => setScreen({ type: 'multiplayer' })}
               tab={homeTab}
               onTabChange={setHomeTab}
             />
@@ -198,7 +196,7 @@ export default function App() {
           )}
 
           {screen.type === 'friends' && (
-            <FriendsPage key="friends" onExit={goHome} onChallengeFriend={handleChallengeFriend} />
+            <FriendsPage key="friends" onExit={goHome} onChallengeFriend={handleChallengeFriend} onStartMultiplayer={() => setScreen({ type: 'multiplayer' })} />
           )}
 
           {screen.type === 'multiplayer' && (

@@ -23,8 +23,6 @@ interface Props {
   onStartStory: (id: string) => void;
   onStartSpeed: () => void;
   onOpenShop: () => void;
-  onOpenFriends: () => void;
-  onStartMultiplayer: () => void;
   tab: Tab;
   onTabChange: (tab: Tab) => void;
 }
@@ -35,8 +33,6 @@ export function HomePage({
   onStartStory,
   onStartSpeed,
   onOpenShop,
-  onOpenFriends,
-  onStartMultiplayer,
   tab,
   onTabChange: setTab,
 }: Props) {
@@ -118,10 +114,7 @@ export function HomePage({
               exit={{ opacity: 0, x: -22, scale: 0.97 }}
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
-              <ProfileTab
-                onOpenFriends={onOpenFriends}
-                onStartMultiplayer={onStartMultiplayer}
-              />
+              <ProfileTab />
             </motion.div>
           )}
         </AnimatePresence>

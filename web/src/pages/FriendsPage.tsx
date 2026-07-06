@@ -30,12 +30,13 @@ interface RelEntry {
 interface Props {
   onExit: () => void;
   onChallengeFriend?: (friendId: string, friendUsername: string) => void;
+  onStartMultiplayer?: () => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function FriendsPage({ onExit, onChallengeFriend }: Props) {
-  const { user, username: myUsername } = useAuth();
+export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: Props) {
+  const { user } = useAuth();
 
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
@@ -255,8 +256,16 @@ export function FriendsPage({ onExit, onChallengeFriend }: Props) {
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
         </button>
-        <h1 className="font-bold text-lg flex-1">Friends</h1>
-        {myUsername && <span className="text-xs text-z-gray-400">@{myUsername}</span>}
+        <h1 className="font-bold text-lg flex-1">Friends &amp; 1v1</h1>
+        {onStartMultiplayer && (
+          <motion.button
+            onClick={onStartMultiplayer}
+            className="flex items-center gap-1.5 text-xs font-bold bg-z-purple/20 text-z-purple-light border border-z-purple/30 rounded-xl px-3 py-1.5"
+            whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+          >
+            ⚔️ Start 1v1
+          </motion.button>
+        )}
       </div>
 
       <div className="flex-1 max-w-lg mx-auto w-full px-4 pt-4 pb-24 space-y-6">

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { useInsights } from '@/hooks/useInsights';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
@@ -12,7 +11,6 @@ import { AccuracySparkline } from '@/components/insights/AccuracySparkline';
 import { getBadge } from '@/data/badges';
 import { getRankProgress } from '@/data/ranks';
 import { SHOP_ITEMS, getShopItem } from '@/data/shop';
-import { supabaseReady } from '@/lib/supabase';
 import { SIGNS } from '@/data/signs';
 import { LESSON_UNITS } from '@/data/lessons';
 
@@ -55,31 +53,22 @@ function cardVariants(glowColor: string) {
   };
 }
 
-type LBTab = 'weekly' | 'alltime';
 const TOTAL_LESSON_COUNT = LESSON_UNITS.reduce((sum, u) => sum + u.nodes.length, 0);
 
-interface ProfileTabProps {
-  onOpenFriends?: () => void;
-  onStartMultiplayer?: () => void;
-}
-
-export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProps = {}) {
+export function ProfileTab() {
   const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, collectTrainingData, setCollectTrainingData, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user, username, signOut } = useAuth();
-  const { rows, loading: lbLoading } = useLeaderboard();
   const { struggleSigns, vetoStats, dailyAccuracy, overallAvgAttempts, loading: insightsLoading } = useInsights();
   const [showAuth, setShowAuth] = useState(false);
   const [showSetUsername, setShowSetUsername] = useState(false);
   const [levelBurst, setLevelBurst] = useState(0);
-  const [lbTab, setLbTab] = useState<LBTab>('weekly');
   const [profileSection, setProfileSection] = useState<'stats' | 'insights' | 'badges'>('stats');
 
   const totalSigns = Object.keys(signAccuracy).length;
   const masteredSigns = Object.values(signAccuracy).filter((s) => s.successes >= 3 && s.successes / s.attempts >= 0.7).length;
   const bestSpeed = Object.entries(speedHighScores).reduce<{ tier: string; score: number } | null>((best, [tier, hs]) => (!best || hs.score > best.score) ? { tier, score: hs.score } : best, null);
 
-  const sortedAllTime = [...rows].sort((a, b) => b.total_xp - a.total_xp);
   const lessonCompletionPct = Math.round((completedLessons.length / TOTAL_LESSON_COUNT) * 100);
   const signLabel = (signId: string) => SIGNS[signId]?.name?.replace(/_/g, ' ') ?? signId.replace(/_/g, ' ');
 
@@ -339,74 +328,6 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
             </div>
           </motion.div>
 
-          {/* Friends & Multiplayer quick actions */}
-          {(onOpenFriends || onStartMultiplayer) && (
-            <motion.div className="grid grid-cols-2 gap-3 mb-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              {onOpenFriends && (
-                <motion.button onClick={onOpenFriends}
-                  className="bg-z-card border border-white/8 rounded-2xl p-4 text-center"
-                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  <p className="text-2xl mb-1">🤝</p>
-                  <p className="font-bold text-sm">Friends</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">Find & add friends</p>
-                </motion.button>
-              )}
-              {onStartMultiplayer && (
-                <motion.button onClick={onStartMultiplayer}
-                  className="bg-z-card border border-white/8 rounded-2xl p-4 text-center"
-                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  <p className="text-2xl mb-1">⚔️</p>
-                  <p className="font-bold text-sm">1v1 Sign</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">Challenge a friend</p>
-                </motion.button>
-              )}
-            </motion.div>
-          )}
-
-          {/* Leaderboard */}
-          {supabaseReady && (
-            <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.36 }}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-base">Leaderboard</h3>
-                <div className="flex bg-z-surface/60 rounded-lg p-0.5 gap-0.5">
-                  {(['weekly', 'alltime'] as LBTab[]).map((t) => (
-                    <button key={t} onClick={() => setLbTab(t)}
-                      className={`text-xs px-3 py-1 rounded-md font-semibold transition-colors ${lbTab === t ? 'bg-z-card text-z-gray-50' : 'text-z-gray-400'}`}
-                    >
-                      {t === 'weekly' ? 'Weekly' : 'All-Time'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {lbLoading ? (
-                <p className="text-z-gray-400 text-sm text-center py-4">Loading…</p>
-              ) : rows.length === 0 ? (
-                <p className="text-z-gray-400 text-sm text-center py-4">No one on the board yet — be the first!</p>
-              ) : (
-                <div className="space-y-2">
-                  {(lbTab === 'weekly' ? rows : sortedAllTime).slice(0, 10).map((row, i) => (
-                    <div key={row.id} className={`flex items-center gap-3 px-3 py-2 rounded-xl ${row.id === user?.id ? 'bg-z-purple/20 border border-z-purple/30' : 'bg-white/3'}`}>
-                      <span className="w-5 text-center text-xs font-bold text-z-gray-400">
-                        {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
-                      </span>
-                      <span className="flex-1 text-sm font-semibold truncate">{row.username}</span>
-                      {lbTab === 'weekly' ? (
-                        <span className="text-xs text-z-gray-300 tabular-nums">{row.signs_this_week} signs</span>
-                      ) : null}
-                      <span className="text-xs text-z-yellow tabular-nums font-bold">{row.total_xp} XP</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {!user && (
-                <p className="text-z-gray-400 text-xs text-center mt-3">
-                  <button onClick={() => setShowAuth(true)} className="underline text-z-purple-light">Sign in</button>{' '}to appear on the board
-                </p>
-              )}
-            </motion.div>
-          )}
         </>
       )}
 
