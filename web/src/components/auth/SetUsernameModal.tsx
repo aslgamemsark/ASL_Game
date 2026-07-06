@@ -23,7 +23,6 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isRename = mode === 'rename';
-  const canRename = !isRename || renameCards > 0;
 
   useEffect(() => {
     if (value.length < 3) { setStatus('idle'); setStatusMsg(''); return; }
@@ -38,7 +37,11 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
   }, [value, user?.id]);
 
   const handleSave = async () => {
-    if (status !== 'ok' || !canRename) return;
+    if (status !== 'ok') return;
+    if (isRename && renameCards <= 0) {
+      setSaveError('You need a Rename Card from the Shop (🪙 150) to change your username.');
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     const err = await updateUsername(value);
@@ -78,23 +81,11 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
             </p>
           </div>
 
-          {/* Rename card warning banner */}
-          {isRename && (
-            <div className={`rounded-xl px-3 py-2.5 mb-4 text-xs leading-relaxed border ${
-              canRename
-                ? 'bg-z-purple/10 border-z-purple/30 text-z-purple-light'
-                : 'bg-red-500/10 border-red-500/30 text-red-400'
-            }`}>
-              {canRename ? (
-                <>
-                  🎟️ You have <span className="font-bold">{renameCards}</span> Rename Card{renameCards !== 1 ? 's' : ''}.
-                  One will be consumed when you save.
-                </>
-              ) : (
-                <>
-                  You have no Rename Cards. Purchase one from the Shop for 🪙 150 to change your username.
-                </>
-              )}
+          {/* Rename card info — only shown when user has cards */}
+          {isRename && renameCards > 0 && (
+            <div className="rounded-xl px-3 py-2.5 mb-4 text-xs leading-relaxed border bg-z-purple/10 border-z-purple/30 text-z-purple-light">
+              🎟️ You have <span className="font-bold">{renameCards}</span> Rename Card{renameCards !== 1 ? 's' : ''}.
+              One will be consumed when you save.
             </div>
           )}
 
@@ -121,7 +112,6 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
                 maxLength={20}
                 autoFocus
                 autoComplete="username"
-                disabled={!canRename}
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none">
                 {status === 'checking' && <span className="text-z-gray-400 text-xs">…</span>}
@@ -143,7 +133,7 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
 
           <motion.button
             onClick={handleSave}
-            disabled={status !== 'ok' || saving || !canRename}
+            disabled={status !== 'ok' || saving}
             className="w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm disabled:opacity-40 transition-opacity mb-2"
             whileTap={{ scale: 0.97 }}
           >
