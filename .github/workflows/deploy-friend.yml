@@ -1,4 +1,4 @@
-name: Deploy to friend's Vercel
+name: Deploy to Vercel
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       - name: Deploy to production
         working-directory: web
         env:
-          VERCEL_TOKEN: ${{ secrets.FRIEND_VERCEL_TOKEN }}
-          VERCEL_ORG_ID: team_chVdu9ui57orbHe0pKXTi0PG
-          VERCEL_PROJECT_ID: prj_Z8XPDWKH5Z7qRHCokCdlz6kTWneW
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_Fz4CWoWyl8RNubpbTJUTYdFe
+          VERCEL_PROJECT_ID: prj_WD8TVZP0U8wlQ2Ida6X8rIm399J7
         run: vercel deploy --prod --yes --token $VERCEL_TOKEN
