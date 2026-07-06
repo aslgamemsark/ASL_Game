@@ -87,13 +87,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return error.message;
 
-    // The trigger auto-creates the profile with a derived username.
-    // Update it to the user's chosen username.
+    // The trigger auto-creates the profile with a neutral generated handle. Update it to the
+    // user's chosen username. The pre-check is best-effort (TOCTOU race); the DB UNIQUE constraint
+    // is the real guard, so translate its violation into a friendly message.
     if (data.user) {
-      await supabase
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({ username } as Record<string, string>)
         .eq('id', data.user.id);
+      if (updateError) {
+        return updateError.code === '23505'
+          ? 'Username already taken'
+          : 'Could not set your username — you can change it later in your profile.';
+      }
     }
     return null;
   }

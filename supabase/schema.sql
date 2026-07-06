@@ -134,26 +134,27 @@ grant select on public.weekly_leaderboard to anon, authenticated;
 
 -- ── 6. AUTO-CREATE PROFILE ON SIGN-UP ───────────────────────
 -- Trigger fires after a new auth.users row is inserted.
--- Username defaults to the part before @ in their email.
+-- SECURITY (VULN-03): username is a NEUTRAL generated handle, NOT derived from the email —
+-- profiles is world-readable for the leaderboard, so deriving it from the email leaked the
+-- email local-part to anyone. Users set their own display username at signup.
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
-  base_username text;
   final_username text;
-  suffix int := 0;
+  attempts int := 0;
 begin
-  base_username := split_part(new.email, '@', 1);
-  base_username := regexp_replace(base_username, '[^a-zA-Z0-9_]', '', 'g');
-  if length(base_username) < 3 then base_username := 'user'; end if;
-
-  final_username := base_username;
   loop
+    final_username := 'signer_' || substr(md5(random()::text || clock_timestamp()::text), 1, 6);
     begin
       insert into public.profiles (id, username) values (new.id, final_username);
       exit;
     exception when unique_violation then
-      suffix := suffix + 1;
-      final_username := base_username || suffix::text;
+      attempts := attempts + 1;
+      if attempts > 10 then
+        final_username := 'signer_' || substr(md5(new.id::text), 1, 12);
+        insert into public.profiles (id, username) values (new.id, final_username);
+        exit;
+      end if;
     end;
   end loop;
 
@@ -182,9 +183,11 @@ alter table public.sign_attempts add column if not exists ai_confidence numeric;
 alter table public.sign_attempts add column if not exists ai_vetoed     boolean;
 
 
--- ── 8. TRAINING-DATA OPT-OUT FLAG ───────────────────────────
+-- ── 8. TRAINING-DATA OPT-IN FLAG ────────────────────────────
+-- SECURITY/PRIVACY (VULN-04): defaults to FALSE. Landmark sequences are biometric-adjacent, so
+-- collection must be an explicit opt-in, not a default-on opt-out.
 alter table public.profiles add column if not exists
-  collect_training_data boolean default true not null;
+  collect_training_data boolean default false not null;
 
 
 -- ── 9. TRAINING SAMPLES ──────────────────────────────────────

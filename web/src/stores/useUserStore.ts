@@ -44,7 +44,9 @@ function defaultProgress(): UserProgress {
     equippedAvatar: null,
     friends: [],
     renameCards: 0,
-    collectTrainingData: true,
+    // Opt-IN (default false): uploading hand/body landmark sequences is biometric-adjacent data,
+    // so it must not be collected without an explicit choice. The user turns this on in Profile.
+    collectTrainingData: false,
   };
 }
 

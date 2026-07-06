@@ -462,12 +462,16 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
                 <AccuracySparkline data={dailyAccuracy} />
               </div>
 
-              {/* Data collection opt-out */}
+              {/* Data collection opt-IN (default off) */}
               <div className="bg-z-card border border-white/5 rounded-2xl p-4 flex items-center justify-between gap-3">
                 <div>
-                  <p className="font-bold text-sm">Help improve the AI</p>
+                  <p className="font-bold text-sm">Share training data (optional)</p>
                   <p className="text-z-gray-400 text-[11px] mt-0.5 leading-relaxed">
-                    Save hand-landmark coordinates (not video) from your attempts as future training data.
+                    Off by default. If on, we save the <span className="text-z-gray-200">hand &amp; body landmark
+                    coordinates</span> (numbers describing your hand positions — never video, never your face image)
+                    from your attempts. This may be used to train and improve the sign-recognition model, including
+                    for a future paid version. Stored privately, not shared outside the project. You can turn this
+                    off anytime; ask us to delete your saved data whenever you like.
                   </p>
                 </div>
                 <button
