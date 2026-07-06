@@ -27,7 +27,7 @@ from core.schema import (
 READ = Sign(
     name="READ",
     two_handed=True,
-    dominant=HandShapeReq(kind="v", required=True, min_confidence=0.5),
+    dominant=HandShapeReq(kind="v", required=True, min_confidence=0.25),
     nondominant=HandShapeReq(kind="open", required=True, min_confidence=0.5),
     location=LocationReq(
         anchor=Anchor.OTHER_HAND,
@@ -42,7 +42,6 @@ READ = Sign(
         direction=(0.0, 1.0),           # image-space down — camera-mirroring-independent, unlike left/right
         min_displacement_ratio=0.25,
         min_duration_s=0.4,
-        required=True,
-    ),
-    orientation=OrientationReq(hand=NONDOMINANT, facing=PalmFacing.UP, required=False),
+        required=True, min_confidence=0.34),
+    orientation=OrientationReq(hand=NONDOMINANT, facing=PalmFacing.UP, required=False, min_confidence=0.25),
 )

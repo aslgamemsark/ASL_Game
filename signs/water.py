@@ -25,7 +25,7 @@ from core.schema import (
 WATER = Sign(
     name="WATER",
     two_handed=False,
-    dominant=HandShapeReq(kind="w", required=True, min_confidence=0.55),
+    dominant=HandShapeReq(kind="w", required=True, min_confidence=0.25),
     nondominant=None,
     location=LocationReq(
         anchor=Anchor.CHIN,

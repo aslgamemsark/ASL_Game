@@ -29,11 +29,18 @@ interface TfTensor {
 export interface SignClassifier {
   classify: (frames: Frame[]) => Promise<ClassifierVote | null>;
   readonly enabled: boolean;
+  /** Signs this model was actually trained on (its softmax output classes). A sign outside this
+   * set (e.g. fingerspelled letters, which no training dataset had enough of — see README) must
+   * never be gated through this classifier: it would be forced to output a confident guess from
+   * its known vocabulary for every attempt, which can veto a correct sign it was never trained
+   * to recognize in the first place. */
+  readonly knownSigns: ReadonlySet<string>;
 }
 
 const DISABLED: SignClassifier = {
   enabled: false,
   classify: async () => null,
+  knownSigns: new Set(),
 };
 
 /**
@@ -63,8 +70,11 @@ export async function loadClassifier(modelUrl: string, classes: string[]): Promi
     return DISABLED;
   }
 
+  const knownSigns = new Set(classes);
+
   return {
     enabled: true,
+    knownSigns,
     classify: async (frames: Frame[]) => {
       const seq = clipToSequence(frames);
       if (!seq) return null;

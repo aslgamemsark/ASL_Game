@@ -35,3 +35,15 @@ export const CLASSIFIER_DEBUG = true;
 
 /** How many top predictions to surface for debugging. */
 export const TOP_K = 3;
+
+/**
+ * Signs excluded from the AI gate even though the model was technically trained on them —
+ * because that training data is too thin to trust (see README "Results"). EMERGENCY has only
+ * 5-7 total clips across ASL Citizen + WLASL (ASL Citizen has none at all; WLASL has 7 total
+ * instances). A class trained on that few examples doesn't generalize — it memorizes those
+ * specific signers — so it must never be allowed to veto a real user's correct attempt. Treated
+ * identically to signs the model was never trained on at all (see useRecognition.ts's
+ * knownSigns check). Remove an entry here once its class has enough real data to trust
+ * (e.g. after tools/export_supabase_samples.py has collected enough EMERGENCY attempts).
+ */
+export const GATE_EXCLUDED_SIGNS = new Set<string>(['EMERGENCY']);

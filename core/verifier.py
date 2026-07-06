@@ -104,14 +104,15 @@ def _trajectory(buffer: RollingBuffer, handedness: str | None):
     return out
 
 
-def _aligned_pair(buffer: RollingBuffer, label_a: str, label_b: str):
-    """Frame-aligned (t, center) pairs for two hands (only frames where both are present)."""
+def _aligned_pair_points(buffer: RollingBuffer, label_a: str, label_b: str):
+    """Frame-aligned (t, all 21 landmark points) pairs for two hands, for CONVERGE's
+    closest-fingertip distance — palm CENTERS never get very close even when fingertips touch."""
     traj_a, traj_b = [], []
     for f in buffer:
         ha, hb = f.hand(label_a), f.hand(label_b)
         if ha is not None and hb is not None:
-            traj_a.append((f.t, ha.center))
-            traj_b.append((f.t, hb.center))
+            traj_a.append((f.t, ha.points[:, :2]))
+            traj_b.append((f.t, hb.points[:, :2]))
     return traj_a, traj_b
 
 
@@ -340,7 +341,7 @@ def _score_movement(buffer, sign: Sign, roles, shoulder_width) -> float:
         ndom_label = roles.get(NONDOMINANT)
         if ndom_label is None:
             return 0.0
-        traj_a, traj_b = _aligned_pair(buffer, actor_label, ndom_label)
+        traj_a, traj_b = _aligned_pair_points(buffer, actor_label, ndom_label)
         return mv.converge_confidence(traj_a, traj_b, shoulder_width, req)
     return mv.movement_confidence(actor_traj, shoulder_width, req)
 
@@ -389,13 +390,14 @@ def movement_debug(buffer: RollingBuffer, sign: Sign) -> str:
     if req.kind == MovementKind.CONVERGE:
         ndom_label = roles.get(NONDOMINANT)
         if ndom_label and sw:
-            traj_a, traj_b = _aligned_pair(buffer, roles.get(req.actor), ndom_label)
+            traj_a, traj_b = _aligned_pair_points(buffer, roles.get(req.actor), ndom_label)
             n = min(len(traj_a), len(traj_b))
             if n >= 2:
-                pts_a = np.array([c for _, c in traj_a[:n]], float)
-                pts_b = np.array([c for _, c in traj_b[:n]], float)
-                gap = np.linalg.norm(pts_a - pts_b, axis=1) / sw
-                return f"converge: gap {gap[0]:.2f}->{gap[-1]:.2f}sw  n={n}"
+                gap = np.array([
+                    float(np.min(np.linalg.norm(traj_a[i][1][:, None, :] - traj_b[i][1][None, :, :], axis=2))) / sw
+                    for i in range(n)
+                ])
+                return f"converge: closest {gap.max():.2f}->{gap[-1]:.2f}sw (min {gap.min():.2f})  n={n}"
         return "converge: waiting for both hands"
     return f"{req.kind.value}: {len(traj)} samples"
 

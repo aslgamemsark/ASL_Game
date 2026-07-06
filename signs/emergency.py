@@ -41,6 +41,5 @@ EMERGENCY = Sign(
         actor=DOMINANT,
         min_cycles=3,              # more oscillations than MEDICINE -> "rapid"
         min_duration_s=0.5,        # shorter window -> must be fast
-        required=True,
-    ),
+        required=True, min_confidence=0.25),
 )

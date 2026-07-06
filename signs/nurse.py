@@ -26,7 +26,7 @@ from core.schema import (
 NURSE = Sign(
     name="NURSE",
     two_handed=True,
-    dominant=HandShapeReq(kind="n", required=True, min_confidence=0.55),
+    dominant=HandShapeReq(kind="n", required=True, min_confidence=0.29),
     nondominant=HandShapeReq(kind="open", required=False),   # the wrist/arm — present, not gated
     location=LocationReq(
         anchor=Anchor.OTHER_HAND,
@@ -40,6 +40,5 @@ NURSE = Sign(
         actor=DOMINANT,
         min_cycles=2,
         min_duration_s=0.5,
-        required=True,
-    ),
+        required=True, min_confidence=0.25),
 )

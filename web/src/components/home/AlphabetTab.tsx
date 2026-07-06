@@ -70,7 +70,7 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
             onClick={() => { sounds.tap(); setSelected(def.letter); }}
             className={`aspect-square rounded-2xl font-bold text-xl flex flex-col items-center justify-center gap-0.5 border transition-colors ${
               selected === def.letter
-                ? 'bg-z-purple/30 border-z-purple-light text-white'
+                ? 'bg-z-purple/30 border-z-purple-light text-z-gray-50'
                 : 'bg-z-card border-white/5 text-z-gray-200'
             }`}
             initial={{ opacity: 0, scale: 0.75 }}

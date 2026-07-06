@@ -44,7 +44,7 @@ HELP = Sign(
         min_dist_ratio=0.0,
         vertical=None,
         required=True,
-        min_confidence=0.5,
+        min_confidence=0.44,
     ),
     movement=MovementReq(
         kind=MovementKind.LINEAR,
@@ -54,8 +54,8 @@ HELP = Sign(
         min_duration_s=0.4,
         # real hand-lifts are never perfectly straight, so linear_confidence caps ~0.55-0.75; 0.5
         # accepts a clear lift while a frozen/jittering hand still scores 0 (hard floor in movement.py).
-        min_confidence=0.5,
+        min_confidence=0.25,
         required=True,
     ),
-    orientation=OrientationReq(hand=NONDOMINANT, facing=PalmFacing.UP, required=False),
+    orientation=OrientationReq(hand=NONDOMINANT, facing=PalmFacing.UP, required=False, min_confidence=0.25),
 )

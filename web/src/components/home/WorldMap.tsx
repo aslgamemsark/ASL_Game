@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WORLDS } from '@/data/worlds';
-import { LESSON_UNITS } from '@/data/lessons';
+import { LESSON_UNITS, LESSON_SKIP_COST } from '@/data/lessons';
 import { STORIES } from '@/data/stories';
 import { useUserStore } from '@/stores/useUserStore';
 import { LessonNode } from './LessonNode';
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function WorldMap({ onSelectLesson, onStartStory }: Props) {
-  const { completedLessons } = useUserStore();
+  const { completedLessons, signs, skipLesson } = useUserStore();
   const [selectedWorldId, setSelectedWorldId] = useState<string | null>(null);
 
   const selectedWorld = WORLDS.find((w) => w.id === selectedWorldId);
@@ -150,6 +150,9 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                     index={unitIdx * 10 + nodeIdx}
                     unitColor={unit.color}
                     onSelect={onSelectLesson}
+                    skipCost={LESSON_SKIP_COST}
+                    signsBalance={signs}
+                    onSkip={(id) => skipLesson(id, LESSON_SKIP_COST)}
                   />
                 );
               })}

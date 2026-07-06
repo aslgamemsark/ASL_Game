@@ -1,5 +1,7 @@
 import type { LessonUnit } from '@/types/lesson';
 
+export const LESSON_SKIP_COST = 40;
+
 export const LESSON_UNITS: LessonUnit[] = [
   {
     id: 'unit-1',

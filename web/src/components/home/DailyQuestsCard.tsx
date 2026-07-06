@@ -68,7 +68,7 @@ export function DailyQuestsCard() {
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${style.bg} ${style.text}`}>
                   {quest.difficulty}
                 </span>
-                <p className="font-semibold text-sm text-white flex-1 truncate">{quest.title}</p>
+                <p className="font-semibold text-sm text-z-gray-50 flex-1 truncate">{quest.title}</p>
 
                 <AnimatePresence mode="wait">
                   {quest.claimed ? (
@@ -109,7 +109,7 @@ export function DailyQuestsCard() {
 
               {/* Progress row */}
               <div className="flex items-center gap-3">
-                <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div className="flex-1 h-1.5 bg-z-gray-500/40 rounded-full overflow-hidden">
                   <motion.div
                     className="h-full rounded-full"
                     style={{

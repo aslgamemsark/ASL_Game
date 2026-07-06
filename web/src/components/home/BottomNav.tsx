@@ -1,4 +1,7 @@
 import { motion, type TargetAndTransition } from 'framer-motion';
+import { useUserStore } from '@/stores/useUserStore';
+import { getShopItem } from '@/data/shop';
+import { getBadge } from '@/data/badges';
 
 export type Tab = 'learn' | 'review' | 'alphabet' | 'profile';
 
@@ -7,11 +10,10 @@ interface Props {
   onChange: (tab: Tab) => void;
 }
 
-const tabs: { id: Tab; label: string; icon: string }[] = [
-  { id: 'learn',    label: 'Journey',  icon: '🗺️' },
-  { id: 'review',   label: 'Review',   icon: '🪞'  },
-  { id: 'alphabet', label: 'ABCs',     icon: '🔤'  },
-  { id: 'profile',  label: 'Me',       icon: '🤟'  },
+const STATIC_TABS = [
+  { id: 'learn'    as Tab, label: 'Journey',  icon: '🗺️' },
+  { id: 'review'   as Tab, label: 'Review',   icon: '🪞'  },
+  { id: 'alphabet' as Tab, label: 'ABCs',     icon: '🔤'  },
 ];
 
 const ICON_HOVER: Record<Tab, TargetAndTransition> = {
@@ -22,6 +24,16 @@ const ICON_HOVER: Record<Tab, TargetAndTransition> = {
 };
 
 export function BottomNav({ active, onChange }: Props) {
+  const { equippedAvatar, activeBadge } = useUserStore();
+  const avatarIcon = equippedAvatar
+    ? (getShopItem(equippedAvatar)?.icon ?? '🤟')
+    : (activeBadge ? (getBadge(activeBadge)?.icon ?? '🤟') : '🤟');
+
+  const tabs = [
+    ...STATIC_TABS,
+    { id: 'profile' as Tab, label: 'Me', icon: avatarIcon },
+  ];
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-z-bg/90 backdrop-blur-md border-t border-z-purple-deep/40">
       <div className="max-w-lg mx-auto flex items-center justify-around py-2.5">

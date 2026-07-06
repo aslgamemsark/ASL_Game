@@ -29,8 +29,8 @@ from core.schema import (
 HOSPITAL = Sign(
     name="HOSPITAL",
     two_handed=True,
-    dominant=HandShapeReq(kind="h", required=True, min_confidence=0.55),
-    nondominant=HandShapeReq(kind="open", required=False),   # the opposite arm — present, not gated
+    dominant=HandShapeReq(kind="h", required=True, min_confidence=0.25),
+    nondominant=HandShapeReq(kind="open", required=False, min_confidence=0.25),   # the opposite arm — present, not gated
     location=LocationReq(
         anchor=Anchor.SHOULDER,
         acting_hand=DOMINANT,

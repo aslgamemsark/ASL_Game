@@ -28,8 +28,8 @@ from core.schema import (
 PAIN = Sign(
     name="PAIN",
     two_handed=True,
-    dominant=HandShapeReq(kind="index", required=True, min_confidence=0.55),
-    nondominant=HandShapeReq(kind="index", required=True, min_confidence=0.55),
+    dominant=HandShapeReq(kind="index", required=True, min_confidence=0.25),
+    nondominant=HandShapeReq(kind="index", required=True, min_confidence=0.25),
     location=LocationReq(
         anchor=Anchor.NEUTRAL_SPACE,
         acting_hand=DOMINANT,
@@ -41,6 +41,5 @@ PAIN = Sign(
         actor=DOMINANT,
         min_approach_ratio=0.15,   # gap must close by ~0.15 shoulder widths
         min_duration_s=0.4,
-        required=True,
-    ),
+        required=True, min_confidence=0.25),
 )

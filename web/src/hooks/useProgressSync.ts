@@ -4,6 +4,7 @@ import { supabase, supabaseReady } from '@/lib/supabase';
 import { useUserStore } from '@/stores/useUserStore';
 import type { SignStats } from '@/types/user';
 import type { VerificationEntry } from '@/hooks/useRecognition';
+import type { Frame } from '@/engine/landmarks';
 
 const DEBOUNCE_MS = 3000;
 
@@ -29,11 +30,10 @@ export function useProgressSync() {
     syncedUserRef.current = user.id;
 
     (async () => {
-      const { data } = await supabase
-        .from('user_progress')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      const [{ data }, { data: profileRow }] = await Promise.all([
+        supabase.from('user_progress').select('*').eq('user_id', user.id).single(),
+        supabase.from('profiles').select('collect_training_data').eq('id', user.id).single(),
+      ]);
 
       if (data) {
         const row = data as unknown as ProgressRow;
@@ -45,6 +45,9 @@ export function useProgressSync() {
           completedLessons: row.completed_lessons,
           signAccuracy: row.sign_accuracy ?? {},
         });
+      }
+      if (profileRow && typeof (profileRow as { collect_training_data?: boolean }).collect_training_data === 'boolean') {
+        mergeProgress({ collectTrainingData: (profileRow as { collect_training_data: boolean }).collect_training_data });
       }
     })();
   }, [user, mergeProgress]);
@@ -81,9 +84,26 @@ export function useProgressSync() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, store.xp, store.streak, store.completedLessons, store.signAccuracy]);
+
+  // Debounced sync of the training-data opt-out flag (separate table from user_progress).
+  const collectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!supabaseReady || !user) return;
+    if (collectTimerRef.current) clearTimeout(collectTimerRef.current);
+    collectTimerRef.current = setTimeout(() => {
+      void supabase
+        .from('profiles')
+        .update({ collect_training_data: store.collectTrainingData })
+        .eq('id', user.id);
+    }, DEBOUNCE_MS);
+    return () => {
+      if (collectTimerRef.current) clearTimeout(collectTimerRef.current);
+    };
+  }, [user, store.collectTrainingData]);
 }
 
-// Call this when a sign is attempted to log it for leaderboard tracking.
+// Call this when a sign is attempted to log it for leaderboard tracking (no rule/AI/landmark
+// breakdown — used by the multiple-choice receptive practice mode, which has no camera).
 export async function logSignAttempt(userId: string, signId: string, passed: boolean) {
   if (!supabaseReady) return;
   await supabase.from('sign_attempts').insert(
@@ -108,4 +128,54 @@ export async function logVerification(userId: string, entry: VerificationEntry) 
       classifier_vote: entry.vote as unknown as Record<string, unknown> | null,
     } as Record<string, unknown>
   );
+}
+
+export type AttemptSource = 'lesson' | 'story' | 'practice' | 'speed';
+
+export interface AttemptPayload {
+  userId: string;
+  signId: string;
+  rulePassed: boolean;
+  aiPrediction: string | null;
+  aiConfidence: number | null;
+  aiVetoed: boolean;
+  finalPassed: boolean;
+  source: AttemptSource;
+  /** Landmark snapshot for this attempt. Persisted only if the user hasn't opted out. */
+  frames: Frame[];
+}
+
+/**
+ * Logs a camera-driven recognition attempt: always writes the lightweight `sign_attempts` row
+ * (powers analytics + leaderboard), and additionally writes the landmark snapshot to
+ * `training_samples` when the user has training-data collection enabled (default on, opt-out
+ * in Profile -> Insights). Fire-and-forget — never awaited from the render path.
+ */
+export async function logAttempt(payload: AttemptPayload) {
+  if (!supabaseReady) return;
+  const { userId, signId, rulePassed, aiPrediction, aiConfidence, aiVetoed, finalPassed } = payload;
+
+  await supabase.from('sign_attempts').insert({
+    user_id: userId,
+    sign_id: signId,
+    passed: finalPassed,
+    rule_passed: rulePassed,
+    ai_prediction: aiPrediction,
+    ai_confidence: aiConfidence,
+    ai_vetoed: aiVetoed,
+  } as Record<string, unknown>);
+
+  const collectEnabled = useUserStore.getState().collectTrainingData;
+  if (collectEnabled && payload.frames.length > 0) {
+    await supabase.from('training_samples').insert({
+      user_id: userId,
+      sign_id: signId,
+      frames: payload.frames as unknown,
+      rule_passed: rulePassed,
+      ai_prediction: aiPrediction,
+      ai_confidence: aiConfidence,
+      final_passed: finalPassed,
+      source: payload.source,
+    } as Record<string, unknown>);
+  }
 }

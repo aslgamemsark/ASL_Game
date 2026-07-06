@@ -77,19 +77,21 @@ function trajectory(buffer: RollingBuffer, handedness: string | null): Traj {
   return out;
 }
 
-function alignedPair(
+// Frame-aligned (t, all 21 landmark points) pairs for two hands, for CONVERGE's closest-fingertip
+// distance — palm centers never get very close even when fingertips touch.
+function alignedPairPoints(
   buffer: RollingBuffer,
   labelA: string,
   labelB: string
-): [Traj, Traj] {
-  const trajA: Traj = [];
-  const trajB: Traj = [];
+): [mv.PointsTraj, mv.PointsTraj] {
+  const trajA: mv.PointsTraj = [];
+  const trajB: mv.PointsTraj = [];
   for (const f of buffer) {
     const ha = frameHand(f, labelA);
     const hb = frameHand(f, labelB);
     if (ha && hb) {
-      trajA.push([f.t, handCenter(ha)]);
-      trajB.push([f.t, handCenter(hb)]);
+      trajA.push([f.t, ha.points.map((p) => [p[0], p[1]])]);
+      trajB.push([f.t, hb.points.map((p) => [p[0], p[1]])]);
     }
   }
   return [trajA, trajB];
@@ -310,7 +312,7 @@ function scoreMovement(
   if (req.kind === MovementKind.CONVERGE) {
     const ndomLabel = roles[NONDOMINANT];
     if (!ndomLabel) return 0;
-    const [trajA, trajB] = alignedPair(buffer, actorLabel!, ndomLabel);
+    const [trajA, trajB] = alignedPairPoints(buffer, actorLabel!, ndomLabel);
     return mv.convergeConfidence(trajA, trajB, shoulderWidth, req);
   }
   return mv.movementConfidence(actorTraj, shoulderWidth, req);

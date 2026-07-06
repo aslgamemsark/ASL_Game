@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head><title>Dev: Add Coins</title>
+<style>body{font-family:sans-serif;padding:40px;background:#0f0a1e;color:#fff;}</style>
+</head>
+<body>
+<h2>Dev Coins Injector</h2>
+<p id="status">Adding 1000 Gold + 1000 Signs to localStorage...</p>
+<script>
+try {
+  const key = 'asl-game-progress';
+  const raw = localStorage.getItem(key);
+  const data = raw ? JSON.parse(raw) : { state: {}, version: 0 };
+  if (!data.state) data.state = {};
+  data.state.gold = (data.state.gold || 0) + 1000;
+  data.state.signs = (data.state.signs || 0) + 1000;
+  localStorage.setItem(key, JSON.stringify(data));
+  document.getElementById('status').innerHTML =
+    '✅ Done! Gold: ' + data.state.gold + ', Signs: ' + data.state.signs +
+    '<br><br><a href="/" style="color:#A78BFA">← Back to app</a>';
+} catch(e) {
+  document.getElementById('status').textContent = 'Error: ' + e.message;
+}
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import { useUserStore } from '@/stores/useUserStore';
 import { getBadge } from '@/data/badges';
+import { getShopItem } from '@/data/shop';
 import { motion } from 'framer-motion';
 
 const fireVariants = {
@@ -20,24 +21,31 @@ const fireVariants = {
 
 interface TopBarProps {
   onOpenShop?: () => void;
+  onOpenProfile?: () => void;
 }
 
-export function TopBar({ onOpenShop }: TopBarProps = {}) {
-  const { streak, signs, gold, activeBadge } = useUserStore();
+export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
+  const { streak, signs, gold, activeBadge, equippedAvatar, equippedBorder } = useUserStore();
   const activeBadgeDef = activeBadge ? getBadge(activeBadge) : null;
+  const avatarItem = equippedAvatar ? getShopItem(equippedAvatar) : null;
+  const profileIcon = avatarItem?.icon ?? (activeBadgeDef?.icon ?? '🤟');
+  const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
 
   return (
     <div className="sticky top-0 z-50 bg-z-bg/90 backdrop-blur-md border-b border-z-purple-deep/50">
-      <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
+      <div className="max-w-lg mx-auto lg:max-w-none flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
-          <motion.div
-            className="w-8 h-8 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg"
+          <motion.button
+            onClick={onOpenProfile}
+            className={`w-8 h-8 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg cursor-pointer focus:outline-none ${borderClasses}`}
             whileHover={{ rotate: [0, -12, 12, -8, 0], scale: 1.08, transition: { duration: 0.45 } }}
+            whileTap={{ scale: 0.9 }}
+            title="My Profile"
           >
-            {activeBadgeDef ? activeBadgeDef.icon : '🤟'}
-          </motion.div>
+            {profileIcon}
+          </motion.button>
           <span
-            className="font-bold text-xl tracking-tight"
+            className="font-bold text-xl tracking-tight lg:hidden"
             style={{
               background: 'linear-gradient(90deg, #A78BFA 0%, #14B8A6 100%)',
               WebkitBackgroundClip: 'text',
@@ -46,7 +54,7 @@ export function TopBar({ onOpenShop }: TopBarProps = {}) {
           >SignUp</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto">
           {/* Streak */}
           <motion.div
             className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default"

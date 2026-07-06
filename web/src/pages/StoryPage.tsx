@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCamera } from '@/hooks/useCamera';
-import { useRecognition } from '@/hooks/useRecognition';
+import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
 import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { logSignAttempt } from '@/hooks/useProgressSync';
+import { logAttempt } from '@/hooks/useProgressSync';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import type { StoryScript } from '@/data/stories';
@@ -75,7 +75,6 @@ export function StoryPage({ story, onExit }: Props) {
         addSigns(signsEarned);
         setEarnedXp((p) => p + xp);
         setEarnedSigns((p) => p + signsEarned);
-        if (user) logSignAttempt(user.id, currentLine.requiredSignId, true);
       }
 
       timerRef.current = setTimeout(() => {
@@ -99,8 +98,26 @@ export function StoryPage({ story, onExit }: Props) {
     [phase, lineIdx, currentLine, story, recordSign, addXp, addSigns, addGold, completeLesson, skipsUsed, hintsUsed, awardBadge, checkBadges]
   );
 
+  const handleAttempt = useCallback(
+    (a: AttemptRecord) => {
+      if (!user) return;
+      void logAttempt({
+        userId: user.id,
+        signId: a.signId,
+        rulePassed: a.rulePassed,
+        aiPrediction: a.aiPrediction,
+        aiConfidence: a.aiConfidence,
+        aiVetoed: a.aiVetoed,
+        finalPassed: a.finalPassed,
+        source: 'story',
+        frames: a.frames,
+      });
+    },
+    [user]
+  );
+
   const { classifier, logVote } = useClassifier();
-  const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote });
+  const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote, onAttempt: handleAttempt });
 
   useEffect(() => { recognition.init(); }, [recognition.init]);
 
@@ -135,7 +152,19 @@ export function StoryPage({ story, onExit }: Props) {
   const handleSkip = () => {
     if (!currentLine) return;
     recordSign(currentLine.requiredSignId, false);
-    if (user) logSignAttempt(user.id, currentLine.requiredSignId, false);
+    if (user) {
+      void logAttempt({
+        userId: user.id,
+        signId: currentLine.requiredSignId,
+        rulePassed: false,
+        aiPrediction: null,
+        aiConfidence: null,
+        aiVetoed: false,
+        finalPassed: false,
+        source: 'story',
+        frames: recognition.getSnapshot(),
+      });
+    }
     setSkipsUsed((p) => p + 1);
     setFailMsg(FAIL_RESPONSES[Math.floor(Math.random() * FAIL_RESPONSES.length)]);
     setPhase('fail');

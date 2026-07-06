@@ -1,0 +1,648 @@
+{
+  "stats_n_used": {
+    "BREATHE": 32,
+    "COFFEE": 35,
+    "DIZZY": 34,
+    "DOCTOR": 69,
+    "EMERGENCY": 5,
+    "FRIEND": 7,
+    "HELLO": 33,
+    "HELP": 36,
+    "HOSPITAL": 67,
+    "MEDICINE": 38,
+    "MORE": 8,
+    "NAME": 8,
+    "NURSE": 34,
+    "PAIN": 34,
+    "PLEASE": 36,
+    "READ": 9,
+    "SICK": 36,
+    "TEACHER": 9,
+    "THANK_YOU": 32,
+    "WANT": 66,
+    "WATER": 37,
+    "WRITE": 11,
+    "YES": 39,
+    "YOU": 30
+  },
+  "recommendations": {
+    "BREATHE": {
+      "handshape_dominant": {
+        "current": 0.55,
+        "recommended": 0.55,
+        "status": "NO_CHANGE",
+        "note": "real n=32 clips, p10=1.00 median=1.00"
+      },
+      "handshape_nondominant": {
+        "current": 0.55,
+        "recommended": 0.55,
+        "status": "NO_CHANGE",
+        "note": "real n=32 clips, p10=1.00 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=32 clips, p10=1.00 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=32 clips, p10=0.72 median=1.00"
+      }
+    },
+    "COFFEE": {
+      "handshape_dominant": {
+        "current": 0.5,
+        "recommended": 0.5,
+        "status": "CONFLICT",
+        "note": "real correct clips only clear 0.49 at their worst 10%, but confusor clips reach 1.05 on this parameter alone \u2014 no single threshold separates them; needs a feature-level fix, not a number change."
+      },
+      "handshape_nondominant": {
+        "current": 0.5,
+        "recommended": 0.5,
+        "status": "CONFLICT",
+        "note": "real correct clips only clear 0.28 at their worst 10%, but confusor clips reach 0.91 on this parameter alone \u2014 no single threshold separates them; needs a feature-level fix, not a number change."
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "CONFLICT",
+        "note": "real correct clips only clear 0.25 at their worst 10%, but confusor clips reach 0.84 on this parameter alone \u2014 no single threshold separates them; needs a feature-level fix, not a number change."
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "CONFLICT",
+        "note": "real correct clips only clear 0.25 at their worst 10%, but confusor clips reach 0.78 on this parameter alone \u2014 no single threshold separates them; needs a feature-level fix, not a number change."
+      },
+      "orientation": {
+        "current": 0.5,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=35 clips, p10=0.00 median=0.00, confusor p90=0.01"
+      }
+    },
+    "DIZZY": {
+      "handshape_dominant": {
+        "current": 0.55,
+        "recommended": 0.55,
+        "status": "NO_CHANGE",
+        "note": "real n=34 clips, p10=1.00 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=34 clips, p10=1.00 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.34,
+        "status": "LOOSEN",
+        "note": "real n=34 clips, p10=0.39 median=0.68"
+      }
+    },
+    "DOCTOR": {
+      "handshape_dominant": {
+        "current": 0.45,
+        "recommended": 0.45,
+        "status": "CONFLICT",
+        "note": "real correct clips only clear 0.59 at their worst 10%, but confusor clips reach 1.05 on this parameter alone \u2014 no single threshold separates them; needs a feature-level fix, not a number change."
+      },
+      "handshape_nondominant": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "CONFLICT",
+        "note": "real correct clips only clear 0.61 at their worst 10%, but confusor clips reach 1.05 on this parameter alone \u2014 no single threshold separates them; needs a feature-level fix, not a number change."
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "CONFLICT",
+        "note": "real correct clips only clear 0.95 at their worst 10%, but confusor clips reach 1.05 on this parameter alone \u2014 no single threshold separates them; needs a feature-level fix, not a number change."
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "CONFLICT",
+        "note": "real correct clips only clear 0.25 at their worst 10%, but confusor clips reach 1.05 on this parameter alone \u2014 no single threshold separates them; needs a feature-level fix, not a number change."
+      }
+    },
+    "EMERGENCY": {
+      "handshape_dominant": {
+        "current": 0.5,
+        "recommended": 0.5,
+        "status": "NO_CHANGE",
+        "note": "real n=5 clips, p10=0.73 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=5 clips, p10=0.70 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=5 clips, p10=0.13 median=0.33"
+      }
+    },
+    "FRIEND": {
+      "handshape_dominant": {
+        "current": 0.65,
+        "recommended": 0.34,
+        "status": "LOOSEN",
+        "note": "real n=7 clips, p10=0.39 median=0.88"
+      },
+      "handshape_nondominant": {
+        "current": 0.65,
+        "recommended": 0.59,
+        "status": "LOOSEN",
+        "note": "real n=7 clips, p10=0.64 median=0.94"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=7 clips, p10=1.00 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.35,
+        "status": "LOOSEN",
+        "note": "real n=7 clips, p10=0.40 median=0.50"
+      }
+    },
+    "HELLO": {
+      "handshape_dominant": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=33 clips, p10=1.00 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.45,
+        "status": "LOOSEN",
+        "note": "real n=33 clips, p10=0.50 median=0.50"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=33 clips, p10=0.05 median=0.50"
+      }
+    },
+    "HELP": {
+      "handshape_dominant": {
+        "current": 0.5,
+        "recommended": 0.5,
+        "status": "NO_CHANGE",
+        "note": "real n=36 clips, p10=0.65 median=1.00"
+      },
+      "handshape_nondominant": {
+        "current": 0.5,
+        "recommended": 0.5,
+        "status": "NO_CHANGE",
+        "note": "real n=36 clips, p10=0.68 median=1.00"
+      },
+      "location": {
+        "current": 0.5,
+        "recommended": 0.44,
+        "status": "LOOSEN",
+        "note": "real n=36 clips, p10=0.49 median=1.00"
+      },
+      "movement": {
+        "current": 0.5,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=36 clips, p10=0.00 median=0.66"
+      },
+      "orientation": {
+        "current": 0.5,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=36 clips, p10=0.00 median=0.00"
+      }
+    },
+    "HOSPITAL": {
+      "handshape_dominant": {
+        "current": 0.55,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=67 clips, p10=0.09 median=0.69"
+      },
+      "handshape_nondominant": {
+        "current": 0.6,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=67 clips, p10=0.00 median=0.07"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=67 clips, p10=0.75 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=67 clips, p10=1.00 median=1.00"
+      }
+    },
+    "MEDICINE": {
+      "handshape_dominant": {
+        "current": 0.55,
+        "recommended": 0.55,
+        "status": "CONFLICT",
+        "note": "real correct clips only clear 0.93 at their worst 10%, but confusor clips reach 1.05 on this parameter alone \u2014 no single threshold separates them; needs a feature-level fix, not a number change."
+      },
+      "handshape_nondominant": {
+        "current": 0.55,
+        "recommended": 0.55,
+        "status": "CONFLICT",
+        "note": "real correct clips only clear 0.86 at their worst 10%, but confusor clips reach 1.05 on this parameter alone \u2014 no single threshold separates them; needs a feature-level fix, not a number change."
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "CONFLICT",
+        "note": "real correct clips only clear 0.91 at their worst 10%, but confusor clips reach 1.05 on this parameter alone \u2014 no single threshold separates them; needs a feature-level fix, not a number change."
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "CONFLICT",
+        "note": "real correct clips only clear 0.25 at their worst 10%, but confusor clips reach 1.05 on this parameter alone \u2014 no single threshold separates them; needs a feature-level fix, not a number change."
+      },
+      "orientation": {
+        "current": 0.5,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=38 clips, p10=0.00 median=0.00, confusor p90=0.00"
+      }
+    },
+    "MORE": {
+      "handshape_dominant": {
+        "current": 0.4,
+        "recommended": 0.4,
+        "status": "NO_CHANGE",
+        "note": "real n=8 clips, p10=0.90 median=1.00"
+      },
+      "handshape_nondominant": {
+        "current": 0.4,
+        "recommended": 0.4,
+        "status": "NO_CHANGE",
+        "note": "real n=8 clips, p10=0.94 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=8 clips, p10=1.00 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=8 clips, p10=0.80 median=0.88"
+      }
+    },
+    "NAME": {
+      "handshape_dominant": {
+        "current": 0.3,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=8 clips, p10=0.11 median=0.62"
+      },
+      "handshape_nondominant": {
+        "current": 0.5,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=8 clips, p10=0.00 median=0.39"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=8 clips, p10=0.72 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=8 clips, p10=0.25 median=0.50"
+      }
+    },
+    "NURSE": {
+      "handshape_dominant": {
+        "current": 0.55,
+        "recommended": 0.29,
+        "status": "LOOSEN",
+        "note": "real n=34 clips, p10=0.34 median=0.75"
+      },
+      "handshape_nondominant": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=34 clips, p10=0.65 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=34 clips, p10=1.00 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=34 clips, p10=0.00 median=0.50"
+      }
+    },
+    "PAIN": {
+      "handshape_dominant": {
+        "current": 0.55,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=34 clips, p10=0.24 median=0.45"
+      },
+      "handshape_nondominant": {
+        "current": 0.55,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=34 clips, p10=0.00 median=0.20"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=34 clips, p10=1.00 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=34 clips, p10=0.00 median=0.00"
+      }
+    },
+    "PLEASE": {
+      "handshape_dominant": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=36 clips, p10=1.00 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=36 clips, p10=1.00 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.44,
+        "status": "LOOSEN",
+        "note": "real n=36 clips, p10=0.49 median=0.82"
+      },
+      "orientation": {
+        "current": 0.5,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=36 clips, p10=0.00 median=1.00"
+      }
+    },
+    "READ": {
+      "handshape_dominant": {
+        "current": 0.5,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=9 clips, p10=0.22 median=0.33"
+      },
+      "handshape_nondominant": {
+        "current": 0.5,
+        "recommended": 0.5,
+        "status": "NO_CHANGE",
+        "note": "real n=9 clips, p10=1.00 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=9 clips, p10=0.68 median=0.99"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.34,
+        "status": "LOOSEN",
+        "note": "real n=9 clips, p10=0.39 median=0.86"
+      },
+      "orientation": {
+        "current": 0.5,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=9 clips, p10=0.00 median=0.00"
+      }
+    },
+    "SICK": {
+      "handshape_dominant": {
+        "current": 0.55,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=36 clips, p10=0.00 median=0.00"
+      },
+      "handshape_nondominant": {
+        "current": 0.6,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=36 clips, p10=0.00 median=0.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=36 clips, p10=0.19 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=36 clips, p10=1.00 median=1.00"
+      }
+    },
+    "TEACHER": {
+      "handshape_dominant": {
+        "current": 0.5,
+        "recommended": 0.5,
+        "status": "NO_CHANGE",
+        "note": "real n=9 clips, p10=0.99 median=1.00"
+      },
+      "handshape_nondominant": {
+        "current": 0.5,
+        "recommended": 0.5,
+        "status": "NO_CHANGE",
+        "note": "real n=9 clips, p10=1.00 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=9 clips, p10=0.96 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.4,
+        "status": "LOOSEN",
+        "note": "real n=9 clips, p10=0.45 median=0.50"
+      }
+    },
+    "THANK_YOU": {
+      "handshape_dominant": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=32 clips, p10=1.00 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=32 clips, p10=1.00 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=32 clips, p10=0.11 median=0.96"
+      },
+      "orientation": {
+        "current": 0.5,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=32 clips, p10=0.00 median=0.00"
+      }
+    },
+    "WANT": {
+      "handshape_dominant": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=66 clips, p10=1.00 median=1.00"
+      },
+      "handshape_nondominant": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=66 clips, p10=1.00 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=66 clips, p10=1.00 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=66 clips, p10=0.00 median=0.40"
+      }
+    },
+    "WATER": {
+      "handshape_dominant": {
+        "current": 0.55,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=37 clips, p10=0.00 median=0.10"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=37 clips, p10=0.93 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=37 clips, p10=1.00 median=1.00"
+      }
+    },
+    "WRITE": {
+      "handshape_dominant": {
+        "current": 0.5,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=11 clips, p10=0.00 median=0.51"
+      },
+      "handshape_nondominant": {
+        "current": 0.5,
+        "recommended": 0.5,
+        "status": "NO_CHANGE",
+        "note": "real n=11 clips, p10=1.00 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=11 clips, p10=1.00 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.45,
+        "status": "LOOSEN",
+        "note": "real n=11 clips, p10=0.50 median=0.50"
+      },
+      "orientation": {
+        "current": 0.5,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=11 clips, p10=0.00 median=0.00"
+      }
+    },
+    "YES": {
+      "handshape_dominant": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=39 clips, p10=1.00 median=1.00"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.45,
+        "status": "LOOSEN",
+        "note": "real n=39 clips, p10=0.50 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=39 clips, p10=0.00 median=0.50"
+      }
+    },
+    "YOU": {
+      "handshape_dominant": {
+        "current": 0.6,
+        "recommended": 0.25,
+        "status": "LOOSEN",
+        "note": "real n=30 clips, p10=0.00 median=0.54"
+      },
+      "location": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=30 clips, p10=1.00 median=1.00"
+      },
+      "movement": {
+        "current": 0.6,
+        "recommended": 0.6,
+        "status": "NO_CHANGE",
+        "note": "real n=30 clips, p10=1.00 median=1.00"
+      }
+    }
+  }
+}

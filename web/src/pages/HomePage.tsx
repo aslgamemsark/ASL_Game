@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TopBar } from '@/components/shared/TopBar';
 import { StreakCard } from '@/components/home/StreakCard';
@@ -24,6 +24,8 @@ interface Props {
   onOpenShop: () => void;
   onOpenFriends: () => void;
   onStartMultiplayer: () => void;
+  tab: Tab;
+  onTabChange: (tab: Tab) => void;
 }
 
 export function HomePage({
@@ -34,8 +36,9 @@ export function HomePage({
   onOpenShop,
   onOpenFriends,
   onStartMultiplayer,
+  tab,
+  onTabChange: setTab,
 }: Props) {
-  const [tab, setTab] = useState<Tab>('learn');
   const { refreshDailyQuests } = useUserStore();
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export function HomePage({
 
   return (
     <div className="min-h-screen bg-z-bg">
-      <TopBar onOpenShop={onOpenShop} />
+      <TopBar onOpenShop={onOpenShop} onOpenProfile={() => setTab('profile')} />
 
       <div className="max-w-lg mx-auto px-4 pt-4">
         <AnimatePresence mode="wait">
@@ -122,7 +125,9 @@ export function HomePage({
         </AnimatePresence>
       </div>
 
-      <BottomNav active={tab} onChange={setTab} />
+      <div className="lg:hidden">
+        <BottomNav active={tab} onChange={setTab} />
+      </div>
     </div>
   );
 }

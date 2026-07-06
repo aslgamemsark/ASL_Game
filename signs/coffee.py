@@ -49,5 +49,5 @@ COFFEE = Sign(
     ),
     # Real-world COFFEE has the dominant palm facing down; left non-gating in v1 until the
     # orientation scorer is reliable.
-    orientation=OrientationReq(hand=DOMINANT, facing=PalmFacing.DOWN, required=False),
+    orientation=OrientationReq(hand=DOMINANT, facing=PalmFacing.DOWN, required=False, min_confidence=0.25),
 )

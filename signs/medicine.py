@@ -46,5 +46,5 @@ MEDICINE = Sign(
         min_duration_s=0.6,
         required=True,
     ),
-    orientation=OrientationReq(hand=NONDOMINANT, facing=PalmFacing.UP, required=False),
+    orientation=OrientationReq(hand=NONDOMINANT, facing=PalmFacing.UP, required=False, min_confidence=0.25),
 )

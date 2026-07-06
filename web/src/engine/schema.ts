@@ -36,6 +36,7 @@ export enum MovementKind {
   CIRCULAR = 'circular',
   REPEATED = 'repeated',
   CONVERGE = 'converge',
+  TRACED = 'traced',
 }
 
 export interface MovementReq {
@@ -49,6 +50,9 @@ export interface MovementReq {
   minCycles: number;
   minAmplitudeRatio: number;
   minApproachRatio: number;
+  // traced (J, Z): expected direction angles per phase, degrees (0=right, 90=down, 180=left, 270=up)
+  traceTemplate?: number[];
+  traceToleranceDeg?: number;
   minDurationS: number;
   required: boolean;
   minConfidence: number;

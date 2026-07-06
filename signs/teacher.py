@@ -40,9 +40,14 @@ TEACHER = Sign(
     movement=MovementReq(
         kind=MovementKind.REPEATED,
         actor=DOMINANT,
+        # min_cycles=1 was tried and reverted: a live test found that simply HOLDING two hands
+        # still near the forehead (no signing at all) could score ~1 cycle from natural tracking
+        # jitter alone, since near-face hand tracking is noisy enough that amplitude doesn't
+        # reliably distinguish real motion from tremor here. Requiring 2 full cycles means an
+        # attempt sometimes needs a retry to register at the app's 2.0s window, but that is a far
+        # safer failure mode than passing on zero real movement.
         min_cycles=2,
         min_amplitude_ratio=0.08,
         min_duration_s=0.5,
-        required=True,
-    ),
+        required=True, min_confidence=0.4),
 )

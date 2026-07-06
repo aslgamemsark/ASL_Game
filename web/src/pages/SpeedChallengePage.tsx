@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCamera } from '@/hooks/useCamera';
-import { useRecognition } from '@/hooks/useRecognition';
+import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { logSignAttempt } from '@/hooks/useProgressSync';
+import { logAttempt } from '@/hooks/useProgressSync';
 import { SIGNS } from '@/data/signs';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import type { VerifyResult } from '@/engine/verifier';
@@ -84,7 +84,6 @@ export function SpeedChallengePage({ onExit }: Props) {
 
       if (currentSignId) {
         recordSign(currentSignId, true);
-        if (user) logSignAttempt(user.id, currentSignId, true);
       }
 
       setScore((p) => p + 1);
@@ -103,10 +102,28 @@ export function SpeedChallengePage({ onExit }: Props) {
 
       advanceTimerRef.current = setTimeout(() => advanceSign(true), 900);
     },
-    [currentSignId, config, addXp, addSigns, recordSign, advanceSign, burst, sounds, user]
+    [currentSignId, config, addXp, addSigns, recordSign, advanceSign, burst, sounds]
   );
 
-  const recognition = useRecognition({ onPass: handlePass });
+  const handleAttempt = useCallback(
+    (a: AttemptRecord) => {
+      if (!user) return;
+      void logAttempt({
+        userId: user.id,
+        signId: a.signId,
+        rulePassed: a.rulePassed,
+        aiPrediction: a.aiPrediction,
+        aiConfidence: a.aiConfidence,
+        aiVetoed: a.aiVetoed,
+        finalPassed: a.finalPassed,
+        source: 'speed',
+        frames: a.frames,
+      });
+    },
+    [user]
+  );
+
+  const recognition = useRecognition({ onPass: handlePass, onAttempt: handleAttempt });
 
   useEffect(() => {
     recognition.init();
@@ -141,7 +158,22 @@ export function SpeedChallengePage({ onExit }: Props) {
       setTimeLeft((prev) => {
         if (prev <= 0.11) {
           clearInterval(timerRef.current);
-          if (currentSignId) recordSign(currentSignId, false);
+          if (currentSignId) {
+            recordSign(currentSignId, false);
+            if (user) {
+              void logAttempt({
+                userId: user.id,
+                signId: currentSignId,
+                rulePassed: false,
+                aiPrediction: null,
+                aiConfidence: null,
+                aiVetoed: false,
+                finalPassed: false,
+                source: 'speed',
+                frames: recognition.getSnapshot(),
+              });
+            }
+          }
           setCombo(0);
           loopStartedRef.current = null;
           advanceTimerRef.current = setTimeout(() => advanceSign(false), 300);

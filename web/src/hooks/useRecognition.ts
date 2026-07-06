@@ -1,10 +1,10 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Capture } from '@/engine/capture';
-import { RollingBuffer, HandStabilizer } from '@/engine/landmarks';
+import { RollingBuffer, HandStabilizer, type Frame } from '@/engine/landmarks';
 import { verify, type VerifyResult, resultPassed } from '@/engine/verifier';
 import { gatePass, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
 import { topK, type SignClassifier } from '@/engine/classifier';
-import { GATE_CONFIDENCE } from '@/config/classifier';
+import { GATE_CONFIDENCE, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
 import type { Sign } from '@/engine/schema';
 
 export type RecognitionStatus = 'loading' | 'ready' | 'running' | 'error';
@@ -17,6 +17,21 @@ export interface VerificationEntry {
   params: VerifyResult['params'];
   vote: ClassifierVote | null;
   decision: VerificationDecision;
+}
+
+/**
+ * One persisted attempt — fired whenever the rule verifier clears its pass threshold (whether
+ * or not the AI gate then vetoes it), so analytics/training-data capture sees every real
+ * attempt, not just final successes.
+ */
+export interface AttemptRecord {
+  signId: string;
+  rulePassed: boolean;
+  aiPrediction: string | null;
+  aiConfidence: number | null;
+  aiVetoed: boolean;
+  finalPassed: boolean;
+  frames: Frame[];
 }
 
 interface UseRecognitionOpts {
@@ -35,6 +50,8 @@ interface UseRecognitionOpts {
    * cases from actual play, not just a manual calibration session.
    */
   onVerified?: (entry: VerificationEntry) => void;
+  /** Fired for every recognized attempt (rule-pass, with or without AI gating) — for analytics/training-data capture. */
+  onAttempt?: (attempt: AttemptRecord) => void;
   /** Min model probability for the prompted sign to allow a pass. */
   gateConfidence?: number;
 }
@@ -56,6 +73,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   voteCallbackRef.current = opts?.onVote;
   const verifiedCallbackRef = useRef(opts?.onVerified);
   verifiedCallbackRef.current = opts?.onVerified;
+  const attemptCallbackRef = useRef(opts?.onAttempt);
+  attemptCallbackRef.current = opts?.onAttempt;
   const classifierRef = useRef<SignClassifier | null | undefined>(opts?.classifier);
   classifierRef.current = opts?.classifier;
   // Veto threshold: the classifier only overrides a rule-pass when it's at least this confident
@@ -158,7 +177,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
             if (passFrames >= PASS_THRESHOLD) {
               passFrames = 0;
               const cls = classifierRef.current;
-              if (cls?.enabled) {
+              if (cls?.enabled && cls.knownSigns.has(sign.name) && !GATE_EXCLUDED_SIGNS.has(sign.name)) {
                 // Gate the rule-pass through the ML classifier (single inference at pass time).
                 if (!gatingRef.current) {
                   gatingRef.current = true;
@@ -182,6 +201,15 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                         vote,
                         decision: passed ? 'pass' : 'veto',
                       });
+                      attemptCallbackRef.current?.({
+                        signId: gatedSign.name,
+                        rulePassed: true,
+                        aiPrediction: vote ? vote.topSign : null,
+                        aiConfidence: vote ? vote.confidence : null,
+                        aiVetoed: !passed,
+                        finalPassed: passed,
+                        frames: snapshot,
+                      });
                       if (passed) {
                         passCallbackRef.current?.(vr);
                         hintCallbackRef.current?.(null);
@@ -199,6 +227,15 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                   params: vr.params,
                   vote: null,
                   decision: 'no-classifier',
+                });
+                attemptCallbackRef.current?.({
+                  signId: sign.name,
+                  rulePassed: true,
+                  aiPrediction: null,
+                  aiConfidence: null,
+                  aiVetoed: false,
+                  finalPassed: true,
+                  frames: bufferRef.current.frames,
                 });
                 passCallbackRef.current?.(vr);
               }
@@ -227,6 +264,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     setStatus((s) => (s === 'running' ? 'ready' : s));
   }, []);
 
+  const getSnapshot = useCallback((): Frame[] => bufferRef.current.frames, []);
+
   const setSign = useCallback((sign: Sign) => {
     signRef.current = sign;
     bufferRef.current.clear();
@@ -243,5 +282,5 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     };
   }, []);
 
-  return { status, result, init, startLoop, stopLoop, setSign };
+  return { status, result, init, startLoop, stopLoop, setSign, getSnapshot };
 }

@@ -24,7 +24,9 @@ _MCP = {"index": (INDEX_MCP, -0.30), "middle": (MIDDLE_MCP, -0.10),
 _TIP = {"index": INDEX_TIP, "middle": MIDDLE_TIP, "ring": RING_TIP, "pinky": PINKY_TIP}
 
 
-def make_hand(center, extended=(), thumb_out=False, handed="Right"):
+def make_hand(center, extended=(), thumb_out=False, handed="Right", spread=1.0):
+    """`spread` widens (>1.0) or narrows (<1.0) the tip x-offset for extended fingers, so a V's
+    separated fingers and a joined-fingers confusor (e.g. U) can share the same builder."""
     cx, cy = center
     pts = np.zeros((21, 3))
     pts[WRIST, :2] = [cx, cy + 0.5 * S]
@@ -33,7 +35,8 @@ def make_hand(center, extended=(), thumb_out=False, handed="Right"):
         pts[mcp_idx, :2] = [cx + fx * S, mcp_y]
         tip_idx = _TIP[name]
         if name in extended:
-            pts[tip_idx, :2] = [cx + fx * S, mcp_y - 0.9 * S]      # far from wrist = extended
+            tip_fx = fx * spread if name in ("index", "middle") else fx
+            pts[tip_idx, :2] = [cx + tip_fx * S, mcp_y - 0.9 * S]  # far from wrist = extended
         else:
             pts[tip_idx, :2] = [cx + fx * S, mcp_y + 0.15 * S]     # folded toward palm = curled
     pts[2, :2] = [cx - 0.3 * S, mcp_y]                             # thumb mcp
@@ -51,10 +54,16 @@ class TestHandshapeDiscrimination:
         assert handshape_confidence(make_hand((0, 0), (), thumb_out=False), "open") < 0.4
 
     def test_v(self):
-        v = make_hand((0, 0), ("index", "middle"))
+        v = make_hand((0, 0), ("index", "middle"), spread=1.5)
         assert handshape_confidence(v, "v") > 0.6
         assert handshape_confidence(v, "open") < 0.6          # below the pass threshold (ring/pinky curled)
         assert handshape_confidence(make_hand((0, 0), ALL, thumb_out=True), "v") < 0.5
+
+    def test_v_rejects_joined_fingers(self):
+        # A live test found a JOINED 2-finger hand (real U shape) passing as V — extension alone
+        # doesn't check separation between the fingertips.
+        joined = make_hand((0, 0), ("index", "middle"), spread=0.3)
+        assert handshape_confidence(joined, "v") < 0.6
 
     def test_point_vs_l(self):
         point = make_hand((0, 0), ("index",), thumb_out=False)
@@ -95,7 +104,7 @@ class TestStaticLetters:
     def test_each_letter_passes_with_its_handshape(self):
         cases = [
             (LETTER_B, lambda c: make_hand(c, ALL, thumb_out=True)),
-            (LETTER_V, lambda c: make_hand(c, ("index", "middle"))),
+            (LETTER_V, lambda c: make_hand(c, ("index", "middle"), spread=1.5)),
             (LETTER_L, lambda c: make_hand(c, ("index",), thumb_out=True)),
             (LETTER_Y, lambda c: make_hand(c, ("pinky",), thumb_out=True)),
             (LETTER_W, lambda c: make_hand(c, ("index", "middle", "ring"))),

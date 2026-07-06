@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { LessonNode as LessonNodeType } from '@/types/lesson';
 
 interface Props {
@@ -6,12 +7,18 @@ interface Props {
   index: number;
   unitColor: string;
   onSelect: (id: string) => void;
+  skipCost?: number;
+  signsBalance?: number;
+  onSkip?: (id: string) => void;
 }
 
-export function LessonNode({ node, index, unitColor, onSelect }: Props) {
+export function LessonNode({ node, index, unitColor, onSelect, skipCost, signsBalance, onSkip }: Props) {
   const isLocked = node.status === 'locked';
   const isCurrent = node.status === 'current' || node.status === 'available';
   const isCompleted = node.status === 'completed';
+  const [confirmingSkip, setConfirmingSkip] = useState(false);
+  const canSkip = isCurrent && typeof skipCost === 'number' && typeof onSkip === 'function';
+  const canAfford = canSkip && (signsBalance ?? 0) >= (skipCost as number);
 
   const offsets = [0, -24, -8, 20, 28, 8, -20];
   const xOffset = offsets[index % offsets.length];
@@ -99,6 +106,52 @@ export function LessonNode({ node, index, unitColor, onSelect }: Props) {
         >
           Go
         </motion.div>
+      )}
+
+      {canSkip && (
+        <div className="mt-2">
+          <AnimatePresence mode="wait">
+            {confirmingSkip ? (
+              <motion.div
+                key="confirm"
+                className="flex items-center gap-1.5"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+              >
+                <button
+                  onClick={() => { onSkip!(node.id); setConfirmingSkip(false); }}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-z-green/80 text-white"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => setConfirmingSkip(false)}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-z-surface/60 text-z-gray-300"
+                >
+                  Cancel
+                </button>
+              </motion.div>
+            ) : (
+              <motion.button
+                key="skip"
+                onClick={() => canAfford && setConfirmingSkip(true)}
+                disabled={!canAfford}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
+                  canAfford
+                    ? 'bg-z-surface/60 text-z-gray-200 hover:bg-z-surface/90 cursor-pointer'
+                    : 'bg-z-surface/30 text-z-gray-500 cursor-not-allowed'
+                }`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                whileTap={canAfford ? { scale: 0.94 } : undefined}
+              >
+                Skip · 🤟 {skipCost}
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
       )}
     </motion.div>
   );

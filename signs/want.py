@@ -25,6 +25,5 @@ WANT = Sign(
         direction=(0.0, 1.0),            # toward the body reads mostly as downward in 2D
         min_displacement_ratio=0.2,
         min_duration_s=0.4,
-        required=True,
-    ),
+        required=True, min_confidence=0.25),
 )

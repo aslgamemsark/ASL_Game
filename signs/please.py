@@ -39,7 +39,6 @@ PLEASE = Sign(
         min_total_rotation_deg=300.0,   # a chest circle is gentler than COFFEE's grind
         radius_tolerance_ratio=1.0,
         min_duration_s=0.6,
-        required=True,
-    ),
-    orientation=OrientationReq(hand=DOMINANT, facing=PalmFacing.IN, required=False),
+        required=True, min_confidence=0.44),
+    orientation=OrientationReq(hand=DOMINANT, facing=PalmFacing.IN, required=False, min_confidence=0.25),
 )

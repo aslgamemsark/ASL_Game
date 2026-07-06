@@ -122,6 +122,15 @@ def repeated_confidence(actor_traj, shoulder_width: float, req: MovementReq) -> 
     centered = signal - signal.mean()
     # Count direction reversals only when the swing clears a noise band, so micro-wiggles near the
     # mean don't inflate the cycle count.
+    #
+    # A percentile-of-itself floor was tried here and reverted: it made genuine repeated motion less
+    # sensitive to one large unrelated excursion, but it is exploitable — natural hand tremor while
+    # HOLDING STILL is self-similar noise, so a threshold relative to its own spread always clears
+    # it too. Verified against a real recorded "hold two hands still, no signing" take: the max-based
+    # floor below correctly scores it ~0.25 (well under the 0.6 pass threshold) at the app's real
+    # 2.0s window, while the percentile version scored ~0.75 (a false pass) on the same recording.
+    # A sign that's occasionally hard to pass on a genuine attempt is an inconvenience; a sign that
+    # passes while doing nothing is the exact bug class this engine must never ship.
     noise = 0.25 * float(np.max(np.abs(centered)))
     crossings, last = 0, 0
     for v in centered:
@@ -140,12 +149,21 @@ def repeated_confidence(actor_traj, shoulder_width: float, req: MovementReq) -> 
     return float(min(cycle_score, amp_score))
 
 
-def converge_confidence(traj_a, traj_b, shoulder_width: float, req: MovementReq) -> float:
-    """How much the gap between two hands shrinks over the window.
+_CONVERGE_TAIL_S = 0.6      # how far back to look for "how close did they just get"
+_CONVERGE_TOUCH_RATIO = 0.25  # closest-point distance below this reads as a real touch
 
-    `traj_a` and `traj_b` are aligned frame-by-frame trajectories for the two hands (only frames
-    where both are present). Returns ~0 for a static held-apart pose, approaching 1 as the hands
-    close by at least `req.min_approach_ratio` shoulder widths with a roughly steady approach.
+
+def converge_confidence(traj_a, traj_b, shoulder_width: float, req: MovementReq) -> float:
+    """How close the two hands' nearest points got, after genuinely being farther apart.
+
+    `traj_a`/`traj_b` are aligned frame-by-frame (t, all 21 landmark points) for the two hands
+    (only frames where both are present). Uses CLOSEST-POINT distance (fingertip to fingertip),
+    not palm-center distance: palm centers stay a hand-width apart even when fingertips actually
+    touch, so a center-based gap never gets close to the real "did they touch" signal — a live test
+    found that natural arm drift/settling over several seconds could shrink the center-to-center
+    gap by as much as a deliberate approach, without fingers ever coming close. Verified against
+    real recordings: genuine touches reach closest-point distance ~0.02-0.07 shoulder-widths; both
+    a frozen held-apart pose AND incidental drift stay ~0.6-0.75 the whole time.
     """
     n = min(len(traj_a), len(traj_b))
     if n < 3 or shoulder_width <= 0:
@@ -155,21 +173,80 @@ def converge_confidence(traj_a, traj_b, shoulder_width: float, req: MovementReq)
     if ts[-1] - ts[0] < req.min_duration_s:
         return 0.0
 
-    pts_a = np.array([np.asarray(c, float) for _, c in traj_a[:n]])
-    pts_b = np.array([np.asarray(c, float) for _, c in traj_b[:n]])
-    gap = np.linalg.norm(pts_a - pts_b, axis=1) / shoulder_width
+    gap = np.empty(n, dtype=float)
+    for i in range(n):
+        pa = traj_a[i][1]
+        pb = traj_b[i][1]
+        gap[i] = float(np.min(np.linalg.norm(pa[:, None, :] - pb[None, :, :], axis=2))) / shoulder_width
 
-    k = max(1, n // 4)
-    approach = float(np.mean(gap[:k])) - float(np.mean(gap[-k:]))   # positive = hands closing
+    tail = ts >= ts[-1] - _CONVERGE_TAIL_S
+    recent_min = float(gap[tail].min())
+    window_max = float(gap.max())
 
-    mono = float(np.mean(np.diff(gap) < 0)) if n > 1 else 0.0
+    touch_score = float(np.clip((_CONVERGE_TOUCH_RATIO - recent_min) / _CONVERGE_TOUCH_RATIO, 0.0, 1.0))
+    approach = window_max - recent_min
+    approach_score = float(np.clip(approach / max(req.min_approach_ratio, 1e-6), 0.0, 1.0))
+    # Need BOTH a real touch AND a genuine approach from farther away: touch_score alone would
+    # accept hands that started already touching and never moved (the class of static-pose bug
+    # this engine must reject); approach_score alone would accept hands that got closer without
+    # ever actually touching (the drift/settling false-positive this replaces).
+    return float(min(touch_score, approach_score))
 
-    if req.min_approach_ratio > 0:
-        mag = float(np.clip(approach / req.min_approach_ratio, 0.0, 1.0))
-    else:
-        mag = 1.0 if approach > 0 else 0.0
 
-    return float(np.clip(mag * (0.5 + 0.5 * mono), 0.0, 1.0))
+def traced_confidence(actor_traj, shoulder_width: float, req: MovementReq) -> float:
+    """Score how closely the trajectory matches a sequence of expected direction vectors.
+
+    The trajectory is split into len(req.trace_template) equal-duration phases. Each phase's
+    net displacement is compared to the expected direction angle (0°=right, 90°=down in image
+    coords, 180°=left, 270°=up). Phases too small to measure (sub-pixel motion within a phase)
+    contribute 0. Overall score is the geometric mean of per-phase scores so every phase must
+    be directionally correct — one phase scoring 0 kills the total.
+    """
+    n_phases = len(req.trace_template)
+    if n_phases < 2 or len(actor_traj) < n_phases * 2:
+        return 0.0
+    if shoulder_width is None or shoulder_width <= 0:
+        return 0.0
+
+    ts, pts = _series(actor_traj)
+    duration = float(ts[-1] - ts[0])
+    if duration < req.min_duration_s:
+        return 0.0
+
+    # Minimum total path length (not net displacement — need to actually move through each phase)
+    total_path = float(np.linalg.norm(np.diff(pts, axis=0), axis=1).sum()) / shoulder_width
+    if total_path < req.min_displacement_ratio:
+        return 0.0
+
+    tol_cos = float(np.cos(np.radians(req.trace_tolerance_deg)))
+    phase_scores: list[float] = []
+    t_start = float(ts[0])
+
+    for i, target_deg in enumerate(req.trace_template):
+        t_lo = t_start + i * duration / n_phases
+        t_hi = t_start + (i + 1) * duration / n_phases
+        mask = (ts >= t_lo) & (ts <= t_hi)
+        phase_pts = pts[mask]
+        if len(phase_pts) < 2:
+            phase_scores.append(0.0)
+            continue
+
+        disp = phase_pts[-1] - phase_pts[0]
+        mag = float(np.linalg.norm(disp))
+        if mag < 1e-6:
+            phase_scores.append(0.0)
+            continue
+
+        target_rad = np.radians(target_deg)
+        target_vec = np.array([np.cos(target_rad), np.sin(target_rad)])
+        dot = float(np.dot(disp / mag, target_vec))
+        # Linear ramp: 1.0 at exact match, 0.0 at the tolerance boundary, 0.0 beyond it
+        phase_score = float(np.clip((dot - tol_cos) / max(1.0 - tol_cos, 1e-6), 0.0, 1.0))
+        phase_scores.append(phase_score)
+
+    if not phase_scores or any(s == 0.0 for s in phase_scores):
+        return 0.0
+    return float(np.prod(phase_scores) ** (1.0 / len(phase_scores)))  # geometric mean
 
 
 def movement_confidence(actor_traj, shoulder_width: float, req: MovementReq) -> float:
@@ -182,5 +259,7 @@ def movement_confidence(actor_traj, shoulder_width: float, req: MovementReq) -> 
         return linear_confidence(actor_traj, shoulder_width, req)
     if req.kind == MovementKind.REPEATED:
         return repeated_confidence(actor_traj, shoulder_width, req)
+    if req.kind == MovementKind.TRACED:
+        return traced_confidence(actor_traj, shoulder_width, req)
     # CONVERGE needs two trajectories — called directly from the verifier; return 0 if reached here.
     return 0.0

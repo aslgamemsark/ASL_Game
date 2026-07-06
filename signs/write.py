@@ -31,7 +31,7 @@ from core.schema import (
 WRITE = Sign(
     name="WRITE",
     two_handed=True,
-    dominant=HandShapeReq(kind="index", required=True, min_confidence=0.5),
+    dominant=HandShapeReq(kind="index", required=True, min_confidence=0.25),
     nondominant=HandShapeReq(kind="open", required=True, min_confidence=0.5),
     location=LocationReq(
         anchor=Anchor.OTHER_HAND,
@@ -46,7 +46,6 @@ WRITE = Sign(
         min_cycles=2,
         min_amplitude_ratio=0.05,
         min_duration_s=0.5,
-        required=True,
-    ),
-    orientation=OrientationReq(hand=NONDOMINANT, facing=PalmFacing.UP, required=False),
+        required=True, min_confidence=0.45),
+    orientation=OrientationReq(hand=NONDOMINANT, facing=PalmFacing.UP, required=False, min_confidence=0.25),
 )

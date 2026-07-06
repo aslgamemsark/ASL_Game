@@ -41,6 +41,5 @@ DIZZY = Sign(
         min_total_rotation_deg=270.0,   # a small loop in front of the face
         radius_tolerance_ratio=1.0,
         min_duration_s=0.6,
-        required=True,
-    ),
+        required=True, min_confidence=0.34),
 )

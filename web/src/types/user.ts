@@ -58,6 +58,8 @@ export interface UserProgress {
   equippedBorder: string | null;
   equippedAvatar: string | null;
   friends: string[];
+  /** Opt-out: when true, passed/failed attempts also save a landmark snapshot for future model training. */
+  collectTrainingData: boolean;
 }
 
 export interface SignStats {

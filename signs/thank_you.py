@@ -42,7 +42,6 @@ THANK_YOU = Sign(
         direction=(0.0, 1.0),            # downward in image space (y grows downward)
         min_displacement_ratio=0.2,      # ~0.2 shoulder-widths of travel (real strokes are ~0.36)
         min_duration_s=0.4,
-        required=True,
-    ),
-    orientation=OrientationReq(hand=DOMINANT, facing=PalmFacing.UP, required=False),
+        required=True, min_confidence=0.25),
+    orientation=OrientationReq(hand=DOMINANT, facing=PalmFacing.UP, required=False, min_confidence=0.25),
 )
