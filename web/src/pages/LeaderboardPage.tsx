@@ -201,10 +201,25 @@ export function LeaderboardPage({ onExit }: Props) {
       } else {
         data = first.data;
       }
-      setWorldRows((data as unknown as BoardRow[]) ?? []);
+      const rows = (data as unknown as BoardRow[]) ?? [];
+      // My own row: fall back to local store cosmetics if the remote value is missing
+      // (pre-migration, or not synced yet) — same override the friends board already does.
+      if (user) {
+        const { equippedAvatar, equippedBorder, activeBadge } = useUserStore.getState();
+        const idx = rows.findIndex((r) => r.id === user.id);
+        if (idx !== -1) {
+          rows[idx] = {
+            ...rows[idx],
+            equipped_avatar: rows[idx].equipped_avatar ?? equippedAvatar,
+            equipped_border: rows[idx].equipped_border ?? equippedBorder,
+            active_badge: rows[idx].active_badge ?? activeBadge,
+          };
+        }
+      }
+      setWorldRows(rows);
       setWorldLoading(false);
     })();
-  }, []);
+  }, [user]);
 
   // Load friends leaderboard
   useEffect(() => {
