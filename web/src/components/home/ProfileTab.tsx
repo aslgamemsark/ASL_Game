@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { useInsights } from '@/hooks/useInsights';
 import { AuthModal } from '@/components/auth/AuthModal';
+import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { BadgesSection } from '@/components/home/BadgesSection';
 import { StruggleBarList } from '@/components/insights/StruggleBarList';
 import { AccuracySparkline } from '@/components/insights/AccuracySparkline';
@@ -71,6 +72,7 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
   const { rows, loading: lbLoading } = useLeaderboard();
   const { struggleSigns, vetoStats, dailyAccuracy, overallAvgAttempts, loading: insightsLoading } = useInsights();
   const [showAuth, setShowAuth] = useState(false);
+  const [showSetUsername, setShowSetUsername] = useState(false);
   const [levelBurst, setLevelBurst] = useState(0);
   const [lbTab, setLbTab] = useState<LBTab>('weekly');
   const [profileSection, setProfileSection] = useState<'stats' | 'insights' | 'badges'>('stats');
@@ -96,7 +98,19 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
                   : activeBadge ? (getBadge(activeBadge)?.icon ?? '🤟') : '🤟'}
               </div>
               <div>
-                <p className="font-bold text-sm">{username ?? '…'}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-bold text-sm">@{username ?? '…'}</p>
+                  <button
+                    onClick={() => setShowSetUsername(true)}
+                    className="text-z-gray-500 hover:text-z-gray-300 transition-colors"
+                    title="Change username"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </button>
+                </div>
                 <p className="text-z-gray-400 text-xs">Progress syncing</p>
               </div>
             </div>
@@ -493,6 +507,7 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
       )}
 
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+      {showSetUsername && <SetUsernameModal onClose={() => setShowSetUsername(false)} />}
     </div>
   );
 }

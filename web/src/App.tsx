@@ -18,6 +18,7 @@ import { useProgressSync } from '@/hooks/useProgressSync';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
+import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 
 type Screen =
   | { type: 'home' }
@@ -37,7 +38,7 @@ const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'settings'
 export default function App() {
   useProgressSync();
   const { onboardingComplete } = useUserStore();
-  const { user, username } = useAuth();
+  const { user, username, needsUsernameSetup } = useAuth();
   const [screen, setScreen] = useState<Screen>(
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );
@@ -179,6 +180,9 @@ export default function App() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Username setup modal for Google/OAuth users */}
+      {needsUsernameSetup && <SetUsernameModal onClose={() => {}} />}
 
       {/* Incoming challenge notification — visible anywhere in the app */}
       <AnimatePresence>
