@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { useUserStore } from '@/stores/useUserStore';
 import { getRankProgress } from '@/data/ranks';
+import { SHOP_ITEMS, getShopItem } from '@/data/shop';
+import { getBadge } from '@/data/badges';
 
 interface Props {
   onExit: () => void;
@@ -16,6 +18,9 @@ interface BoardRow {
   username: string;
   total_xp: number;
   streak: number;
+  equipped_avatar: string | null;
+  equipped_border: string | null;
+  active_badge: string | null;
 }
 
 function getMedal(i: number) {
@@ -58,6 +63,10 @@ function BoardList({
         const isMe = row.id === userId;
         const medal = getMedal(i);
         const { rank } = getRankProgress(row.total_xp);
+        const avatarIcon = row.equipped_avatar
+          ? (SHOP_ITEMS.find((it) => it.id === row.equipped_avatar)?.icon ?? '🤟')
+          : row.active_badge ? (getBadge(row.active_badge)?.icon ?? '🤟') : '🤟';
+        const borderClasses = row.equipped_border ? (getShopItem(row.equipped_border)?.preview ?? '') : '';
         return (
           <motion.div
             key={row.id}
@@ -72,23 +81,12 @@ function BoardList({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.03 }}
           >
-            {/* Rank number / medal */}
-            <div className="w-8 text-center shrink-0">
-              {medal ? (
-                <span className="text-lg">{medal}</span>
-              ) : (
-                <span className="text-xs font-bold text-z-gray-400 tabular-nums">{i + 1}</span>
-              )}
+            {/* Avatar (equipped avatar/badge + equipped border, matching Me tab / side nav) */}
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg shrink-0 ${borderClasses}`}>
+              {avatarIcon}
             </div>
 
-            {/* Avatar placeholder */}
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 ${
-              i === 0 ? 'bg-yellow-400/20' : i === 1 ? 'bg-gray-400/20' : i === 2 ? 'bg-orange-400/20' : 'bg-z-surface/60'
-            }`}>
-              {rank.emoji}
-            </div>
-
-            {/* Name */}
+            {/* Name + rank tier name */}
             <div className="flex-1 min-w-0">
               <p className={`font-bold text-sm truncate ${isMe ? 'text-z-purple-light' : 'text-white'}`}>
                 {isMe ? `${row.username} (you)` : row.username}
@@ -96,8 +94,9 @@ function BoardList({
               <p className="text-[11px] text-z-gray-400">{rank.name}</p>
             </div>
 
-            {/* XP + streak */}
+            {/* Position + XP + streak, stacked */}
             <div className="text-right shrink-0">
+              <p className="text-xs font-bold text-z-gray-400 tabular-nums">{medal ?? `#${i + 1}`}</p>
               <p className="text-sm font-bold text-z-yellow tabular-nums">{row.total_xp.toLocaleString()} XP</p>
               {row.streak > 0 && (
                 <p className="text-[11px] text-z-gray-400">🔥 {row.streak}d</p>
@@ -174,15 +173,29 @@ export function LeaderboardPage({ onExit }: Props) {
   useEffect(() => {
     if (!supabaseReady) return;
     setWorldLoading(true);
-    supabase
-      .from('weekly_leaderboard')
-      .select('id, username, total_xp, streak')
-      .order('total_xp', { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        setWorldRows((data as unknown as BoardRow[]) ?? []);
-        setWorldLoading(false);
-      });
+    (async () => {
+      // The equipped_* / active_badge columns require a migration that may not have
+      // run yet on this project — fall back to the base columns if that select 400s,
+      // so the board still renders (just without avatars) instead of going empty.
+      let data: unknown[] | null;
+      const first = await supabase
+        .from('weekly_leaderboard')
+        .select('id, username, total_xp, streak, equipped_avatar, equipped_border, active_badge')
+        .order('total_xp', { ascending: false })
+        .limit(50);
+      if (first.error) {
+        const fallback = await supabase
+          .from('weekly_leaderboard')
+          .select('id, username, total_xp, streak')
+          .order('total_xp', { ascending: false })
+          .limit(50);
+        data = fallback.data;
+      } else {
+        data = first.data;
+      }
+      setWorldRows((data as unknown as BoardRow[]) ?? []);
+      setWorldLoading(false);
+    })();
   }, []);
 
   // Load friends leaderboard
@@ -210,11 +223,21 @@ export function LeaderboardPage({ onExit }: Props) {
         return;
       }
 
-      // Fetch progress
-      const { data: progresses } = await supabase
+      // Fetch progress. Same equipped_*/active_badge migration fallback as the world board.
+      let progresses: unknown[] | null;
+      const firstProg = await supabase
         .from('user_progress')
-        .select('user_id, xp, streak')
+        .select('user_id, xp, streak, equipped_avatar, equipped_border, active_badge')
         .in('user_id', allIds);
+      if (firstProg.error) {
+        const fallbackProg = await supabase
+          .from('user_progress')
+          .select('user_id, xp, streak')
+          .in('user_id', allIds);
+        progresses = fallbackProg.data;
+      } else {
+        progresses = firstProg.data;
+      }
 
       // Fetch profiles for usernames
       const { data: profiles } = await supabase
@@ -226,18 +249,29 @@ export function LeaderboardPage({ onExit }: Props) {
         ((profiles ?? []) as { id: string; username: string }[]).map((p) => [p.id, p.username])
       );
       const progressMap = Object.fromEntries(
-        ((progresses ?? []) as { user_id: string; xp: number; streak: number }[]).map((p) => [p.user_id, p])
+        ((progresses ?? []) as {
+          user_id: string; xp: number; streak: number;
+          equipped_avatar: string | null; equipped_border: string | null; active_badge: string | null;
+        }[]).map((p) => [p.user_id, p])
       );
+
+      const { equippedAvatar: myAvatar, equippedBorder: myBorder, activeBadge: myBadge } = useUserStore.getState();
 
       const rows: BoardRow[] = allIds
         .map((id) => {
           const username = profileMap[id];
           const prog = progressMap[id];
+          const isMe = id === user.id;
           // For current user, fall back to local store values
-          const resolvedXp = id === user.id ? (prog?.xp ?? xp) : (prog?.xp ?? 0);
-          const resolvedStreak = id === user.id ? (prog?.streak ?? streak) : (prog?.streak ?? 0);
+          const resolvedXp = isMe ? (prog?.xp ?? xp) : (prog?.xp ?? 0);
+          const resolvedStreak = isMe ? (prog?.streak ?? streak) : (prog?.streak ?? 0);
           if (!username) return null;
-          return { id, username, total_xp: resolvedXp, streak: resolvedStreak };
+          return {
+            id, username, total_xp: resolvedXp, streak: resolvedStreak,
+            equipped_avatar: isMe ? (prog?.equipped_avatar ?? myAvatar) : (prog?.equipped_avatar ?? null),
+            equipped_border: isMe ? (prog?.equipped_border ?? myBorder) : (prog?.equipped_border ?? null),
+            active_badge: isMe ? (prog?.active_badge ?? myBadge) : (prog?.active_badge ?? null),
+          };
         })
         .filter(Boolean) as BoardRow[];
 

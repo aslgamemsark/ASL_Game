@@ -255,6 +255,9 @@ export const useUserStore = create<UserStore>()(
           }
           if (remote.lastPracticeDate) merged.lastPracticeDate = remote.lastPracticeDate;
           if (remote.collectTrainingData !== undefined) merged.collectTrainingData = remote.collectTrainingData;
+          if (remote.equippedAvatar !== undefined) merged.equippedAvatar = remote.equippedAvatar;
+          if (remote.equippedBorder !== undefined) merged.equippedBorder = remote.equippedBorder;
+          if (remote.activeBadge !== undefined) merged.activeBadge = remote.activeBadge;
           return merged;
         });
       },
