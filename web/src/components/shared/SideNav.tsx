@@ -29,10 +29,11 @@ const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
 
 export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onLeaderboard, onSettings, onProfile }: Props) {
   const { user, username, signOut } = useAuth();
-  const { equippedAvatar, activeBadge } = useUserStore();
+  const { equippedAvatar, activeBadge, equippedBorder } = useUserStore();
   const avatarIcon = equippedAvatar
     ? (getShopItem(equippedAvatar)?.icon ?? '🤟')
     : activeBadge ? (getBadge(activeBadge)?.icon ?? '🤟') : '🤟';
+  const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
 
   const handlers: Record<SideNavScreen, () => void> = {
     home: onHome,
@@ -62,12 +63,12 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
       </div>
 
       <div className="flex items-center gap-2.5 px-2 py-2.5 mb-6 rounded-xl bg-z-surface/60">
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg shrink-0">
+        <div className={`w-9 h-9 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg shrink-0 ${borderClasses}`}>
           {avatarIcon}
         </div>
         <div className="min-w-0">
           <p className="font-bold text-sm truncate">{username ?? (user ? '…' : 'Guest')}</p>
-          <p className="text-z-gray-400 text-xs truncate">{user ? 'Signed in' : 'Not signed in'}</p>
+          {!user && <p className="text-z-gray-400 text-xs truncate">Signed out</p>}
         </div>
       </div>
 
@@ -97,7 +98,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
         >
-          <span className="text-lg">{avatarIcon}</span>
+          <span className={`text-lg w-6 h-6 flex items-center justify-center rounded-md ${borderClasses}`}>{avatarIcon}</span>
           Me
         </motion.button>
       </nav>

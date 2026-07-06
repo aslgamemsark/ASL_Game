@@ -90,7 +90,7 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
         {user ? (
           <div className="bg-z-card border border-white/5 rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg">
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg ${borderClasses}`}>
                 {equippedAvatar
                   ? (SHOP_ITEMS.find((i) => i.id === equippedAvatar)?.icon ?? '🤟')
                   : activeBadge ? (getBadge(activeBadge)?.icon ?? '🤟') : '🤟'}
@@ -128,8 +128,10 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
       {/* Avatar + showcase */}
       <motion.div className="text-center mb-5" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
         <motion.div
-          className={`w-20 h-20 rounded-3xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-4xl mx-auto mb-3 cursor-default ${borderClasses || 'shadow-lg shadow-z-purple/30'}`}
+          className={`w-20 h-20 rounded-2xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-4xl mx-auto mb-3 cursor-default ${borderClasses || 'shadow-lg shadow-z-purple/30'}`}
+          animate={{ rotate: 0, scale: 1 }}
           whileHover={{ rotate: [0, -12, 12, -8, 0], scale: 1.08, transition: { duration: 0.45 } }}
+          transition={{ type: 'spring', stiffness: 320, damping: 28 }}
         >
           {equippedAvatar
             ? (SHOP_ITEMS.find((i) => i.id === equippedAvatar)?.icon ?? '🤟')
