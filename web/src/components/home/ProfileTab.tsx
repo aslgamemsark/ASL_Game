@@ -67,7 +67,7 @@ interface ProfileTabProps {
 export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProps = {}) {
   const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, collectTrainingData, setCollectTrainingData, equippedAvatar, equippedBorder, ownedCosmetics, renameCards, equipAvatar } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
-  const { soundEnabled, toggleSound } = useSettingsStore();
+  const { vibrationEnabled, toggleVibration } = useSettingsStore();
   const { user, username, signOut } = useAuth();
   const { rows, loading: lbLoading } = useLeaderboard();
   const { struggleSigns, vetoStats, dailyAccuracy, overallAvgAttempts, loading: insightsLoading } = useInsights();
@@ -342,13 +342,13 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
           {/* Settings */}
           <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 mb-5 flex items-center justify-between" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>
             <div className="flex items-center gap-3">
-              <span className="text-xl">{soundEnabled ? '🔊' : '🔇'}</span>
-              <p className="font-bold text-sm">Sound effects</p>
+              <span className="text-xl">{vibrationEnabled ? '📳' : '🔕'}</span>
+              <p className="font-bold text-sm">Vibrations</p>
             </div>
             <button
-              onClick={toggleSound}
-              aria-label={soundEnabled ? 'Mute sound effects' : 'Unmute sound effects'}
-              className={`w-11 h-6 rounded-full flex items-center px-0.5 transition-colors ${soundEnabled ? 'bg-z-purple justify-end' : 'bg-white/10 justify-start'}`}
+              onClick={toggleVibration}
+              aria-label={vibrationEnabled ? 'Disable vibrations' : 'Enable vibrations'}
+              className={`w-11 h-6 rounded-full flex items-center px-0.5 transition-colors ${vibrationEnabled ? 'bg-z-purple justify-end' : 'bg-white/10 justify-start'}`}
             >
               <motion.span layout className="w-5 h-5 rounded-full bg-white block" />
             </button>

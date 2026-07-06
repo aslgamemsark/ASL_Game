@@ -49,12 +49,18 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
   const [phase, setPhase] = useState<Phase>('lobby');
   const [joinCode, setJoinCode] = useState('');
   const [matchState, setMatchState] = useState<MatchState | null>(null);
+  const matchStateRef = useRef<MatchState | null>(null);
   const [roundSignIds, setRoundSignIds] = useState<string[]>([]);
+  const roundSignIdsRef = useRef<string[]>([]);
   const [guessOptions, setGuessOptions] = useState<string[]>([]);
   const [guessResult, setGuessResult] = useState<'correct' | 'wrong' | null>(null);
   const [opponentSigned, setOpponentSigned] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const loopRef = useRef<string | null>(null);
+
+  // Keep refs in sync so channel event callbacks always see the latest values (avoid stale closures)
+  useEffect(() => { matchStateRef.current = matchState; }, [matchState]);
+  useEffect(() => { roundSignIdsRef.current = roundSignIds; }, [roundSignIds]);
 
   useEffect(() => {
     recognition.init();
@@ -69,10 +75,11 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
   }
 
   function advanceRound(iSigned: boolean, opponentSigned: boolean) {
-    if (!matchState) return;
-    const nextRound = matchState.round + 1;
-    const myNewScore = matchState.myScore + (iSigned ? 1 : 0);
-    const opNewScore = matchState.opponentScore + (opponentSigned ? 1 : 0);
+    const ms = matchStateRef.current;
+    if (!ms) return;
+    const nextRound = ms.round + 1;
+    const myNewScore = ms.myScore + (iSigned ? 1 : 0);
+    const opNewScore = ms.opponentScore + (opponentSigned ? 1 : 0);
 
     if (nextRound > ROUNDS) {
       setMatchState((s) => s ? { ...s, myScore: myNewScore, opponentScore: opNewScore } : s);
@@ -85,13 +92,13 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
       return;
     }
 
-    const nextSign = roundSignIds[nextRound - 1] ?? ALL_SIGNS[0];
+    const nextSign = roundSignIdsRef.current[nextRound - 1] ?? ALL_SIGNS[0];
     setMatchState((s) => s ? { ...s, round: nextRound, myScore: myNewScore, opponentScore: opNewScore, currentSign: nextSign } : s);
     setOpponentSigned(false);
     setGuessResult(null);
 
     // Alternate roles each round
-    const amSigner = nextRound % 2 === (user?.id ?? '' < (matchState.opponentId) ? 1 : 0);
+    const amSigner = nextRound % 2 === ((user?.id ?? '') < ms.opponentId ? 1 : 0);
     setPhase(amSigner ? 'signer' : 'guesser');
     if (!amSigner) buildGuessOptions(nextSign);
   }
@@ -142,7 +149,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
       advanceRound(false, true);
     });
     ch.on('broadcast', { event: 'guess' }, ({ payload }) => {
-      const correct = payload.signId === matchState?.currentSign;
+      const correct = payload.signId === matchStateRef.current?.currentSign;
       advanceRound(correct, false);
     });
     ch.subscribe();
@@ -181,7 +188,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
       advanceRound(false, true);
     });
     ch.on('broadcast', { event: 'guess' }, ({ payload }) => {
-      const correct = payload.signId === matchState?.currentSign;
+      const correct = payload.signId === matchStateRef.current?.currentSign;
       advanceRound(correct, false);
     });
     ch.subscribe(async () => {

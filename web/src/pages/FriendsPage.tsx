@@ -156,7 +156,7 @@ export function FriendsPage({ onExit, onChallengeFriend }: Props) {
       addressee_id: profile.id,
     } as Record<string, string>);
 
-    if (error) { showToast('Could not send request'); return; }
+    if (error) { showToast(`Could not send request: ${error.message}`); return; }
     showToast(`Friend request sent to ${profile.username} 📨`);
     // Optimistically add to local state
     setRelationships((prev) => [...prev, { other: profile, status: 'pendingSent', iAmRequester: true }]);
@@ -173,7 +173,7 @@ export function FriendsPage({ onExit, onChallengeFriend }: Props) {
       .eq('requester_id', entry.other.id)
       .eq('addressee_id', user.id);
 
-    if (error) { showToast('Could not accept request'); return; }
+    if (error) { showToast(`Could not accept: ${error.message}`); return; }
     showToast(`You and ${entry.other.username} are now friends! 🤝`);
     setRelationships((prev) =>
       prev.map((r) => r.other.id === entry.other.id ? { ...r, status: 'accepted' } : r)
