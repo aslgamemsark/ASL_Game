@@ -29,9 +29,11 @@ interface Props {
   bonusGoldOnPerfect?: number;
   /** Overrides the header title while in expressive/done mode (e.g. "Letter Test"). */
   heading?: string;
+  /** When true, suppresses the reference clip during practice (e.g. alphabet test mode). */
+  hideReferenceClip?: boolean;
 }
 
-export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonusGoldOnPerfect, heading }: Props) {
+export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonusGoldOnPerfect, heading, hideReferenceClip }: Props) {
   const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession } = useUserStore();
   const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera();
@@ -406,7 +408,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
                     <p className="text-sm text-z-gray-300 mt-2">{currentSignData.description}</p>
                   </div>
 
-                  {currentSignData.clip && (
+                  {!hideReferenceClip && currentSignData.clip && (
                     <ReferenceClip clipUrl={currentSignData.clip} signName={currentSignData.name} compact />
                   )}
 
@@ -431,7 +433,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
               ) : cardPhase === 'replay' && recorder.replayUrl ? (
                 <ReplayCompare
                   attemptUrl={recorder.replayUrl}
-                  clipUrl={currentSignData.clip}
+                  clipUrl={hideReferenceClip ? undefined : currentSignData.clip}
                   signName={currentSignData.name}
                   hint={currentSignData.hint}
                   params={passResult?.params}

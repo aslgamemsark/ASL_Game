@@ -21,7 +21,7 @@ type Screen =
   | { type: 'home' }
   | { type: 'onboarding' }
   | { type: 'lesson'; lessonId: string }
-  | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; bonusGoldOnPerfect?: number; heading?: string }
+  | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; bonusGoldOnPerfect?: number; heading?: string; hideReferenceClip?: boolean }
   | { type: 'story'; storyId: string }
   | { type: 'speed' }
   | { type: 'shop' }
@@ -107,6 +107,7 @@ export default function App() {
               autoStartExpressive={screen.autoStart}
               bonusGoldOnPerfect={screen.bonusGoldOnPerfect}
               heading={screen.heading}
+              hideReferenceClip={screen.hideReferenceClip}
             />
           )}
 
