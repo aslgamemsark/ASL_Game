@@ -18,7 +18,7 @@ type Screen =
   | { type: 'home' }
   | { type: 'onboarding' }
   | { type: 'lesson'; lessonId: string }
-  | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean }
+  | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; bonusGoldOnPerfect?: number; heading?: string }
   | { type: 'story'; storyId: string }
   | { type: 'speed' }
   | { type: 'shop' }
@@ -76,6 +76,8 @@ export default function App() {
           onExit={goHome}
           filterSignIds={screen.filterSignIds}
           autoStartExpressive={screen.autoStart}
+          bonusGoldOnPerfect={screen.bonusGoldOnPerfect}
+          heading={screen.heading}
         />
       )}
 

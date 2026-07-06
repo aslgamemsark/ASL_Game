@@ -13,7 +13,12 @@ import { useUserStore } from '@/stores/useUserStore';
 
 interface Props {
   onStartLesson: (id: string) => void;
-  onStartPractice: (opts?: { filterSignIds?: string[]; autoStart?: boolean }) => void;
+  onStartPractice: (opts?: {
+    filterSignIds?: string[];
+    autoStart?: boolean;
+    bonusGoldOnPerfect?: number;
+    heading?: string;
+  }) => void;
   onStartStory: (id: string) => void;
   onStartSpeed: () => void;
   onOpenShop: () => void;
@@ -88,6 +93,14 @@ export function HomePage({
             >
               <AlphabetTab
                 onStartLettersPractice={(ids) => onStartPractice({ filterSignIds: ids })}
+                onTestMemory={(ids) =>
+                  onStartPractice({
+                    filterSignIds: ids,
+                    autoStart: true,
+                    bonusGoldOnPerfect: 15,
+                    heading: 'Letter Test',
+                  })
+                }
               />
             </motion.div>
           )}

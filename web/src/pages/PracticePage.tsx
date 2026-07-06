@@ -25,10 +25,14 @@ interface Props {
   onExit: () => void;
   filterSignIds?: string[];
   autoStartExpressive?: boolean;
+  /** Extra gold awarded once, only if every sign in the session is passed on the first try. */
+  bonusGoldOnPerfect?: number;
+  /** Overrides the header title while in expressive/done mode (e.g. "Letter Test"). */
+  heading?: string;
 }
 
-export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Props) {
-  const { signAccuracy, recordSign, addXp, recordPracticeSession } = useUserStore();
+export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonusGoldOnPerfect, heading }: Props) {
+  const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession } = useUserStore();
   const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera();
   const recorder = useAttemptRecorder();
@@ -37,7 +41,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
   );
   const [passResult, setPassResult] = useState<VerifyResult | null>(null);
   const sounds = useSounds();
-  const { burst } = useConfetti();
+  const { burst, bigCelebration } = useConfetti();
   const [mode, setMode] = useState<Mode>('menu');
   const [queue, setQueue] = useState<string[]>([]);
   const [queueIdx, setQueueIdx] = useState(0);
@@ -46,8 +50,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
   const [distractors, setDistractors] = useState<string[]>([]);
   const [sessionXp, setSessionXp] = useState(0);
   const [sessionCorrect, setSessionCorrect] = useState(0);
+  const [goldAwarded, setGoldAwarded] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const loopStartedRef = useRef<string | null>(null);
+  const goldAwardedRef = useRef(false);
 
   const currentSignId = queue[queueIdx];
   const currentSignData = currentSignId ? SIGNS[currentSignId] : null;
@@ -152,10 +158,31 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
     setCardPhase('prompt');
     setSessionXp(0);
     setSessionCorrect(0);
+    setGoldAwarded(0);
+    goldAwardedRef.current = false;
     loopStartedRef.current = null;
     await startCam();
     setMode('expressive');
   };
+
+  // Perfect run (every sign passed, none skipped) earns a one-time gold bonus on top of the
+  // per-sign XP — only wired up for modes that pass bonusGoldOnPerfect (e.g. the alphabet memory test).
+  useEffect(() => {
+    if (
+      mode === 'done' &&
+      bonusGoldOnPerfect &&
+      queue.length > 0 &&
+      sessionCorrect === queue.length &&
+      !goldAwardedRef.current
+    ) {
+      goldAwardedRef.current = true;
+      addGold(bonusGoldOnPerfect);
+      setGoldAwarded(bonusGoldOnPerfect);
+      bigCelebration();
+      sounds.levelUp();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   const startReceptive = () => {
     const pool = filterSignIds ?? allSignIds;
@@ -242,7 +269,13 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
           </svg>
         </button>
         <h1 className="font-bold text-lg">
-          {mode === 'menu' ? 'Review' : mode === 'expressive' ? 'Sign It' : mode === 'receptive' ? 'Sign Quiz' : 'Done'}
+          {mode === 'menu'
+            ? 'Review'
+            : mode === 'expressive'
+              ? (heading ?? 'Sign It')
+              : mode === 'receptive'
+                ? 'Sign Quiz'
+                : (heading ?? 'Done')}
         </h1>
         {mode !== 'menu' && mode !== 'done' && (
           <span className="ml-auto text-sm text-z-gray-400">{queueIdx + 1}/{queue.length}</span>
@@ -456,8 +489,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <div className="text-5xl mb-2">🎯</div>
-              <h2 className="text-2xl font-bold">Session Complete</h2>
+              <div className="text-5xl mb-2">{goldAwarded > 0 ? '🏆' : '🎯'}</div>
+              <h2 className="text-2xl font-bold">
+                {goldAwarded > 0 ? 'Perfect!' : 'Session Complete'}
+              </h2>
               <div className="flex gap-8 text-center">
                 <div>
                   <p className="text-2xl font-bold text-z-yellow">{sessionXp}</p>
@@ -467,7 +502,18 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive }: Pro
                   <p className="text-2xl font-bold text-z-green">{sessionCorrect}/{queue.length}</p>
                   <p className="text-xs text-z-gray-400">correct</p>
                 </div>
+                {goldAwarded > 0 && (
+                  <div>
+                    <p className="text-2xl font-bold text-z-orange-bright">+{goldAwarded}</p>
+                    <p className="text-xs text-z-gray-400">gold</p>
+                  </div>
+                )}
               </div>
+              {bonusGoldOnPerfect != null && goldAwarded === 0 && (
+                <p className="text-z-gray-500 text-xs -mt-2">
+                  Pass every letter without skipping to earn {bonusGoldOnPerfect} gold 🪙
+                </p>
+              )}
               <motion.button
                 onClick={onExit}
                 className="mt-4 px-8 py-3 rounded-2xl font-bold text-white"
