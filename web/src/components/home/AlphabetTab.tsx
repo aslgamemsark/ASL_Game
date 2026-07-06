@@ -80,16 +80,9 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
             whileTap={{ scale: 0.92 }}
           >
             {def.letter}
-            {def.signId && (
-              <span className="text-[7px] text-z-purple-glow leading-none">●</span>
-            )}
           </motion.button>
         ))}
       </div>
-
-      <p className="text-z-gray-500 text-[11px] mb-6">
-        ● = camera practice available ({PRACTICEABLE_LETTER_IDS.length}/26 letters)
-      </p>
 
       {/* Test from memory */}
       <motion.div

@@ -18,13 +18,16 @@ import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { getSignsDueForReview, pickReceptiveDistractors } from '@/data/spaced-repetition';
 import type { VerifyResult } from '@/engine/verifier';
 
-type Mode = 'menu' | 'expressive' | 'receptive' | 'done';
+type Mode = 'menu' | 'expressive' | 'receptive' | 'mixed' | 'done';
 type CardPhase = 'prompt' | 'result' | 'replay';
+type QuestionType = 'expressive' | 'receptive';
 
 interface Props {
   onExit: () => void;
   filterSignIds?: string[];
   autoStartExpressive?: boolean;
+  /** Auto-starts a mixed session: some questions are camera signs, others are multiple choice. */
+  autoStartMixed?: boolean;
   /** Extra gold awarded once, only if every sign in the session is passed on the first try. */
   bonusGoldOnPerfect?: number;
   /** Overrides the header title while in expressive/done mode (e.g. "Letter Test"). */
@@ -33,7 +36,7 @@ interface Props {
   hideReferenceClip?: boolean;
 }
 
-export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonusGoldOnPerfect, heading, hideReferenceClip }: Props) {
+export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoStartMixed, bonusGoldOnPerfect, heading, hideReferenceClip }: Props) {
   const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession } = useUserStore();
   const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera();
@@ -47,9 +50,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
   const [mode, setMode] = useState<Mode>('menu');
   const [queue, setQueue] = useState<string[]>([]);
   const [queueIdx, setQueueIdx] = useState(0);
+  const [itemTypes, setItemTypes] = useState<QuestionType[]>([]);
   const [cardPhase, setCardPhase] = useState<CardPhase>('prompt');
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [distractors, setDistractors] = useState<string[]>([]);
+  const [quizOptions, setQuizOptions] = useState<string[]>([]);
   const [sessionXp, setSessionXp] = useState(0);
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const [goldAwarded, setGoldAwarded] = useState(0);
@@ -61,6 +65,11 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
   const currentSignData = currentSignId ? SIGNS[currentSignId] : null;
   const currentEngineSign = currentSignId ? ENGINE_SIGNS[currentSignId] : null;
   const allSignIds = Object.keys(SIGNS);
+  const currentType: QuestionType | null =
+    mode === 'expressive' ? 'expressive'
+    : mode === 'receptive' ? 'receptive'
+    : mode === 'mixed' ? (itemTypes[queueIdx] ?? 'expressive')
+    : null;
 
   const advanceQueue = useCallback(() => {
     if (queueIdx + 1 < queue.length) {
@@ -73,7 +82,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
 
   const handlePass = useCallback(
     (result: VerifyResult) => {
-      if (mode !== 'expressive' || cardPhase !== 'prompt') return;
+      if (currentType !== 'expressive' || cardPhase !== 'prompt') return;
       setCardPhase('result');
       setPassResult(result);
       if (replayEnabled) recorder.stop();
@@ -93,7 +102,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
         timerRef.current = setTimeout(advanceQueue, 1500);
       }
     },
-    [mode, cardPhase, currentSignId, replayEnabled, recorder, recordSign, addXp, advanceQueue]
+    [currentType, cardPhase, currentSignId, replayEnabled, recorder, recordSign, addXp, advanceQueue]
   );
 
   const handleVerified = useCallback(
@@ -134,9 +143,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
     recognition.init();
   }, [recognition.init]);
 
-  // Start recognition loop for expressive mode
+  // Start recognition loop for expressive questions (plain expressive mode, or a
+  // camera-type question within a mixed session)
   useEffect(() => {
-    if (mode !== 'expressive' || cardPhase !== 'prompt') {
+    if (currentType !== 'expressive' || cardPhase !== 'prompt') {
       if (loopStartedRef.current) {
         recognition.stopLoop();
         loopStartedRef.current = null;
@@ -171,9 +181,11 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
     };
   }, []);
 
-  // Auto-start for weak signs / letters mode
+  // Auto-start for weak signs / letters mode / alphabet "Test from Memory"
   useEffect(() => {
-    if (autoStartExpressive) {
+    if (autoStartMixed) {
+      startMixed();
+    } else if (autoStartExpressive) {
       startExpressive();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -195,6 +207,26 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
     loopStartedRef.current = null;
     await startCam();
     setMode('expressive');
+  };
+
+  // Mixed session: every question is randomly either a camera sign or a multiple-choice
+  // pick, so the same "test yourself" round exercises both recall and recognition.
+  const startMixed = async () => {
+    const pool = filterSignIds ?? allSignIds;
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    recordPracticeSession();
+    setQueue(shuffled);
+    setItemTypes(shuffled.map((): QuestionType => (Math.random() < 0.5 ? 'expressive' : 'receptive')));
+    setQueueIdx(0);
+    setCardPhase('prompt');
+    setSelectedAnswer(null);
+    setSessionXp(0);
+    setSessionCorrect(0);
+    setGoldAwarded(0);
+    goldAwardedRef.current = false;
+    loopStartedRef.current = null;
+    await startCam();
+    setMode('mixed');
   };
 
   // Perfect run (every sign passed, none skipped) earns a one-time gold bonus on top of the
@@ -257,12 +289,19 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
     }, 1500);
   };
 
-  // Generate distractors when receptive question changes
+  // Build the multiple-choice options once per question and hold them in state — computing
+  // the shuffle inline in JSX re-ran on every render (including the result re-render after
+  // an answer is picked), which visibly reshuffled the options right after selection.
   useEffect(() => {
-    if (mode === 'receptive' && currentSignId) {
-      setDistractors(pickReceptiveDistractors(currentSignId, allSignIds, 3));
+    if (currentType === 'receptive' && currentSignId) {
+      // Prefer distractors from the same filtered pool (e.g. other letters) so choices stay
+      // in-category; only fall back to the full sign list if that pool is too small.
+      const pool = filterSignIds && filterSignIds.length >= 4 ? filterSignIds : allSignIds;
+      const options = [currentSignId, ...pickReceptiveDistractors(currentSignId, pool, 3)];
+      setQuizOptions(options.sort(() => Math.random() - 0.5));
     }
-  }, [mode, currentSignId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentType, currentSignId]);
 
   const handleSkipExpressive = () => {
     if (currentSignId) {
@@ -315,11 +354,13 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
         <h1 className="font-bold text-lg">
           {mode === 'menu'
             ? 'Review'
-            : mode === 'expressive'
-              ? (heading ?? 'Sign It')
-              : mode === 'receptive'
-                ? 'Sign Quiz'
-                : (heading ?? 'Done')}
+            : mode === 'mixed'
+              ? (heading ?? 'Test Yourself')
+              : mode === 'expressive'
+                ? (heading ?? 'Sign It')
+                : mode === 'receptive'
+                  ? 'Sign Quiz'
+                  : (heading ?? 'Done')}
         </h1>
         {mode !== 'menu' && mode !== 'done' && (
           <span className="ml-auto text-sm text-z-gray-400">{queueIdx + 1}/{queue.length}</span>
@@ -392,7 +433,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
           )}
 
           {/* --- EXPRESSIVE --- */}
-          {mode === 'expressive' && currentSignData && (
+          {currentType === 'expressive' && currentSignData && (
             <motion.div
               key={`exp-${queueIdx}`}
               className="flex-1 flex flex-col gap-4 pt-4"
@@ -476,7 +517,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
           )}
 
           {/* --- RECEPTIVE --- */}
-          {mode === 'receptive' && currentSignData && (
+          {currentType === 'receptive' && currentSignData && (
             <motion.div
               key={`rec-${queueIdx}`}
               className="flex-1 flex flex-col gap-5 pt-4"
@@ -493,34 +534,32 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
               )}
 
               <div className="grid grid-cols-2 gap-3 mt-2">
-                {[currentSignId, ...distractors]
-                  .sort(() => Math.random() - 0.5)
-                  .map((id) => {
-                    const isCorrect = id === currentSignId;
-                    const isSelected = id === selectedAnswer;
-                    const showResult = cardPhase === 'result';
+                {quizOptions.map((id) => {
+                  const isCorrect = id === currentSignId;
+                  const isSelected = id === selectedAnswer;
+                  const showResult = cardPhase === 'result';
 
-                    return (
-                      <motion.button
-                        key={id}
-                        onClick={() => handleReceptiveAnswer(id)}
-                        disabled={cardPhase === 'result'}
-                        className={`p-4 rounded-2xl font-bold text-sm border-2 transition-all ${
-                          showResult
-                            ? isCorrect
-                              ? 'bg-z-green/20 border-z-green text-z-green'
-                              : isSelected
-                                ? 'bg-z-red/20 border-z-red text-z-red'
-                                : 'bg-z-surface/30 border-z-gray-500/20 text-z-gray-400'
-                            : 'bg-z-card border-z-gray-500/20 text-white hover:border-z-purple-light'
-                        }`}
-                        whileHover={cardPhase === 'prompt' ? { scale: 1.03 } : undefined}
-                        whileTap={cardPhase === 'prompt' ? { scale: 0.97 } : undefined}
-                      >
-                        {SIGNS[id]?.name.replace(/_/g, ' ') ?? id}
-                      </motion.button>
-                    );
-                  })}
+                  return (
+                    <motion.button
+                      key={id}
+                      onClick={() => handleReceptiveAnswer(id)}
+                      disabled={cardPhase === 'result'}
+                      className={`p-4 rounded-2xl font-bold text-sm border-2 transition-all ${
+                        showResult
+                          ? isCorrect
+                            ? 'bg-z-green/20 border-z-green text-z-green'
+                            : isSelected
+                              ? 'bg-z-red/20 border-z-red text-z-red'
+                              : 'bg-z-surface/30 border-z-gray-500/20 text-z-gray-400'
+                          : 'bg-z-card border-z-gray-500/20 text-white hover:border-z-purple-light'
+                      }`}
+                      whileHover={cardPhase === 'prompt' ? { scale: 1.03 } : undefined}
+                      whileTap={cardPhase === 'prompt' ? { scale: 0.97 } : undefined}
+                    >
+                      {SIGNS[id]?.name.replace(/_/g, ' ') ?? id}
+                    </motion.button>
+                  );
+                })}
               </div>
             </motion.div>
           )}
