@@ -20,7 +20,7 @@ export const useSettingsStore = create<SettingsStore>()(
         if ('soundEnabled' in s && !('vibrationEnabled' in s)) {
           return { vibrationEnabled: s.soundEnabled as boolean };
         }
-        return s as SettingsStore;
+        return s as unknown as SettingsStore;
       },
       version: 1,
     }

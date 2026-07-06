@@ -65,7 +65,7 @@ interface ProfileTabProps {
 }
 
 export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProps = {}) {
-  const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, collectTrainingData, setCollectTrainingData, equippedAvatar, equippedBorder, ownedCosmetics, renameCards, equipAvatar } = useUserStore();
+  const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, collectTrainingData, setCollectTrainingData, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { vibrationEnabled, toggleVibration } = useSettingsStore();
   const { user, username, signOut } = useAuth();
