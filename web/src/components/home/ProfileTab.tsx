@@ -10,6 +10,7 @@ import { BadgesSection } from '@/components/home/BadgesSection';
 import { StruggleBarList } from '@/components/insights/StruggleBarList';
 import { AccuracySparkline } from '@/components/insights/AccuracySparkline';
 import { getBadge } from '@/data/badges';
+import { getRankProgress } from '@/data/ranks';
 import { SHOP_ITEMS, getShopItem } from '@/data/shop';
 import { supabaseReady } from '@/lib/supabase';
 import { SIGNS } from '@/data/signs';
@@ -137,6 +138,41 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
           <p className="text-z-gray-400 text-xs mt-0.5">{badges.length} badge{badges.length !== 1 ? 's' : ''} earned</p>
         )}
       </motion.div>
+
+      {/* Rank card */}
+      {(() => {
+        const { rank, next, progress } = getRankProgress(xp);
+        return (
+          <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 mb-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{rank.emoji}</span>
+                <div>
+                  <p className="font-bold text-sm">{rank.name}</p>
+                  <p className="text-[11px] text-z-gray-400">{xp.toLocaleString()} XP total</p>
+                </div>
+              </div>
+              {next && (
+                <div className="text-right">
+                  <p className="text-[11px] text-z-gray-400">Next rank</p>
+                  <p className="text-xs font-bold text-z-gray-300">{next.emoji} {next.name}</p>
+                  <p className="text-[10px] text-z-gray-500">{(next.minXp - xp).toLocaleString()} XP away</p>
+                </div>
+              )}
+            </div>
+            <div className="h-2 bg-z-surface rounded-full overflow-hidden">
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: 'linear-gradient(90deg, #7B2FBE, #A855F7)' }}
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.round(progress * 100)}%` }}
+                transition={{ duration: 0.8, ease: 'easeOut' }}
+              />
+            </div>
+            {!next && <p className="text-[11px] text-z-yellow text-center mt-2 font-bold">Max rank reached! 🌟</p>}
+          </motion.div>
+        );
+      })()}
 
       {/* Stats / Insights / Badges section toggle */}
       <div className="flex bg-z-surface/50 rounded-xl p-1 mb-5">

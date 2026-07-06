@@ -408,11 +408,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
                     <p className="text-sm text-z-gray-300 mt-2">{currentSignData.description}</p>
                   </div>
 
-                  {!hideReferenceClip && currentSignData.clip && (
-                    <ReferenceClip clipUrl={currentSignData.clip} signName={currentSignData.name} compact />
-                  )}
-
-                  <WebcamMirror videoRef={videoRef} />
+                  <WebcamMirror
+                    videoRef={videoRef}
+                    overlayClipUrl={!hideReferenceClip ? currentSignData.clip : undefined}
+                  />
 
                   {recognition.result && (
                     <ParameterChecklist
@@ -576,7 +575,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, bonus
   );
 }
 
-function WebcamMirror({ videoRef }: { videoRef: React.RefObject<HTMLVideoElement | null> }) {
+function WebcamMirror({ videoRef, overlayClipUrl }: { videoRef: React.RefObject<HTMLVideoElement | null>; overlayClipUrl?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
 
@@ -604,6 +603,18 @@ function WebcamMirror({ videoRef }: { videoRef: React.RefObject<HTMLVideoElement
   return (
     <div className="relative rounded-2xl overflow-hidden bg-z-surface aspect-video">
       <canvas ref={canvasRef} className="w-full h-full object-cover" />
+      {overlayClipUrl && (
+        <div className="absolute top-2 right-2 w-28 rounded-xl overflow-hidden border-2 border-white/20 shadow-lg bg-black">
+          <video
+            src={overlayClipUrl}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
     </div>
   );
 }
