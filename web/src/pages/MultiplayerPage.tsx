@@ -33,6 +33,7 @@ interface Props {
 
 const ALL_SIGNS = Object.keys(SIGNS);
 const ROUNDS = 5;
+const ICE_SERVERS: RTCConfiguration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 function pickSigns(n: number): string[] {
   const shuffled = [...ALL_SIGNS].sort(() => Math.random() - 0.5);
@@ -43,7 +44,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
   const { user, username } = useAuth();
   const { addSigns, addGold } = useUserStore();
   const sounds = useSounds();
-  const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera();
+  const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera();
   const recognition = useRecognition({ onPass: handleSignCorrect });
 
   const [phase, setPhase] = useState<Phase>('lobby');
@@ -56,7 +57,13 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
   const [guessResult, setGuessResult] = useState<'correct' | 'wrong' | null>(null);
   const [opponentSigned, setOpponentSigned] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
+  const [remoteConnected, setRemoteConnected] = useState(false);
   const loopRef = useRef<string | null>(null);
+
+  // WebRTC peer connection for live opponent video, signaled over the same Supabase channel.
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
   // Keep refs in sync so channel event callbacks always see the latest values (avoid stale closures)
   useEffect(() => { matchStateRef.current = matchState; }, [matchState]);
@@ -65,6 +72,42 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
   useEffect(() => {
     recognition.init();
   }, [recognition.init]);
+
+  function createPeerConnection(ch: ReturnType<typeof supabase.channel>) {
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        ch.send({ type: 'broadcast', event: 'webrtc-ice', payload: { candidate: e.candidate.toJSON() } });
+      }
+    };
+    pc.ontrack = (e) => {
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = e.streams[0];
+      setRemoteConnected(true);
+    };
+    const stream = getStream();
+    stream?.getTracks().forEach((t) => pc.addTrack(t, stream));
+    pcRef.current = pc;
+    return pc;
+  }
+
+  async function flushPendingCandidates() {
+    const pc = pcRef.current;
+    if (!pc) return;
+    const queued = pendingCandidatesRef.current;
+    pendingCandidatesRef.current = [];
+    for (const c of queued) {
+      try { await pc.addIceCandidate(c); } catch { /* stale candidate — ignore */ }
+    }
+  }
+
+  async function handleIceCandidate(candidate: RTCIceCandidateInit) {
+    const pc = pcRef.current;
+    if (pc?.remoteDescription) {
+      try { await pc.addIceCandidate(candidate); } catch { /* stale candidate — ignore */ }
+    } else {
+      pendingCandidatesRef.current.push(candidate);
+    }
+  }
 
   function handleSignCorrect(_r: VerifyResult) {
     if (phase !== 'signer' || !matchState) return;
@@ -125,7 +168,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
     setPhase('waiting');
 
     const ch = supabase.channel(`mp-room-${roomId}`);
-    ch.on('broadcast', { event: 'join' }, ({ payload }) => {
+    ch.on('broadcast', { event: 'join' }, async ({ payload }) => {
       const opId = payload.userId as string;
       const opName = payload.username as string;
       const firstSign = signs[0];
@@ -140,8 +183,15 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
         myScore: 0,
         opponentScore: 0,
       });
-      if (amSigner) { setPhase('signer'); startCam(); }
-      else { setPhase('guesser'); buildGuessOptions(firstSign); }
+      setPhase(amSigner ? 'signer' : 'guesser');
+      if (!amSigner) buildGuessOptions(firstSign);
+
+      // Host initiates the WebRTC offer once both players are present.
+      await startCam();
+      const pc = createPeerConnection(ch);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      ch.send({ type: 'broadcast', event: 'webrtc-offer', payload: { sdp: { type: offer.type, sdp: offer.sdp } } });
       ch.send({ type: 'broadcast', event: 'start', payload: { signs, firstSign, hostId: user.id } });
     });
     ch.on('broadcast', { event: 'signed' }, () => {
@@ -151,6 +201,15 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
     ch.on('broadcast', { event: 'guess' }, ({ payload }) => {
       const correct = payload.signId === matchStateRef.current?.currentSign;
       advanceRound(correct, false);
+    });
+    ch.on('broadcast', { event: 'webrtc-answer' }, async ({ payload }) => {
+      const pc = pcRef.current;
+      if (!pc) return;
+      await pc.setRemoteDescription(payload.sdp as RTCSessionDescriptionInit);
+      await flushPendingCandidates();
+    });
+    ch.on('broadcast', { event: 'webrtc-ice' }, ({ payload }) => {
+      void handleIceCandidate(payload.candidate as RTCIceCandidateInit);
     });
     ch.subscribe();
   };
@@ -164,7 +223,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
     setStatusMsg('Joining room…');
 
     const ch = supabase.channel(`mp-room-${roomId}`);
-    ch.on('broadcast', { event: 'start' }, ({ payload }) => {
+    ch.on('broadcast', { event: 'start' }, async ({ payload }) => {
       const hostId = payload.hostId as string;
       const signs = payload.signs as string[];
       const firstSign = payload.firstSign as string;
@@ -180,8 +239,9 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
         myScore: 0,
         opponentScore: 0,
       });
-      if (amSigner) { setPhase('signer'); startCam(); }
-      else { setPhase('guesser'); buildGuessOptions(firstSign); }
+      setPhase(amSigner ? 'signer' : 'guesser');
+      if (!amSigner) buildGuessOptions(firstSign);
+      await startCam();
     });
     ch.on('broadcast', { event: 'signed' }, () => {
       setOpponentSigned(true);
@@ -190,6 +250,18 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
     ch.on('broadcast', { event: 'guess' }, ({ payload }) => {
       const correct = payload.signId === matchStateRef.current?.currentSign;
       advanceRound(correct, false);
+    });
+    ch.on('broadcast', { event: 'webrtc-offer' }, async ({ payload }) => {
+      if (!getStream()) await startCam();
+      const pc = createPeerConnection(ch);
+      await pc.setRemoteDescription(payload.sdp as RTCSessionDescriptionInit);
+      await flushPendingCandidates();
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      ch.send({ type: 'broadcast', event: 'webrtc-answer', payload: { sdp: { type: answer.type, sdp: answer.sdp } } });
+    });
+    ch.on('broadcast', { event: 'webrtc-ice' }, ({ payload }) => {
+      void handleIceCandidate(payload.candidate as RTCIceCandidateInit);
     });
     ch.subscribe(async () => {
       await ch.send({ type: 'broadcast', event: 'join', payload: { userId: user.id, username: username ?? user.email?.split('@')[0] ?? 'Player' } });
@@ -218,7 +290,9 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
     }
   });
 
-  useEffect(() => () => { stopCam(); recognition.stopLoop(); }, []);
+  useEffect(() => () => { stopCam(); recognition.stopLoop(); pcRef.current?.close(); }, []);
+
+  const exit = () => { stopCam(); recognition.stopLoop(); pcRef.current?.close(); onExit(); };
 
   return (
     <div className="min-h-screen bg-z-bg flex flex-col">
@@ -226,7 +300,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
 
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
-        <button onClick={() => { stopCam(); recognition.stopLoop(); onExit(); }}
+        <button onClick={exit}
           className="w-8 h-8 flex items-center justify-center text-z-gray-400 hover:text-white">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M18 6L6 18M6 6l12 12" />
@@ -293,7 +367,13 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
                 <p className="text-xs text-z-gray-400 mb-1">SIGN THIS</p>
                 <p className="text-3xl font-bold text-z-purple-light">{SIGNS[matchState.currentSign]?.name.replace(/_/g, ' ') ?? matchState.currentSign}</p>
               </div>
-              <WebcamMirror videoRef={videoRef} />
+              <div className="grid grid-cols-2 gap-2">
+                <WebcamMirror videoRef={videoRef} label="You" />
+                <RemoteVideo videoRef={remoteVideoRef} label={matchState.opponentUsername} connected={remoteConnected} />
+              </div>
+              {camStatus === 'denied' && (
+                <p className="text-center text-xs text-z-red">Camera access denied — your opponent won't see your video.</p>
+              )}
               <p className="text-center text-z-gray-400 text-sm">Sign it — your friend guesses!</p>
             </motion.div>
           )}
@@ -305,9 +385,9 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
                 <span className="text-xs text-z-gray-400 uppercase tracking-widest">Round {matchState.round}/{ROUNDS}</span>
                 <span className="text-sm font-bold">You {matchState.myScore} · {matchState.opponentScore} {matchState.opponentUsername}</span>
               </div>
-              <div className="bg-z-card border border-white/8 rounded-2xl p-4 text-center">
-                <p className="text-z-gray-400 text-sm">{matchState.opponentUsername} is signing…</p>
-                <motion.p className="text-3xl mt-2" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.2, repeat: Infinity }}>🤟</motion.p>
+              <div className="grid grid-cols-2 gap-2">
+                <RemoteVideo videoRef={remoteVideoRef} label={`${matchState.opponentUsername} — signing`} connected={remoteConnected} />
+                <WebcamMirror videoRef={videoRef} label="You" />
               </div>
               <p className="text-center font-bold">What are they signing?</p>
               <div className="grid grid-cols-2 gap-3">
@@ -354,7 +434,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
               {matchState.myScore > matchState.opponentScore && (
                 <p className="text-z-yellow font-bold">+200 🤟 Signs · +10 🪙 Gold</p>
               )}
-              <motion.button onClick={onExit}
+              <motion.button onClick={exit}
                 className="px-8 py-3 rounded-2xl font-bold text-white"
                 style={{ background: 'linear-gradient(135deg,#7C3AED,#A78BFA)' }}
                 whileTap={{ scale: 0.97 }}>
@@ -369,7 +449,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
   );
 }
 
-function WebcamMirror({ videoRef }: { videoRef: React.RefObject<HTMLVideoElement | null> }) {
+function WebcamMirror({ videoRef, label }: { videoRef: React.RefObject<HTMLVideoElement | null>; label?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   useEffect(() => {
@@ -387,6 +467,21 @@ function WebcamMirror({ videoRef }: { videoRef: React.RefObject<HTMLVideoElement
   return (
     <div className="relative rounded-2xl overflow-hidden bg-z-surface aspect-video">
       <canvas ref={canvasRef} className="w-full h-full object-cover" />
+      {label && <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded-md">{label}</span>}
+    </div>
+  );
+}
+
+function RemoteVideo({ videoRef, label, connected }: { videoRef: React.RefObject<HTMLVideoElement | null>; label: string; connected: boolean }) {
+  return (
+    <div className="relative rounded-2xl overflow-hidden bg-z-surface aspect-video">
+      <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+      {!connected && (
+        <div className="absolute inset-0 flex items-center justify-center bg-z-surface/90">
+          <p className="text-xs text-z-gray-400">Connecting…</p>
+        </div>
+      )}
+      <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded-md">{label}</span>
     </div>
   );
 }
