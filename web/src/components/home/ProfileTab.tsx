@@ -56,7 +56,7 @@ function cardVariants(glowColor: string) {
 const TOTAL_LESSON_COUNT = LESSON_UNITS.reduce((sum, u) => sum + u.nodes.length, 0);
 
 export function ProfileTab() {
-  const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, collectTrainingData, setCollectTrainingData, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar } = useUserStore();
+  const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, collectTrainingData, setCollectTrainingData, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar, equipBorder } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user, username, signOut } = useAuth();
   const { struggleSigns, vetoStats, dailyAccuracy, overallAvgAttempts, loading: insightsLoading } = useInsights();
@@ -64,6 +64,7 @@ export function ProfileTab() {
   const [showSetUsername, setShowSetUsername] = useState(false);
   const [levelBurst, setLevelBurst] = useState(0);
   const [profileSection, setProfileSection] = useState<'stats' | 'insights' | 'badges'>('stats');
+  const [cosmeticTab, setCosmeticTab] = useState<'avatar' | 'border'>('avatar');
 
   const totalSigns = Object.keys(signAccuracy).length;
   const masteredSigns = Object.values(signAccuracy).filter((s) => s.successes >= 3 && s.successes / s.attempts >= 0.7).length;
@@ -251,37 +252,66 @@ export function ProfileTab() {
             )}
           </motion.div>
 
-          {/* Avatar selector */}
+          {/* Cosmetics selector — avatars + borders */}
           {(() => {
             const ownedAvatars = SHOP_ITEMS.filter((i) => i.type === 'avatar' && ownedCosmetics.includes(i.id));
-            if (ownedAvatars.length === 0) return null;
+            const ownedBorders = SHOP_ITEMS.filter((i) => i.type === 'border' && ownedCosmetics.includes(i.id));
+            if (ownedAvatars.length === 0 && ownedBorders.length === 0) return null;
+
+            const items = cosmeticTab === 'avatar' ? ownedAvatars : ownedBorders;
+            const isEquippedId = cosmeticTab === 'avatar' ? equippedAvatar : equippedBorder;
+            const onToggle = cosmeticTab === 'avatar' ? equipAvatar : equipBorder;
+
             return (
               <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 mb-5" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
-                <h3 className="font-bold text-sm mb-3 text-z-gray-300">My Avatars</h3>
-                <div className="flex flex-wrap gap-2">
-                  {ownedAvatars.map((item) => {
-                    const isEquipped = equippedAvatar === item.id;
-                    return (
-                      <motion.button
-                        key={item.id}
-                        onClick={() => equipAvatar(isEquipped ? null : item.id)}
-                        className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 border-2 transition-colors ${
-                          isEquipped
-                            ? 'border-z-purple bg-z-purple/20 shadow-md shadow-z-purple/30'
-                            : 'border-white/10 bg-z-surface/40 hover:border-z-purple/50'
-                        }`}
-                        whileHover={{ scale: 1.08 }}
-                        whileTap={{ scale: 0.92 }}
-                        title={item.title}
-                      >
-                        <span className="text-2xl">{item.icon}</span>
-                        {isEquipped && <span className="text-[8px] font-bold text-z-purple-light leading-none">ON</span>}
-                      </motion.button>
-                    );
-                  })}
+                <div className="flex bg-z-surface/50 rounded-lg p-1 mb-3 gap-1 w-fit">
+                  {(['avatar', 'border'] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setCosmeticTab(t)}
+                      className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${
+                        cosmeticTab === t ? 'bg-z-card text-white' : 'text-z-gray-400 hover:text-z-gray-200'
+                      }`}
+                    >
+                      {t === 'avatar' ? 'Avatars' : 'Borders'}
+                    </button>
+                  ))}
                 </div>
-                {equippedAvatar && (
-                  <p className="text-[11px] text-z-gray-400 mt-2">Tap your equipped avatar to unequip</p>
+
+                {items.length === 0 ? (
+                  <p className="text-[11px] text-z-gray-500">
+                    No {cosmeticTab === 'avatar' ? 'avatars' : 'borders'} owned yet — check the Shop!
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {items.map((item) => {
+                      const isEquipped = isEquippedId === item.id;
+                      return (
+                        <motion.button
+                          key={item.id}
+                          onClick={() => onToggle(isEquipped ? null : item.id)}
+                          className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 border-2 transition-colors ${
+                            isEquipped
+                              ? 'border-z-purple bg-z-purple/20 shadow-md shadow-z-purple/30'
+                              : 'border-white/10 bg-z-surface/40 hover:border-z-purple/50'
+                          }`}
+                          whileHover={{ scale: 1.08 }}
+                          whileTap={{ scale: 0.92 }}
+                          title={item.title}
+                        >
+                          {cosmeticTab === 'border' ? (
+                            <div className={`w-7 h-7 rounded-lg bg-gradient-to-br from-z-purple to-z-purple-deep ${item.preview}`} />
+                          ) : (
+                            <span className="text-2xl">{item.icon}</span>
+                          )}
+                          {isEquipped && <span className="text-[8px] font-bold text-z-purple-light leading-none">ON</span>}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                )}
+                {isEquippedId && items.length > 0 && (
+                  <p className="text-[11px] text-z-gray-400 mt-2">Tap your equipped {cosmeticTab} to unequip</p>
                 )}
               </motion.div>
             );
