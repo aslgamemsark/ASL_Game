@@ -38,10 +38,18 @@ const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'settings'
 export default function App() {
   useProgressSync();
   const { onboardingComplete } = useUserStore();
-  const { user, username, needsUsernameSetup } = useAuth();
+  const { user, username, needsUsernameSetup, loading: authLoading } = useAuth();
   const [screen, setScreen] = useState<Screen>(
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );
+
+  // Returning users who are already logged in skip onboarding regardless of local store state
+  useEffect(() => {
+    if (!authLoading && user && screen.type === 'onboarding') {
+      setScreen({ type: 'home' });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading]);
   const [homeTab, setHomeTab] = useState<Tab>('learn');
   const [incomingChallenge, setIncomingChallenge] = useState<{ from: string; roomId: string } | null>(null);
 
@@ -79,6 +87,18 @@ export default function App() {
     setScreen({ type: 'multiplayer', autoHostRoomId: roomId });
     void friendUsername; // used in the notification received on the other side
   }, [user, username]);
+
+  // Block render until auth session is restored so returning users never see the onboarding flash.
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-z-bg flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-5xl mb-4 animate-pulse">🤟</p>
+          <p className="text-z-gray-500 text-sm">Loading…</p>
+        </div>
+      </div>
+    );
+  }
 
   // Dev-only debug environment (spec Rule 18: "debug inside AvatarLab, not inside the game").
   // Deliberately NOT wired into the Screen state machine or navigation — it's a separate tool, not

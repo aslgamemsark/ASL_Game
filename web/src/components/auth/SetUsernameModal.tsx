@@ -1,22 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserStore } from '@/stores/useUserStore';
 import { validateUsername } from '@/lib/username';
 
 interface Props {
   onClose: () => void;
+  /** 'setup' = first-time pick (free). 'rename' = change existing (costs a Rename Card). */
+  mode?: 'setup' | 'rename';
 }
 
 type Status = 'idle' | 'checking' | 'ok' | 'error';
 
-export function SetUsernameModal({ onClose }: Props) {
+export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
   const { user, updateUsername, dismissUsernameSetup } = useAuth();
+  const { renameCards, consumeRenameCard } = useUserStore();
   const [value, setValue] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [statusMsg, setStatusMsg] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isRename = mode === 'rename';
+  const canRename = !isRename || renameCards > 0;
 
   useEffect(() => {
     if (value.length < 3) { setStatus('idle'); setStatusMsg(''); return; }
@@ -31,12 +38,13 @@ export function SetUsernameModal({ onClose }: Props) {
   }, [value, user?.id]);
 
   const handleSave = async () => {
-    if (status !== 'ok') return;
+    if (status !== 'ok' || !canRename) return;
     setSaving(true);
     setSaveError(null);
     const err = await updateUsername(value);
     setSaving(false);
     if (err) { setSaveError(err); return; }
+    if (isRename) consumeRenameCard();
     onClose();
   };
 
@@ -61,12 +69,41 @@ export function SetUsernameModal({ onClose }: Props) {
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         >
           <div className="text-center mb-5">
-            <p className="text-3xl mb-2">✏️</p>
-            <h2 className="font-bold text-lg">Choose your username</h2>
+            <p className="text-3xl mb-2">{isRename ? '🎟️' : '✏️'}</p>
+            <h2 className="font-bold text-lg">{isRename ? 'Change your username' : 'Choose your username'}</h2>
             <p className="text-z-gray-400 text-sm mt-1">
-              This is how other players will find and challenge you.
+              {isRename
+                ? 'This will use one Rename Card from your inventory.'
+                : 'This is how other players will find and challenge you.'}
             </p>
           </div>
+
+          {/* Rename card warning banner */}
+          {isRename && (
+            <div className={`rounded-xl px-3 py-2.5 mb-4 text-xs leading-relaxed border ${
+              canRename
+                ? 'bg-z-purple/10 border-z-purple/30 text-z-purple-light'
+                : 'bg-red-500/10 border-red-500/30 text-red-400'
+            }`}>
+              {canRename ? (
+                <>
+                  🎟️ You have <span className="font-bold">{renameCards}</span> Rename Card{renameCards !== 1 ? 's' : ''}.
+                  One will be consumed when you save.
+                </>
+              ) : (
+                <>
+                  You have no Rename Cards. Purchase one from the Shop for 🪙 150 to change your username.
+                </>
+              )}
+            </div>
+          )}
+
+          {/* First-time soft disclaimer */}
+          {!isRename && (
+            <div className="rounded-xl px-3 py-2 mb-4 text-xs text-z-gray-400 bg-white/4 border border-white/8 leading-relaxed">
+              ⚠️ Choose carefully — future username changes require a <span className="text-z-gray-300 font-medium">Rename Card</span> from the Shop (🪙 150).
+            </div>
+          )}
 
           {/* Input */}
           <div className="mb-4">
@@ -84,6 +121,7 @@ export function SetUsernameModal({ onClose }: Props) {
                 maxLength={20}
                 autoFocus
                 autoComplete="username"
+                disabled={!canRename}
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none">
                 {status === 'checking' && <span className="text-z-gray-400 text-xs">…</span>}
@@ -105,19 +143,29 @@ export function SetUsernameModal({ onClose }: Props) {
 
           <motion.button
             onClick={handleSave}
-            disabled={status !== 'ok' || saving}
+            disabled={status !== 'ok' || saving || !canRename}
             className="w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm disabled:opacity-40 transition-opacity mb-2"
             whileTap={{ scale: 0.97 }}
           >
-            {saving ? 'Saving…' : 'Save username'}
+            {saving ? 'Saving…' : isRename ? 'Change username' : 'Save username'}
           </motion.button>
 
-          <button
-            onClick={handleSkip}
-            className="w-full py-2 text-xs text-z-gray-500 hover:text-z-gray-300 transition-colors"
-          >
-            Maybe later
-          </button>
+          {!isRename && (
+            <button
+              onClick={handleSkip}
+              className="w-full py-2 text-xs text-z-gray-500 hover:text-z-gray-300 transition-colors"
+            >
+              Maybe later
+            </button>
+          )}
+          {isRename && (
+            <button
+              onClick={onClose}
+              className="w-full py-2 text-xs text-z-gray-500 hover:text-z-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>

@@ -65,7 +65,7 @@ interface ProfileTabProps {
 }
 
 export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProps = {}) {
-  const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, collectTrainingData, setCollectTrainingData, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar } = useUserStore();
+  const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, collectTrainingData, setCollectTrainingData, equippedAvatar, equippedBorder, ownedCosmetics, renameCards, equipAvatar } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { soundEnabled, toggleSound } = useSettingsStore();
   const { user, username, signOut } = useAuth();
@@ -100,16 +100,28 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
               <div>
                 <div className="flex items-center gap-1.5">
                   <p className="font-bold text-sm">@{username ?? '…'}</p>
-                  <button
-                    onClick={() => setShowSetUsername(true)}
-                    className="text-z-gray-500 hover:text-z-gray-300 transition-colors"
-                    title="Change username"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                    </svg>
-                  </button>
+                  {renameCards > 0 ? (
+                    <button
+                      onClick={() => setShowSetUsername(true)}
+                      className="text-z-gray-500 hover:text-z-gray-300 transition-colors"
+                      title={`Change username (${renameCards} rename card${renameCards !== 1 ? 's' : ''} available)`}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <span
+                      className="text-z-gray-600 cursor-help"
+                      title="Purchase a Rename Card from the Shop (🪙 150) to change your username"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" opacity="0.4">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </span>
+                  )}
                 </div>
                 <p className="text-z-gray-400 text-xs">Progress syncing</p>
               </div>
@@ -507,7 +519,7 @@ export function ProfileTab({ onOpenFriends, onStartMultiplayer }: ProfileTabProp
       )}
 
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
-      {showSetUsername && <SetUsernameModal onClose={() => setShowSetUsername(false)} />}
+      {showSetUsername && <SetUsernameModal mode="rename" onClose={() => setShowSetUsername(false)} />}
     </div>
   );
 }

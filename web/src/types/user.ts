@@ -60,6 +60,8 @@ export interface UserProgress {
   equippedBorder: string | null;
   equippedAvatar: string | null;
   friends: string[];
+  /** Consumable rename cards owned; each one allows one username change. */
+  renameCards: number;
   /** Opt-out: when true, passed/failed attempts also save a landmark snapshot for future model training. */
   collectTrainingData: boolean;
 }

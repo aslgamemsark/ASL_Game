@@ -151,6 +151,9 @@ export function AuthModal({ onClose }: Props) {
             <p className="text-[10px] text-z-gray-500 mt-1 px-1">
               3–20 characters · letters, numbers, underscores only · unique
             </p>
+            <p className="text-[10px] text-z-gray-600 mt-1 px-1">
+              ⚠️ Choose carefully — future changes require a Rename Card from the Shop (🪙 150)
+            </p>
           </div>
         )}
 
