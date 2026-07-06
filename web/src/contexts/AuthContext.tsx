@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, supabaseReady } from '@/lib/supabase';
+import { validateUsername } from '@/lib/username';
 
 type ProfileRow = { id: string; username: string };
 
@@ -55,13 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUpWithEmail(email: string, password: string, username: string): Promise<string | null> {
-    // Check username availability first
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', username)
-      .maybeSingle();
-    if (existing) return 'Username already taken';
+    const usernameError = await validateUsername(username);
+    if (usernameError) return usernameError;
 
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return error.message;
