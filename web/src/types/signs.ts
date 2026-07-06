@@ -1,6 +1,7 @@
 export type HandShapeKind =
   | 'fist' | 's' | 'a' | 'index' | 'open' | 'claw' | 'v' | 'l' | 'y' | 'w' | 'h' | 'n' | 'middle' | 'i'
-  | 'd' | 'f' | 'o' | 't' | 'g' | 'letter_h' | 'k' | 'letter_n' | 'p' | 'q' | 'r' | 'u';
+  | 'd' | 'f' | 'o' | 't' | 'g' | 'letter_h' | 'k' | 'letter_n' | 'p' | 'q' | 'r' | 'u'
+  | 'c' | 'e' | 'm' | 'letter_s' | 'x';
 
 export type Anchor =
   | 'other_hand'

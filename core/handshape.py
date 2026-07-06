@@ -372,6 +372,62 @@ def r_confidence(hand: Hand) -> float:
     return float(min(both_extended, rest_curled, crossed_score))
 
 
+def c_confidence(hand: Hand) -> float:
+    """Letter C: all fingers and thumb curved into a C-shape, with an open gap between thumb and
+    index. Distinct from O (O closes the gap with a thumb pinch) and fist (much less curled)."""
+    curls = _all_curls(hand)
+    m = float(np.mean(curls))
+    curl_score = float(np.clip(1.0 - abs(m - 0.35) / 0.25, 0.0, 1.0))
+    thumb_out = _thumb_extended(hand)
+    spread = float(np.std(curls))
+    uniformity = float(np.clip(1.0 - max(0.0, spread - 0.15) / 0.35, 0.0, 1.0))
+    return float(min(curl_score, thumb_out) * uniformity)
+
+
+def e_confidence(hand: Hand) -> float:
+    """Letter E: all four fingers bent at the middle knuckle, tips pointing toward the palm,
+    thumb tucked underneath. High uniform curl, thumb not extended to side."""
+    curls = _all_curls(hand)
+    m = float(np.mean(curls))
+    curl_score = float(np.clip((m - 0.45) / 0.25, 0.0, 1.0))
+    thumb_in = 1.0 - _thumb_extended(hand)
+    spread = float(np.std(curls))
+    uniformity = float(np.clip(1.0 - max(0.0, spread - 0.15) / 0.35, 0.0, 1.0))
+    return float(min(curl_score, thumb_in) * uniformity)
+
+
+def m_confidence(hand: Hand) -> float:
+    """Letter M: closed fist with the thumb tucked under the index, middle, AND ring fingers
+    (one more finger than N). The thumb-tip-to-three-knuckle-midpoint distance is the key signal."""
+    fist_score = float(np.mean(_all_curls(hand)))
+    mcp_mid = (_xy(hand, INDEX_MCP) + _xy(hand, MIDDLE_MCP) + _xy(hand, RING_MCP)) / 3.0
+    d = float(np.linalg.norm(_xy(hand, THUMB_TIP) - mcp_mid)) / _hand_scale(hand)
+    thumb_under = float(np.clip(1.0 - abs(d - 0.20) / 0.15, 0.0, 1.0))
+    return float(min(fist_score, thumb_under))
+
+
+def letter_s_confidence(hand: Hand) -> float:
+    """Letter S: closed fist with the thumb wrapped across the FRONT of the fingers (not to the
+    side like A, and not tucked between knuckles like T). Scored as fist + thumb not extended.
+
+    Dispatched as 'letter_s', NOT 's' — other signs use kind='s' as a plain-fist alias which has
+    no thumb constraint; reusing it here would add an unintended constraint to those signs.
+    """
+    fist_score = float(np.mean(_all_curls(hand)))
+    thumb_in = 1.0 - _thumb_extended(hand)
+    return float(min(fist_score, thumb_in))
+
+
+def x_confidence(hand: Hand) -> float:
+    """Letter X: index finger hooked/bent into a hook shape (partially curled at the middle joint),
+    while the remaining three fingers are curled into the palm. Distinct from the index handshape
+    (where the index is fully extended) and from a fist (where the index is also fully curled)."""
+    curls = _all_curls(hand)
+    index_hooked = float(np.clip(1.0 - abs(curls[0] - 0.5) / 0.25, 0.0, 1.0))
+    rest_curled = float(min(curls[1:]))
+    return float(min(index_hooked, rest_curled))
+
+
 def letter_n_confidence(hand: Hand) -> float:
     """Letter N: closed fist, thumb tucked under the index and middle fingers specifically
     (distinct from a plain fist/A/T's thumb placement). Same 2D-distance-to-knuckle-line
@@ -437,6 +493,11 @@ _DISPATCH = {
     "q": q_confidence,
     "p": p_confidence,
     "r": r_confidence,
+    "c": c_confidence,
+    "e": e_confidence,
+    "m": m_confidence,
+    "letter_s": letter_s_confidence,
+    "x": x_confidence,
 }
 
 
