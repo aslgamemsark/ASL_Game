@@ -1,0 +1,31 @@
+name: Deploy to friend's Vercel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/deploy-friend.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to production
+        working-directory: web
+        env:
+          VERCEL_TOKEN: ${{ secrets.FRIEND_VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_chVdu9ui57orbHe0pKXTi0PG
+          VERCEL_PROJECT_ID: prj_Z8XPDWKH5Z7qRHCokCdlz6kTWneW
+        run: vercel deploy --prod --yes --token $VERCEL_TOKEN
