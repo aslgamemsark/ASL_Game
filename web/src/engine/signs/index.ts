@@ -233,6 +233,45 @@ export const LETTER_U = createSign({
   movement: { kind: MovementKind.NONE, required: false },
 });
 
+// C/E/M/S/X were added to handshape.ts + data/signs.ts + alphabet.ts but never actually
+// registered here, so ENGINE_SIGNS[id] was undefined for all five and the camera recognition
+// loop never started regardless of handshape accuracy — this is the fix for "letters C/E/M/S/X
+// aren't working" (2026-07), mirroring signs/letter_c.py etc. on the Python side.
+export const LETTER_C = createSign({
+  name: 'LETTER_C', twoHanded: false,
+  dominant: { kind: 'c', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_E = createSign({
+  name: 'LETTER_E', twoHanded: false,
+  dominant: { kind: 'e', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_M = createSign({
+  name: 'LETTER_M', twoHanded: false,
+  dominant: { kind: 'm', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_S = createSign({
+  name: 'LETTER_S', twoHanded: false,
+  dominant: { kind: 'letter_s', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
+export const LETTER_X = createSign({
+  name: 'LETTER_X', twoHanded: false,
+  dominant: { kind: 'x', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
+  movement: { kind: MovementKind.NONE, required: false },
+});
+
 // --- Hospital signs ---
 
 export const HELP = createSign({
@@ -392,7 +431,7 @@ export const FRIEND = createSign({
   movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.05, minDurationS: 0.5, required: true, minConfidence: 0.35},
 });
 
-export const COFFEE_SIGNS = [COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES, MORE, LETTER_A, LETTER_B, LETTER_D, LETTER_F, LETTER_G, LETTER_H, LETTER_I, LETTER_J, LETTER_K, LETTER_L, LETTER_N, LETTER_O, LETTER_P, LETTER_Q, LETTER_R, LETTER_T, LETTER_U, LETTER_V, LETTER_W, LETTER_Y, LETTER_Z, YOU] as const;
+export const COFFEE_SIGNS = [COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES, MORE, LETTER_A, LETTER_B, LETTER_C, LETTER_D, LETTER_E, LETTER_F, LETTER_G, LETTER_H, LETTER_I, LETTER_J, LETTER_K, LETTER_L, LETTER_M, LETTER_N, LETTER_O, LETTER_P, LETTER_Q, LETTER_R, LETTER_S, LETTER_T, LETTER_U, LETTER_V, LETTER_W, LETTER_X, LETTER_Y, LETTER_Z, YOU] as const;
 export const HOSPITAL_SIGNS = [HELP, PAIN, MEDICINE, EMERGENCY, DOCTOR, NURSE, SICK, FEVER, WATER, BREATHE, HOSPITAL, DIZZY] as const;
 export const CLASSROOM_SIGNS = [HELLO, PLEASE, THANK_YOU, TEACHER, WRITE, READ, NAME, FRIEND] as const;
 
