@@ -6,19 +6,14 @@ import { useUserStore } from '@/stores/useUserStore';
 
 interface Props {
   onExit: () => void;
+  onOpenAdmin?: () => void;
 }
 
-const DEV_ACCOUNTS = ['abdurrafay.khan04@gmail.com', 'msaad9632'];
-
-export function SettingsPage({ onExit }: Props) {
+export function SettingsPage({ onExit, onOpenAdmin }: Props) {
   const { theme, setTheme } = useTheme();
-  const { user, username, signOut } = useAuth();
+  const { user, username, signOut, isAdmin } = useAuth();
   const { vibrationEnabled, toggleVibration } = useSettingsStore();
   const { addGold, addSigns } = useUserStore();
-
-  const isDevAccount =
-    (user?.email && DEV_ACCOUNTS.includes(user.email)) ||
-    (username && DEV_ACCOUNTS.includes(username));
 
   const giveTestCredits = () => {
     addGold(10000);
@@ -98,17 +93,27 @@ export function SettingsPage({ onExit }: Props) {
           )}
         </motion.div>
 
-        {/* Testing — only visible to dev accounts */}
-        {isDevAccount && (
+        {/* Admin/dev tools — only visible to profiles.is_admin (see AuthContext.isAdmin) */}
+        {isAdmin && (
           <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-            <h2 className="font-bold text-sm mb-1 text-z-gray-300 uppercase tracking-wide">Testing</h2>
-            <p className="text-xs text-z-gray-500 mb-4">Add credits to test shop features</p>
-            <button
-              onClick={giveTestCredits}
-              className="w-full py-2.5 rounded-xl bg-z-yellow/15 text-z-yellow font-bold text-sm"
-            >
-              🪙 Add 10,000 Gold &amp; 🤟 10,000 Signs
-            </button>
+            <h2 className="font-bold text-sm mb-1 text-z-gray-300 uppercase tracking-wide">Admin</h2>
+            <p className="text-xs text-z-gray-500 mb-4">Owner-only tools</p>
+            <div className="space-y-2">
+              <button
+                onClick={giveTestCredits}
+                className="w-full py-2.5 rounded-xl bg-z-yellow/15 text-z-yellow font-bold text-sm"
+              >
+                🪙 Add 10,000 Gold &amp; 🤟 10,000 Signs (local test)
+              </button>
+              {onOpenAdmin && (
+                <button
+                  onClick={onOpenAdmin}
+                  className="w-full py-2.5 rounded-xl bg-z-purple/15 text-z-purple-light font-bold text-sm"
+                >
+                  🛠 Open Admin Panel
+                </button>
+              )}
+            </div>
           </motion.div>
         )}
       </div>

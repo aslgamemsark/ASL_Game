@@ -14,6 +14,7 @@ import { FriendsPage } from '@/pages/FriendsPage';
 import { MultiplayerPage } from '@/pages/MultiplayerPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
+import { AdminPanel } from '@/pages/AdminPanel';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { SideNav, type SideNavScreen } from '@/components/shared/SideNav';
 import { STORIES } from '@/data/stories';
@@ -34,7 +35,8 @@ type Screen =
   | { type: 'friends' }
   | { type: 'multiplayer'; autoHostRoomId?: string; autoJoinCode?: string }
   | { type: 'settings' }
-  | { type: 'leaderboard' };
+  | { type: 'leaderboard' }
+  | { type: 'admin' };
 
 // Focused-task screens suppress the side nav (matches hiding chrome during a lesson).
 const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboard', 'settings'];
@@ -50,7 +52,7 @@ export default function App() {
     void getSharedCapture();
   }, []);
   const { onboardingComplete } = useUserStore();
-  const { user, username, needsUsernameSetup, loading: authLoading } = useAuth();
+  const { user, username, needsUsernameSetup, loading: authLoading, bannedReason, isAdmin } = useAuth();
   const [screen, setScreen] = useState<Screen>(
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );
@@ -107,6 +109,22 @@ export default function App() {
         <div className="text-center">
           <p className="text-5xl mb-4 animate-pulse">🤟</p>
           <p className="text-z-gray-500 text-sm">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // A banned account is force-signed-out inside AuthContext the moment its profile is fetched
+  // (client-side enforcement); RLS denies its own reads/writes server-side regardless (see
+  // migration 20260707120000_admin_panel.sql). This screen is what the user actually sees instead
+  // of the app — checked before onboarding/home so there's no flash of real content first.
+  if (bannedReason) {
+    return (
+      <div className="min-h-screen bg-z-bg flex items-center justify-center p-6">
+        <div className="text-center max-w-sm">
+          <p className="text-5xl mb-4">🚫</p>
+          <h1 className="text-xl font-bold mb-2">Account suspended</h1>
+          <p className="text-z-gray-400 text-sm">{bannedReason}</p>
         </div>
       </div>
     );
@@ -211,11 +229,23 @@ export default function App() {
           )}
 
           {screen.type === 'settings' && (
-            <SettingsPage key="settings" onExit={goHome} />
+            <SettingsPage
+              key="settings"
+              onExit={goHome}
+              onOpenAdmin={isAdmin ? () => setScreen({ type: 'admin' }) : undefined}
+            />
           )}
 
           {screen.type === 'leaderboard' && (
             <LeaderboardPage key="leaderboard" onExit={goHome} />
+          )}
+
+          {/* Reachable only via the Settings entry point, which itself only renders for admins —
+              this check is the same defense-in-depth belt-and-suspenders as the RPC functions
+              re-checking is_admin server-side: a hidden UI path is not the real security boundary,
+              but there's no reason to render the page shell for a non-admin who somehow gets here. */}
+          {screen.type === 'admin' && isAdmin && (
+            <AdminPanel key="admin" onExit={goHome} />
           )}
         </AnimatePresence>
       </div>

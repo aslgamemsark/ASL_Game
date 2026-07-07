@@ -257,6 +257,17 @@ export const useUserStore = create<UserStore>()(
           }
           if (remote.lastPracticeDate) merged.lastPracticeDate = remote.lastPracticeDate;
           if (remote.collectTrainingData !== undefined) merged.collectTrainingData = remote.collectTrainingData;
+          // Gold can legitimately decrease (spending), unlike xp/streak — but the case we must not
+          // lose is an admin grant landing in Supabase while this device was offline, so take the
+          // higher of the two rather than blindly trusting whichever side is "local."
+          if (remote.gold !== undefined) merged.gold = Math.max(local.gold, remote.gold);
+          if (remote.ownedCosmetics) {
+            merged.ownedCosmetics = Array.from(new Set([...local.ownedCosmetics, ...remote.ownedCosmetics]));
+          }
+          // Equipped selections aren't cumulative — an admin-set cosmetic should show up on next
+          // login, so take remote's value whenever the field was actually included in the payload.
+          if (remote.equippedBorder !== undefined) merged.equippedBorder = remote.equippedBorder;
+          if (remote.equippedAvatar !== undefined) merged.equippedAvatar = remote.equippedAvatar;
           return merged;
         });
       },

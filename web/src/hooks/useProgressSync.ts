@@ -13,6 +13,10 @@ type ProgressRow = {
   last_practice_date: string | null;
   completed_lessons: string[];
   sign_accuracy: Record<string, SignStats>;
+  gold: number;
+  owned_cosmetics: string[];
+  equipped_border: string | null;
+  equipped_avatar: string | null;
 };
 
 // Loads remote progress on sign-in and merges it with local state.
@@ -44,6 +48,10 @@ export function useProgressSync() {
           lastPracticeDate: row.last_practice_date,
           completedLessons: row.completed_lessons,
           signAccuracy: row.sign_accuracy ?? {},
+          gold: row.gold,
+          ownedCosmetics: row.owned_cosmetics ?? [],
+          equippedBorder: row.equipped_border,
+          equippedAvatar: row.equipped_avatar,
         });
       }
       if (profileRow && typeof (profileRow as { collect_training_data?: boolean }).collect_training_data === 'boolean') {
@@ -73,6 +81,10 @@ export function useProgressSync() {
           last_practice_date: store.lastPracticeDate,
           completed_lessons: store.completedLessons,
           sign_accuracy: store.signAccuracy as unknown as Record<string, unknown>,
+          gold: store.gold,
+          owned_cosmetics: store.ownedCosmetics,
+          equipped_border: store.equippedBorder,
+          equipped_avatar: store.equippedAvatar,
           updated_at: new Date().toISOString(),
         } as Record<string, unknown>,
         { onConflict: 'user_id' }
@@ -83,7 +95,10 @@ export function useProgressSync() {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, store.xp, store.streak, store.completedLessons, store.signAccuracy]);
+  }, [
+    user, store.xp, store.streak, store.completedLessons, store.signAccuracy,
+    store.gold, store.ownedCosmetics, store.equippedBorder, store.equippedAvatar,
+  ]);
 
   // Debounced sync of the training-data opt-out flag (separate table from user_progress).
   const collectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

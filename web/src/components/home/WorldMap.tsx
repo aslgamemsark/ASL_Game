@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WORLDS, WORLD_UNLOCK_GOLD_COST } from '@/data/worlds';
 import { LESSON_UNITS, LESSON_SKIP_COST } from '@/data/lessons';
 import { STORIES } from '@/data/stories';
 import { useUserStore } from '@/stores/useUserStore';
+import { supabase, supabaseReady } from '@/lib/supabase';
 import { LessonNode } from './LessonNode';
 
 interface Props {
@@ -11,16 +12,39 @@ interface Props {
   onStartStory: (id: string) => void;
 }
 
+interface WorldFlag {
+  enabled: boolean;
+  coming_soon: boolean;
+}
+
 export function WorldMap({ onSelectLesson, onStartStory }: Props) {
   const { completedLessons, signs, skipLesson, gold, unlockedWorldIds, unlockWorldWithGold } = useUserStore();
   const [selectedWorldId, setSelectedWorldId] = useState<string | null>(null);
+  // Admin-controlled override layer on top of the static WORLDS array (see AdminPanel's Worlds
+  // tab) — lets a world be hidden or marked "coming soon" without a code deploy. Missing row =
+  // default (visible, not coming-soon), so this is a no-op until an admin actually touches it.
+  const [worldFlags, setWorldFlags] = useState<Record<string, WorldFlag>>({});
 
-  const selectedWorld = WORLDS.find((w) => w.id === selectedWorldId);
+  useEffect(() => {
+    if (!supabaseReady) return;
+    (async () => {
+      const { data } = (await supabase.from('world_flags').select('world_id, enabled, coming_soon')) as {
+        data: { world_id: string; enabled: boolean; coming_soon: boolean }[] | null;
+      };
+      const map: Record<string, WorldFlag> = {};
+      for (const row of data ?? []) map[row.world_id] = { enabled: row.enabled, coming_soon: row.coming_soon };
+      setWorldFlags(map);
+    })();
+  }, []);
+
+  const visibleWorlds = WORLDS.filter((w) => worldFlags[w.id]?.enabled !== false);
+  const selectedWorld = visibleWorlds.find((w) => w.id === selectedWorldId);
 
   // A world opens either by finishing the previous world's story, OR by paying gold instead —
   // the two are independent paths, so unlockedWorldIds never touches completedLessons (that
   // would falsely mark a story "done" that was actually skipped).
   function isWorldUnlocked(world: (typeof WORLDS)[0]): boolean {
+    if (worldFlags[world.id]?.coming_soon) return false;
     if (!world.unlockCondition) return true;
     return completedLessons.includes(world.unlockCondition) || unlockedWorldIds.includes(world.id);
   }
@@ -179,8 +203,9 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
       </AnimatePresence>
 
       <div className="flex flex-col gap-4">
-        {WORLDS.map((world, i) => {
+        {visibleWorlds.map((world, i) => {
           const unlocked = isWorldUnlocked(world);
+          const comingSoon = worldFlags[world.id]?.coming_soon ?? false;
           const { done, total } = getWorldProgress(world);
           const pct = total > 0 ? (done / total) * 100 : 0;
 
@@ -207,24 +232,29 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                         <p className="text-white/60 text-xs mt-0.5 max-w-[180px]">{world.description}</p>
                       </div>
                     </div>
-                    <span className="text-2xl shrink-0">🔒</span>
+                    <span className="text-2xl shrink-0">{comingSoon ? '🚧' : '🔒'}</span>
                   </div>
 
-                  <p className="text-white/60 text-xs mt-1 mb-3">
-                    Finish {world.unlockCondition?.replace(/-/g, ' ')} to open this world!
-                  </p>
-
-                  <button
-                    onClick={() => unlockWorldWithGold(world.id, WORLD_UNLOCK_GOLD_COST)}
-                    disabled={!canAfford}
-                    className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-colors ${
-                      canAfford
-                        ? 'bg-z-yellow/20 text-z-yellow hover:bg-z-yellow/30 cursor-pointer'
-                        : 'bg-white/5 text-white/30 cursor-not-allowed'
-                    }`}
-                  >
-                    🪙 Unlock for {WORLD_UNLOCK_GOLD_COST}
-                  </button>
+                  {comingSoon ? (
+                    <p className="text-white/60 text-xs mt-1 mb-1">Coming soon!</p>
+                  ) : (
+                    <>
+                      <p className="text-white/60 text-xs mt-1 mb-3">
+                        Finish {world.unlockCondition?.replace(/-/g, ' ')} to open this world!
+                      </p>
+                      <button
+                        onClick={() => unlockWorldWithGold(world.id, WORLD_UNLOCK_GOLD_COST)}
+                        disabled={!canAfford}
+                        className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+                          canAfford
+                            ? 'bg-z-yellow/20 text-z-yellow hover:bg-z-yellow/30 cursor-pointer'
+                            : 'bg-white/5 text-white/30 cursor-not-allowed'
+                        }`}
+                      >
+                        🪙 Unlock for {WORLD_UNLOCK_GOLD_COST}
+                      </button>
+                    </>
+                  )}
                 </div>
               </motion.div>
             );
