@@ -126,8 +126,19 @@ def fist_confidence(hand: Hand) -> float:
 
 
 def a_confidence(hand: Hand) -> float:
-    """Letter A: four fingers curled AND thumb extended alongside (not wrapped across)."""
-    return float(min(fist_confidence(hand), _thumb_extended(hand)))
+    """Letter A: four fingers curled AND thumb resting alongside the index (not wrapped across
+    the front like S, not fully splayed out to the side like L/Y).
+
+    Calibrated against a real recording (2026-07): thumb-tip-to-index-MCP distance measured
+    ~0.54-0.60 hand-scale units for a natural A, clearly separated from S's ~0.19-0.21 (thumb
+    tucked across front). The generic _thumb_extended() helper targets a much farther "sticking
+    out" position (built for L/Y, needs d>=1.2 to score 1.0) and scored a real A at only ~0.10 —
+    a dedicated target replaces it here.
+    """
+    fist_score = float(np.mean(_all_curls(hand)))
+    d = _thumb_dist(hand, INDEX_MCP)
+    thumb_alongside = float(np.clip(1.0 - abs(d - 0.57) / 0.30, 0.0, 1.0))
+    return float(min(fist_score, thumb_alongside))
 
 
 def index_confidence(hand: Hand) -> float:
@@ -373,15 +384,20 @@ def r_confidence(hand: Hand) -> float:
 
 
 def c_confidence(hand: Hand) -> float:
-    """Letter C: all fingers and thumb curved into a C-shape, with an open gap between thumb and
-    index. Distinct from O (O closes the gap with a thumb pinch) and fist (much less curled)."""
+    """Letter C: fingers curved together with a clear open gap to the thumb, distinguishing it
+    from O (thumb pinches closed against the fingers) and fist (much more curled).
+
+    Calibrated against a real recording (2026-07): a real C's gentle arc barely registers on the
+    tip/wrist curl ratio (measured mean curl ~0.00-0.03 — it's an arc, not a knuckle fold, so the
+    old 0.35 curl target was never reachable), while the thumb-to-index-fingertip gap measured a
+    consistent ~0.60-0.75, which is what actually separates it from O's pinch.
+    """
     curls = _all_curls(hand)
     m = float(np.mean(curls))
-    curl_score = float(np.clip(1.0 - abs(m - 0.35) / 0.25, 0.0, 1.0))
-    thumb_out = _thumb_extended(hand)
-    spread = float(np.std(curls))
-    uniformity = float(np.clip(1.0 - max(0.0, spread - 0.15) / 0.35, 0.0, 1.0))
-    return float(min(curl_score, thumb_out) * uniformity)
+    curl_score = float(np.clip(1.0 - m / 0.4, 0.0, 1.0))
+    gap = _thumb_dist(hand, INDEX_TIP)
+    gap_score = float(np.clip(1.0 - abs(gap - 0.70) / 0.35, 0.0, 1.0))
+    return float(min(curl_score, gap_score))
 
 
 def e_confidence(hand: Hand) -> float:
@@ -398,11 +414,16 @@ def e_confidence(hand: Hand) -> float:
 
 def m_confidence(hand: Hand) -> float:
     """Letter M: closed fist with the thumb tucked under the index, middle, AND ring fingers
-    (one more finger than N). The thumb-tip-to-three-knuckle-midpoint distance is the key signal."""
+    (one more finger than N). The thumb-tip-to-three-knuckle-midpoint distance is the key signal.
+
+    Calibrated against a real recording (2026-07): the guessed 0.20 target was roughly half the
+    actual measured distance (~0.40-0.44) for this specific 3-knuckle anchor, so a genuine M
+    scored 0.0 on the old threshold.
+    """
     fist_score = float(np.mean(_all_curls(hand)))
     mcp_mid = (_xy(hand, INDEX_MCP) + _xy(hand, MIDDLE_MCP) + _xy(hand, RING_MCP)) / 3.0
     d = float(np.linalg.norm(_xy(hand, THUMB_TIP) - mcp_mid)) / _hand_scale(hand)
-    thumb_under = float(np.clip(1.0 - abs(d - 0.20) / 0.15, 0.0, 1.0))
+    thumb_under = float(np.clip(1.0 - abs(d - 0.42) / 0.20, 0.0, 1.0))
     return float(min(fist_score, thumb_under))
 
 
@@ -421,9 +442,14 @@ def letter_s_confidence(hand: Hand) -> float:
 def x_confidence(hand: Hand) -> float:
     """Letter X: index finger hooked/bent into a hook shape (partially curled at the middle joint),
     while the remaining three fingers are curled into the palm. Distinct from the index handshape
-    (where the index is fully extended) and from a fist (where the index is also fully curled)."""
+    (where the index is fully extended) and from a fist (where the index is also fully curled).
+
+    Calibrated against a real recording (2026-07): a real X hook only bends at one knuckle, which
+    barely moves the tip/wrist ratio — measured curl ~0.04-0.12, nowhere near the guessed 0.5
+    (half-curl) target, so a genuine X previously scored 0.0.
+    """
     curls = _all_curls(hand)
-    index_hooked = float(np.clip(1.0 - abs(curls[0] - 0.5) / 0.25, 0.0, 1.0))
+    index_hooked = float(np.clip(1.0 - abs(curls[0] - 0.08) / 0.15, 0.0, 1.0))
     rest_curled = float(min(curls[1:]))
     return float(min(index_hooked, rest_curled))
 

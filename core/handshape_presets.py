@@ -66,6 +66,11 @@ _THUMB_TIP_P_TOUCH = np.array([-0.15, -1.05])
 # N-specific: thumb tucked under the index/middle fingers specifically, a different depth than
 # T's "between the knuckles" position.
 _THUMB_TIP_N_UNDER = np.array([-0.12, -0.80])
+# A-specific: thumb resting alongside the index (not wrapped across the front like S, not fully
+# splayed out like L/Y). A real recording found genuine A's thumb sits ~0.57 hand-scale units
+# from INDEX_MCP — the generic OUT position (~1.14 units away, built for L/Y) reads as far too
+# extended for A's own predicate, so A needs its own spot rather than reusing OUT.
+_THUMB_TIP_A = np.array([-0.75, -0.55])
 
 # (index, middle, ring, pinky) extension, thumb_extended. Aliases share one spec so a sign asking for
 # "s" and one asking for "fist" animate identically — the same reuse the recognition dispatch relies on.
@@ -161,7 +166,8 @@ def _finger_chain(name: str, extension: float) -> np.ndarray:
 
 
 def _thumb_chain(extended: bool, between: bool = False, pinch: bool = False,
-                 k_touch: bool = False, p_touch: bool = False, n_under: bool = False) -> np.ndarray:
+                 k_touch: bool = False, p_touch: bool = False, n_under: bool = False,
+                 a_alongside: bool = False) -> np.ndarray:
     """thumb mcp, ip, tip (3 points, 2D). cmc is fixed; the rest interpolate cmc->tip."""
     if between:
         tip = _THUMB_TIP_BETWEEN
@@ -173,6 +179,8 @@ def _thumb_chain(extended: bool, between: bool = False, pinch: bool = False,
         tip = _THUMB_TIP_P_TOUCH
     elif n_under:
         tip = _THUMB_TIP_N_UNDER
+    elif a_alongside:
+        tip = _THUMB_TIP_A
     else:
         tip = _THUMB_TIP_OUT if extended else _THUMB_TIP_TUCKED
     return np.array([_THUMB_CMC + (tip - _THUMB_CMC) * f for f in (0.40, 0.72, 1.0)])
@@ -200,6 +208,7 @@ def local_hand(kind: str, scale: float = CANON_SCALE, mirror: bool = False) -> n
         k_touch=(key == "k"),
         p_touch=(key == "p"),
         n_under=(key == "letter_n"),
+        a_alongside=(key == "a"),
     )
     pts[1, :2] = _THUMB_CMC                       # thumb cmc
     pts[2, :2], pts[3, :2], pts[4, :2] = mcp_t, ip_t, tip_t   # mcp, ip, tip

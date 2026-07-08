@@ -85,8 +85,16 @@ function fistConfidence(hand: Hand): number {
   return mean(allCurls(hand));
 }
 
+// Letter A: fist + thumb resting alongside the index (not wrapped across like S, not fully
+// splayed out like L/Y). Calibrated against a real recording (2026-07): thumb-tip-to-index-MCP
+// distance measured ~0.54-0.60 hand-scale units for a natural A, clearly separated from S's
+// ~0.19-0.21. thumbExtended() targets a much farther "sticking out" position (built for L/Y,
+// needs d>=1.2 to score 1.0) and scored a real A at only ~0.10 — a dedicated target replaces it.
 function aConfidence(hand: Hand): number {
-  return Math.min(fistConfidence(hand), thumbExtended(hand));
+  const fistScore = mean(allCurls(hand));
+  const d = thumbDist(hand, INDEX_MCP);
+  const thumbAlongside = clip(1.0 - Math.abs(d - 0.57) / 0.30, 0, 1);
+  return Math.min(fistScore, thumbAlongside);
 }
 
 function indexConfidence(hand: Hand): number {
@@ -316,16 +324,19 @@ function rConfidence(hand: Hand): number {
   return Math.min(bothExtended, restCurled, crossedScore);
 }
 
-// Letter C: all fingers and thumb curved into a C-shape with an open gap between thumb and index.
-// Distinct from O (O closes the gap with a pinch) and fist (C is much less curled).
+// Letter C: fingers curved together with a clear open gap to the thumb, distinguishing it from O
+// (thumb pinches closed against the fingers) and fist (much more curled). Calibrated against a
+// real recording (2026-07): a real C's gentle arc barely registers on the tip/wrist curl ratio
+// (measured mean curl ~0.00-0.03 — it's an arc, not a knuckle fold, so the old 0.35 curl target
+// was never reachable), while the thumb-to-index-fingertip gap measured a consistent ~0.60-0.75,
+// which is what actually separates it from O's pinch.
 function cConfidence(hand: Hand): number {
   const curls = allCurls(hand);
   const m = mean(curls);
-  const curlScore = clip(1.0 - Math.abs(m - 0.35) / 0.25, 0, 1);
-  const thumbOut = thumbExtended(hand);
-  const spread = std(curls);
-  const uniformity = clip(1.0 - Math.max(0, spread - 0.15) / 0.35, 0, 1);
-  return Math.min(curlScore, thumbOut) * uniformity;
+  const curlScore = clip(1.0 - m / 0.4, 0, 1);
+  const gap = thumbDist(hand, INDEX_TIP);
+  const gapScore = clip(1.0 - Math.abs(gap - 0.70) / 0.35, 0, 1);
+  return Math.min(curlScore, gapScore);
 }
 
 // Letter E: all four fingers bent at the middle knuckle toward the palm, thumb tucked under.
@@ -342,12 +353,15 @@ function eConfidence(hand: Hand): number {
 }
 
 // Letter M: closed fist with thumb tucked under index, middle, AND ring fingers (one more than N).
+// Calibrated against a real recording (2026-07): the guessed 0.20 target was roughly half the
+// actual measured distance (~0.40-0.44) for this specific 3-knuckle anchor, so a genuine M scored
+// 0.0 on the old threshold.
 function mConfidence(hand: Hand): number {
   const fistScore = mean(allCurls(hand));
   const mcpMidX = (xy(hand, INDEX_MCP)[0] + xy(hand, MIDDLE_MCP)[0] + xy(hand, RING_MCP)[0]) / 3;
   const mcpMidY = (xy(hand, INDEX_MCP)[1] + xy(hand, MIDDLE_MCP)[1] + xy(hand, RING_MCP)[1]) / 3;
   const d = dist2d(xy(hand, THUMB_TIP), [mcpMidX, mcpMidY]) / handScale(hand);
-  const thumbUnder = clip(1.0 - Math.abs(d - 0.20) / 0.15, 0, 1);
+  const thumbUnder = clip(1.0 - Math.abs(d - 0.42) / 0.20, 0, 1);
   return Math.min(fistScore, thumbUnder);
 }
 
@@ -362,10 +376,13 @@ function letterSConfidence(hand: Hand): number {
 }
 
 // Letter X: index finger hooked into a bent/hook shape (mid-curl), other three fingers curled.
-// Distinct from 'index' (index fully extended) and fist (index fully curled).
+// Distinct from 'index' (index fully extended) and fist (index fully curled). Calibrated against
+// a real recording (2026-07): a real X hook only bends at one knuckle, which barely moves the
+// tip/wrist ratio — measured curl ~0.04-0.12, nowhere near the guessed 0.5 (half-curl) target, so
+// a genuine X previously scored 0.0.
 function xConfidence(hand: Hand): number {
   const curls = allCurls(hand);
-  const indexHooked = clip(1.0 - Math.abs(curls[0] - 0.5) / 0.25, 0, 1);
+  const indexHooked = clip(1.0 - Math.abs(curls[0] - 0.08) / 0.15, 0, 1);
   const restCurled = Math.min(curls[1], curls[2], curls[3]);
   return Math.min(indexHooked, restCurled);
 }
