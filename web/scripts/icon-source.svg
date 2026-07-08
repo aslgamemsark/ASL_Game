@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7B2FBE"/>
+      <stop offset="0.55" stop-color="#8B3BE0"/>
+      <stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="120" y1="90" x2="392" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EDE6FF"/>
+    </linearGradient>
+  </defs>
+  <!-- full-bleed background so the icon works as a maskable icon (OS applies its own shape) -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- brand lightning bolt (from favicon, 48x46), scaled ~6.2x and centered in the maskable safe zone -->
+  <g transform="translate(107,113) scale(6.2)">
+    <path fill="url(#bolt)" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"/>
+  </g>
+</svg>
