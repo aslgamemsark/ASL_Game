@@ -13,8 +13,10 @@ type ProgressRow = {
   last_practice_date: string | null;
   completed_lessons: string[];
   sign_accuracy: Record<string, SignStats>;
-  equipped_avatar: string | null;
+  gold: number;
+  owned_cosmetics: string[];
   equipped_border: string | null;
+  equipped_avatar: string | null;
   active_badge: string | null;
 };
 
@@ -47,8 +49,10 @@ export function useProgressSync() {
           lastPracticeDate: row.last_practice_date,
           completedLessons: row.completed_lessons,
           signAccuracy: row.sign_accuracy ?? {},
-          equippedAvatar: row.equipped_avatar,
+          gold: row.gold,
+          ownedCosmetics: row.owned_cosmetics ?? [],
           equippedBorder: row.equipped_border,
+          equippedAvatar: row.equipped_avatar,
           activeBadge: row.active_badge,
         });
       }
@@ -79,8 +83,10 @@ export function useProgressSync() {
           last_practice_date: store.lastPracticeDate,
           completed_lessons: store.completedLessons,
           sign_accuracy: store.signAccuracy as unknown as Record<string, unknown>,
-          equipped_avatar: store.equippedAvatar,
+          gold: store.gold,
+          owned_cosmetics: store.ownedCosmetics,
           equipped_border: store.equippedBorder,
+          equipped_avatar: store.equippedAvatar,
           active_badge: store.activeBadge,
           updated_at: new Date().toISOString(),
         } as Record<string, unknown>,
@@ -92,7 +98,10 @@ export function useProgressSync() {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, store.xp, store.streak, store.completedLessons, store.signAccuracy, store.equippedAvatar, store.equippedBorder, store.activeBadge]);
+  }, [
+    user, store.xp, store.streak, store.completedLessons, store.signAccuracy,
+    store.gold, store.ownedCosmetics, store.equippedBorder, store.equippedAvatar, store.activeBadge,
+  ]);
 
   // Debounced sync of the training-data opt-out flag (separate table from user_progress).
   const collectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

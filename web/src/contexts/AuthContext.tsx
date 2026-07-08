@@ -3,7 +3,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { validateUsername } from '@/lib/username';
 
-type ProfileRow = { id: string; username: string };
+type ProfileRow = { username: string; is_admin: boolean; is_banned: boolean; ban_reason: string | null };
 
 interface AuthContextValue {
   user: User | null;
@@ -12,6 +12,11 @@ interface AuthContextValue {
   loading: boolean;
   /** True for Google users who haven't set a custom username yet. */
   needsUsernameSetup: boolean;
+  /** True for the two owner accounts (profiles.is_admin) — gates the admin panel. */
+  isAdmin: boolean;
+  /** Non-null while the account is banned — the forced sign-out already happened; App renders a
+   *  suspended screen using this message instead of the app. */
+  bannedReason: string | null;
   signInWithEmail: (email: string, password: string) => Promise<string | null>;
   signUpWithEmail: (email: string, password: string, username: string) => Promise<string | null>;
   signInWithGoogle: () => Promise<void>;
@@ -31,6 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsUsernameSetup, setNeedsUsernameSetup] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [bannedReason, setBannedReason] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabaseReady) { setLoading(false); return; }
@@ -44,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       if (s) fetchUsername(s.user.id, s.user);
-      else { setUsername(null); setNeedsUsernameSetup(false); }
+      else { setUsername(null); setNeedsUsernameSetup(false); setIsAdmin(false); }
     });
 
     return () => subscription.unsubscribe();
@@ -53,11 +60,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function fetchUsername(userId: string, userObj?: User) {
     const { data } = await supabase
       .from('profiles')
-      .select('username')
+      .select('username, is_admin, is_banned, ban_reason')
       .eq('id', userId)
       .single();
-    const fetched = (data as ProfileRow | null)?.username ?? null;
+    const row = data as ProfileRow | null;
+
+    // Enforcement happens server-side too (RLS denies a banned user's own reads/writes — see
+    // migration 20260707120000_admin_panel.sql); this is the client-facing half: force sign-out
+    // and show a suspended screen instead of silently failing every subsequent request.
+    if (row?.is_banned) {
+      setBannedReason(row.ban_reason ?? 'Your account has been suspended.');
+      setUsername(null);
+      setIsAdmin(false);
+      await supabase.auth.signOut();
+      return;
+    }
+
+    setBannedReason(null);
+    const fetched = row?.username ?? null;
     setUsername(fetched);
+    setIsAdmin(row?.is_admin ?? false);
 
     // Auto-assign a username if none exists (e.g. OAuth user with no profile row yet).
     if (!fetched) {
@@ -135,6 +157,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       username,
       loading,
       needsUsernameSetup,
+      isAdmin,
+      bannedReason,
       signInWithEmail,
       signUpWithEmail,
       signInWithGoogle,
