@@ -16,6 +16,10 @@ interface Props {
   onLeaderboard: () => void;
   onSettings: () => void;
   onProfile: () => void;
+  /** Open the sign-in modal (used when a guest taps the profile chip). */
+  onSignIn: () => void;
+  /** Show a transient toast (used when a guest taps "Log out"). */
+  onNotice: (msg: string) => void;
 }
 
 const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
@@ -27,7 +31,7 @@ const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
 ];
 
-export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onLeaderboard, onSettings, onProfile }: Props) {
+export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onLeaderboard, onSettings, onProfile, onSignIn, onNotice }: Props) {
   const { user, username, signOut } = useAuth();
   const { equippedAvatar, activeBadge, equippedBorder } = useUserStore();
   const avatarIcon = equippedAvatar
@@ -62,15 +66,20 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
         </span>
       </div>
 
-      <div className="flex items-center gap-2.5 px-2 py-2.5 mb-6 rounded-xl bg-z-surface/60">
+      {/* Tapping the chip goes to the Me tab when signed in, or opens the sign-in modal for a guest. */}
+      <motion.button
+        onClick={() => (user ? onProfile() : onSignIn())}
+        className="flex items-center gap-2.5 px-2 py-2.5 mb-6 rounded-xl bg-z-surface/60 hover:bg-z-surface transition-colors text-left w-full"
+        whileTap={{ scale: 0.98 }}
+      >
         <div className={`w-9 h-9 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg shrink-0 ${borderClasses}`}>
           {avatarIcon}
         </div>
         <div className="min-w-0">
           <p className="font-bold text-sm truncate">{username ?? (user ? '…' : 'Guest')}</p>
-          {!user && <p className="text-z-gray-400 text-xs truncate">Signed out</p>}
+          <p className="text-z-gray-400 text-xs truncate">{user ? 'View profile' : 'Tap to sign in'}</p>
         </div>
-      </div>
+      </motion.button>
 
       <nav className="flex-1 flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
@@ -116,7 +125,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
           Settings
         </motion.button>
         <motion.button
-          onClick={signOut}
+          onClick={() => (user ? signOut() : onNotice("You're already logged out"))}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-z-gray-300 hover:bg-white/5 hover:text-z-red transition-colors"
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}

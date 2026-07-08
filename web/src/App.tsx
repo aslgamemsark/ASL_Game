@@ -23,6 +23,7 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
+import { AuthModal } from '@/components/auth/AuthModal';
 
 type Screen =
   | { type: 'home' }
@@ -66,6 +67,13 @@ export default function App() {
   }, [user, authLoading]);
   const [homeTab, setHomeTab] = useState<Tab>('learn');
   const [incomingChallenge, setIncomingChallenge] = useState<{ from: string; roomId: string } | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const showNotice = useCallback((msg: string) => {
+    setNotice(msg);
+    setTimeout(() => setNotice((cur) => (cur === msg ? null : cur)), 2500);
+  }, []);
 
   const goHome = () => setScreen({ type: 'home' });
   const showSideNav = SIDE_NAV_SCREENS.includes(screen.type as SideNavScreen);
@@ -158,6 +166,8 @@ export default function App() {
           onLeaderboard={() => setScreen({ type: 'leaderboard' })}
           onSettings={() => setScreen({ type: 'settings' })}
           onProfile={() => { goHome(); setHomeTab('profile'); }}
+          onSignIn={() => setShowAuth(true)}
+          onNotice={showNotice}
         />
       )}
       <div className={showSideNav ? 'lg:pl-64' : ''}>
@@ -174,6 +184,7 @@ export default function App() {
               onStartStory={(id) => setScreen({ type: 'story', storyId: id })}
               onStartSpeed={() => setScreen({ type: 'speed' })}
               onOpenShop={() => setScreen({ type: 'shop' })}
+              onRequireSignIn={() => setShowAuth(true)}
               tab={homeTab}
               onTabChange={setHomeTab}
             />
@@ -251,6 +262,24 @@ export default function App() {
 
       {/* Username setup modal for Google/OAuth users */}
       {needsUsernameSetup && <SetUsernameModal onClose={() => {}} />}
+
+      {/* App-level sign-in modal — opened from the nav profile chip / top-bar avatar when a guest
+          taps their profile, so the prompt is reachable from anywhere, not just the Me tab. */}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+
+      {/* Transient notice toast (e.g. a guest tapping "Log out"). */}
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-2xl whitespace-nowrap"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+          >
+            {notice}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Incoming challenge notification — visible anywhere in the app */}
       <AnimatePresence>

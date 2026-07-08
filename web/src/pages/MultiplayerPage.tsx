@@ -33,7 +33,18 @@ interface Props {
 
 const ALL_SIGNS = Object.keys(SIGNS);
 const ROUNDS = 5;
-const ICE_SERVERS: RTCConfiguration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+// STUN handles most home networks; the public OpenRelay TURN servers relay media when a player is
+// behind a symmetric/mobile NAT that STUN alone can't punch through (the "sometimes can't see each
+// other" case across different networks). Best-effort — for guaranteed relay, swap in your own TURN.
+const ICE_SERVERS: RTCConfiguration = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  ],
+};
 
 function pickSigns(n: number): string[] {
   const shuffled = [...ALL_SIGNS].sort(() => Math.random() - 0.5);
@@ -58,12 +69,16 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
   const [opponentSigned, setOpponentSigned] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [remoteConnected, setRemoteConnected] = useState(false);
+  // The opponent's live MediaStream, held in state so it re-attaches whenever the remote <video>
+  // element remounts (it lives in the signer/guesser branches, which swap every round).
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const loopRef = useRef<string | null>(null);
 
   // WebRTC peer connection for live opponent video, signaled over the same Supabase channel.
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  // Guards match init against duplicate join/start broadcasts creating a second peer connection.
+  const startedRef = useRef(false);
 
   // Keep refs in sync so channel event callbacks always see the latest values (avoid stale closures)
   useEffect(() => { matchStateRef.current = matchState; }, [matchState]);
@@ -74,6 +89,9 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
   }, [recognition.init]);
 
   function createPeerConnection(ch: ReturnType<typeof supabase.channel>) {
+    // If one already exists (duplicate offer / re-entry), tear it down first so we never leak
+    // two connections fighting over the same channel.
+    pcRef.current?.close();
     const pc = new RTCPeerConnection(ICE_SERVERS);
     pc.onicecandidate = (e) => {
       if (e.candidate) {
@@ -81,8 +99,15 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
       }
     };
     pc.ontrack = (e) => {
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = e.streams[0];
+      // Hold the stream in state — the remote <video> remounts each round (signer↔guesser), and
+      // ontrack only fires once, so attaching directly to a ref here would go black after round 1.
+      setRemoteStream(e.streams[0]);
       setRemoteConnected(true);
+    };
+    pc.onconnectionstatechange = () => {
+      const st = pc.connectionState;
+      if (st === 'connected') setRemoteConnected(true);
+      else if (st === 'failed' || st === 'disconnected' || st === 'closed') setRemoteConnected(false);
     };
     const stream = getStream();
     stream?.getTracks().forEach((t) => pc.addTrack(t, stream));
@@ -169,6 +194,8 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
 
     const ch = supabase.channel(`mp-room-${roomId}`);
     ch.on('broadcast', { event: 'join' }, async ({ payload }) => {
+      if (startedRef.current) return; // ignore duplicate joins
+      startedRef.current = true;
       const opId = payload.userId as string;
       const opName = payload.username as string;
       const firstSign = signs[0];
@@ -224,6 +251,8 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
 
     const ch = supabase.channel(`mp-room-${roomId}`);
     ch.on('broadcast', { event: 'start' }, async ({ payload }) => {
+      if (startedRef.current) return; // ignore duplicate starts
+      startedRef.current = true;
       const hostId = payload.hostId as string;
       const signs = payload.signs as string[];
       const firstSign = payload.firstSign as string;
@@ -369,7 +398,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <WebcamMirror videoRef={videoRef} label="You" />
-                <RemoteVideo videoRef={remoteVideoRef} label={matchState.opponentUsername} connected={remoteConnected} />
+                <RemoteVideo stream={remoteStream} label={matchState.opponentUsername} connected={remoteConnected} />
               </div>
               {camStatus === 'denied' && (
                 <p className="text-center text-xs text-z-red">Camera access denied — your opponent won't see your video.</p>
@@ -386,7 +415,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
                 <span className="text-sm font-bold">You {matchState.myScore} · {matchState.opponentScore} {matchState.opponentUsername}</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <RemoteVideo videoRef={remoteVideoRef} label={`${matchState.opponentUsername} — signing`} connected={remoteConnected} />
+                <RemoteVideo stream={remoteStream} label={`${matchState.opponentUsername} — signing`} connected={remoteConnected} />
                 <WebcamMirror videoRef={videoRef} label="You" />
               </div>
               <p className="text-center font-bold">What are they signing?</p>
@@ -472,11 +501,21 @@ function WebcamMirror({ videoRef, label }: { videoRef: React.RefObject<HTMLVideo
   );
 }
 
-function RemoteVideo({ videoRef, label, connected }: { videoRef: React.RefObject<HTMLVideoElement | null>; label: string; connected: boolean }) {
+function RemoteVideo({ stream, label, connected }: { stream: MediaStream | null; label: string; connected: boolean }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  // Attach on every mount + whenever the stream changes. This element remounts each round as the
+  // signer/guesser branches swap, so re-attaching here (not once in ontrack) keeps video flowing.
+  useEffect(() => {
+    const v = ref.current;
+    if (v && stream && v.srcObject !== stream) {
+      v.srcObject = stream;
+      v.play().catch(() => {});
+    }
+  }, [stream]);
   return (
     <div className="relative rounded-2xl overflow-hidden bg-z-surface aspect-video">
-      <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-      {!connected && (
+      <video ref={ref} autoPlay playsInline muted className="w-full h-full object-cover" />
+      {!(connected && stream) && (
         <div className="absolute inset-0 flex items-center justify-center bg-z-surface/90">
           <p className="text-xs text-z-gray-400">Connecting…</p>
         </div>
