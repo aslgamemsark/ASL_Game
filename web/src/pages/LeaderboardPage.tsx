@@ -311,7 +311,7 @@ export function LeaderboardPage({ onExit }: Props) {
   ];
 
   return (
-    <div className="min-h-screen bg-z-bg lg:pl-64">
+    <div className="min-h-screen bg-z-bg">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <button
