@@ -18,6 +18,7 @@ type ProgressRow = {
   equipped_border: string | null;
   equipped_avatar: string | null;
   active_badge: string | null;
+  unlocked_world_ids: string[];
 };
 
 // Loads remote progress on sign-in and merges it with local state.
@@ -54,6 +55,7 @@ export function useProgressSync() {
           equippedBorder: row.equipped_border,
           equippedAvatar: row.equipped_avatar,
           activeBadge: row.active_badge,
+          unlockedWorldIds: row.unlocked_world_ids ?? [],
         });
       }
       if (profileRow && typeof (profileRow as { collect_training_data?: boolean }).collect_training_data === 'boolean') {
@@ -88,6 +90,7 @@ export function useProgressSync() {
           equipped_border: store.equippedBorder,
           equipped_avatar: store.equippedAvatar,
           active_badge: store.activeBadge,
+          unlocked_world_ids: store.unlockedWorldIds,
           updated_at: new Date().toISOString(),
         } as Record<string, unknown>,
         { onConflict: 'user_id' }
@@ -101,6 +104,7 @@ export function useProgressSync() {
   }, [
     user, store.xp, store.streak, store.completedLessons, store.signAccuracy,
     store.gold, store.ownedCosmetics, store.equippedBorder, store.equippedAvatar, store.activeBadge,
+    store.unlockedWorldIds,
   ]);
 
   // Debounced sync of the training-data opt-out flag (separate table from user_progress).

@@ -262,6 +262,9 @@ export const useUserStore = create<UserStore>()(
           if (remote.ownedCosmetics) {
             merged.ownedCosmetics = Array.from(new Set([...local.ownedCosmetics, ...remote.ownedCosmetics]));
           }
+          if (remote.unlockedWorldIds) {
+            merged.unlockedWorldIds = Array.from(new Set([...local.unlockedWorldIds, ...remote.unlockedWorldIds]));
+          }
           // Equipped selections aren't cumulative — an admin-set cosmetic should show up on next
           // login, so take remote's value whenever the field was actually included in the payload.
           if (remote.equippedBorder !== undefined) merged.equippedBorder = remote.equippedBorder;
