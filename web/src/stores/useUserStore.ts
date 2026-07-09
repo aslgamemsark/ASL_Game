@@ -265,6 +265,38 @@ export const useUserStore = create<UserStore>()(
           if (remote.unlockedWorldIds) {
             merged.unlockedWorldIds = Array.from(new Set([...local.unlockedWorldIds, ...remote.unlockedWorldIds]));
           }
+          // Same reasoning as gold: signs/renameCards/streakFreezes can legitimately decrease
+          // (spent locally), but the case that must not be lost is a value earned/granted on
+          // another device while this one was offline — take the higher of the two.
+          if (remote.signs !== undefined) merged.signs = Math.max(local.signs, remote.signs);
+          if (remote.renameCards !== undefined) merged.renameCards = Math.max(local.renameCards, remote.renameCards);
+          if (remote.streakFreezes !== undefined) merged.streakFreezes = Math.max(local.streakFreezes, remote.streakFreezes);
+          if (remote.totalCorrectSigns !== undefined) {
+            merged.totalCorrectSigns = Math.max(local.totalCorrectSigns, remote.totalCorrectSigns);
+          }
+          if (remote.badges) {
+            merged.badges = Array.from(new Set([...local.badges, ...remote.badges]));
+          }
+          if (remote.streakMilestonesAwarded) {
+            merged.streakMilestonesAwarded = Array.from(
+              new Set([...local.streakMilestonesAwarded, ...remote.streakMilestonesAwarded])
+            );
+          }
+          if (remote.pendingChests) {
+            const localIds = new Set(local.pendingChests.map((c) => c.id));
+            merged.pendingChests = [
+              ...local.pendingChests,
+              ...remote.pendingChests.filter((c) => !localIds.has(c.id)),
+            ];
+          }
+          if (remote.speedHighScores) {
+            const scores = { ...local.speedHighScores };
+            for (const [tier, rs] of Object.entries(remote.speedHighScores)) {
+              const ls = scores[tier];
+              if (!ls || rs.score > ls.score) scores[tier] = rs;
+            }
+            merged.speedHighScores = scores;
+          }
           // Equipped selections aren't cumulative — an admin-set cosmetic should show up on next
           // login, so take remote's value whenever the field was actually included in the payload.
           if (remote.equippedBorder !== undefined) merged.equippedBorder = remote.equippedBorder;

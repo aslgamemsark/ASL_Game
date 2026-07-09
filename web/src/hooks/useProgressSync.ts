@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { useUserStore } from '@/stores/useUserStore';
-import type { SignStats } from '@/types/user';
+import type { SignStats, SpeedHighScore, Chest } from '@/types/user';
 import type { VerificationEntry } from '@/hooks/useRecognition';
 import type { Frame } from '@/engine/landmarks';
 
@@ -19,6 +19,14 @@ type ProgressRow = {
   equipped_avatar: string | null;
   active_badge: string | null;
   unlocked_world_ids: string[];
+  signs: number;
+  rename_cards: number;
+  badges: string[];
+  pending_chests: Chest[];
+  total_correct_signs: number;
+  streak_freezes: number;
+  streak_milestones_awarded: number[];
+  speed_high_scores: Record<string, SpeedHighScore>;
 };
 
 // Loads remote progress on sign-in and merges it with local state.
@@ -56,6 +64,14 @@ export function useProgressSync() {
           equippedAvatar: row.equipped_avatar,
           activeBadge: row.active_badge,
           unlockedWorldIds: row.unlocked_world_ids ?? [],
+          signs: row.signs,
+          renameCards: row.rename_cards,
+          badges: row.badges ?? [],
+          pendingChests: row.pending_chests ?? [],
+          totalCorrectSigns: row.total_correct_signs,
+          streakFreezes: row.streak_freezes,
+          streakMilestonesAwarded: row.streak_milestones_awarded ?? [],
+          speedHighScores: row.speed_high_scores ?? {},
         });
       }
       if (profileRow && typeof (profileRow as { collect_training_data?: boolean }).collect_training_data === 'boolean') {
@@ -91,6 +107,14 @@ export function useProgressSync() {
           equipped_avatar: store.equippedAvatar,
           active_badge: store.activeBadge,
           unlocked_world_ids: store.unlockedWorldIds,
+          signs: store.signs,
+          rename_cards: store.renameCards,
+          badges: store.badges,
+          pending_chests: store.pendingChests as unknown as Record<string, unknown>[],
+          total_correct_signs: store.totalCorrectSigns,
+          streak_freezes: store.streakFreezes,
+          streak_milestones_awarded: store.streakMilestonesAwarded,
+          speed_high_scores: store.speedHighScores as unknown as Record<string, unknown>,
           updated_at: new Date().toISOString(),
         } as Record<string, unknown>,
         { onConflict: 'user_id' }
@@ -104,7 +128,8 @@ export function useProgressSync() {
   }, [
     user, store.xp, store.streak, store.completedLessons, store.signAccuracy,
     store.gold, store.ownedCosmetics, store.equippedBorder, store.equippedAvatar, store.activeBadge,
-    store.unlockedWorldIds,
+    store.unlockedWorldIds, store.signs, store.renameCards, store.badges, store.pendingChests,
+    store.totalCorrectSigns, store.streakFreezes, store.streakMilestonesAwarded, store.speedHighScores,
   ]);
 
   // Debounced sync of the training-data opt-out flag (separate table from user_progress).
