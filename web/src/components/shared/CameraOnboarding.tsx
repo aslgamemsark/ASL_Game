@@ -36,7 +36,7 @@ export function CameraOnboarding({ onContinue }: Props) {
           <div className="flex items-start gap-3">
             <span className="text-z-green text-lg">✓</span>
             <p className="text-sm text-z-gray-200">
-              With your permission (on by default, toggle anytime in Profile → Insights), we save
+              With your permission (on by default, toggle anytime in Settings → Privacy), we save
               numeric hand-landmark coordinates — never video or images — from your attempts to help
               train future recognition models
             </p>

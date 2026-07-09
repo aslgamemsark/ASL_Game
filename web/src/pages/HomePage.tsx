@@ -10,6 +10,7 @@ import { DailyQuestsCard } from '@/components/home/DailyQuestsCard';
 import { WorldMap } from '@/components/home/WorldMap';
 import { ChestCard } from '@/components/home/ChestCard';
 import { useUserStore } from '@/stores/useUserStore';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Props {
   onStartLesson: (id: string) => void;
@@ -24,6 +25,7 @@ interface Props {
   onStartStory: (id: string) => void;
   onStartSpeed: () => void;
   onOpenShop: () => void;
+  onRequireSignIn: () => void;
   tab: Tab;
   onTabChange: (tab: Tab) => void;
 }
@@ -34,10 +36,12 @@ export function HomePage({
   onStartStory,
   onStartSpeed,
   onOpenShop,
+  onRequireSignIn,
   tab,
   onTabChange: setTab,
 }: Props) {
   const { refreshDailyQuests } = useUserStore();
+  const { user } = useAuth();
 
   useEffect(() => {
     refreshDailyQuests();
@@ -45,7 +49,8 @@ export function HomePage({
 
   return (
     <div className="min-h-screen bg-z-bg">
-      <TopBar onOpenShop={onOpenShop} onOpenProfile={() => setTab('profile')} />
+      {/* Guest tapping the avatar gets the sign-in prompt; a signed-in user goes to their Me tab. */}
+      <TopBar onOpenShop={onOpenShop} onOpenProfile={() => (user ? setTab('profile') : onRequireSignIn())} />
 
       <div className="max-w-lg mx-auto px-4 pt-4">
         <AnimatePresence mode="wait">

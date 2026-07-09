@@ -52,6 +52,11 @@ const HANDSHAPE_HINTS: Record<string, string> = {
   p: 'Make a K, then point it toward the ground',
   q: 'Make a G, then point it toward the ground',
   r: 'Cross your index and middle fingers',
+  c: 'Curve your fingers and thumb into a "C" shape',
+  e: 'Bend all four fingers down, thumb tucked under',
+  m: 'Make a fist, tuck your thumb under your first three fingers',
+  letter_s: 'Make a fist, wrap your thumb across the front',
+  x: 'Make a fist, hook your index finger like a hook',
 };
 
 const LOCATION_HINTS: Record<Anchor, string> = {

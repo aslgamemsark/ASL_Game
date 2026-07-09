@@ -41,7 +41,7 @@ export function PrivacyPage({ onExit }: Props) {
             <li>
               Numeric hand-landmark coordinates (never video or images) from your practice
               attempts — used to improve future recognition models. This is on by default and can
-              be turned off anytime in Profile → Insights.
+              be turned off anytime in Settings → Privacy.
             </li>
           </ul>
         </section>

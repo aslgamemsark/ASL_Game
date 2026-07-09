@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { validateUsername } from '@/lib/username';
+import { useUserStore } from '@/stores/useUserStore';
 
 type ProfileRow = { username: string; is_admin: boolean; is_banned: boolean; ban_reason: string | null };
 
@@ -25,19 +26,36 @@ interface AuthContextValue {
   updateUsername: (newUsername: string) => Promise<string | null>;
   /** Call after the user completes or skips username setup so the modal doesn't reappear. */
   dismissUsernameSetup: (permanent?: boolean) => void;
+  /** True once, the first time this account signs in on this device — prompts an explicit choice
+   *  for the AI training-data toggle instead of silently relying on its default. */
+  needsTrainingConsent: boolean;
+  /** Call with the user's choice; also persists so the prompt never reappears on this device. */
+  dismissTrainingConsent: (keepOn: boolean) => void;
+  /** Sends a password-reset email. Returns an error string, or null on success. Always returns
+   *  the same generic success regardless of whether the email exists (Supabase's own behavior)
+   *  so this can't be used to enumerate registered accounts. */
+  requestPasswordReset: (email: string) => Promise<string | null>;
+  /** True after the user follows the emailed reset link and lands back with a recovery session
+   *  (Supabase fires a PASSWORD_RECOVERY auth event) — App shows a "set new password" modal. */
+  passwordRecoveryMode: boolean;
+  /** Sets the new password for the account currently in recovery mode, then clears the flag. */
+  completePasswordReset: (newPassword: string) => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function usernameSetupKey(userId: string) { return `asl_username_set_${userId}`; }
+function trainingConsentKey(userId: string) { return `asl_training_consent_${userId}`; }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsUsernameSetup, setNeedsUsernameSetup] = useState(false);
+  const [needsTrainingConsent, setNeedsTrainingConsent] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [bannedReason, setBannedReason] = useState<string | null>(null);
+  const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false);
 
   useEffect(() => {
     if (!supabaseReady) { setLoading(false); return; }
@@ -48,10 +66,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      // Fired once the user follows the emailed reset link and Supabase establishes a
+      // short-lived recovery session — App renders a "set new password" modal while this is
+      // true instead of dropping them straight into the app under a session they didn't
+      // actively choose to start.
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecoveryMode(true);
       if (s) fetchUsername(s.user.id, s.user);
-      else { setUsername(null); setNeedsUsernameSetup(false); setIsAdmin(false); }
+      else {
+        setUsername(null);
+        setNeedsUsernameSetup(false);
+        setIsAdmin(false);
+        // A real sign-out (explicit "Log out", banned-user force sign-out, or a session that
+        // expired elsewhere) must wipe the locally-persisted progress store — otherwise the next
+        // "guest" view keeps showing the just-logged-out account's gold, signs, avatar, and
+        // border until they sign into a different account. Guarded to the SIGNED_OUT event only
+        // (not INITIAL_SESSION) so a guest who was never signed in never gets reset on page load.
+        if (event === 'SIGNED_OUT') {
+          useUserStore.getState().reset();
+        }
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -81,11 +116,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsername(fetched);
     setIsAdmin(row?.is_admin ?? false);
 
+    // First sign-in on this device: ask explicitly whether to help improve the AI, instead of
+    // silently relying on collectTrainingData's default. One-time per account per device.
+    if (localStorage.getItem(trainingConsentKey(userId)) !== 'true') {
+      setNeedsTrainingConsent(true);
+    }
+
     // Auto-assign a username if none exists (e.g. OAuth user with no profile row yet).
     if (!fetched) {
       const u = userObj ?? session?.user;
       if (u) {
-        const emailPrefix = (u.email ?? 'user').split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') || 'user';
+        // Capped at 16 chars before appending the 4-digit suffix so the result always fits the
+        // profiles.username CHECK constraint (3-20 chars) regardless of email length — an
+        // uncapped prefix from a long email local-part could otherwise produce a >20-char
+        // username the database would now reject.
+        const emailPrefix = ((u.email ?? 'user').split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') || 'user').slice(0, 16);
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const generated = `${emailPrefix}${suffix}`;
         await supabase.from('profiles').upsert({ id: userId, username: generated } as Record<string, unknown>);
@@ -120,7 +165,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signInWithGoogle() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: {
+        redirectTo: window.location.origin,
+        // Without this, Google silently reuses whatever account is already active in the
+        // browser and never shows the account chooser — a real problem on a shared/family
+        // device where switching accounts (e.g. going from a parent's to a kid's) needs to
+        // actually be possible. select_account forces the picker every time.
+        queryParams: { prompt: 'select_account' },
+      },
     });
   }
 
@@ -146,8 +198,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function dismissTrainingConsent(keepOn: boolean) {
+    useUserStore.getState().setCollectTrainingData(keepOn);
+    setNeedsTrainingConsent(false);
+    if (session?.user) {
+      localStorage.setItem(trainingConsentKey(session.user.id), 'true');
+    }
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
+  }
+
+  async function requestPasswordReset(email: string): Promise<string | null> {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    // Supabase already returns success here even for an email that isn't registered (so this
+    // can't be used to enumerate accounts) — surface a real error only for things like malformed
+    // input or rate-limiting, never "no such user".
+    return error?.message ?? null;
+  }
+
+  async function completePasswordReset(newPassword: string): Promise<string | null> {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return error.message;
+    setPasswordRecoveryMode(false);
+    return null;
   }
 
   return (
@@ -165,6 +242,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       updateUsername,
       dismissUsernameSetup,
+      needsTrainingConsent,
+      dismissTrainingConsent,
+      requestPasswordReset,
+      passwordRecoveryMode,
+      completePasswordReset,
     }}>
       {children}
     </AuthContext.Provider>

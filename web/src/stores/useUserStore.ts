@@ -297,11 +297,15 @@ export const useUserStore = create<UserStore>()(
             }
             merged.speedHighScores = scores;
           }
-          // Equipped selections aren't cumulative — an admin-set cosmetic should show up on next
-          // login, so take remote's value whenever the field was actually included in the payload.
-          if (remote.equippedBorder !== undefined) merged.equippedBorder = remote.equippedBorder;
-          if (remote.equippedAvatar !== undefined) merged.equippedAvatar = remote.equippedAvatar;
-          if (remote.activeBadge !== undefined) merged.activeBadge = remote.activeBadge;
+          // Equipped selections: only let a CONCRETE remote value win. A fresh Supabase row has
+          // these columns null, and blindly copying that null over a locally-equipped item was
+          // wiping the user's avatar/border on every login (then the debounced save wrote the null
+          // straight back). Keeping local when remote is null preserves the equip; a real value
+          // (e.g. an admin-set cosmetic, or this user's own choice synced from another device)
+          // still applies.
+          if (remote.equippedBorder) merged.equippedBorder = remote.equippedBorder;
+          if (remote.equippedAvatar) merged.equippedAvatar = remote.equippedAvatar;
+          if (remote.activeBadge) merged.activeBadge = remote.activeBadge;
           return merged;
         });
       },

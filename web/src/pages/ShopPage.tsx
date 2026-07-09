@@ -54,7 +54,7 @@ export function ShopPage({ onExit }: Props) {
     (item.type === 'avatar' && equippedAvatar === item.id);
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col lg:pl-64">
+    <div className="min-h-screen bg-z-bg flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <button onClick={onExit} className="w-8 h-8 flex items-center justify-center text-z-gray-400 hover:text-white transition-colors">

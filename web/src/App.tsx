@@ -24,6 +24,9 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
+import { AuthModal } from '@/components/auth/AuthModal';
+import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
+import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal';
 
 type Screen =
   | { type: 'home' }
@@ -54,7 +57,7 @@ export default function App() {
     void getSharedCapture();
   }, []);
   const { onboardingComplete } = useUserStore();
-  const { user, username, needsUsernameSetup, loading: authLoading, bannedReason, isAdmin } = useAuth();
+  const { user, username, needsUsernameSetup, needsTrainingConsent, passwordRecoveryMode, loading: authLoading, bannedReason, isAdmin } = useAuth();
   const [screen, setScreen] = useState<Screen>(
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );
@@ -68,6 +71,13 @@ export default function App() {
   }, [user, authLoading]);
   const [homeTab, setHomeTab] = useState<Tab>('learn');
   const [incomingChallenge, setIncomingChallenge] = useState<{ from: string; roomId: string } | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const showNotice = useCallback((msg: string) => {
+    setNotice(msg);
+    setTimeout(() => setNotice((cur) => (cur === msg ? null : cur)), 2500);
+  }, []);
 
   const goHome = () => setScreen({ type: 'home' });
   const showSideNav = SIDE_NAV_SCREENS.includes(screen.type as SideNavScreen);
@@ -132,6 +142,14 @@ export default function App() {
     );
   }
 
+  // The user followed an emailed password-reset link — force the "set new password" screen
+  // exclusively (not layered as one modal among others) until they either complete it or
+  // explicitly cancel/sign out, since a bare recovery session left dangling under the normal app
+  // would be a confusing half-authenticated state.
+  if (passwordRecoveryMode) {
+    return <ResetPasswordModal />;
+  }
+
   // Dev-only debug environment (spec Rule 18: "debug inside AvatarLab, not inside the game").
   // Deliberately NOT wired into the Screen state machine or navigation — it's a separate tool, not
   // a game screen. Checked AFTER all hooks (Rules of Hooks) but before the game's own render tree.
@@ -160,6 +178,8 @@ export default function App() {
           onLeaderboard={() => setScreen({ type: 'leaderboard' })}
           onSettings={() => setScreen({ type: 'settings' })}
           onProfile={() => { goHome(); setHomeTab('profile'); }}
+          onSignIn={() => setShowAuth(true)}
+          onNotice={showNotice}
         />
       )}
       <div className={showSideNav ? 'lg:pl-64' : ''}>
@@ -176,6 +196,7 @@ export default function App() {
               onStartStory={(id) => setScreen({ type: 'story', storyId: id })}
               onStartSpeed={() => setScreen({ type: 'speed' })}
               onOpenShop={() => setScreen({ type: 'shop' })}
+              onRequireSignIn={() => setShowAuth(true)}
               tab={homeTab}
               onTabChange={setHomeTab}
             />
@@ -259,6 +280,14 @@ export default function App() {
       {/* Username setup modal for Google/OAuth users */}
       {needsUsernameSetup && <SetUsernameModal onClose={() => {}} />}
 
+      {/* First-sign-in AI training-data consent — shown after username setup so they never
+          stack on top of each other. */}
+      {!needsUsernameSetup && needsTrainingConsent && <TrainingConsentModal />}
+
+      {/* App-level sign-in modal — opened from the nav profile chip / top-bar avatar when a guest
+          taps their profile, so the prompt is reachable from anywhere, not just the Me tab. */}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+
       {/* Sync failure indicator — non-blocking, visible anywhere in the app. Previously a failed
           write to Supabase was completely silent, so progress could appear to vanish with zero
           explanation. */}
@@ -271,6 +300,20 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
           >
             ⚠️ Couldn't sync your progress — check your connection
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Transient notice toast (e.g. a guest tapping "Log out"). */}
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-2xl whitespace-nowrap"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+          >
+            {notice}
           </motion.div>
         )}
       </AnimatePresence>

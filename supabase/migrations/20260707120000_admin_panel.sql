@@ -26,6 +26,15 @@ returns trigger language plpgsql security definer set search_path = public as $$
 declare
   caller_is_admin boolean;
 begin
+  -- auth.uid() is NULL outside a real Supabase-Auth/PostgREST request (SQL Editor, migrations,
+  -- the service-role key) — those callers already bypass RLS entirely, and an anonymous/no-JWT
+  -- caller is independently blocked from ever reaching this UPDATE by the existing
+  -- "profiles_update_own" policy (auth.uid() = id is never true when auth.uid() is NULL). So this
+  -- check only needs to fire for a real authenticated end user trying to self-promote.
+  if auth.uid() is null then
+    return new;
+  end if;
+
   if new.is_admin is distinct from old.is_admin
      or new.is_banned is distinct from old.is_banned
      or new.ban_reason is distinct from old.ban_reason then
