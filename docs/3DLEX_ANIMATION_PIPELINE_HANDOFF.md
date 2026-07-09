@@ -141,16 +141,27 @@ contrast at all, and a blank face with no visible eyes.
 The fix (see `render_demo_clips.py` around `has_broken_texture`) rebuilds that contrast
 procedurally, using the standard Ready Player Me / Mixamo rig bone names:
 
-1. **Skin vs. clothing**: every vertex gets a continuous 0–1 "skin score" from how much of its rig
-   weight goes to skin bones (head/neck/hands/forearms) vs. everything else, then that score is
-   smoothed by averaging with mesh neighbors over several passes before thresholding. A hard
-   per-vertex "which single bone dominates" pick (tried first) flips somewhat unevenly across the
-   ring of vertices at the shoulder/elbow blend zone — ordinary weight-painting noise — and a
-   majority vote over that turns it into a jagged sawtooth sleeve hem instead of a clean line. The
-   smoothing pass fixes that without moving the boundary's anatomical location. (12 iterations is
-   already past the point of diminishing returns — tested up to 24 with no visible further
-   improvement; whatever tiny irregularity remains at that point is a genuine transitional
-   weight-paint region, not smoothing-removable noise.)
+1. **Skin vs. clothing, general case (torso/neck/collar)**: every vertex gets a continuous 0–1
+   "skin score" from how much of its rig weight goes to skin bones (head/neck/hands/forearms) vs.
+   everything else, then that score is smoothed by averaging with mesh neighbors over several
+   passes before thresholding. A hard per-vertex "which single bone dominates" pick (tried first)
+   flips somewhat unevenly at bone-weight blend zones — ordinary weight-painting noise — and a
+   majority vote over that turns it into a jagged sawtooth line instead of a clean one. The
+   smoothing pass fixes that without moving the boundary's anatomical location.
+2. **Sleeve hem specifically (elbow): an exact geometric plane cut, not weight-smoothing.** The
+   elbow was the one boundary users actually look closely at, and weight-smoothing alone left a
+   visible zigzag there no matter how many iterations were added (12 vs. 24 iterations produced an
+   *identical* remaining notch — confirmed it's a genuine ambiguous weight-paint transition at that
+   joint, not removable noise, so more smoothing was never going to fix it). The real fix: read the
+   armature's own rest-pose bone positions (`bones["LeftForeArm"].head_local` = the elbow joint,
+   `.tail_local` = the wrist) and cut with a plane through the elbow, oriented perpendicular to the
+   forearm bone — every vertex weighted to the `LeftArm`/`LeftForeArm` chain is classified purely by
+   which side of that plane it's on, not by any per-vertex weight value at all. This gives a
+   mathematically clean ring around the arm regardless of mesh triangulation, confirmed clean both
+   at rest and mid-motion (bent elbow). Same idea for `RightArm`/`RightForeArm`. If another boundary
+   ever needs this treatment (e.g. a v-neck collar that still looks jagged after smoothing), this is
+   the pattern to reach for — general smoothing is the cheap first try, an exact bone-rest-position
+   plane cut is what actually guarantees a clean line at a specific joint.
 2. **Eyes**: Ready Player Me characters have real, separate eyeball geometry (verified by probing —
    ~120 vertices per eye with >0.9 weight to the `LeftEye`/`RightEye` bones, in a tight ~4cm
    bounding box; this is not just eyelid skin lightly influenced by an eye-look blendshape). That

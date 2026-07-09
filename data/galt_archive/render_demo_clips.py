@@ -160,6 +160,33 @@ for o in mesh_objs:
         skin_score = smoothed
     vertex_is_skin = [s > 0.5 for s in skin_score]
 
+    # The sleeve hem (LeftArm=clothing / LeftForeArm=skin boundary) is the one edge users
+    # actually look at closely, and weight-smoothing alone still left a visible zigzag there
+    # no matter how many extra iterations were added (confirmed: 12 vs 24 iterations produced
+    # an identical remaining notch — it's a genuine ambiguous weight-paint transition at the
+    # joint, not removable noise). Replace it with an exact geometric cut instead: a plane
+    # through the elbow joint, oriented perpendicular to the forearm bone, using the
+    # armature's own rest-pose bone positions (not vertex weights at all) — this always gives
+    # a mathematically clean ring around the arm regardless of how the mesh is triangulated
+    # or weight-painted there. Falls back to the weight-based result if no armature is found.
+    armature_obj = next((m.object for m in o.modifiers if m.type == "ARMATURE" and m.object), None)
+    if armature_obj is not None:
+        for side in ("Left", "Right"):
+            arm_bone_name, forearm_bone_name = f"{side}Arm", f"{side}ForeArm"
+            if arm_bone_name not in group_names or forearm_bone_name not in group_names:
+                continue
+            bones = armature_obj.data.bones
+            if arm_bone_name not in bones or forearm_bone_name not in bones:
+                continue
+            elbow = bones[forearm_bone_name].head_local
+            cut_normal = (bones[forearm_bone_name].tail_local - elbow).normalized()
+            arm_gidx = group_names.index(arm_bone_name)
+            forearm_gidx = group_names.index(forearm_bone_name)
+            for v in mesh.vertices:
+                on_arm_chain = any(g.group in (arm_gidx, forearm_gidx) and g.weight > 0.3 for g in v.groups)
+                if on_arm_chain:
+                    vertex_is_skin[v.index] = (v.co - elbow).dot(cut_normal) > 0.0
+
     eye_all_verts = set()
     for eye_name in ("LeftEye", "RightEye"):
         if eye_name not in group_names:
