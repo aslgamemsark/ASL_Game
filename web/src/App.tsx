@@ -24,6 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { AuthModal } from '@/components/auth/AuthModal';
+import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
 
 type Screen =
   | { type: 'home' }
@@ -53,7 +54,7 @@ export default function App() {
     void getSharedCapture();
   }, []);
   const { onboardingComplete } = useUserStore();
-  const { user, username, needsUsernameSetup, loading: authLoading, bannedReason, isAdmin } = useAuth();
+  const { user, username, needsUsernameSetup, needsTrainingConsent, loading: authLoading, bannedReason, isAdmin } = useAuth();
   const [screen, setScreen] = useState<Screen>(
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );
@@ -262,6 +263,10 @@ export default function App() {
 
       {/* Username setup modal for Google/OAuth users */}
       {needsUsernameSetup && <SetUsernameModal onClose={() => {}} />}
+
+      {/* First-sign-in AI training-data consent — shown after username setup so they never
+          stack on top of each other. */}
+      {!needsUsernameSetup && needsTrainingConsent && <TrainingConsentModal />}
 
       {/* App-level sign-in modal — opened from the nav profile chip / top-bar avatar when a guest
           taps their profile, so the prompt is reachable from anywhere, not just the Me tab. */}

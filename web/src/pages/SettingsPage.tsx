@@ -13,7 +13,7 @@ export function SettingsPage({ onExit, onOpenAdmin }: Props) {
   const { theme, setTheme } = useTheme();
   const { user, username, signOut, isAdmin } = useAuth();
   const { vibrationEnabled, toggleVibration } = useSettingsStore();
-  const { addGold, addSigns } = useUserStore();
+  const { addGold, addSigns, collectTrainingData, setCollectTrainingData } = useUserStore();
 
   const giveTestCredits = () => {
     addGold(10000);
@@ -72,6 +72,31 @@ export function SettingsPage({ onExit, onOpenAdmin }: Props) {
               <motion.span
                 className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
                 animate={{ x: vibrationEnabled ? 24 : 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              />
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Privacy */}
+        <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}>
+          <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">Privacy</h2>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-sm">Help improve the AI</p>
+              <p className="text-xs text-z-gray-400 mt-0.5 leading-relaxed">
+                Save hand-landmark coordinates (not video) from your attempts as future training data.
+              </p>
+            </div>
+            <button
+              role="switch"
+              aria-checked={collectTrainingData}
+              onClick={() => setCollectTrainingData(!collectTrainingData)}
+              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${collectTrainingData ? 'bg-z-purple' : 'bg-z-gray-500'}`}
+            >
+              <motion.span
+                className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
+                animate={{ x: collectTrainingData ? 24 : 0 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
               />
             </button>

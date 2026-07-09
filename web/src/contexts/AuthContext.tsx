@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { validateUsername } from '@/lib/username';
+import { useUserStore } from '@/stores/useUserStore';
 
 type ProfileRow = { username: string; is_admin: boolean; is_banned: boolean; ban_reason: string | null };
 
@@ -25,17 +26,24 @@ interface AuthContextValue {
   updateUsername: (newUsername: string) => Promise<string | null>;
   /** Call after the user completes or skips username setup so the modal doesn't reappear. */
   dismissUsernameSetup: (permanent?: boolean) => void;
+  /** True once, the first time this account signs in on this device — prompts an explicit choice
+   *  for the AI training-data toggle instead of silently relying on its default. */
+  needsTrainingConsent: boolean;
+  /** Call with the user's choice; also persists so the prompt never reappears on this device. */
+  dismissTrainingConsent: (keepOn: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function usernameSetupKey(userId: string) { return `asl_username_set_${userId}`; }
+function trainingConsentKey(userId: string) { return `asl_training_consent_${userId}`; }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsUsernameSetup, setNeedsUsernameSetup] = useState(false);
+  const [needsTrainingConsent, setNeedsTrainingConsent] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [bannedReason, setBannedReason] = useState<string | null>(null);
 
@@ -48,10 +56,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       if (s) fetchUsername(s.user.id, s.user);
-      else { setUsername(null); setNeedsUsernameSetup(false); setIsAdmin(false); }
+      else {
+        setUsername(null);
+        setNeedsUsernameSetup(false);
+        setIsAdmin(false);
+        // A real sign-out (explicit "Log out", banned-user force sign-out, or a session that
+        // expired elsewhere) must wipe the locally-persisted progress store — otherwise the next
+        // "guest" view keeps showing the just-logged-out account's gold, signs, avatar, and
+        // border until they sign into a different account. Guarded to the SIGNED_OUT event only
+        // (not INITIAL_SESSION) so a guest who was never signed in never gets reset on page load.
+        if (event === 'SIGNED_OUT') {
+          useUserStore.getState().reset();
+        }
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -80,6 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const fetched = row?.username ?? null;
     setUsername(fetched);
     setIsAdmin(row?.is_admin ?? false);
+
+    // First sign-in on this device: ask explicitly whether to help improve the AI, instead of
+    // silently relying on collectTrainingData's default. One-time per account per device.
+    if (localStorage.getItem(trainingConsentKey(userId)) !== 'true') {
+      setNeedsTrainingConsent(true);
+    }
 
     // Auto-assign a username if none exists (e.g. OAuth user with no profile row yet).
     if (!fetched) {
@@ -146,6 +172,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function dismissTrainingConsent(keepOn: boolean) {
+    useUserStore.getState().setCollectTrainingData(keepOn);
+    setNeedsTrainingConsent(false);
+    if (session?.user) {
+      localStorage.setItem(trainingConsentKey(session.user.id), 'true');
+    }
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
   }
@@ -165,6 +199,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       updateUsername,
       dismissUsernameSetup,
+      needsTrainingConsent,
+      dismissTrainingConsent,
     }}>
       {children}
     </AuthContext.Provider>

@@ -56,7 +56,7 @@ function cardVariants(glowColor: string) {
 const TOTAL_LESSON_COUNT = LESSON_UNITS.reduce((sum, u) => sum + u.nodes.length, 0);
 
 export function ProfileTab() {
-  const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, collectTrainingData, setCollectTrainingData, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar, equipBorder } = useUserStore();
+  const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar, equipBorder } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user, username, signOut } = useAuth();
   const { struggleSigns, vetoStats, dailyAccuracy, overallAvgAttempts, loading: insightsLoading } = useInsights();
@@ -415,22 +415,8 @@ export function ProfileTab() {
                 <AccuracySparkline data={dailyAccuracy} />
               </div>
 
-              {/* Data collection opt-out */}
-              <div className="bg-z-card border border-white/5 rounded-2xl p-4 flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-bold text-sm">Help improve the AI</p>
-                  <p className="text-z-gray-400 text-[11px] mt-0.5 leading-relaxed">
-                    Save hand-landmark coordinates (not video) from your attempts as future training data.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setCollectTrainingData(!collectTrainingData)}
-                  className={`shrink-0 w-11 h-6 rounded-full transition-colors relative ${collectTrainingData ? 'bg-z-purple' : 'bg-z-surface'}`}
-                  aria-pressed={collectTrainingData}
-                >
-                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${collectTrainingData ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                </button>
-              </div>
+              {/* "Help improve the AI" lives permanently in Settings -> Privacy now, reachable
+                  regardless of which profile tab you're on. */}
             </>
           )}
         </motion.div>
