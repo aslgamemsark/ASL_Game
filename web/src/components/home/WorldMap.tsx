@@ -61,9 +61,12 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
     return { done, total };
   }
 
-  function getNodeStatus(nodeId: string): 'completed' | 'current' | 'locked' {
+  // Scoped to the CURRENT world's own units, not the global LESSON_UNITS list — a world reached
+  // via gold-unlock (see isWorldUnlocked above) is an independent path from story progression, so
+  // its own first lesson must be playable without requiring every earlier world to be finished.
+  function getNodeStatus(nodeId: string, worldUnits: typeof LESSON_UNITS): 'completed' | 'current' | 'locked' {
     if (completedLessons.includes(nodeId)) return 'completed';
-    for (const unit of LESSON_UNITS) {
+    for (const unit of worldUnits) {
       for (const node of unit.nodes) {
         if (!completedLessons.includes(node.id)) {
           return node.id === nodeId ? 'current' : 'locked';
@@ -141,7 +144,7 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                 // harder chapter) without widening World.storyId's single-value badge/unlock role.
                 const isStoryNode = node.id === selectedWorld.storyId || STORIES.some((s) => s.id === node.id);
                 if (isStoryNode) {
-                  const status = getNodeStatus(node.id);
+                  const status = getNodeStatus(node.id, units);
                   return (
                     <motion.button
                       key={node.id}
@@ -173,7 +176,7 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                 return (
                   <LessonNode
                     key={node.id}
-                    node={{ ...node, status: getNodeStatus(node.id) }}
+                    node={{ ...node, status: getNodeStatus(node.id, units) }}
                     index={unitIdx * 10 + nodeIdx}
                     unitColor={unit.color}
                     onSelect={onSelectLesson}

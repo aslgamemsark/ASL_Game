@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import type { VerifyResult } from '@/engine/verifier';
+import { ReportUserModal } from '@/components/shared/ReportUserModal';
 
 type Phase = 'lobby' | 'waiting' | 'signer' | 'guesser' | 'result' | 'done';
 
@@ -48,6 +49,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
   const recognition = useRecognition({ onPass: handleSignCorrect });
 
   const [phase, setPhase] = useState<Phase>('lobby');
+  const [reportOpen, setReportOpen] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [matchState, setMatchState] = useState<MatchState | null>(null);
   const matchStateRef = useRef<MatchState | null>(null);
@@ -440,11 +442,25 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
                 whileTap={{ scale: 0.97 }}>
                 Back to Home
               </motion.button>
+              <button onClick={() => setReportOpen(true)}
+                className="text-xs text-z-gray-500 hover:text-z-red transition-colors">
+                🚩 Report {matchState.opponentUsername}
+              </button>
             </motion.div>
           )}
 
         </AnimatePresence>
       </div>
+
+      {user && reportOpen && matchState && (
+        <ReportUserModal
+          reporterId={user.id}
+          reportedId={matchState.opponentId}
+          reportedUsername={matchState.opponentUsername}
+          context="multiplayer"
+          onClose={() => setReportOpen(false)}
+        />
+      )}
     </div>
   );
 }

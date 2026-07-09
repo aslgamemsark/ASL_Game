@@ -4,6 +4,8 @@ import { persist } from 'zustand/middleware';
 interface SettingsStore {
   vibrationEnabled: boolean;
   toggleVibration: () => void;
+  soundEnabled: boolean;
+  toggleSound: () => void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -11,6 +13,8 @@ export const useSettingsStore = create<SettingsStore>()(
     (set) => ({
       vibrationEnabled: true,
       toggleVibration: () => set((s) => ({ vibrationEnabled: !s.vibrationEnabled })),
+      soundEnabled: true,
+      toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
     }),
     {
       name: 'asl-game-settings',

@@ -392,11 +392,46 @@ export const FRIEND = createSign({
   movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.05, minDurationS: 0.5, required: true, minConfidence: 0.35},
 });
 
+// --- World Cup event signs ---
+// See signs/red.py, signs/yellow.py, signs/win.py, signs/team.py for the ASL-mechanics rationale
+// (verified against Lifeprint/handspeak) and the same v1-approximation notes documented there.
+
+export const RED = createSign({
+  name: 'RED', twoHanded: false,
+  dominant: { kind: 'index', required: true },
+  location: { anchor: Anchor.CHIN, actingHand: DOMINANT, maxDistRatio: 0.5, required: true },
+  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, 1], minDisplacementRatio: 0.2, minDurationS: 0.4, required: true, minConfidence: 0.25},
+});
+
+export const YELLOW = createSign({
+  name: 'YELLOW', twoHanded: false,
+  dominant: { kind: 'y', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false, minConfidence: 0.45},
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true, minConfidence: 0.25},
+});
+
+export const WIN = createSign({
+  name: 'WIN', twoHanded: true,
+  dominant: { kind: 'fist', required: true, minConfidence: 0.5 },
+  nondominant: { kind: 'fist', required: true, minConfidence: 0.5 },
+  location: { anchor: Anchor.OTHER_HAND, actingHand: DOMINANT, maxDistRatio: 0.9, vertical: 'above', required: true },
+  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, -1], minDisplacementRatio: 0.2, minDurationS: 0.4, required: true, minConfidence: 0.25},
+});
+
+export const TEAM = createSign({
+  name: 'TEAM', twoHanded: true,
+  dominant: { kind: 't', required: true },
+  nondominant: { kind: 't', required: true },
+  location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 1.5, required: false },
+  movement: { kind: MovementKind.CONVERGE, actor: DOMINANT, minApproachRatio: 0.15, minDurationS: 0.4, required: true },
+});
+
 export const COFFEE_SIGNS = [COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES, MORE, LETTER_A, LETTER_B, LETTER_D, LETTER_F, LETTER_G, LETTER_H, LETTER_I, LETTER_J, LETTER_K, LETTER_L, LETTER_N, LETTER_O, LETTER_P, LETTER_Q, LETTER_R, LETTER_T, LETTER_U, LETTER_V, LETTER_W, LETTER_Y, LETTER_Z, YOU] as const;
 export const HOSPITAL_SIGNS = [HELP, PAIN, MEDICINE, EMERGENCY, DOCTOR, NURSE, SICK, FEVER, WATER, BREATHE, HOSPITAL, DIZZY] as const;
 export const CLASSROOM_SIGNS = [HELLO, PLEASE, THANK_YOU, TEACHER, WRITE, READ, NAME, FRIEND] as const;
+export const WORLD_CUP_SIGNS = [RED, YELLOW, WIN, TEAM] as const;
 
 export const SIGNS: Record<string, Sign> = {};
-for (const s of [...COFFEE_SIGNS, ...HOSPITAL_SIGNS, ...CLASSROOM_SIGNS]) {
+for (const s of [...COFFEE_SIGNS, ...HOSPITAL_SIGNS, ...CLASSROOM_SIGNS, ...WORLD_CUP_SIGNS]) {
   SIGNS[s.name] = s;
 }

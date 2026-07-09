@@ -71,6 +71,7 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Flat hand from chin, move outward/down',
     hint: 'Touch your chin then move your hand away',
+    howTo: 'Touch the fingertips of your flat, open hand to your chin, palm facing you. Move your hand forward and slightly down, away from your face, toward the person you\'re thanking.',
   },
   YOU: {
     name: 'YOU',
@@ -146,6 +147,8 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Both claw hands pull toward you',
     hint: 'Grab the air and pull it close',
+    howTo: 'Hold both hands up in loose claw shapes (fingers curled, spread apart), palms facing up. Pull both hands back toward your chest in one smooth motion, as if grabbing something out of the air and drawing it in.',
+    clip: '/clips/WANT.mp4',
   },
   YES: {
     name: 'YES',
@@ -168,6 +171,8 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Fist nods up and down',
     hint: 'Your fist is nodding "yes"!',
+    howTo: 'Make a fist, like a small letter S, held up in front of you. Bend it up and down at the wrist a few times, as if the fist itself is nodding "yes."',
+    clip: '/clips/YES.mp4',
   },
   MORE: {
     name: 'MORE',
@@ -192,6 +197,7 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Two claw hands tap fingertips together',
     hint: 'Bring your fingertips together for another round!',
+    howTo: 'Hold both hands up in loose claw shapes, fingertips pointing at each other. Tap the fingertips of both hands together in front of you.',
   },
   LETTER_A: {
     name: 'LETTER_A',
@@ -218,6 +224,8 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'none', actor: 'dominant', pivot: 'nondominant', minDurationS: 0, required: false },
     description: 'All fingers and thumb curved into a C shape',
     hint: 'Your hand IS the letter C',
+    howTo: 'Curve your thumb and fingers so they form the outline of the letter C, like you\'re holding a cup. Hold it steady — there\'s no movement.',
+    clip: '/clips/LETTER_C.mp4',
   },
   LETTER_E: {
     name: 'LETTER_E',
@@ -227,6 +235,8 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'none', actor: 'dominant', pivot: 'nondominant', minDurationS: 0, required: false },
     description: 'All four fingers bent at the middle knuckle, thumb tucked underneath',
     hint: 'Fingers curled like claws, thumb hides below',
+    howTo: 'Bend all four fingers down at the middle knuckle so the fingertips rest just above your palm, and tuck your thumb underneath them. Hold it steady.',
+    clip: '/clips/LETTER_E.mp4',
   },
   LETTER_M: {
     name: 'LETTER_M',
@@ -236,6 +246,8 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'none', actor: 'dominant', pivot: 'nondominant', minDurationS: 0, required: false },
     description: 'Index, middle, and ring fingers curled over the thumb',
     hint: 'Three fingers giving the thumb a blanket',
+    howTo: 'Tuck your thumb into your palm, then fold your index, middle, and ring fingers down over the top of it, like three fingers tucking your thumb into bed. Hold it steady.',
+    clip: '/clips/LETTER_M.mp4',
   },
   LETTER_S: {
     name: 'LETTER_S',
@@ -245,6 +257,8 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'none', actor: 'dominant', pivot: 'nondominant', minDurationS: 0, required: false },
     description: 'Fist with thumb folded across the front of the fingers',
     hint: 'Like A but the thumb wraps over the front instead',
+    howTo: 'Make a fist, then fold your thumb across the front of your curled fingers (not resting alongside them like letter A). Hold it steady.',
+    clip: '/clips/LETTER_S.mp4',
   },
   LETTER_X: {
     name: 'LETTER_X',
@@ -254,6 +268,8 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'none', actor: 'dominant', pivot: 'nondominant', minDurationS: 0, required: false },
     description: 'Index finger bent into a hook shape, other fingers curled',
     hint: 'Crook your index finger into a hook',
+    howTo: 'Curl your other fingers and thumb into your palm, then bend just your index finger into a hook shape, like a crooked finger. Hold it steady.',
+    clip: '/clips/LETTER_X.mp4',
   },
   LETTER_B: {
     name: 'LETTER_B',
@@ -623,6 +639,8 @@ export const SIGNS: Record<string, SignDef> = {
     orientation: { hand: 'nondominant', facing: 'up', required: false },
     description: 'Fist resting on open palm, lift the fist straight up',
     hint: 'Rest your fist on your palm, then lift UP',
+    howTo: 'Hold your non-dominant hand flat and open, palm facing up. Make a fist with your dominant hand and rest it on top of the open palm. Lift both hands straight up together, as if the open palm is boosting the fist upward.',
+    clip: '/clips/HELP.mp4',
   },
 
   PAIN: {
@@ -648,6 +666,7 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Both index fingers point toward each other and come together',
     hint: 'Point both fingers and bring them together',
+    howTo: 'Point both index fingers at each other, held out in front of your body. Move them toward each other until the tips almost touch, like a jabbing motion between two sore spots.',
   },
 
   MEDICINE: {
@@ -673,6 +692,7 @@ export const SIGNS: Record<string, SignDef> = {
     orientation: { hand: 'nondominant', facing: 'up', required: false },
     description: 'Open hand twists back and forth over other open palm',
     hint: 'Twist your open hand over your flat palm',
+    howTo: 'Hold your non-dominant hand flat, palm facing up. Rest the middle finger of your dominant open hand on that palm and twist your dominant hand back and forth, like grinding a pill into your palm.',
   },
 
   EMERGENCY: {
@@ -696,6 +716,7 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Claw hand raised and shaken quickly side to side',
     hint: 'Make a claw and shake it fast!',
+    howTo: 'Raise your dominant hand into a claw shape — fingers curled and spread apart — near your shoulder. Shake it quickly from side to side.',
   },
 
   FEVER: {
@@ -720,6 +741,7 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Open hand sweeps across the forehead',
     hint: 'Sweep your flat hand across your forehead',
+    howTo: 'Hold your dominant hand flat and open, palm facing your head. Sweep it across your forehead from one side to the other, as if wiping sweat away.',
   },
 
   WATER: {
@@ -737,6 +759,8 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'none', actor: 'dominant', pivot: 'nondominant', minDurationS: 0, required: false },
     description: 'Three fingers (W shape) held at the chin',
     hint: 'Three fingers up like a W at your chin',
+    howTo: 'Extend your index, middle, and ring fingers upward (thumb holding down your pinky) to form a W shape. Tap the side of your index finger against your chin. Hold it steady — no movement needed.',
+    clip: '/clips/WATER.mp4',
   },
 
   HOSPITAL: {
@@ -762,6 +786,8 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Two-finger H shape near opposite shoulder, draw a cross',
     hint: 'Two fingers (H) by your shoulder — draw a small cross',
+    howTo: 'Form an H shape with your dominant hand (index and middle fingers extended together, other fingers curled). Touch it near your opposite shoulder and trace a small cross/plus shape, like the cross on a hospital sign.',
+    clip: '/clips/HOSPITAL.mp4',
   },
 
   DIZZY: {
@@ -787,6 +813,7 @@ export const SIGNS: Record<string, SignDef> = {
     },
     description: 'Open hand circles near the face',
     hint: 'Circle your open hand around near your face',
+    howTo: 'Hold your dominant hand open near your forehead, palm facing your face, and circle it around a few times, as if your head is spinning.',
   },
 
   // --- Hospital signs (v2: 4 additional signs, no clips yet) ---
@@ -807,6 +834,8 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'repeated', actor: 'dominant', pivot: 'nondominant', minDurationS: 0.5, required: true },
     description: 'Flat hand taps wrist repeatedly',
     hint: 'Tap your flat hand on your opposite wrist like checking a pulse',
+    howTo: 'Hold your non-dominant arm out and tap the fingertips of your flat dominant hand against the inside of your opposite wrist a couple of times, like checking a pulse.',
+    clip: '/clips/DOCTOR.mp4',
   },
 
   NURSE: {
@@ -825,6 +854,8 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'repeated', actor: 'dominant', pivot: 'nondominant', minDurationS: 0.5, required: true },
     description: 'N-hand taps wrist repeatedly',
     hint: 'Tap two fingers (N) on your wrist like a nurse checking vitals',
+    howTo: 'Form an N shape with your dominant hand (index and middle fingers extended together, thumb tucked between them). Tap it against the inside of your opposite wrist a couple of times, like checking a pulse.',
+    clip: '/clips/NURSE.mp4',
   },
 
   SICK: {
@@ -843,6 +874,7 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'none', actor: 'dominant', pivot: 'nondominant', minDurationS: 0, required: false },
     description: 'Middle finger touches forehead',
     hint: 'Touch your forehead with your middle finger — feeling sick!',
+    howTo: 'Curl your other fingers in and extend just your middle finger, then rest its tip on the center of your forehead. (The full ASL sign also touches a middle finger to the stomach at the same time — this app checks the forehead touch.)',
   },
 
   BREATHE: {
@@ -880,6 +912,8 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'repeated', actor: 'dominant', pivot: 'nondominant', minAmplitudeRatio: 0.08, minDurationS: 0.5, required: true },
     description: 'Both open hands move outward from the temples, twice',
     hint: 'Hands start at your temples, then move forward and out — twice',
+    howTo: 'Hold both open hands near your temples, palms facing forward. Move them both outward and slightly down together, then back in and out again — a small double motion, like information radiating from your mind.',
+    clip: '/clips/TEACHER.mp4',
   },
 
   WRITE: {
@@ -899,6 +933,8 @@ export const SIGNS: Record<string, SignDef> = {
     orientation: { hand: 'nondominant', facing: 'up', required: false },
     description: 'Pinched dominant hand scribbles back and forth on the open palm',
     hint: 'Pretend to hold a pen and scribble on your other palm',
+    howTo: 'Hold your non-dominant hand flat, palm facing up. Pinch your dominant thumb and index finger together like holding a pen, and move it back and forth across the open palm in small scribbling motions.',
+    clip: '/clips/WRITE.mp4',
   },
 
   READ: {
@@ -918,6 +954,8 @@ export const SIGNS: Record<string, SignDef> = {
     orientation: { hand: 'nondominant', facing: 'up', required: false },
     description: 'V-hand (your "eyes") sweeps down over your open palm',
     hint: 'Make a V with your fingers and sweep it down your other palm',
+    howTo: 'Hold your non-dominant hand flat, palm facing up. Form a V shape with your dominant hand (index and middle fingers extended, like eyes) and sweep it downward over the open palm, as if your "eyes" are scanning down a page.',
+    clip: '/clips/READ.mp4',
   },
 
   NAME: {
@@ -937,6 +975,7 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'repeated', actor: 'dominant', pivot: 'nondominant', minAmplitudeRatio: 0.04, minDurationS: 0.4, required: true },
     description: 'Two H-hands cross and tap together, twice',
     hint: 'Cross your fingers like an H and tap them together',
+    howTo: 'Form an H shape with both hands (index and middle fingers together, extended, other fingers curled). Cross them at a right angle in front of you and tap them together twice, like an X.',
   },
 
   FRIEND: {
@@ -956,5 +995,6 @@ export const SIGNS: Record<string, SignDef> = {
     movement: { kind: 'repeated', actor: 'dominant', pivot: 'nondominant', minAmplitudeRatio: 0.05, minDurationS: 0.5, required: true },
     description: 'Hooked index fingers link and tap together, twice',
     hint: 'Hook your index fingers together and tap them, twice',
+    howTo: 'Bend both index fingers into hooks (other fingers curled into the palm). Link the hooked fingers of both hands together, then unhook and flip to link them the other way, tapping twice — like two fingers linking arms.',
   },
 };

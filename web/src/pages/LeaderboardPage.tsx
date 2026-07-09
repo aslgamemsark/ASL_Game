@@ -6,6 +6,7 @@ import { useUserStore } from '@/stores/useUserStore';
 import { getRankProgress } from '@/data/ranks';
 import { SHOP_ITEMS, getShopItem } from '@/data/shop';
 import { getBadge } from '@/data/badges';
+import { ReportUserModal } from '@/components/shared/ReportUserModal';
 
 interface Props {
   onExit: () => void;
@@ -31,13 +32,14 @@ function getMedal(i: number) {
 }
 
 function BoardList({
-  rows, userId, loading, relations, onAddFriend,
+  rows, userId, loading, relations, onAddFriend, onReport,
 }: {
   rows: BoardRow[];
   userId?: string;
   loading: boolean;
   relations?: Map<string, 'accepted' | 'pendingSent' | 'pendingReceived'>;
   onAddFriend?: (id: string, username: string) => void;
+  onReport?: (id: string, username: string) => void;
 }) {
   if (loading) {
     return (
@@ -127,6 +129,20 @@ function BoardList({
                 </motion.button>
               );
             })()}
+
+            {/* Report — only for other users when signed in */}
+            {userId && row.id !== userId && onReport && (
+              <button
+                onClick={() => onReport(row.id, row.username)}
+                aria-label={`Report ${row.username}`}
+                className="shrink-0 text-z-gray-500 hover:text-z-red transition-colors p-1"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                  <line x1="4" y1="22" x2="4" y2="15" />
+                </svg>
+              </button>
+            )}
           </motion.div>
         );
       })}
@@ -144,6 +160,7 @@ export function LeaderboardPage({ onExit }: Props) {
   const [friendLoading, setFriendLoading] = useState(false);
   const [relations, setRelations] = useState<Map<string, 'accepted' | 'pendingSent' | 'pendingReceived'>>(new Map());
   const [toast, setToast] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ id: string; username: string } | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
 
@@ -345,7 +362,14 @@ export function LeaderboardPage({ onExit }: Props) {
 
         {/* Content */}
         {tab === 'world' && (
-          <BoardList rows={worldRows} userId={user?.id} loading={worldLoading} relations={relations} onAddFriend={user ? sendFriendRequest : undefined} />
+          <BoardList
+            rows={worldRows}
+            userId={user?.id}
+            loading={worldLoading}
+            relations={relations}
+            onAddFriend={user ? sendFriendRequest : undefined}
+            onReport={user ? (id, username) => setReportTarget({ id, username }) : undefined}
+          />
         )}
 
         {tab === 'region' && (
@@ -380,10 +404,25 @@ export function LeaderboardPage({ onExit }: Props) {
               <p className="text-z-gray-500 text-sm mt-2">Add friends to see how you compare!</p>
             </div>
           ) : (
-            <BoardList rows={friendRows} userId={user.id} loading={false} />
+            <BoardList
+              rows={friendRows}
+              userId={user.id}
+              loading={false}
+              onReport={(id, username) => setReportTarget({ id, username })}
+            />
           )
         )}
       </div>
+
+      {user && reportTarget && (
+        <ReportUserModal
+          reporterId={user.id}
+          reportedId={reportTarget.id}
+          reportedUsername={reportTarget.username}
+          context={tab === 'friends' ? 'friends' : 'leaderboard'}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
 
       <AnimatePresence>
         {toast && (

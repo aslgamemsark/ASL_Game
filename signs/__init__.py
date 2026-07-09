@@ -60,6 +60,12 @@ from signs.read import READ
 from signs.name_sign import NAME
 from signs.friend import FRIEND
 
+# World Cup event signs
+from signs.red import RED
+from signs.yellow import YELLOW
+from signs.win import WIN
+from signs.team import TEAM
+
 # Hospital vocabulary, in a teaching-ish order (used by the scenario's patient queue).
 HOSPITAL_SIGNS = (
     HELP, PAIN, MEDICINE, EMERGENCY,
@@ -71,6 +77,11 @@ CLASSROOM_SIGNS = (
     HELLO, PLEASE, THANK_YOU, TEACHER, WRITE, READ, NAME, FRIEND,
 )
 
+# World Cup event vocabulary (used by that scenario's lessons).
+WORLD_CUP_SIGNS = (
+    RED, YELLOW, WIN, TEAM,
+)
+
 # Coffee-shop vocabulary (used by that scenario's lessons).
 COFFEE_SIGNS = (
     COFFEE, PLEASE, THANK_YOU, HELLO, WANT, YES, MORE,
@@ -80,7 +91,7 @@ COFFEE_SIGNS = (
     LETTER_Y, LETTER_Z, YOU,
 )
 
-SIGNS = {s.name: s for s in (*COFFEE_SIGNS, *HOSPITAL_SIGNS, *CLASSROOM_SIGNS)}
+SIGNS = {s.name: s for s in (*COFFEE_SIGNS, *HOSPITAL_SIGNS, *CLASSROOM_SIGNS, *WORLD_CUP_SIGNS)}
 
 __all__ = [
     "COFFEE", "PLEASE", "THANK_YOU", "HELLO", "WANT", "YES", "MORE",
@@ -91,5 +102,6 @@ __all__ = [
     "HELP", "PAIN", "MEDICINE", "EMERGENCY",
     "DOCTOR", "NURSE", "SICK", "FEVER", "WATER", "BREATHE", "HOSPITAL", "DIZZY",
     "TEACHER", "WRITE", "READ", "NAME", "FRIEND",
-    "COFFEE_SIGNS", "HOSPITAL_SIGNS", "CLASSROOM_SIGNS", "SIGNS",
+    "RED", "YELLOW", "WIN", "TEAM",
+    "COFFEE_SIGNS", "HOSPITAL_SIGNS", "CLASSROOM_SIGNS", "WORLD_CUP_SIGNS", "SIGNS",
 ]

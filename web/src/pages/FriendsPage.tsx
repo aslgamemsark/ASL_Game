@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { ReportUserModal } from '@/components/shared/ReportUserModal';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: P
   const [relationships, setRelationships] = useState<RelEntry[]>([]);
   const [loadingRels, setLoadingRels] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ id: string; username: string } | null>(null);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -317,6 +319,14 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: P
                           + Add
                         </motion.button>
                       )}
+                      <button onClick={() => setReportTarget({ id: p.id, username: p.username })}
+                        aria-label={`Report ${p.username}`}
+                        className="w-7 h-7 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors shrink-0">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                          <line x1="4" y1="22" x2="4" y2="15" />
+                        </svg>
+                      </button>
                     </div>
                   );
                 })}
@@ -405,6 +415,14 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: P
                         ⚔️ Challenge
                       </motion.button>
                     )}
+                    <button onClick={() => setReportTarget({ id: entry.other.id, username: entry.other.username })}
+                      aria-label={`Report ${entry.other.username}`}
+                      className="w-7 h-7 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                        <line x1="4" y1="22" x2="4" y2="15" />
+                      </svg>
+                    </button>
                     <button onClick={() => handleRemove(entry)}
                       className="w-7 h-7 flex items-center justify-center text-z-gray-500 hover:text-red-400 transition-colors">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -443,6 +461,16 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: P
           </div>
         )}
       </div>
+
+      {user && reportTarget && (
+        <ReportUserModal
+          reporterId={user.id}
+          reportedId={reportTarget.id}
+          reportedUsername={reportTarget.username}
+          context="friends"
+          onClose={() => setReportTarget(null)}
+        />
+      )}
 
       {/* Toast */}
       <AnimatePresence>

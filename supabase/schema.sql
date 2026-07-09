@@ -279,3 +279,32 @@ grant select on public.most_failed_signs   to authenticated;
 grant select on public.sign_attempt_stats  to authenticated;
 grant select on public.ai_veto_stats       to authenticated;
 grant select on public.daily_accuracy      to authenticated;
+
+
+-- ── 11. USER REPORTS ─────────────────────────────────────────
+-- Flag an offensive/inappropriate username for review. Mirrors friendships' participant-scoped
+-- RLS pattern. No admin UI yet — review rows directly in the Supabase Table Editor.
+create table if not exists public.user_reports (
+  id           bigint generated always as identity primary key,
+  reporter_id  uuid references public.profiles on delete cascade not null,
+  reported_id  uuid references public.profiles on delete cascade not null,
+  reason       text not null check (reason in ('offensive', 'impersonation', 'spam', 'other')),
+  note         text,
+  context      text,
+  created_at   timestamptz default now(),
+  constraint user_reports_not_self check (reporter_id <> reported_id),
+  unique (reporter_id, reported_id)
+);
+
+alter table public.user_reports enable row level security;
+
+drop policy if exists "reports_insert_own" on public.user_reports;
+create policy "reports_insert_own" on public.user_reports
+  for insert with check (auth.uid() = reporter_id);
+
+drop policy if exists "reports_select_own" on public.user_reports;
+create policy "reports_select_own" on public.user_reports
+  for select using (auth.uid() = reporter_id);
+
+create index if not exists user_reports_reported_idx
+  on public.user_reports (reported_id, created_at desc);

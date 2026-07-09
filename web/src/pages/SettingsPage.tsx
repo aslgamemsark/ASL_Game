@@ -12,7 +12,7 @@ interface Props {
 export function SettingsPage({ onExit, onOpenAdmin }: Props) {
   const { theme, setTheme } = useTheme();
   const { user, username, signOut, isAdmin } = useAuth();
-  const { vibrationEnabled, toggleVibration } = useSettingsStore();
+  const { vibrationEnabled, toggleVibration, soundEnabled, toggleSound } = useSettingsStore();
   const { addGold, addSigns } = useUserStore();
 
   const giveTestCredits = () => {
@@ -55,6 +55,27 @@ export function SettingsPage({ onExit, onOpenAdmin }: Props) {
         {/* Accessibility */}
         <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }}>
           <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">Accessibility</h2>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">{soundEnabled ? '🔊' : '🔇'}</span>
+              <div>
+                <p className="font-semibold text-sm">Sound Effects</p>
+                <p className="text-xs text-z-gray-400">Audio cues for correct/wrong, level up, streaks</p>
+              </div>
+            </div>
+            <button
+              role="switch"
+              aria-checked={soundEnabled}
+              onClick={toggleSound}
+              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${soundEnabled ? 'bg-z-purple' : 'bg-z-gray-500'}`}
+            >
+              <motion.span
+                className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
+                animate={{ x: soundEnabled ? 24 : 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              />
+            </button>
+          </div>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="text-xl">{vibrationEnabled ? '📳' : '🔕'}</span>

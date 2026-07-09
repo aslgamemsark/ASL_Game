@@ -309,13 +309,18 @@ export function LessonPage({ lessonId, onExit }: Props) {
                 <p className="text-sm text-z-gray-300 mt-1">{currentSignData.description}</p>
               </div>
 
-              {currentSignData.clip && (
+              {currentSignData.clip ? (
                 <ReferenceClip
                   clipUrl={currentSignData.clip}
                   signName={currentSignData.name}
                   compact
                 />
-              )}
+              ) : currentSignData.howTo ? (
+                <div className="rounded-2xl border border-z-gray-500/20 bg-z-gray-800/40 p-3 text-center">
+                  <p className="text-duo-text-secondary text-xs font-bold uppercase tracking-widest mb-1">No video yet — how to sign it</p>
+                  <p className="text-duo-text text-sm leading-snug">{currentSignData.howTo}</p>
+                </div>
+              ) : null}
 
               {(camStatus === 'denied' || camStatus === 'error' || recognition.status === 'error') ? (
                 <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center">

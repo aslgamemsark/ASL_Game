@@ -67,4 +67,9 @@ export interface SignDef {
   description: string;
   hint: string;
   clip?: string;
+  /**
+   * Step-by-step text walkthrough shown when no demo clip exists yet. Only needs to be set for
+   * signs without a `clip` — keeps the placeholder useful instead of just an emoji + "coming soon".
+   */
+  howTo?: string;
 }
