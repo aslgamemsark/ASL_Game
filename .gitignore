@@ -28,13 +28,15 @@ recordings/
 
 # --- ML dataset: bulk landmark extraction output (regenerable, huge with ASL Citizen).
 #     The small hand-recorded fixtures in tests/fixtures/ stay tracked; this bulk does not.
-#     Exception: data/galt_archive/*.py — the Blender/encoding pipeline scripts are real,
-#     reusable source code (not regenerable data) and are meant to be tracked; the FBX/PNG/MP4/
-#     GIF files alongside them stay ignored (large, regenerable from the archive + these scripts). ---
+#     Exception: data/galt_archive/*.py and *.sh — the Blender/encoding/scan pipeline scripts are
+#     real, reusable source code (not regenerable data) and are meant to be tracked; the FBX/PNG/
+#     MP4/GIF/TSV files alongside them stay ignored (large, regenerable from the archive + these
+#     scripts). ---
 data/*
 !data/galt_archive/
 data/galt_archive/*
 !data/galt_archive/*.py
+!data/galt_archive/*.sh
 ml/runs/
 ml/inspect_out/
 ml/inspect_merged/
