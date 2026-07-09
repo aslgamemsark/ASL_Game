@@ -31,6 +31,15 @@ interface AuthContextValue {
   needsTrainingConsent: boolean;
   /** Call with the user's choice; also persists so the prompt never reappears on this device. */
   dismissTrainingConsent: (keepOn: boolean) => void;
+  /** Sends a password-reset email. Returns an error string, or null on success. Always returns
+   *  the same generic success regardless of whether the email exists (Supabase's own behavior)
+   *  so this can't be used to enumerate registered accounts. */
+  requestPasswordReset: (email: string) => Promise<string | null>;
+  /** True after the user follows the emailed reset link and lands back with a recovery session
+   *  (Supabase fires a PASSWORD_RECOVERY auth event) — App shows a "set new password" modal. */
+  passwordRecoveryMode: boolean;
+  /** Sets the new password for the account currently in recovery mode, then clears the flag. */
+  completePasswordReset: (newPassword: string) => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -46,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [needsTrainingConsent, setNeedsTrainingConsent] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [bannedReason, setBannedReason] = useState<string | null>(null);
+  const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false);
 
   useEffect(() => {
     if (!supabaseReady) { setLoading(false); return; }
@@ -58,6 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      // Fired once the user follows the emailed reset link and Supabase establishes a
+      // short-lived recovery session — App renders a "set new password" modal while this is
+      // true instead of dropping them straight into the app under a session they didn't
+      // actively choose to start.
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecoveryMode(true);
       if (s) fetchUsername(s.user.id, s.user);
       else {
         setUsername(null);
@@ -111,7 +126,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!fetched) {
       const u = userObj ?? session?.user;
       if (u) {
-        const emailPrefix = (u.email ?? 'user').split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') || 'user';
+        // Capped at 16 chars before appending the 4-digit suffix so the result always fits the
+        // profiles.username CHECK constraint (3-20 chars) regardless of email length — an
+        // uncapped prefix from a long email local-part could otherwise produce a >20-char
+        // username the database would now reject.
+        const emailPrefix = ((u.email ?? 'user').split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') || 'user').slice(0, 16);
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const generated = `${emailPrefix}${suffix}`;
         await supabase.from('profiles').upsert({ id: userId, username: generated } as Record<string, unknown>);
@@ -191,6 +210,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   }
 
+  async function requestPasswordReset(email: string): Promise<string | null> {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    // Supabase already returns success here even for an email that isn't registered (so this
+    // can't be used to enumerate accounts) — surface a real error only for things like malformed
+    // input or rate-limiting, never "no such user".
+    return error?.message ?? null;
+  }
+
+  async function completePasswordReset(newPassword: string): Promise<string | null> {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return error.message;
+    setPasswordRecoveryMode(false);
+    return null;
+  }
+
   return (
     <AuthContext.Provider value={{
       user: session?.user ?? null,
@@ -208,6 +244,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dismissUsernameSetup,
       needsTrainingConsent,
       dismissTrainingConsent,
+      requestPasswordReset,
+      passwordRecoveryMode,
+      completePasswordReset,
     }}>
       {children}
     </AuthContext.Provider>

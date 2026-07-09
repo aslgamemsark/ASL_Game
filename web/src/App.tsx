@@ -25,6 +25,7 @@ import { supabase, supabaseReady } from '@/lib/supabase';
 import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
+import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal';
 
 type Screen =
   | { type: 'home' }
@@ -54,7 +55,7 @@ export default function App() {
     void getSharedCapture();
   }, []);
   const { onboardingComplete } = useUserStore();
-  const { user, username, needsUsernameSetup, needsTrainingConsent, loading: authLoading, bannedReason, isAdmin } = useAuth();
+  const { user, username, needsUsernameSetup, needsTrainingConsent, passwordRecoveryMode, loading: authLoading, bannedReason, isAdmin } = useAuth();
   const [screen, setScreen] = useState<Screen>(
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );
@@ -137,6 +138,14 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  // The user followed an emailed password-reset link — force the "set new password" screen
+  // exclusively (not layered as one modal among others) until they either complete it or
+  // explicitly cancel/sign out, since a bare recovery session left dangling under the normal app
+  // would be a confusing half-authenticated state.
+  if (passwordRecoveryMode) {
+    return <ResetPasswordModal />;
   }
 
   // Dev-only debug environment (spec Rule 18: "debug inside AvatarLab, not inside the game").

@@ -8,11 +8,11 @@ interface Props {
   onClose: () => void;
 }
 
-type Tab = 'signin' | 'signup';
+type Tab = 'signin' | 'signup' | 'reset';
 type UsernameStatus = 'idle' | 'checking' | 'ok' | 'error';
 
 export function AuthModal({ onClose }: Props) {
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, requestPasswordReset } = useAuth();
   const [tab, setTab] = useState<Tab>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,6 +22,7 @@ export function AuthModal({ onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounced username availability check
@@ -69,6 +70,14 @@ export function AuthModal({ onClose }: Props) {
     setError(null);
     setLoading(true);
 
+    if (tab === 'reset') {
+      const err = await requestPasswordReset(email);
+      setLoading(false);
+      if (err) { setError(err); return; }
+      setResetSent(true);
+      return;
+    }
+
     const err = tab === 'signin'
       ? await signInWithEmail(email, password)
       : await signUpWithEmail(email, password, username);
@@ -97,6 +106,62 @@ export function AuthModal({ onClose }: Props) {
             Back to sign in
           </button>
         </div>
+      </Overlay>
+    );
+  }
+
+  if (resetSent) {
+    return (
+      <Overlay onClose={onClose}>
+        <div className="text-center p-6">
+          <p className="text-4xl mb-3">📬</p>
+          <p className="font-bold text-lg mb-2">Check your email!</p>
+          <p className="text-z-gray-300 text-sm">
+            If <strong>{email}</strong> has an account, we've sent a link to reset the password.
+          </p>
+          <button
+            className="mt-5 w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm"
+            onClick={() => { setResetSent(false); setTab('signin'); }}
+          >
+            Back to sign in
+          </button>
+        </div>
+      </Overlay>
+    );
+  }
+
+  if (tab === 'reset') {
+    return (
+      <Overlay onClose={onClose}>
+        <p className="font-bold text-base mb-1">Reset your password</p>
+        <p className="text-z-gray-400 text-xs mb-4">We'll email you a link to set a new one.</p>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+            autoFocus
+          />
+          {error && <p className="text-red-400 text-xs px-1">{error}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm disabled:opacity-50 transition-opacity"
+          >
+            {loading ? '…' : 'Send reset link'}
+          </button>
+          <button
+            type="button"
+            className="w-full py-1 text-xs text-z-gray-400 hover:text-white transition-colors"
+            onClick={() => { setTab('signin'); setError(null); }}
+          >
+            Back to sign in
+          </button>
+        </form>
       </Overlay>
     );
   }
@@ -176,6 +241,16 @@ export function AuthModal({ onClose }: Props) {
           required
           autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
         />
+
+        {tab === 'signin' && (
+          <button
+            type="button"
+            className="text-xs text-z-gray-400 hover:text-white transition-colors px-1"
+            onClick={() => { setTab('reset'); setError(null); }}
+          >
+            Forgot password?
+          </button>
+        )}
 
         {error && (
           <p className="text-red-400 text-xs px-1">{error}</p>
