@@ -146,7 +146,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signInWithGoogle() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: {
+        redirectTo: window.location.origin,
+        // Without this, Google silently reuses whatever account is already active in the
+        // browser and never shows the account chooser — a real problem on a shared/family
+        // device where switching accounts (e.g. going from a parent's to a kid's) needs to
+        // actually be possible. select_account forces the picker every time.
+        queryParams: { prompt: 'select_account' },
+      },
     });
   }
 
