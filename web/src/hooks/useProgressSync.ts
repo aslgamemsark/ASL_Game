@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { useUserStore } from '@/stores/useUserStore';
@@ -37,17 +37,38 @@ export function useProgressSync() {
   const mergeProgress = useUserStore((s) => s.mergeProgress);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncedUserRef = useRef<string | null>(null);
+  // Surfaced to the UI (see App.tsx) so a failed sync isn't silently invisible to the user —
+  // previously every Supabase call here ignored `error` entirely, so a dropped upsert looked
+  // identical to a successful one (progress just quietly never showed up on another device).
+  const [syncError, setSyncError] = useState(false);
 
-  // On login: fetch remote progress and merge.
+  // On login: fetch remote progress and merge. Retries once on failure before giving up — a
+  // transient failure here must not be treated as "no remote progress exists", since the
+  // debounced upsert effect would then push default/stale local state over real remote progress.
   useEffect(() => {
     if (!supabaseReady || !user || syncedUserRef.current === user.id) return;
-    syncedUserRef.current = user.id;
+    const userId = user.id;
 
-    (async () => {
-      const [{ data }, { data: profileRow }] = await Promise.all([
-        supabase.from('user_progress').select('*').eq('user_id', user.id).single(),
-        supabase.from('profiles').select('collect_training_data').eq('id', user.id).single(),
+    const load = async (isRetry: boolean): Promise<void> => {
+      const [{ data, error: progressError }, { data: profileRow, error: profileError }] = await Promise.all([
+        supabase.from('user_progress').select('*').eq('user_id', userId).single(),
+        supabase.from('profiles').select('collect_training_data').eq('id', userId).single(),
       ]);
+
+      if (progressError) {
+        console.error('Failed to load remote progress:', progressError);
+        if (!isRetry) {
+          setTimeout(() => void load(true), 2000);
+          return;
+        }
+        setSyncError(true);
+        syncedUserRef.current = userId;
+        return;
+      }
+      if (profileError) console.error('Failed to load profile settings:', profileError);
+
+      syncedUserRef.current = userId;
+      setSyncError(false);
 
       if (data) {
         const row = data as unknown as ProgressRow;
@@ -77,49 +98,71 @@ export function useProgressSync() {
       if (profileRow && typeof (profileRow as { collect_training_data?: boolean }).collect_training_data === 'boolean') {
         mergeProgress({ collectTrainingData: (profileRow as { collect_training_data: boolean }).collect_training_data });
       }
-    })();
+    };
+
+    void load(false);
   }, [user, mergeProgress]);
 
   // Reset sync marker on sign-out so next login re-fetches.
   useEffect(() => {
-    if (!user) syncedUserRef.current = null;
+    if (!user) {
+      syncedUserRef.current = null;
+      setSyncError(false);
+    }
   }, [user]);
 
-  // Debounced upsert on every store change.
+  // Debounced upsert on every store change. Retries once on failure, then surfaces `syncError`
+  // so a dropped write isn't silently invisible — previously this never checked `{ error }` at
+  // all, so a failed sync looked identical to a successful one from the user's point of view.
   useEffect(() => {
     if (!supabaseReady || !user) return;
+    const userId = user.id;
+
+    const buildPayload = () => ({
+      user_id: userId,
+      xp: store.xp,
+      level: store.level,
+      streak: store.streak,
+      longest_streak: Math.max(store.streak, 0),
+      last_practice_date: store.lastPracticeDate,
+      completed_lessons: store.completedLessons,
+      sign_accuracy: store.signAccuracy as unknown as Record<string, unknown>,
+      gold: store.gold,
+      owned_cosmetics: store.ownedCosmetics,
+      equipped_border: store.equippedBorder,
+      equipped_avatar: store.equippedAvatar,
+      active_badge: store.activeBadge,
+      unlocked_world_ids: store.unlockedWorldIds,
+      signs: store.signs,
+      rename_cards: store.renameCards,
+      badges: store.badges,
+      pending_chests: store.pendingChests as unknown as Record<string, unknown>[],
+      total_correct_signs: store.totalCorrectSigns,
+      streak_freezes: store.streakFreezes,
+      streak_milestones_awarded: store.streakMilestonesAwarded,
+      speed_high_scores: store.speedHighScores as unknown as Record<string, unknown>,
+      updated_at: new Date().toISOString(),
+    } as Record<string, unknown>);
+
+    const push = async (isRetry: boolean): Promise<void> => {
+      const { error } = await supabase
+        .from('user_progress')
+        .upsert(buildPayload(), { onConflict: 'user_id' });
+
+      if (error) {
+        console.error('Failed to sync progress:', error);
+        if (!isRetry) {
+          setTimeout(() => void push(true), 2000);
+          return;
+        }
+        setSyncError(true);
+        return;
+      }
+      setSyncError(false);
+    };
 
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      await supabase.from('user_progress').upsert(
-        {
-          user_id: user.id,
-          xp: store.xp,
-          level: store.level,
-          streak: store.streak,
-          longest_streak: Math.max(store.streak, 0),
-          last_practice_date: store.lastPracticeDate,
-          completed_lessons: store.completedLessons,
-          sign_accuracy: store.signAccuracy as unknown as Record<string, unknown>,
-          gold: store.gold,
-          owned_cosmetics: store.ownedCosmetics,
-          equipped_border: store.equippedBorder,
-          equipped_avatar: store.equippedAvatar,
-          active_badge: store.activeBadge,
-          unlocked_world_ids: store.unlockedWorldIds,
-          signs: store.signs,
-          rename_cards: store.renameCards,
-          badges: store.badges,
-          pending_chests: store.pendingChests as unknown as Record<string, unknown>[],
-          total_correct_signs: store.totalCorrectSigns,
-          streak_freezes: store.streakFreezes,
-          streak_milestones_awarded: store.streakMilestonesAwarded,
-          speed_high_scores: store.speedHighScores as unknown as Record<string, unknown>,
-          updated_at: new Date().toISOString(),
-        } as Record<string, unknown>,
-        { onConflict: 'user_id' }
-      );
-    }, DEBOUNCE_MS);
+    timerRef.current = setTimeout(() => void push(false), DEBOUNCE_MS);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -141,12 +184,17 @@ export function useProgressSync() {
       void supabase
         .from('profiles')
         .update({ collect_training_data: store.collectTrainingData })
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .then(({ error }) => {
+          if (error) console.error('Failed to sync training-data preference:', error);
+        });
     }, DEBOUNCE_MS);
     return () => {
       if (collectTimerRef.current) clearTimeout(collectTimerRef.current);
     };
   }, [user, store.collectTrainingData]);
+
+  return { syncError };
 }
 
 // Call this when a sign is attempted to log it for leaderboard tracking (no rule/AI/landmark

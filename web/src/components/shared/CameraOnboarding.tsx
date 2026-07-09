@@ -21,13 +21,13 @@ export function CameraOnboarding({ onContinue }: Props) {
         <h2 className="text-xl font-bold mb-2">Camera Access Needed</h2>
         <p className="text-sm text-z-gray-300 mb-4 leading-relaxed">
           SignUp uses your camera to watch your hand signs and give you real-time feedback.
-          Your video stays on your device — nothing is sent to any server.
+          Your video never leaves your device — recognition runs locally in your browser.
         </p>
 
         <div className="space-y-3 text-left mb-6">
           <div className="flex items-start gap-3">
             <span className="text-z-green text-lg">✓</span>
-            <p className="text-sm text-z-gray-200">100% private — processed locally in your browser</p>
+            <p className="text-sm text-z-gray-200">Your video is never uploaded or recorded — recognition runs locally in your browser</p>
           </div>
           <div className="flex items-start gap-3">
             <span className="text-z-green text-lg">✓</span>
@@ -35,7 +35,11 @@ export function CameraOnboarding({ onContinue }: Props) {
           </div>
           <div className="flex items-start gap-3">
             <span className="text-z-green text-lg">✓</span>
-            <p className="text-sm text-z-gray-200">Recognition runs on your device, not a server</p>
+            <p className="text-sm text-z-gray-200">
+              With your permission (on by default, toggle anytime in Profile → Insights), we save
+              numeric hand-landmark coordinates — never video or images — from your attempts to help
+              train future recognition models
+            </p>
           </div>
         </div>
 
@@ -50,7 +54,8 @@ export function CameraOnboarding({ onContinue }: Props) {
         </motion.button>
 
         <p className="text-[11px] text-z-gray-500 mt-3">
-          You can revoke camera access anytime in your browser settings
+          You can revoke camera access anytime in your browser settings. Full details in
+          Settings → Privacy &amp; Terms.
         </p>
       </motion.div>
     </motion.div>

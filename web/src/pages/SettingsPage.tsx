@@ -7,9 +7,10 @@ import { useUserStore } from '@/stores/useUserStore';
 interface Props {
   onExit: () => void;
   onOpenAdmin?: () => void;
+  onOpenPrivacy?: () => void;
 }
 
-export function SettingsPage({ onExit, onOpenAdmin }: Props) {
+export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
   const { theme, setTheme } = useTheme();
   const { user, username, signOut, isAdmin } = useAuth();
   const { vibrationEnabled, toggleVibration, soundEnabled, toggleSound } = useSettingsStore();
@@ -112,6 +113,27 @@ export function SettingsPage({ onExit, onOpenAdmin }: Props) {
           ) : (
             <p className="text-sm text-z-gray-400">You're not signed in.</p>
           )}
+        </motion.div>
+
+        {/* Support */}
+        <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">Support</h2>
+          <div className="space-y-2">
+            <a
+              href="mailto:msaad9632@gmail.com?subject=SignUp%20bug%20report&body=What%20happened%3A%0A%0ASteps%20to%20reproduce%3A%0A"
+              className="block w-full py-2.5 rounded-xl bg-z-purple/15 text-z-purple-light font-bold text-sm text-center"
+            >
+              🐛 Report a bug
+            </a>
+            {onOpenPrivacy && (
+              <button
+                onClick={onOpenPrivacy}
+                className="w-full py-2.5 rounded-xl bg-white/5 text-z-gray-300 font-bold text-sm"
+              >
+                Privacy &amp; Terms
+              </button>
+            )}
+          </div>
         </motion.div>
 
         {/* Admin/dev tools — only visible to profiles.is_admin (see AuthContext.isAdmin) */}

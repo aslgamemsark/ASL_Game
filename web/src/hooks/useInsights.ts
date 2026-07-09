@@ -38,20 +38,33 @@ export function useInsights() {
   const [vetoStats, setVetoStats] = useState<VetoStats | null>(null);
   const [dailyAccuracy, setDailyAccuracy] = useState<DailyAccuracy[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!supabaseReady || !user) return;
     setLoading(true);
+    setError(false);
     Promise.all([
       supabase.from('most_failed_signs').select('*').order('fail_count', { ascending: false }).limit(5),
       supabase.from('sign_attempt_stats').select('*'),
       supabase.from('ai_veto_stats').select('*').maybeSingle(),
       supabase.from('daily_accuracy').select('*').order('day', { ascending: true }).limit(14),
     ]).then(([sf, ss, vs, da]) => {
+      const firstError = sf.error ?? ss.error ?? vs.error ?? da.error;
+      if (firstError) {
+        console.error('Failed to load insights:', firstError);
+        setError(true);
+        setLoading(false);
+        return;
+      }
       setStruggleSigns(((sf.data as unknown as StruggleSign[]) ?? []).filter((s) => s.fail_count > 0));
       setSignStats((ss.data as unknown as SignAttemptStat[]) ?? []);
       setVetoStats((vs.data as unknown as VetoStats) ?? null);
       setDailyAccuracy((da.data as unknown as DailyAccuracy[]) ?? []);
+      setLoading(false);
+    }).catch((err) => {
+      console.error('Failed to load insights:', err);
+      setError(true);
       setLoading(false);
     });
   }, [user]);
@@ -61,5 +74,5 @@ export function useInsights() {
       ? signStats.reduce((sum, s) => sum + (s.avg_attempts_per_pass ?? s.attempts), 0) / signStats.length
       : null;
 
-  return { struggleSigns, signStats, vetoStats, dailyAccuracy, overallAvgAttempts, loading };
+  return { struggleSigns, signStats, vetoStats, dailyAccuracy, overallAvgAttempts, loading, error };
 }

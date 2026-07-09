@@ -13,6 +13,7 @@ import { ShopPage } from '@/pages/ShopPage';
 import { FriendsPage } from '@/pages/FriendsPage';
 import { MultiplayerPage } from '@/pages/MultiplayerPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { PrivacyPage } from '@/pages/PrivacyPage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
 import { AdminPanel } from '@/pages/AdminPanel';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
@@ -36,13 +37,14 @@ type Screen =
   | { type: 'multiplayer'; autoHostRoomId?: string; autoJoinCode?: string }
   | { type: 'settings' }
   | { type: 'leaderboard' }
-  | { type: 'admin' };
+  | { type: 'admin' }
+  | { type: 'privacy' };
 
 // Focused-task screens suppress the side nav (matches hiding chrome during a lesson).
 const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboard', 'settings'];
 
 export default function App() {
-  useProgressSync();
+  const { syncError } = useProgressSync();
   // Warm the MediaPipe + AI-classifier caches as soon as the app opens (onboarding/home screen)
   // instead of waiting for the first lesson mount — both are module-level singletons (see
   // getSharedCapture, useClassifier's loadOnce), so this download only ever happens once and
@@ -232,7 +234,12 @@ export default function App() {
               key="settings"
               onExit={goHome}
               onOpenAdmin={isAdmin ? () => setScreen({ type: 'admin' }) : undefined}
+              onOpenPrivacy={() => setScreen({ type: 'privacy' })}
             />
+          )}
+
+          {screen.type === 'privacy' && (
+            <PrivacyPage key="privacy" onExit={() => setScreen({ type: 'settings' })} />
           )}
 
           {screen.type === 'leaderboard' && (
@@ -251,6 +258,22 @@ export default function App() {
 
       {/* Username setup modal for Google/OAuth users */}
       {needsUsernameSetup && <SetUsernameModal onClose={() => {}} />}
+
+      {/* Sync failure indicator — non-blocking, visible anywhere in the app. Previously a failed
+          write to Supabase was completely silent, so progress could appear to vanish with zero
+          explanation. */}
+      <AnimatePresence>
+        {syncError && (
+          <motion.div
+            className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-z-red/15 border border-z-red/40 text-z-red text-xs font-semibold px-4 py-2 rounded-full shadow-lg"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            ⚠️ Couldn't sync your progress — check your connection
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Incoming challenge notification — visible anywhere in the app */}
       <AnimatePresence>

@@ -59,7 +59,7 @@ export function ProfileTab() {
   const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, collectTrainingData, setCollectTrainingData, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar, equipBorder } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user, username, signOut } = useAuth();
-  const { struggleSigns, vetoStats, dailyAccuracy, overallAvgAttempts, loading: insightsLoading } = useInsights();
+  const { struggleSigns, vetoStats, dailyAccuracy, overallAvgAttempts, loading: insightsLoading, error: insightsError } = useInsights();
   const [showAuth, setShowAuth] = useState(false);
   const [showSetUsername, setShowSetUsername] = useState(false);
   const [levelBurst, setLevelBurst] = useState(0);
@@ -370,6 +370,8 @@ export function ProfileTab() {
             </div>
           ) : insightsLoading ? (
             <p className="text-z-gray-400 text-sm text-center py-6">Loading insights…</p>
+          ) : insightsError ? (
+            <p className="text-z-red text-sm text-center py-6">Couldn't load insights. Check your connection and try again.</p>
           ) : (
             <>
               {/* Quick stats row */}
