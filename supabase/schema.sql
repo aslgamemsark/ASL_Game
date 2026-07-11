@@ -1,6 +1,12 @@
 -- ============================================================
 -- ASL Game — Supabase Schema
--- Run this once in the Supabase SQL editor (Dashboard → SQL Editor)
+-- Baseline for a from-scratch database (Dashboard → SQL Editor). Several
+-- columns referenced below (gold, cosmetics, unlocked_world_ids, etc. on
+-- user_progress) are added by supabase/migrations/*.sql, not this file —
+-- after running this once, apply every file in migrations/ in filename
+-- order to reach the current production schema. This file itself is best-
+-- effort kept in sync for the RLS/policy shape and view definitions, but
+-- migrations/ is the source of truth if the two ever disagree.
 -- ============================================================
 
 -- ── 1. PROFILES ─────────────────────────────────────────────
@@ -8,6 +14,7 @@
 create table if not exists public.profiles (
   id          uuid references auth.users on delete cascade primary key,
   username    text unique not null,
+  region      text,
   created_at  timestamptz default now()
 );
 
@@ -34,8 +41,19 @@ create table if not exists public.user_progress (
 
 alter table public.user_progress enable row level security;
 
-create policy "progress_all_own" on public.user_progress
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- Public-readable (xp/streak/cosmetics power the leaderboard + friends board),
+-- writes restricted to the row's own owner.
+create policy "progress_select_public" on public.user_progress
+  for select using (true);
+
+create policy "progress_insert_own" on public.user_progress
+  for insert with check (auth.uid() = user_id);
+
+create policy "progress_update_own" on public.user_progress
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "progress_delete_own" on public.user_progress
+  for delete using (auth.uid() = user_id);
 
 
 -- ── 3. SIGN ATTEMPTS ────────────────────────────────────────
@@ -50,8 +68,24 @@ create table if not exists public.sign_attempts (
 
 alter table public.sign_attempts enable row level security;
 
-create policy "attempts_own" on public.sign_attempts
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- Public-readable (powers "signs this week" on the leaderboard for every
+-- player, not just yourself), writes restricted to the row's own owner.
+-- NOTE: production additionally gates inserts/updates/deletes on
+-- `not current_user_banned()` — see migrations/20260709010000_security_hardening.sql
+-- and later. Schema.sql predates that helper and migrations remain the
+-- source of truth for anything past the admin-panel era; apply them in
+-- order after this file for a byte-for-byte match with prod.
+create policy "attempts_select_public" on public.sign_attempts
+  for select using (true);
+
+create policy "attempts_insert_own" on public.sign_attempts
+  for insert with check (auth.uid() = user_id);
+
+create policy "attempts_update_own" on public.sign_attempts
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "attempts_delete_own" on public.sign_attempts
+  for delete using (auth.uid() = user_id);
 
 -- Index for the leaderboard query (week filter + user)
 create index if not exists sign_attempts_week_idx
@@ -114,6 +148,7 @@ as
 select
   p.id,
   p.username,
+  p.region                     as region,
   coalesce(
     count(sa.id) filter (
       where sa.passed
@@ -121,11 +156,14 @@ select
     ), 0
   )::int                        as signs_this_week,
   coalesce(up.xp, 0)           as total_xp,
-  coalesce(up.streak, 0)       as streak
+  coalesce(up.streak, 0)       as streak,
+  up.equipped_avatar           as equipped_avatar,
+  up.equipped_border           as equipped_border,
+  up.active_badge              as active_badge
 from public.profiles p
 left join public.user_progress up on up.user_id = p.id
 left join public.sign_attempts sa on sa.user_id = p.id
-group by p.id, p.username, up.xp, up.streak
+group by p.id, p.username, p.region, up.xp, up.streak, up.equipped_avatar, up.equipped_border, up.active_badge
 order by signs_this_week desc, total_xp desc;
 
 -- Grant anon + authenticated read on the view

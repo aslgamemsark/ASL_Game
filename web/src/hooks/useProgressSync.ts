@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
+import { detectCountryCode } from '@/lib/geolocation';
 import { useUserStore } from '@/stores/useUserStore';
 import type { SignStats, SpeedHighScore, Chest } from '@/types/user';
 import type { VerificationEntry } from '@/hooks/useRecognition';
@@ -52,7 +53,7 @@ export function useProgressSync() {
     const load = async (isRetry: boolean): Promise<void> => {
       const [{ data, error: progressError }, { data: profileRow, error: profileError }] = await Promise.all([
         supabase.from('user_progress').select('*').eq('user_id', userId).single(),
-        supabase.from('profiles').select('collect_training_data').eq('id', userId).single(),
+        supabase.from('profiles').select('collect_training_data, region').eq('id', userId).single(),
       ]);
 
       if (progressError) {
@@ -97,6 +98,15 @@ export function useProgressSync() {
       }
       if (profileRow && typeof (profileRow as { collect_training_data?: boolean }).collect_training_data === 'boolean') {
         mergeProgress({ collectTrainingData: (profileRow as { collect_training_data: boolean }).collect_training_data });
+      }
+
+      // One-time best-effort region detection for the region leaderboard — fire-and-forget,
+      // never blocks the sync path, and only runs when the profile doesn't have one yet.
+      if (profileRow && !(profileRow as { region?: string | null }).region) {
+        void detectCountryCode().then((code) => {
+          if (!code) return;
+          void supabase.from('profiles').update({ region: code }).eq('id', userId);
+        });
       }
     };
 

@@ -8,6 +8,7 @@ import { SHOP_ITEMS, getShopItem } from '@/data/shop';
 import { getBadge } from '@/data/badges';
 import { ReportUserModal } from '@/components/shared/ReportUserModal';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
+import { countryName } from '@/lib/geolocation';
 
 interface Props {
   onExit: () => void;
@@ -157,8 +158,11 @@ export function LeaderboardPage({ onExit }: Props) {
   const [tab, setTab] = useState<BoardTab>('world');
   const [worldRows, setWorldRows] = useState<BoardRow[]>([]);
   const [friendRows, setFriendRows] = useState<BoardRow[]>([]);
+  const [regionRows, setRegionRows] = useState<BoardRow[]>([]);
   const [worldLoading, setWorldLoading] = useState(false);
   const [friendLoading, setFriendLoading] = useState(false);
+  const [regionLoading, setRegionLoading] = useState(false);
+  const [myRegion, setMyRegion] = useState<string | null | undefined>(undefined); // undefined = not checked yet
   const [relations, setRelations] = useState<Map<string, 'accepted' | 'pendingSent' | 'pendingReceived'>>(new Map());
   const [toast, setToast] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<{ id: string; username: string } | null>(null);
@@ -322,6 +326,61 @@ export function LeaderboardPage({ onExit }: Props) {
     })();
   }, [tab, user, xp, streak]);
 
+  // Load region leaderboard: same view as world, filtered to players who share the
+  // current user's detected region (see useProgressSync's one-time geolocation lookup).
+  useEffect(() => {
+    if (!user || !supabaseReady || tab !== 'region') return;
+    setRegionLoading(true);
+    (async () => {
+      const { data: myProfile } = await supabase
+        .from('profiles')
+        .select('region')
+        .eq('id', user.id)
+        .single();
+      const region = (myProfile as { region?: string | null } | null)?.region ?? null;
+      setMyRegion(region);
+
+      if (!region) {
+        setRegionRows([]);
+        setRegionLoading(false);
+        return;
+      }
+
+      let data: unknown[] | null;
+      const first = await supabase
+        .from('weekly_leaderboard')
+        .select('id, username, total_xp, streak, equipped_avatar, equipped_border, active_badge')
+        .eq('region', region)
+        .order('total_xp', { ascending: false })
+        .limit(50);
+      if (first.error) {
+        const fallback = await supabase
+          .from('weekly_leaderboard')
+          .select('id, username, total_xp, streak')
+          .eq('region', region)
+          .order('total_xp', { ascending: false })
+          .limit(50);
+        data = fallback.data;
+      } else {
+        data = first.data;
+      }
+
+      const rows = (data as unknown as BoardRow[]) ?? [];
+      const { equippedAvatar, equippedBorder, activeBadge } = useUserStore.getState();
+      const idx = rows.findIndex((r) => r.id === user.id);
+      if (idx !== -1) {
+        rows[idx] = {
+          ...rows[idx],
+          equipped_avatar: rows[idx].equipped_avatar ?? equippedAvatar,
+          equipped_border: rows[idx].equipped_border ?? equippedBorder,
+          active_badge: rows[idx].active_badge ?? activeBadge,
+        };
+      }
+      setRegionRows(rows);
+      setRegionLoading(false);
+    })();
+  }, [tab, user]);
+
   const TABS: { id: BoardTab; label: string; icon: string }[] = [
     { id: 'world', label: 'World', icon: '🌍' },
     { id: 'region', label: 'Region', icon: '📍' },
@@ -366,14 +425,40 @@ export function LeaderboardPage({ onExit }: Props) {
           />
         )}
 
-        {tab === 'region' && (
+        {tab === 'region' && !user && (
           <div className="text-center py-20">
             <p className="text-5xl mb-4">📍</p>
-            <p className="text-z-gray-200 font-bold text-base">Region boards coming soon</p>
+            <p className="text-z-gray-200 font-bold text-base">Sign in to see your region</p>
+            <p className="text-z-gray-500 text-sm mt-2">Compare your progress with signers near you.</p>
+          </div>
+        )}
+
+        {tab === 'region' && user && !regionLoading && myRegion === null && (
+          <div className="text-center py-20">
+            <p className="text-5xl mb-4">📍</p>
+            <p className="text-z-gray-200 font-bold text-base">Still detecting your region</p>
             <p className="text-z-gray-500 text-sm mt-2 max-w-xs mx-auto leading-relaxed">
-              We're building regional rankings so you can compete with signers near you.
+              This happens automatically shortly after you sign in — check back in a minute.
             </p>
           </div>
+        )}
+
+        {tab === 'region' && user && (regionLoading || myRegion !== null) && (
+          <>
+            {myRegion && (
+              <p className="text-z-gray-400 text-xs font-bold uppercase tracking-widest mb-3 text-center">
+                {countryName(myRegion)}
+              </p>
+            )}
+            <BoardList
+              rows={regionRows}
+              userId={user.id}
+              loading={regionLoading}
+              relations={relations}
+              onAddFriend={sendFriendRequest}
+              onReport={(id, username) => setReportTarget({ id, username })}
+            />
+          </>
         )}
 
         {tab === 'friends' && !user && (
