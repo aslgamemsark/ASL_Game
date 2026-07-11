@@ -89,8 +89,7 @@ export function OnboardingFlow({ onComplete }: Props) {
 
             <motion.button
               onClick={() => setStep(supabaseReady ? 'auth' : 'skill')}
-              className="w-full py-4 rounded-2xl font-bold text-lg text-white"
-              style={{ background: 'linear-gradient(135deg, #7B2FBE, #A855F7)' }}
+              className="w-full py-4 rounded-2xl font-bold text-lg text-white bg-gradient-primary"
               whileHover={{ scale: 1.02, boxShadow: '0 12px 40px rgba(168,85,247,0.45)' }}
               whileTap={{ scale: 0.97 }}
             >
@@ -140,7 +139,7 @@ export function OnboardingFlow({ onComplete }: Props) {
 
               <button
                 onClick={() => setStep('skill')}
-                className="text-z-gray-400 text-sm mt-2 underline"
+                className="text-z-gray-400 text-sm mt-2 py-3 underline"
               >
                 Continue as guest
               </button>

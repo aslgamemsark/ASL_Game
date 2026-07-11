@@ -85,8 +85,7 @@ export function DailyQuestsCard() {
                     <motion.button
                       key="claim"
                       onClick={() => claimQuest(quest.id)}
-                      className="text-xs font-bold px-3 py-1 rounded-full text-white flex-shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)' }}
+                      className="text-xs font-bold px-3 py-1 rounded-full text-white flex-shrink-0 bg-gradient-primary"
                       initial={{ scale: 0.7, opacity: 0 }}
                       animate={{
                         scale: [1, 1.05, 1],

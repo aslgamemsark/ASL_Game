@@ -95,7 +95,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     try {
       const cap = await getSharedCapture();
       captureRef.current = cap;
-      console.log('[SignUp] MediaPipe initialized');
+      if (import.meta.env.DEV) console.log('[SignUp] MediaPipe initialized');
       setStatus('ready');
     } catch (e) {
       console.error('[SignUp] MediaPipe init failed:', e);
@@ -123,7 +123,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
       runningRef.current = true;
       setStatus('running');
-      console.log('[SignUp] Loop started for', sign.name);
+      if (import.meta.env.DEV) console.log('[SignUp] Loop started for', sign.name);
 
       // Require buffer to fill (~1.5s) before allowing a pass.
       // This prevents instant passes on static signs and gives
@@ -164,7 +164,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           setResult(vr);
 
           // Log first few frames for debugging
-          if (frameCountRef.current <= 3) {
+          if (import.meta.env.DEV && frameCountRef.current <= 3) {
             const hands = frame.hands.length;
             const sw = frame.leftShoulder && frame.rightShoulder ? 'yes' : 'no';
             console.log(`[SignUp] Frame ${frameCountRef.current}: hands=${hands} shoulders=${sw} w=${frame.width}`);
@@ -220,7 +220,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                     .finally(() => { gatingRef.current = false; });
                 }
               } else {
-                console.log('[SignUp] PASS:', sign.name, vr.params.map(p => `${p.name}=${p.score.toFixed(2)}`).join(' '));
+                if (import.meta.env.DEV) console.log('[SignUp] PASS:', sign.name, vr.params.map(p => `${p.name}=${p.score.toFixed(2)}`).join(' '));
                 verifiedCallbackRef.current?.({
                   signName: sign.name,
                   params: vr.params,

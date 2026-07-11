@@ -4,6 +4,7 @@ import { useCamera } from '@/hooks/useCamera';
 import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
+import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAttempt } from '@/hooks/useProgressSync';
@@ -250,14 +251,7 @@ export function SpeedChallengePage({ onExit }: Props) {
 
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
-        <button
-          onClick={() => { stopCam(); recognition.stopLoop(); onExit(); }}
-          className="w-8 h-8 flex items-center justify-center text-z-gray-400 hover:text-white"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </button>
+        <HeaderBackButton onClick={() => { stopCam(); recognition.stopLoop(); onExit(); }} />
         <h1 className="font-bold text-lg">⚡ Speed Challenge</h1>
         {phase === 'playing' && (
           <div className="ml-auto flex items-center gap-3">
@@ -366,7 +360,7 @@ export function SpeedChallengePage({ onExit }: Props) {
               <div>
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-z-gray-400">{queueIdx + 1} / {queue.length}</span>
-                  <span className={timeLeft <= 1.5 ? 'text-red-400 font-bold' : 'text-z-gray-400'}>
+                  <span className={timeLeft <= 1.5 ? 'text-z-red font-bold' : 'text-z-gray-400'}>
                     {timeLeft.toFixed(1)}s
                   </span>
                 </div>

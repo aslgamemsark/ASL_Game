@@ -121,8 +121,10 @@ export class Capture {
     const faceRes = this.face ? this.face.detectForVideo(video, timestampMs) : null;
 
     if (!this._logged) {
-      console.log('[SignUp] MediaPipe first result — hands:', handRes.landmarks?.length ?? 0,
-        'pose:', poseRes.landmarks?.length ?? 0, 'video:', w, 'x', h);
+      if (import.meta.env.DEV) {
+        console.log('[SignUp] MediaPipe first result — hands:', handRes.landmarks?.length ?? 0,
+          'pose:', poseRes.landmarks?.length ?? 0, 'video:', w, 'x', h);
+      }
       this._logged = true;
     }
 

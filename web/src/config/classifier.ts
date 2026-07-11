@@ -26,12 +26,11 @@ export const GATE_CONFIDENCE = 0.7;
  * Verbose classifier logging during testing. Logs every gate decision (prompt, top-k, pass/veto)
  * and stashes the last vote on window.__lastVote for manual inspection.
  *
- * Forced on (2026-07-03, user request) while testing the new model_v6 classes — was briefly
- * gated on `import.meta.env.DEV` for the same reason CLAUDE.md's licensing checklist exists:
- * don't ship debug logging in production. Flip back to `import.meta.env.DEV` before any real
- * release; don't leave this hardcoded `true`.
+ * Was forced on (2026-07-03) while testing the new model_v6 classes; flipped back to
+ * `import.meta.env.DEV` for the v1.0.0 beta release (2026-07-11, impeccable polish pass) — this
+ * is statically eliminated from the production bundle by Vite, so it costs nothing to leave in.
  */
-export const CLASSIFIER_DEBUG = true;
+export const CLASSIFIER_DEBUG = import.meta.env.DEV;
 
 /** How many top predictions to surface for debugging. */
 export const TOP_K = 3;

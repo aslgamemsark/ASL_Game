@@ -7,6 +7,7 @@ import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
+import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { ReplayCompare } from '@/components/lesson/ReplayCompare';
 import { useUserStore } from '@/stores/useUserStore';
@@ -331,14 +332,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
 
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
-        <button
-          onClick={() => { stopCam(); recognition.stopLoop(); onExit(); }}
-          className="w-8 h-8 flex items-center justify-center text-z-gray-400 hover:text-white"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </button>
+        <HeaderBackButton onClick={() => { stopCam(); recognition.stopLoop(); onExit(); }} />
         <h1 className="font-bold text-lg">
           {mode === 'loading'
             ? (heading ?? '')
@@ -392,8 +386,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
               <motion.button
                 onClick={() => { setShowClip(true); startExpressive(); }}
                 disabled={recognition.status === 'loading'}
-                className="w-full rounded-2xl p-5 text-left border border-white/5 disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, #7B2FBE, #A855F7)' }}
+                className="w-full rounded-2xl p-5 text-left border border-white/5 disabled:opacity-50 bg-gradient-primary"
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -609,8 +602,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
               )}
               <motion.button
                 onClick={onExit}
-                className="mt-4 px-8 py-3 rounded-2xl font-bold text-white"
-                style={{ background: 'linear-gradient(135deg, #7B2FBE, #A855F7)' }}
+                className="mt-4 px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
               >

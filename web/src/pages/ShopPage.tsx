@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { SHOP_ITEMS, RARITY_COLOR, type ShopItem, type CosmeticType } from '@/data/shop';
 import { useUserStore } from '@/stores/useUserStore';
 import { useSounds } from '@/hooks/useSounds';
@@ -57,11 +58,7 @@ export function ShopPage({ onExit }: Props) {
     <div className="min-h-screen bg-z-bg flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
-        <button onClick={onExit} className="w-8 h-8 flex items-center justify-center text-z-gray-400 hover:text-white transition-colors">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </button>
+        <HeaderBackButton onClick={onExit} />
         <h1 className="font-bold text-lg flex-1">Shop</h1>
         <div className="flex items-center gap-1.5 bg-z-card border border-z-yellow/20 rounded-xl px-3 py-1.5">
           <span className="text-sm">🪙</span>

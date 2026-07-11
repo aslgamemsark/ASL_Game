@@ -46,11 +46,19 @@ function loadOnce(): Promise<LoadResult> {
  *
  *   const { classifier, status, logVote } = useClassifier();
  *   const recognition = useRecognition({ onPass, classifier, onVote: logVote });
+ *
+ * `enabled` (default true) lets a caller defer the actual load — e.g. App.tsx's app-wide
+ * prefetch skips loading until onboarding finishes, since starting this multi-MB fetch +
+ * WASM/WebGL init immediately on first paint was making the "Get Started" button feel frozen
+ * for several seconds (impeccable audit, 2026-07-11). Lesson/Practice/Story pages that actually
+ * need the classifier keep calling this with the default (true) — they hit the same module-level
+ * cache, so nothing double-loads.
  */
-export function useClassifier() {
+export function useClassifier(enabled: boolean = true) {
   const [state, setState] = useState<LoadResult>({ classifier: null, status: 'loading' });
 
   useEffect(() => {
+    if (!enabled) return;
     let active = true;
     loadOnce().then((r) => {
       if (!active) return;
@@ -60,7 +68,7 @@ export function useClassifier() {
       }
     });
     return () => { active = false; };
-  }, []);
+  }, [enabled]);
 
   // Gated debug logger for gate decisions. Stable identity across renders.
   // TEMPORARY DEBUG: prints a labeled per-prediction breakdown proving the AI classifier is

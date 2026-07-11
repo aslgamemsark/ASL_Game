@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { ReportUserModal } from '@/components/shared/ReportUserModal';
+import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -253,11 +254,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: P
     <div className="min-h-screen bg-z-bg flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
-        <button onClick={onExit} className="w-8 h-8 flex items-center justify-center text-z-gray-400 hover:text-white transition-colors">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </button>
+        <HeaderBackButton onClick={onExit} />
         <h1 className="font-bold text-lg flex-1">Friends &amp; 1v1</h1>
         {onStartMultiplayer && (
           <motion.button
@@ -321,7 +318,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: P
                       )}
                       <button onClick={() => setReportTarget({ id: p.id, username: p.username })}
                         aria-label={`Report ${p.username}`}
-                        className="w-7 h-7 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors shrink-0">
+                        className="w-11 h-11 -mr-2 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors shrink-0">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
                           <line x1="4" y1="22" x2="4" y2="15" />
@@ -410,21 +407,21 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: P
                   <div className="flex gap-2">
                     {onChallengeFriend && (
                       <motion.button onClick={() => handleChallenge(entry)}
-                        className="text-xs px-3 py-1.5 rounded-xl font-bold bg-z-purple/20 text-z-purple-light border border-z-purple/30"
+                        className="text-xs px-3 min-h-11 rounded-xl font-bold bg-z-purple/20 text-z-purple-light border border-z-purple/30"
                         whileTap={{ scale: 0.96 }}>
                         ⚔️ Challenge
                       </motion.button>
                     )}
                     <button onClick={() => setReportTarget({ id: entry.other.id, username: entry.other.username })}
                       aria-label={`Report ${entry.other.username}`}
-                      className="w-7 h-7 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors">
+                      className="w-11 h-11 -mx-1 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
                         <line x1="4" y1="22" x2="4" y2="15" />
                       </svg>
                     </button>
                     <button onClick={() => handleRemove(entry)}
-                      className="w-7 h-7 flex items-center justify-center text-z-gray-500 hover:text-red-400 transition-colors">
+                      className="w-11 h-11 -ml-1 -mr-2 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M18 6L6 18M6 6l12 12" />
                       </svg>

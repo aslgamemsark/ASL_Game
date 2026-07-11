@@ -129,6 +129,14 @@
   --font-sans: 'Quicksand', sans-serif;
 }
 
+/* Primary CTA gradient — the app's single most-repeated inline style (17+ call sites had drifted
+   into two near-duplicate hex pairs: #7C3AED/#A78BFA matching the z-purple tokens, and an
+   off-token #7B2FBE/#A855F7). Consolidated to one utility on the canonical token values so future
+   buttons reuse this instead of re-typing hex (impeccable audit, 2026-07-11). */
+@utility bg-gradient-primary {
+  background: linear-gradient(135deg, var(--color-z-purple), var(--color-z-purple-light));
+}
+
 @font-face {
   font-family: 'Quicksand';
   font-style: normal;

@@ -40,7 +40,7 @@ export function TrainingConsentModal() {
           </motion.button>
           <button
             onClick={() => dismissTrainingConsent(false)}
-            className="w-full py-2 text-xs text-z-gray-500 hover:text-z-gray-300 transition-colors"
+            className="w-full py-3 text-xs text-z-gray-500 hover:text-z-gray-300 transition-colors"
           >
             No thanks, turn it off
           </button>

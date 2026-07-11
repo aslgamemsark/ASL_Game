@@ -6,6 +6,7 @@ import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
+import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAttempt } from '@/hooks/useProgressSync';
@@ -191,12 +192,7 @@ export function StoryPage({ story, onExit }: Props) {
 
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
-        <button onClick={() => { stopCam(); recognition.stopLoop(); onExit(); }}
-          className="w-8 h-8 flex items-center justify-center text-z-gray-400 hover:text-white">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
+        <HeaderBackButton icon="close" onClick={() => { stopCam(); recognition.stopLoop(); onExit(); }} />
         <h1 className="font-bold text-lg">{story.title}</h1>
         {phase === 'dialogue' && (
           <span className="ml-auto text-sm text-z-gray-400">{lineIdx + 1}/{story.lines.length}</span>
@@ -226,8 +222,7 @@ export function StoryPage({ story, onExit }: Props) {
                 <p className="text-sm text-z-gray-400 animate-pulse">Loading camera model…</p>
               )}
               <motion.button onClick={handleStart} disabled={recognition.status === 'loading'}
-                className="mt-2 px-8 py-3 rounded-2xl font-bold text-white text-lg disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg,#7C3AED,#A78BFA)' }}
+                className="mt-2 px-8 py-3 rounded-2xl font-bold text-white text-lg disabled:opacity-50 bg-gradient-primary"
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                 Start
               </motion.button>
@@ -372,8 +367,7 @@ export function StoryPage({ story, onExit }: Props) {
               </div>
 
               <motion.button onClick={onExit}
-                className="mt-2 px-8 py-3 rounded-2xl font-bold text-white"
-                style={{ background: 'linear-gradient(135deg,#7C3AED,#A78BFA)' }}
+                className="mt-2 px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                 Back to Home
               </motion.button>

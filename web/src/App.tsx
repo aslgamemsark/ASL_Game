@@ -48,16 +48,22 @@ const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboa
 
 export default function App() {
   const { syncError } = useProgressSync();
-  // Warm the MediaPipe + AI-classifier caches as soon as the app opens (onboarding/home screen)
-  // instead of waiting for the first lesson mount — both are module-level singletons (see
-  // getSharedCapture, useClassifier's loadOnce), so this download only ever happens once and
-  // whichever lesson/practice/story page mounts next picks up the already-loading/loaded result.
-  useClassifier();
-  useEffect(() => {
-    void getSharedCapture();
-  }, []);
   const { onboardingComplete } = useUserStore();
   const { user, username, needsUsernameSetup, needsTrainingConsent, passwordRecoveryMode, loading: authLoading, bannedReason, isAdmin } = useAuth();
+  // Warm the MediaPipe + AI-classifier caches once the user has actually reached the app (past
+  // onboarding, or a returning signed-in session that skips it) instead of the instant the page
+  // opens — both are module-level singletons (see getSharedCapture, useClassifier's loadOnce), so
+  // this download only ever happens once and whichever lesson/practice/story page mounts next
+  // picks up the already-loading/loaded result. Starting this multi-MB fetch + WASM/WebGL init
+  // immediately on first paint used to make the "Get Started" button feel frozen for several
+  // seconds on a fresh visit (impeccable audit, 2026-07-11) — new visitors shouldn't pay that
+  // cost before they've even started onboarding.
+  const readyForWarmup = onboardingComplete || !!user;
+  useClassifier(readyForWarmup);
+  useEffect(() => {
+    if (!readyForWarmup) return;
+    void getSharedCapture();
+  }, [readyForWarmup]);
   const [screen, setScreen] = useState<Screen>(
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );

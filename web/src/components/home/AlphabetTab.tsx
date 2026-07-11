@@ -41,8 +41,7 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
       >
         <motion.button
           onClick={() => onStartLettersPractice(PRACTICEABLE_LETTER_IDS)}
-          className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative"
-          style={{ background: 'linear-gradient(135deg, #7B2FBE, #A855F7)' }}
+          className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative bg-gradient-primary"
           whileHover={{ scale: 1.02, boxShadow: '0 14px 40px rgba(91,33,182,0.5)' }}
           whileTap={{ scale: 0.97 }}
         >

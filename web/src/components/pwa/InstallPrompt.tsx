@@ -61,8 +61,12 @@ export function InstallPrompt() {
     localStorage.setItem(DISMISS_KEY, '1');
   };
 
-  const showInstall = !dismissed && !!deferred;
-  const showIos = !dismissed && showIosHint;
+  // Both banners render at the same fixed bottom position — showing two at once produced
+  // overlapping, unreadable text (impeccable polish pass, 2026-07-11). The update-available
+  // toast is the more time-sensitive of the two (a stale service worker can mean stale app code),
+  // so it takes priority; install/iOS-hint wait for it to clear.
+  const showInstall = !needRefresh && !dismissed && !!deferred;
+  const showIos = !needRefresh && !dismissed && showIosHint;
 
   return (
     <>
@@ -78,13 +82,13 @@ export function InstallPrompt() {
             <span className="text-sm font-semibold">A new version is ready</span>
             <button
               onClick={() => updateServiceWorker(true)}
-              className="text-xs font-bold bg-z-purple text-white rounded-xl px-3 py-1.5"
+              className="text-xs font-bold bg-z-purple text-white rounded-xl px-3 min-h-11"
             >
               Refresh
             </button>
             <button
               onClick={() => setNeedRefresh(false)}
-              className="text-xs text-z-gray-400 hover:text-white"
+              className="text-xs text-z-gray-400 hover:text-white px-2 min-h-11"
               aria-label="Dismiss"
             >
               Later
@@ -110,14 +114,14 @@ export function InstallPrompt() {
             </div>
             <button
               onClick={install}
-              className="text-xs font-bold bg-z-purple text-white rounded-xl px-3.5 py-2 shrink-0"
+              className="text-xs font-bold bg-z-purple text-white rounded-xl px-3.5 min-h-11 shrink-0"
             >
               Install
             </button>
             <button
               onClick={dismiss}
               aria-label="Dismiss"
-              className="text-z-gray-500 hover:text-white text-lg leading-none shrink-0"
+              className="w-11 h-11 flex items-center justify-center text-z-gray-500 hover:text-white text-lg leading-none shrink-0 -mr-2"
             >
               ×
             </button>
@@ -144,7 +148,7 @@ export function InstallPrompt() {
             <button
               onClick={dismiss}
               aria-label="Dismiss"
-              className="text-z-gray-500 hover:text-white text-lg leading-none shrink-0"
+              className="w-11 h-11 flex items-center justify-center text-z-gray-500 hover:text-white text-lg leading-none shrink-0 -mr-2"
             >
               ×
             </button>

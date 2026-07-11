@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 
 interface Props {
   lessonTitle: string;
@@ -12,14 +13,7 @@ export function LessonHeader({ lessonTitle: _lessonTitle, current, total, onClos
 
   return (
     <div className="flex items-center gap-3 px-4 py-3">
-      <button
-        onClick={onClose}
-        className="w-8 h-8 flex items-center justify-center text-z-gray-400 hover:text-white transition-colors"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
-      </button>
+      <HeaderBackButton icon="close" onClick={onClose} />
 
       <div className="flex-1">
         <div className="h-3 bg-z-surface rounded-full overflow-hidden">

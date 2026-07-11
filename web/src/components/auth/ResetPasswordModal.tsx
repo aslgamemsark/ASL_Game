@@ -78,7 +78,7 @@ export function ResetPasswordModal() {
                   required
                   autoComplete="new-password"
                 />
-                {error && <p className="text-red-400 text-xs px-1">{error}</p>}
+                {error && <p className="text-z-red text-xs px-1">{error}</p>}
                 <button
                   type="submit"
                   disabled={saving}
@@ -89,7 +89,7 @@ export function ResetPasswordModal() {
                 <button
                   type="button"
                   onClick={signOut}
-                  className="w-full py-1 text-xs text-z-gray-400 hover:text-white transition-colors"
+                  className="w-full py-3 text-xs text-z-gray-400 hover:text-white transition-colors"
                 >
                   Cancel and sign out
                 </button>

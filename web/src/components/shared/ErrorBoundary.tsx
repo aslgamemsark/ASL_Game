@@ -34,8 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="w-full py-3 rounded-2xl font-bold text-white text-base"
-              style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)' }}
+              className="w-full py-3 rounded-2xl font-bold text-white text-base bg-gradient-primary"
             >
               Reload
             </button>

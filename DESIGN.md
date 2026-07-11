@@ -1,8 +1,9 @@
 # Design
 
 Captured from the live code (`web/src/index.css` `@theme` block + component conventions),
-2026-07-03. This documents the system that EXISTS so changes stay on-brand — update it when the
-tokens change, don't let it drift.
+2026-07-03, updated 2026-07-11 (impeccable flagship polish pass ahead of the v1.0.0 beta launch).
+This documents the system that EXISTS so changes stay on-brand — update it when the tokens
+change, don't let it drift.
 
 ## Theme
 
@@ -13,8 +14,18 @@ screen and avoids blasting their face with white light on camera.
 ## Color
 
 Defined as Tailwind v4 `@theme` tokens in `web/src/index.css`. Use tokens (`text-z-*`, `bg-z-*`),
-never raw hex in components — exceptions currently exist as inline gradients and should shrink
-over time, not grow.
+never raw hex in components, and never raw Tailwind palette classes (`text-red-400`,
+`border-green-500`, etc.) for success/error states — always `text-z-green`/`text-z-red`/etc. The
+2026-07-11 polish pass found 16 raw-Tailwind-color instances across 5 files (mostly the auth
+modals) that had drifted off-token; they broke light-mode contrast since the light theme
+redefines `z-red`/`z-green` to different, darker values than Tailwind's own red-400/green-400.
+All fixed — don't reintroduce the pattern.
+
+The app's one deliberate inline-style exception is a single gradient value, now consolidated into
+the `bg-gradient-primary` utility class (`web/src/index.css`, defined via Tailwind v4's
+`@utility`) — use that class instead of writing `style={{ background: 'linear-gradient(135deg, ...)' }}`
+again; 15 call sites across the app had drifted into two near-duplicate hex pairs before this was
+extracted.
 
 | Role | Token | Value |
 |---|---|---|
@@ -51,6 +62,16 @@ that scrim technique rather than lightening text.
   `rounded-3xl`. No nested cards.
 - **Buttons/taps**: framer-motion `whileTap={{ scale: 0.9–0.97 }}` everywhere; hover effects are
   decorative only (touch-first).
+- **Touch targets**: every interactive element needs a real ≥44px hit area, even when its visible
+  icon is smaller — use padding or an explicit `w-11 h-11` box around a small icon, not a
+  small box around a small icon. The 2026-07-11 polish pass found this violated in 11+ page
+  headers (all now the shared `HeaderBackButton`) plus several icon-only list actions
+  (Friends remove/report) and PWA-toast buttons; don't regress it on new screens.
+- **Page header back/close button**: use `<HeaderBackButton onClick={...} icon="back" | "close" />`
+  (`web/src/components/shared/HeaderBackButton.tsx`) — every page header used to hand-roll this
+  at 32px, extracted into one shared, correctly-sized component. `icon="back"` (arrow) for
+  navigating up a level, `icon="close"` (×) for exiting a focused session
+  (lesson/practice/story/speed/multiplayer).
 - **Navigation**: sticky `TopBar` (streak/signs/gold pills) + fixed `BottomNav` (4 tabs), both
   `bg-z-bg/90 backdrop-blur-md` with a `border-z-purple-deep` hairline.
 - **Progress bars**: `h-1.5`–`h-2.5`, track `bg-white/10–15`, fill = role gradient or `bg-white/65`
@@ -65,8 +86,11 @@ that scrim technique rather than lightening text.
 
 framer-motion throughout. Entrances: small `opacity/y` fades with per-item stagger delays
 (0.05–0.1s). Celebrations: scale + rotate bursts. Ambient loops exist only on streak-fire and
-"today" pulse. **Known gap:** no `prefers-reduced-motion` handling yet — every new animation
-should degrade, and a global fix is a welcome contribution.
+"today" pulse. **`prefers-reduced-motion` is handled globally**: `<MotionConfig reducedMotion="user">`
+in `main.tsx` covers all framer-motion animations app-wide, and a matching `@media` block in
+`index.css` covers the remaining plain-CSS transitions — new framer-motion usage doesn't need its
+own reduced-motion handling, it's automatic. (This doc previously listed it as a known gap; that
+was stale — confirmed fixed during the 2026-07-11 polish pass.)
 
 ## Layout
 

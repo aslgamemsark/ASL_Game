@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -24,11 +25,7 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
   return (
     <div className="min-h-screen bg-z-bg">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
-        <button onClick={onExit} className="w-8 h-8 flex items-center justify-center text-z-gray-400 hover:text-white transition-colors">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </button>
+        <HeaderBackButton onClick={onExit} />
         <h1 className="font-bold text-lg flex-1">Settings</h1>
       </div>
 

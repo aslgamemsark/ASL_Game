@@ -10,6 +10,7 @@ import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import type { VerifyResult } from '@/engine/verifier';
 import { ReportUserModal } from '@/components/shared/ReportUserModal';
+import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 
 type Phase = 'lobby' | 'waiting' | 'signer' | 'guesser' | 'result' | 'done';
 
@@ -331,12 +332,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
 
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
-        <button onClick={exit}
-          className="w-8 h-8 flex items-center justify-center text-z-gray-400 hover:text-white">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
+        <HeaderBackButton icon="close" onClick={exit} />
         <h1 className="font-bold text-lg">1v1 Multiplayer</h1>
       </div>
 
@@ -352,8 +348,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
                 <p className="text-z-gray-300 text-sm mt-1">Sign it, your friend guesses it.</p>
               </div>
               <motion.button onClick={() => createRoom()}
-                className="w-full max-w-xs py-3 rounded-2xl font-bold text-white"
-                style={{ background: 'linear-gradient(135deg,#7C3AED,#A78BFA)' }}
+                className="w-full max-w-xs py-3 rounded-2xl font-bold text-white bg-gradient-primary"
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                 Create Room
               </motion.button>
@@ -466,8 +461,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
                 <p className="text-z-yellow font-bold">+200 🤟 Signs · +10 🪙 Gold</p>
               )}
               <motion.button onClick={exit}
-                className="px-8 py-3 rounded-2xl font-bold text-white"
-                style={{ background: 'linear-gradient(135deg,#7C3AED,#A78BFA)' }}
+                className="px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
                 whileTap={{ scale: 0.97 }}>
                 Back to Home
               </motion.button>

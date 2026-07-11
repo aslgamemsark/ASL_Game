@@ -102,8 +102,8 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-z-gray-400 text-sm select-none">@</span>
               <input
                 className={`w-full bg-white/5 border rounded-xl pl-8 pr-10 py-2.5 text-sm placeholder:text-z-gray-500 focus:outline-none transition-colors ${
-                  status === 'error' ? 'border-red-500/60 focus:border-red-500' :
-                  status === 'ok'    ? 'border-green-500/60 focus:border-green-500' :
+                  status === 'error' ? 'border-z-red/60 focus:border-z-red' :
+                  status === 'ok'    ? 'border-z-green/60 focus:border-z-green' :
                   'border-white/10 focus:border-z-purple'
                 }`}
                 placeholder="your_username"
@@ -115,12 +115,12 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none">
                 {status === 'checking' && <span className="text-z-gray-400 text-xs">…</span>}
-                {status === 'ok'       && <span className="text-green-400">✓</span>}
-                {status === 'error'    && <span className="text-red-400">✗</span>}
+                {status === 'ok'       && <span className="text-z-green">✓</span>}
+                {status === 'error'    && <span className="text-z-red">✗</span>}
               </span>
             </div>
             {statusMsg && (
-              <p className={`text-xs mt-1.5 px-1 ${status === 'ok' ? 'text-green-400' : 'text-red-400'}`}>
+              <p className={`text-xs mt-1.5 px-1 ${status === 'ok' ? 'text-z-green' : 'text-z-red'}`}>
                 {statusMsg}
               </p>
             )}
@@ -129,7 +129,7 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
             </p>
           </div>
 
-          {saveError && <p className="text-red-400 text-xs mb-3 px-1">{saveError}</p>}
+          {saveError && <p className="text-z-red text-xs mb-3 px-1">{saveError}</p>}
 
           <motion.button
             onClick={handleSave}
@@ -143,7 +143,7 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
           {!isRename && (
             <button
               onClick={handleSkip}
-              className="w-full py-2 text-xs text-z-gray-500 hover:text-z-gray-300 transition-colors"
+              className="w-full py-3 text-xs text-z-gray-500 hover:text-z-gray-300 transition-colors"
             >
               Maybe later
             </button>
@@ -151,7 +151,7 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
           {isRename && (
             <button
               onClick={onClose}
-              className="w-full py-2 text-xs text-z-gray-500 hover:text-z-gray-300 transition-colors"
+              className="w-full py-3 text-xs text-z-gray-500 hover:text-z-gray-300 transition-colors"
             >
               Cancel
             </button>

@@ -45,8 +45,7 @@ export function CameraOnboarding({ onContinue }: Props) {
 
         <motion.button
           onClick={onContinue}
-          className="w-full py-3 rounded-2xl font-bold text-white text-base"
-          style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)' }}
+          className="w-full py-3 rounded-2xl font-bold text-white text-base bg-gradient-primary"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
         >

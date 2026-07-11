@@ -146,7 +146,7 @@ export function AuthModal({ onClose }: Props) {
             autoComplete="email"
             autoFocus
           />
-          {error && <p className="text-red-400 text-xs px-1">{error}</p>}
+          {error && <p className="text-z-red text-xs px-1">{error}</p>}
           <button
             type="submit"
             disabled={loading}
@@ -156,7 +156,7 @@ export function AuthModal({ onClose }: Props) {
           </button>
           <button
             type="button"
-            className="w-full py-1 text-xs text-z-gray-400 hover:text-white transition-colors"
+            className="w-full py-3 text-xs text-z-gray-400 hover:text-white transition-colors"
             onClick={() => { setTab('signin'); setError(null); }}
           >
             Back to sign in
@@ -189,8 +189,8 @@ export function AuthModal({ onClose }: Props) {
             <div className="relative">
               <input
                 className={`w-full bg-white/5 border rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none transition-colors pr-10 ${
-                  usernameStatus === 'error' ? 'border-red-500/60 focus:border-red-500' :
-                  usernameStatus === 'ok'    ? 'border-green-500/60 focus:border-green-500' :
+                  usernameStatus === 'error' ? 'border-z-red/60 focus:border-z-red' :
+                  usernameStatus === 'ok'    ? 'border-z-green/60 focus:border-z-green' :
                   'border-white/10 focus:border-z-purple'
                 }`}
                 placeholder="Username"
@@ -204,12 +204,12 @@ export function AuthModal({ onClose }: Props) {
               {/* Status indicator */}
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none">
                 {usernameStatus === 'checking' && <span className="text-z-gray-400 text-xs">…</span>}
-                {usernameStatus === 'ok'       && <span className="text-green-400">✓</span>}
-                {usernameStatus === 'error'    && <span className="text-red-400">✗</span>}
+                {usernameStatus === 'ok'       && <span className="text-z-green">✓</span>}
+                {usernameStatus === 'error'    && <span className="text-z-red">✗</span>}
               </span>
             </div>
             {usernameMsg && (
-              <p className={`text-xs mt-1 px-1 ${usernameStatus === 'ok' ? 'text-green-400' : 'text-red-400'}`}>
+              <p className={`text-xs mt-1 px-1 ${usernameStatus === 'ok' ? 'text-z-green' : 'text-z-red'}`}>
                 {usernameMsg}
               </p>
             )}
@@ -253,7 +253,7 @@ export function AuthModal({ onClose }: Props) {
         )}
 
         {error && (
-          <p className="text-red-400 text-xs px-1">{error}</p>
+          <p className="text-z-red text-xs px-1">{error}</p>
         )}
 
         <button
@@ -312,7 +312,7 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
               <span className="text-xl">🤟</span>
               <span className="font-bold text-base">Join Zippy</span>
             </div>
-            <button onClick={onClose} className="text-z-gray-400 hover:text-white text-xl leading-none">×</button>
+            <button onClick={onClose} aria-label="Close" className="w-11 h-11 -mr-2 flex items-center justify-center text-z-gray-400 hover:text-white text-xl leading-none">×</button>
           </div>
           {children}
         </motion.div>
