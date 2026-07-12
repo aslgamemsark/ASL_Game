@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { validateUsername } from '@/lib/username';
+import { isAlreadyRegisteredError } from '@/lib/authErrors';
 import { useUserStore } from '@/stores/useUserStore';
 
 type ProfileRow = { username: string; is_admin: boolean; is_banned: boolean; ban_reason: string | null };
@@ -149,7 +150,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (usernameError) return usernameError;
 
     const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) return error.message;
+    if (error) {
+      // Supabase's own signUp() response is an enumeration oracle: an already-registered,
+      // confirmed email returns a distinct "already registered" error, while a fresh email
+      // succeeds — an attacker can probe arbitrary addresses to learn which ones have accounts.
+      // requestPasswordReset() below already avoids this by always reporting the same generic
+      // success; match that here so signup can't be used as a side-channel for the same info.
+      // The genuine trade-off: someone who already has an account and mistakenly tries to sign
+      // up again sees a false "check your email" instead of a helpful "you already have an
+      // account" — deliberate, since the alternative leaks account existence to anyone.
+      if (isAlreadyRegisteredError(error.message)) return null;
+      return error.message;
+    }
 
     // The trigger auto-creates the profile with a derived username.
     // Update it to the user's chosen username.
