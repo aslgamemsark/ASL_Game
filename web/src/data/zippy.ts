@@ -13,7 +13,20 @@ export type ZippyExpression =
   | 'celebrating'
   | 'proud'
   | 'applauding'
-  | 'oops';
+  | 'oops'
+  | 'loading'
+  // Second batch (2026-07-13)
+  | 'looking'
+  | 'reading'
+  | 'ready'
+  | 'streak'
+  | 'tryagain'
+  | 'surprised'
+  | 'reward'
+  | 'levelup'
+  | 'achievement'
+  | 'goodbye'
+  | 'sleeping';
 
 // Role → optimized asset (produced by scripts/optimize-zippy.mjs → public/zippy/*.webp).
 // This is the swap-point for a future animated Zippy: change the values here (or the <Zippy>
@@ -28,6 +41,18 @@ export const ZIPPY_SRC: Record<ZippyExpression, string> = {
   proud: '/zippy/proud.webp',
   applauding: '/zippy/applauding.webp',
   oops: '/zippy/oops.webp',
+  loading: '/zippy/loading.webp',
+  looking: '/zippy/looking.webp',
+  reading: '/zippy/reading.webp',
+  ready: '/zippy/ready.webp',
+  streak: '/zippy/streak.webp',
+  tryagain: '/zippy/tryagain.webp',
+  surprised: '/zippy/surprised.webp',
+  reward: '/zippy/reward.webp',
+  levelup: '/zippy/levelup.webp',
+  achievement: '/zippy/achievement.webp',
+  goodbye: '/zippy/goodbye.webp',
+  sleeping: '/zippy/sleeping.webp',
 };
 
 // Rotating line banks. Tone rules (from the brief): warm, short, positive, never sarcastic, never
@@ -91,6 +116,42 @@ export const ZIPPY_LINES = {
   // Something broke.
   error: [
     'Oops! Something went sideways. A quick reload usually fixes it.',
+  ],
+  // Ready to begin — camera warmed up, about to start signing.
+  ready: [
+    "All set — let's do this!",
+    "I'm ready when you are.",
+    'Show me what you’ve got!',
+  ],
+  // Level-up celebration.
+  levelUp: [
+    'You leveled up! Look at you go.',
+    'New level unlocked — you earned it!',
+    'Level up! Your signing is really growing.',
+  ],
+  // Badge/achievement earned.
+  badgeEarned: [
+    'Achievement unlocked! So proud of you.',
+    'New badge! You worked hard for that one.',
+    'Look what you earned — well done!',
+  ],
+  // Warm welcome back after a break. Never counts missed days, never guilts.
+  welcomeBack: [
+    "Look who's back! Ready to sign?",
+    'Great to see you again — let’s pick up where we left off.',
+    'Welcome back! I saved your spot.',
+  ],
+  // Goodbye / logout confirmation.
+  goodbye: [
+    'Leaving so soon? Your progress is safe with me.',
+    'See you next time — come back soon!',
+    'Take care! I’ll be right here when you return.',
+  ],
+  // Chest / reward opened.
+  chestReward: [
+    'A little something for you!',
+    'You earned this — enjoy!',
+    'Ta-da! A reward for your hard work.',
   ],
 } satisfies Record<string, readonly string[]>;
 

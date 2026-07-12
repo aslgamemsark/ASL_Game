@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ZIPPY_SRC, type ZippyExpression } from '@/data/zippy';
 
-const SIZE_PX: Record<'sm' | 'md' | 'lg', number> = { sm: 72, md: 128, lg: 200 };
+const SIZE_PX: Record<'xs' | 'sm' | 'md' | 'lg', number> = { xs: 56, sm: 72, md: 128, lg: 200 };
 
 interface Props {
   expression: ZippyExpression;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
   /**
    * Provide only when Zippy is the meaningful content (e.g. the error screen). When omitted the
