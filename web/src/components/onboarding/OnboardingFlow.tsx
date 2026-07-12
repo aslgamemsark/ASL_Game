@@ -106,7 +106,7 @@ export function OnboardingFlow({ onComplete }: Props) {
             transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
             <div className="flex justify-center mb-3">
-              <Zippy expression="teaching" size="sm" />
+              <Zippy expression="teaching" size="md" />
             </div>
             <h2 className="text-2xl font-bold mb-2">Save your progress</h2>
             <p className="text-z-gray-300 text-sm mb-8">
@@ -162,7 +162,7 @@ export function OnboardingFlow({ onComplete }: Props) {
             transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
             <div className="flex justify-center mb-3">
-              <Zippy expression="thinking" size="sm" />
+              <Zippy expression="thinking" size="md" />
             </div>
             <h2 className="text-2xl font-bold text-center mb-2">How much ASL do you know?</h2>
             <p className="text-z-gray-400 text-sm text-center mb-8">

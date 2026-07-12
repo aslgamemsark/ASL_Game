@@ -9,6 +9,18 @@
 // The mapping is by ROLE (semantic), not by source filename — a couple of source names don't
 // perfectly match their pose, so this file is the single source of truth for which art plays
 // which role. A labeled contact sheet is written to zippy-src/_contact.png for visual QA.
+//
+// Source-art defects this pipeline works around (found via pixel inspection, not guesswork):
+//  1. Several sources have an OPAQUE background that isn't pure white (grayish/cream, RGB
+//     ~195-230) — too far from a hardcoded ">225 near-white" test to catch reliably.
+//  2. At least one source has a faint horizontal band (looks like a flattened watermark/preview
+//     banner) baked in as fully-opaque pixels around y=41% — same grayish range as #1.
+//  3. A couple have small disconnected decorative artifacts (a sparkle glyph) away from the
+//     character, which a border-flood-fill alone won't remove since they don't touch the edge.
+// Fix: flood-fill from the border using COLOR-DISTANCE to a per-image sampled background
+// reference (not a fixed white threshold) — this catches off-white and the gray band alike —
+// then keep only the largest remaining connected component (Zippy's body), dropping any island
+// (sparkle, stray watermark fragment) as background too.
 
 import sharp from 'sharp';
 import { fileURLToPath } from 'node:url';
@@ -33,22 +45,40 @@ const MAP = {
 };
 
 const TARGET_H = 512; // px tall; covers the largest in-app render (~200px) at 2x+
-const WEBP_QUALITY = 82;
+const BG_DIST = 70; // RGB Euclidean distance under which a pixel counts as "background-like"
 
 mkdirSync(OUT_DIR, { recursive: true });
 
 const kb = (p) => (statSync(p).size / 1024).toFixed(1);
 
-// A few source PNGs have an opaque near-white background baked in (welcome/thumbsup/celebrating)
-// while others are cleanly cut out. Flood-fill from the four edges: mark every border-connected
-// near-white OR already-transparent pixel as transparent. Because it only spreads from the edges,
-// Zippy's INTERIOR white (his eyes) is untouched — a naive global white→alpha would blow holes in
-// them. Idempotent on images that are already transparent.
-function floodFillBackground(data, w, h) {
+function sampleBackground(data, w, h) {
+  // Average a ring of border pixels (skipping any that are already transparent) as the
+  // background reference — robust to whether the source canvas is white, cream, or grayish.
+  const pts = [];
+  for (let x = 0; x < w; x += Math.max(1, Math.floor(w / 40))) { pts.push([x, 0]); pts.push([x, h - 1]); }
+  for (let y = 0; y < h; y += Math.max(1, Math.floor(h / 40))) { pts.push([0, y]); pts.push([w - 1, y]); }
+  let r = 0, g = 0, b = 0, n = 0;
+  for (const [x, y] of pts) {
+    const i = (y * w + x) * 4;
+    if (data[i + 3] < 16) continue; // already-transparent border pixel, skip
+    r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
+  }
+  if (n === 0) return [245, 243, 239]; // fallback: generic off-white
+  return [r / n, g / n, b / n];
+}
+
+function colorDist(data, i, ref) {
+  const dr = data[i] - ref[0], dg = data[i + 1] - ref[1], db = data[i + 2] - ref[2];
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+// Border flood-fill using color-distance to the sampled background (catches off-white AND the
+// grayish watermark band alike), not a fixed white threshold. Marks matched pixels alpha=0.
+function floodFillBackground(data, w, h, bgRef) {
   const isBg = (p) => {
     const i = p * 4;
-    if (data[i + 3] < 16) return true; // already transparent
-    return data[i] > 225 && data[i + 1] > 225 && data[i + 2] > 225; // near-white
+    if (data[i + 3] < 16) return true;
+    return colorDist(data, i, bgRef) < BG_DIST;
   };
   const visited = new Uint8Array(w * h);
   const stack = [];
@@ -69,6 +99,53 @@ function floodFillBackground(data, w, h) {
   }
 }
 
+// After the border flood-fill, whatever opaque pixels remain should be exactly Zippy's body —
+// one large connected blob. Anything else still standing (a stray sparkle glyph, a fragment of
+// the watermark band that didn't touch the border) is a disconnected island; drop it too.
+function keepLargestComponent(data, w, h) {
+  const n = w * h;
+  const label = new Int32Array(n).fill(-1);
+  const sizes = [];
+  const stack = [];
+  for (let start = 0; start < n; start++) {
+    if (label[start] !== -1 || data[start * 4 + 3] < 16) continue;
+    const id = sizes.length;
+    let size = 0;
+    label[start] = id;
+    stack.push(start);
+    while (stack.length) {
+      const p = stack.pop();
+      size++;
+      const x = p % w, y = (p / w) | 0;
+      const neighbors = [
+        [x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1],
+      ];
+      for (const [nx, ny] of neighbors) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const np = ny * w + nx;
+        if (label[np] !== -1 || data[np * 4 + 3] < 16) continue;
+        label[np] = id;
+        stack.push(np);
+      }
+    }
+    sizes.push(size);
+  }
+  if (sizes.length <= 1) return; // nothing to discard
+  let bestId = 0;
+  for (let i = 1; i < sizes.length; i++) if (sizes[i] > sizes[bestId]) bestId = i;
+  for (let p = 0; p < n; p++) {
+    if (data[p * 4 + 3] >= 16 && label[p] !== bestId) data[p * 4 + 3] = 0;
+  }
+}
+
+// Zero RGB wherever alpha is now 0 — prevents any renderer/compressor from blending ghost color
+// from the removed background into the visible edge (halo/fringe artifacts).
+function zeroTransparentRgb(data) {
+  for (let p = 0; p < data.length; p += 4) {
+    if (data[p + 3] < 16) { data[p] = 0; data[p + 1] = 0; data[p + 2] = 0; data[p + 3] = 0; }
+  }
+}
+
 async function run() {
   const roles = Object.keys(MAP);
   const cells = [];
@@ -81,21 +158,24 @@ async function run() {
     }
     const outPath = join(OUT_DIR, `${role}.webp`);
 
-    // trim() removes the uniform border so the character fills the frame; resize to a fixed
-    // height keeping aspect, never enlarging; then cut out any opaque background.
     const { data, info } = await sharp(srcPath)
-      .trim()
-      .resize({ height: TARGET_H, fit: 'inside', withoutEnlargement: true })
       .ensureAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
+    const { width, height } = info;
 
-    floodFillBackground(data, info.width, info.height);
+    const bgRef = sampleBackground(data, width, height);
+    floodFillBackground(data, width, height, bgRef);
+    keepLargestComponent(data, width, height);
+    zeroTransparentRgb(data);
 
-    // Second trim tightens the frame now that the background is gone, so all 9 crop consistently.
-    const buf = await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+    // Lossless encoding: these images have flat fur-color regions + a hard alpha edge, exactly
+    // the case where lossy WebP's alpha quantization produces visible blocking/dithering
+    // ("checkerboard" artifacts) — lossless avoids that entirely and is still small at this size.
+    const buf = await sharp(data, { raw: { width, height, channels: 4 } })
       .trim()
-      .webp({ quality: WEBP_QUALITY, alphaQuality: 90, effort: 6 })
+      .resize({ height: TARGET_H, fit: 'inside', withoutEnlargement: true })
+      .webp({ lossless: true, effort: 6 })
       .toBuffer();
 
     await sharp(buf).toFile(outPath);
