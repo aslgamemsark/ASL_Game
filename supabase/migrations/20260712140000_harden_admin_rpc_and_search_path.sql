@@ -44,3 +44,15 @@ grant execute on function public.admin_grant_cosmetics(uuid, text[]) to authenti
 grant execute on function public.admin_set_ban(uuid, boolean, text) to authenticated;
 grant execute on function public.admin_get_user_progress(uuid) to authenticated;
 grant execute on function public.admin_set_world_flag(text, boolean, boolean) to authenticated;
+
+-- guard_progress_deltas/handle_new_user/protect_privileged_profile_columns are TRIGGER
+-- functions — nothing should ever call them directly via /rpc/, only via the trigger mechanism
+-- itself (INSERT/UPDATE on the table they're attached to), which does NOT require the
+-- triggering role to hold EXECUTE on the function — that's a well-established, version-
+-- independent piece of Postgres trigger semantics, not something this revoke can break. Unlike
+-- the admin RPCs above, `revoke ... from public` alone did not clear anon's access for these
+-- three — Supabase's schema-level default privileges grant EXECUTE directly to anon/authenticated
+-- on new functions (not only via the PUBLIC pseudo-role), so both must be revoked explicitly.
+revoke execute on function public.guard_progress_deltas() from anon, authenticated;
+revoke execute on function public.handle_new_user() from anon, authenticated;
+revoke execute on function public.protect_privileged_profile_columns() from anon, authenticated;
