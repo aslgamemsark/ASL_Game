@@ -1,22 +1,28 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getSharedCapture } from '@/engine/capture';
 import { useClassifier } from '@/hooks/useClassifier';
-import { AvatarLabPage } from '@/avatar/viewer/AvatarLabPage';
 import { HomePage } from '@/pages/HomePage';
 import type { Tab } from '@/components/home/BottomNav';
-import { LessonPage } from '@/pages/LessonPage';
-import { PracticePage } from '@/pages/PracticePage';
-import { StoryPage } from '@/pages/StoryPage';
-import { SpeedChallengePage } from '@/pages/SpeedChallengePage';
-import { ShopPage } from '@/pages/ShopPage';
-import { FriendsPage } from '@/pages/FriendsPage';
-import { MultiplayerPage } from '@/pages/MultiplayerPage';
-import { SettingsPage } from '@/pages/SettingsPage';
-import { PrivacyPage } from '@/pages/PrivacyPage';
-import { LeaderboardPage } from '@/pages/LeaderboardPage';
-import { AdminPanel } from '@/pages/AdminPanel';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
+
+// Lazy-loaded: HomePage/OnboardingFlow are the only screens needed for first paint. Every other
+// page (plus the admin-only panel and the dev-only avatar lab) used to be a static import, so a
+// first-time visitor downloaded all ~2MB of app JS — including AdminPanel — before picking a
+// lesson (production audit, 2026-07-12). Splitting per-route means each only loads when its
+// Screen is actually reached.
+const LessonPage = lazy(() => import('@/pages/LessonPage').then((m) => ({ default: m.LessonPage })));
+const PracticePage = lazy(() => import('@/pages/PracticePage').then((m) => ({ default: m.PracticePage })));
+const StoryPage = lazy(() => import('@/pages/StoryPage').then((m) => ({ default: m.StoryPage })));
+const SpeedChallengePage = lazy(() => import('@/pages/SpeedChallengePage').then((m) => ({ default: m.SpeedChallengePage })));
+const ShopPage = lazy(() => import('@/pages/ShopPage').then((m) => ({ default: m.ShopPage })));
+const FriendsPage = lazy(() => import('@/pages/FriendsPage').then((m) => ({ default: m.FriendsPage })));
+const MultiplayerPage = lazy(() => import('@/pages/MultiplayerPage').then((m) => ({ default: m.MultiplayerPage })));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
+const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })));
+const AdminPanel = lazy(() => import('@/pages/AdminPanel').then((m) => ({ default: m.AdminPanel })));
+const AvatarLabPage = lazy(() => import('@/avatar/viewer/AvatarLabPage').then((m) => ({ default: m.AvatarLabPage })));
 import { SideNav, type SideNavScreen } from '@/components/shared/SideNav';
 import { STORIES } from '@/data/stories';
 import { useProgressSync } from '@/hooks/useProgressSync';
@@ -45,6 +51,19 @@ type Screen =
 
 // Focused-task screens suppress the side nav (matches hiding chrome during a lesson).
 const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboard', 'settings'];
+
+// Shared fallback while a lazy-loaded screen's chunk downloads — same visual language as the
+// auth-restore spinner above so a route-split navigation doesn't look like a different app state.
+function ScreenFallback() {
+  return (
+    <div className="min-h-screen bg-z-bg flex items-center justify-center">
+      <div className="text-center">
+        <p className="text-5xl mb-4 animate-pulse">🤟</p>
+        <p className="text-z-gray-500 text-sm">Loading…</p>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const { syncError } = useProgressSync();
@@ -162,7 +181,11 @@ export default function App() {
   // import.meta.env.DEV is statically false in `vite build`, so bundlers dead-code-eliminate this
   // branch out of production entirely.
   if (import.meta.env.DEV && window.location.pathname === '/avatarlab') {
-    return <AvatarLabPage />;
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        <AvatarLabPage />
+      </Suspense>
+    );
   }
 
   return (
@@ -189,6 +212,7 @@ export default function App() {
         />
       )}
       <div className={showSideNav ? 'lg:pl-64' : ''}>
+        <Suspense fallback={<ScreenFallback />}>
         <AnimatePresence mode="wait">
           {screen.type === 'onboarding' && (
             <OnboardingFlow key="onboarding" onComplete={goHome} />
@@ -281,6 +305,7 @@ export default function App() {
             <AdminPanel key="admin" onExit={goHome} />
           )}
         </AnimatePresence>
+        </Suspense>
       </div>
 
       {/* Username setup modal for Google/OAuth users */}
