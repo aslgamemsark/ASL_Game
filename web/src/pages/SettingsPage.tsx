@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useUserStore } from '@/stores/useUserStore';
+import { LogoutConfirm } from '@/components/auth/LogoutConfirm';
 
 interface Props {
   onExit: () => void;
@@ -13,9 +15,10 @@ interface Props {
 
 export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
   const { theme, setTheme } = useTheme();
-  const { user, username, signOut, isAdmin } = useAuth();
+  const { user, username, isAdmin } = useAuth();
   const { vibrationEnabled, toggleVibration, soundEnabled, toggleSound } = useSettingsStore();
   const { addGold, addSigns, collectTrainingData, setCollectTrainingData } = useUserStore();
+  const [showLogout, setShowLogout] = useState(false);
 
   const giveTestCredits = () => {
     addGold(10000);
@@ -136,7 +139,7 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
           {user ? (
             <>
               <p className="text-sm text-z-gray-300 mb-3">Signed in as <span className="font-semibold text-white">{username ?? user.email}</span></p>
-              <button onClick={signOut} className="w-full py-2.5 rounded-xl bg-z-red/15 text-z-red font-bold text-sm">
+              <button onClick={() => setShowLogout(true)} className="w-full py-2.5 rounded-xl bg-z-red/15 text-z-red font-bold text-sm">
                 Log out
               </button>
             </>
@@ -190,6 +193,8 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
           </motion.div>
         )}
       </div>
+
+      <LogoutConfirm open={showLogout} onClose={() => setShowLogout(false)} />
     </div>
   );
 }
