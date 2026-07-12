@@ -111,6 +111,11 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
   const [goldAmount, setGoldAmount] = useState('');
   const [goldReason, setGoldReason] = useState('');
   const [banReason, setBanReason] = useState('');
+  // Shared busy flag for the mutating admin actions below (grant gold, set cosmetic, grant all
+  // cosmetics, ban/unban) — they're sequential edits to the same user, never meant to run
+  // concurrently, and none of the buttons disabled themselves while their RPC was in flight, so a
+  // fast double-click could fire the same grant/ban twice before the first response landed.
+  const [actionBusy, setActionBusy] = useState(false);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -145,53 +150,73 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
   );
 
   const handleGrantGold = async () => {
-    if (!selected) return;
+    if (!selected || actionBusy) return;
     const amount = parseInt(goldAmount, 10);
     if (!Number.isFinite(amount) || amount === 0) { showToast('Enter a non-zero amount'); return; }
-    const { data, error } = await supabase.rpc('admin_grant_gold', {
-      target_user_id: selected.id,
-      amount,
-      reason: goldReason || null,
-    });
-    if (error) { showToast(`Error: ${error.message}`); return; }
-    showToast(`New balance: ${data} 🪙`);
-    setGoldAmount('');
-    setGoldReason('');
-    void loadDetail(selected);
+    setActionBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('admin_grant_gold', {
+        target_user_id: selected.id,
+        amount,
+        reason: goldReason || null,
+      });
+      if (error) { showToast(`Error: ${error.message}`); return; }
+      showToast(`New balance: ${data} 🪙`);
+      setGoldAmount('');
+      setGoldReason('');
+      void loadDetail(selected);
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const handleSetCosmetic = async (cosmeticType: 'border' | 'avatar', itemId: string | null) => {
-    if (!selected) return;
-    const { error } = await supabase.rpc('admin_set_cosmetic', {
-      target_user_id: selected.id,
-      cosmetic_type: cosmeticType,
-      item_id: itemId,
-    });
-    if (error) { showToast(`Error: ${error.message}`); return; }
-    showToast('Cosmetic updated');
-    void loadDetail(selected);
+    if (!selected || actionBusy) return;
+    setActionBusy(true);
+    try {
+      const { error } = await supabase.rpc('admin_set_cosmetic', {
+        target_user_id: selected.id,
+        cosmetic_type: cosmeticType,
+        item_id: itemId,
+      });
+      if (error) { showToast(`Error: ${error.message}`); return; }
+      showToast('Cosmetic updated');
+      void loadDetail(selected);
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const handleGrantAllCosmetics = async () => {
-    if (!selected) return;
-    const ids = SHOP_ITEMS.filter((i) => i.type === 'border' || i.type === 'avatar').map((i) => i.id);
-    const { error } = await supabase.rpc('admin_grant_cosmetics', { target_user_id: selected.id, item_ids: ids });
-    if (error) { showToast(`Error: ${error.message}`); return; }
-    showToast('Granted all cosmetics');
-    void loadDetail(selected);
+    if (!selected || actionBusy) return;
+    setActionBusy(true);
+    try {
+      const ids = SHOP_ITEMS.filter((i) => i.type === 'border' || i.type === 'avatar').map((i) => i.id);
+      const { error } = await supabase.rpc('admin_grant_cosmetics', { target_user_id: selected.id, item_ids: ids });
+      if (error) { showToast(`Error: ${error.message}`); return; }
+      showToast('Granted all cosmetics');
+      void loadDetail(selected);
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const handleBan = async (banned: boolean) => {
-    if (!selected) return;
-    const { error } = await supabase.rpc('admin_set_ban', {
-      target_user_id: selected.id,
-      banned,
-      reason: banned ? banReason || 'No reason given' : null,
-    });
-    if (error) { showToast(`Error: ${error.message}`); return; }
-    showToast(banned ? 'User banned' : 'User unbanned');
-    setBanReason('');
-    void loadDetail(selected);
+    if (!selected || actionBusy) return;
+    setActionBusy(true);
+    try {
+      const { error } = await supabase.rpc('admin_set_ban', {
+        target_user_id: selected.id,
+        banned,
+        reason: banned ? banReason || 'No reason given' : null,
+      });
+      if (error) { showToast(`Error: ${error.message}`); return; }
+      showToast(banned ? 'User banned' : 'User unbanned');
+      setBanReason('');
+      void loadDetail(selected);
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   return (
@@ -281,7 +306,7 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
                     className="flex-1 bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-z-purple"
                   />
                 </div>
-                <button onClick={handleGrantGold} className="w-full py-2 rounded-lg bg-z-yellow/15 text-z-yellow font-bold text-sm">
+                <button onClick={handleGrantGold} disabled={actionBusy} className="w-full py-2 rounded-lg bg-z-yellow/15 text-z-yellow font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                   🪙 Send
                 </button>
               </div>
@@ -292,7 +317,8 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
                   <select
                     value={detail.equipped_border ?? ''}
                     onChange={(e) => void handleSetCosmetic('border', e.target.value || null)}
-                    className="bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-z-purple"
+                    disabled={actionBusy}
+                    className="bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-z-purple disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">No border</option>
                     {SHOP_ITEMS.filter((i) => i.type === 'border').map((i) => (
@@ -302,7 +328,8 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
                   <select
                     value={detail.equipped_avatar ?? ''}
                     onChange={(e) => void handleSetCosmetic('avatar', e.target.value || null)}
-                    className="bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-z-purple"
+                    disabled={actionBusy}
+                    className="bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-z-purple disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">No avatar</option>
                     {SHOP_ITEMS.filter((i) => i.type === 'avatar').map((i) => (
@@ -312,7 +339,8 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
                 </div>
                 <button
                   onClick={handleGrantAllCosmetics}
-                  className="w-full py-2 rounded-lg bg-z-purple/15 text-z-purple-light font-bold text-sm"
+                  disabled={actionBusy}
+                  className="w-full py-2 rounded-lg bg-z-purple/15 text-z-purple-light font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Grant all cosmetics
                 </button>
@@ -321,7 +349,7 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
               <div>
                 <p className="text-xs font-bold text-z-gray-300 uppercase mb-2">Moderation</p>
                 {detail.is_banned ? (
-                  <button onClick={() => void handleBan(false)} className="w-full py-2 rounded-lg bg-z-green/15 text-z-green font-bold text-sm">
+                  <button onClick={() => void handleBan(false)} disabled={actionBusy} className="w-full py-2 rounded-lg bg-z-green/15 text-z-green font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                     Unban user
                   </button>
                 ) : (
@@ -332,7 +360,7 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
                       placeholder="Ban reason"
                       className="w-full bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-z-purple mb-2"
                     />
-                    <button onClick={() => void handleBan(true)} className="w-full py-2 rounded-lg bg-z-red/15 text-z-red font-bold text-sm">
+                    <button onClick={() => void handleBan(true)} disabled={actionBusy} className="w-full py-2 rounded-lg bg-z-red/15 text-z-red font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                       🚫 Ban user
                     </button>
                   </>
