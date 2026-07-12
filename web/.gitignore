@@ -29,6 +29,10 @@ dist-ssr
 # vite-plugin-pwa dev service worker output
 dev-dist
 
+# Zippy mascot source art (6MB originals) — only the optimized public/zippy/*.webp is committed.
+# Re-run `npm run optimize:zippy` from these if the outputs need regenerating.
+zippy-src
+
 # Playwright
 test-results
 playwright-report

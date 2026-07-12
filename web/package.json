@@ -11,6 +11,7 @@
     "test:e2e": "playwright test",
     "preview": "vite preview",
     "icons": "node scripts/gen-icons.mjs",
+    "optimize:zippy": "node scripts/optimize-zippy.mjs",
     "audit": "npm audit --audit-level=high"
   },
   "dependencies": {
@@ -37,6 +38,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "oxlint": "^1.69.0",
+    "sharp": "^0.35.3",
     "tsx": "^4.22.4",
     "typescript": "~6.0.2",
     "vite": "^8.1.0",
