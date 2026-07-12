@@ -33,6 +33,8 @@ import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
 import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal';
+import { Zippy } from '@/components/shared/Zippy';
+import { CelebrationHost } from '@/components/shared/CelebrationHost';
 
 type Screen =
   | { type: 'home' }
@@ -58,7 +60,7 @@ function ScreenFallback() {
   return (
     <div className="min-h-screen bg-z-bg flex items-center justify-center">
       <div className="text-center">
-        <p className="text-5xl mb-4 animate-pulse">🤟</p>
+        <Zippy expression="loading" size="lg" priority className="mb-4" />
         <p className="text-z-gray-500 text-sm">Loading…</p>
       </div>
     </div>
@@ -144,7 +146,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-z-bg flex items-center justify-center">
         <div className="text-center">
-          <p className="text-5xl mb-4 animate-pulse">🤟</p>
+          <Zippy expression="loading" size="lg" priority className="mb-4" />
           <p className="text-z-gray-500 text-sm">Loading…</p>
         </div>
       </div>
@@ -318,6 +320,10 @@ export default function App() {
       {/* App-level sign-in modal — opened from the nav profile chip / top-bar avatar when a guest
           taps their profile, so the prompt is reachable from anywhere, not just the Me tab. */}
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+
+      {/* Level-up + badge-earned celebrations. Self-contained: watches the progress store and shows
+          its own modal, with a guard against firing on the post-sign-in progress merge. */}
+      <CelebrationHost />
 
       {/* Sync failure indicator — non-blocking, visible anywhere in the app. Previously a failed
           write to Supabase was completely silent, so progress could appear to vanish with zero
