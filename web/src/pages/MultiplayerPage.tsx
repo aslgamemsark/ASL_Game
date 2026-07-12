@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCamera } from '@/hooks/useCamera';
 import { useRecognition } from '@/hooks/useRecognition';
 import { useSounds } from '@/hooks/useSounds';
+import { useConfetti } from '@/hooks/useConfetti';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -57,6 +58,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
   const { user, username } = useAuth();
   const { addSigns, addGold } = useUserStore();
   const sounds = useSounds();
+  const { burst } = useConfetti();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera();
   const recognition = useRecognition({ onPass: handleSignCorrect });
 
@@ -159,6 +161,9 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
         addSigns(200);
         addGold(10);
         sounds.levelUp();
+        // Every other completion screen (Lesson/Practice/Story/Speed) celebrates visually on a
+        // win — Multiplayer only played a sound, no confetti (game-feel audit, 2026-07-12).
+        burst();
       }
       return;
     }
