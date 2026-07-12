@@ -28,7 +28,7 @@ interface Props {
 const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'home', label: 'Journey', icon: '🗺️' },
   { id: 'review', label: 'Review', icon: '🪞' },
-  { id: 'alphabet', label: 'ABCs', icon: '🔤' },
+  { id: 'alphabet', label: 'Alphabets', icon: '🔤' },
   { id: 'shop', label: 'Shop', icon: '🪙' },
   { id: 'friends', label: 'Friends', icon: '🤝' },
   { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
