@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUserStore } from '@/stores/useUserStore';
+import { Zippy } from '@/components/shared/Zippy';
+import { pickZippyLine } from '@/data/zippy';
 import type { Chest } from '@/types/user';
 
 function useNow() {
@@ -48,9 +50,9 @@ function ChestItem({ chest }: { chest: Chest }) {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
       >
-        <span className="text-2xl">🎁</span>
+        <Zippy expression="reward" size="xs" />
         <div className="flex-1">
-          <p className="font-bold text-sm text-z-green">Chest opened!</p>
+          <p className="font-bold text-sm text-z-green">{pickZippyLine('chestReward')}</p>
           <p className="text-xs text-z-gray-300 mt-0.5">
             +{openResult.signs} 🤟 Signs · +{openResult.gold} 🪙 Gold
           </p>
@@ -61,15 +63,19 @@ function ChestItem({ chest }: { chest: Chest }) {
 
   return (
     <div className="flex items-center gap-3 bg-z-card border border-white/8 rounded-2xl p-4">
-      <motion.span
-        className="text-3xl"
-        animate={ready ? { rotate: [0, -8, 8, -5, 0], y: [0, -3, 0] } : {}}
-        // Bounded (was Infinity): a chest that stays "ready" for hours shouldn't bounce the whole
-        // time - a few cycles announce readiness, then it holds still until opened.
-        transition={{ duration: 1.5, repeat: 3, ease: 'easeInOut' }}
-      >
-        📦
-      </motion.span>
+      {/* Locked: the chest itself. Ready: Zippy pops in, wide-eyed, to announce it can be opened. */}
+      {ready ? (
+        <Zippy expression="surprised" size="xs" />
+      ) : (
+        <motion.span
+          className="text-3xl"
+          // Bounded (was Infinity): a chest that stays "ready" for hours shouldn't bounce the whole
+          // time - a few cycles announce readiness, then it holds still until opened.
+          transition={{ duration: 1.5, repeat: 3, ease: 'easeInOut' }}
+        >
+          📦
+        </motion.span>
+      )}
       <div className="flex-1 min-w-0">
         <p className="font-bold text-sm">Reward Chest</p>
         <p className={`text-xs mt-0.5 ${ready ? 'text-z-green font-bold' : 'text-z-gray-400'}`}>

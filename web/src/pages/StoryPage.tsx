@@ -330,7 +330,7 @@ export function StoryPage({ story, onExit }: Props) {
             <motion.div key={`fail-${lineIdx}`} className="flex-1 flex flex-col items-center justify-center gap-4"
               initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
               {isZippy ? (
-                <Zippy expression="encouraging" size="md" />
+                <Zippy expression="tryagain" size="md" />
               ) : (
                 <div className="w-16 h-16 rounded-2xl bg-z-orange/20 border border-z-orange/30 flex items-center justify-center text-4xl">
                   😅

@@ -1,5 +1,6 @@
 import { useUserStore } from '@/stores/useUserStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Zippy } from '@/components/shared/Zippy';
 
 const MILESTONES = [7, 30, 100];
 
@@ -81,7 +82,7 @@ export function StreakCard() {
           </div>
 
           <motion.div
-            className="text-4xl opacity-80"
+            className="shrink-0"
             variants={{
               blaze: {
                 rotate: [0, -10, 10, -8, 8, 0],
@@ -89,7 +90,7 @@ export function StreakCard() {
               },
             }}
           >
-            🤟
+            <Zippy expression="streak" size="sm" />
           </motion.div>
         </div>
 

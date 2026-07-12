@@ -271,7 +271,9 @@ export function LessonPage({ lessonId, onExit }: Props) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <Zippy expression="teaching" size="lg" float />
+              {/* Zippy holds the ASL book to introduce the topic; while the camera/model warms up
+                  he switches to the binoculars "looking for your hands" pose. */}
+              <Zippy expression={recognition.status === 'loading' ? 'looking' : 'reading'} size="lg" float />
               <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
                 <span className="text-3xl">{lesson.iconEmoji}</span>
                 {lesson.title}
