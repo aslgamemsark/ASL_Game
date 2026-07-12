@@ -5,6 +5,7 @@ import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
+import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAttempt } from '@/hooks/useProgressSync';
@@ -402,7 +403,7 @@ export function SpeedChallengePage({ onExit }: Props) {
               </div>
 
               {/* Webcam */}
-              <SpeedWebcam videoRef={videoRef} passed={justPassed} />
+              <WebcamMirror videoRef={videoRef} passed={justPassed} />
 
               {/* Skip */}
               <div className="flex justify-end mt-auto pt-1">
@@ -482,53 +483,3 @@ export function SpeedChallengePage({ onExit }: Props) {
   );
 }
 
-function SpeedWebcam({
-  videoRef,
-  passed,
-}: {
-  videoRef: React.RefObject<HTMLVideoElement | null>;
-  passed: boolean;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef(0);
-
-  useEffect(() => {
-    const draw = () => {
-      const v = videoRef.current;
-      const c = canvasRef.current;
-      if (v && c && v.readyState >= 2) {
-        const ctx = c.getContext('2d');
-        if (ctx) {
-          c.width = v.videoWidth;
-          c.height = v.videoHeight;
-          ctx.save();
-          ctx.scale(-1, 1);
-          ctx.drawImage(v, -c.width, 0, c.width, c.height);
-          ctx.restore();
-        }
-      }
-      rafRef.current = requestAnimationFrame(draw);
-    };
-    rafRef.current = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [videoRef]);
-
-  return (
-    <div
-      className={`relative rounded-2xl overflow-hidden bg-z-surface aspect-video border-2 transition-colors duration-200 ${
-        passed ? 'border-z-green' : 'border-transparent'
-      }`}
-    >
-      <canvas ref={canvasRef} className="w-full h-full object-cover" />
-      {passed && (
-        <motion.div
-          className="absolute inset-0 bg-z-green/20 flex items-center justify-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          <span className="text-5xl">✅</span>
-        </motion.div>
-      )}
-    </div>
-  );
-}

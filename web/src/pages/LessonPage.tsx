@@ -7,6 +7,7 @@ import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { CameraOnboarding } from '@/components/shared/CameraOnboarding';
+import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { LessonHeader } from '@/components/lesson/LessonHeader';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
@@ -464,34 +465,3 @@ export function LessonPage({ lessonId, onExit }: Props) {
   );
 }
 
-function WebcamMirror({ videoRef }: { videoRef: React.RefObject<HTMLVideoElement | null> }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef(0);
-
-  useEffect(() => {
-    const draw = () => {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (video && canvas && video.readyState >= 2) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          ctx.save();
-          ctx.scale(-1, 1);
-          ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-          ctx.restore();
-        }
-      }
-      rafRef.current = requestAnimationFrame(draw);
-    };
-    rafRef.current = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [videoRef]);
-
-  return (
-    <div className="relative rounded-2xl overflow-hidden bg-z-surface aspect-video">
-      <canvas ref={canvasRef} className="w-full h-full object-cover" />
-    </div>
-  );
-}
