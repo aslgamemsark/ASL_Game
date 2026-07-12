@@ -127,7 +127,7 @@ export function ReportUserModal({ reporterId, reportedId, reportedUsername, cont
                 <button
                   onClick={submit}
                   disabled={!reason || status === 'submitting'}
-                  className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-z-red/80 text-white disabled:opacity-40"
+                  className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-z-red/80 text-white disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {status === 'submitting' ? 'Submitting…' : 'Submit report'}
                 </button>

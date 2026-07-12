@@ -387,7 +387,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
               <motion.button
                 onClick={() => { setShowClip(true); startExpressive(); }}
                 disabled={recognition.status === 'loading'}
-                className="w-full rounded-2xl p-5 text-left border border-white/5 disabled:opacity-50 bg-gradient-primary"
+                className="w-full rounded-2xl p-5 text-left border border-white/5 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-primary"
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -403,7 +403,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
               <motion.button
                 onClick={() => { setShowClip(false); startExpressive(); }}
                 disabled={recognition.status === 'loading'}
-                className="w-full rounded-2xl p-5 text-left bg-z-card border border-white/5 disabled:opacity-50"
+                className="w-full rounded-2xl p-5 text-left bg-z-card border border-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -503,7 +503,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                       <button
                         onClick={() => setCardPhase('replay')}
                         disabled={!recorder.replayUrl}
-                        className="text-xs text-z-purple-light hover:text-white px-3 py-1.5 rounded-lg border border-z-purple-light/40 disabled:opacity-40"
+                        className="text-xs text-z-purple-light hover:text-white px-3 py-1.5 rounded-lg border border-z-purple-light/40 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {recorder.replayUrl ? '▶ Watch replay' : 'Preparing replay…'}
                       </button>

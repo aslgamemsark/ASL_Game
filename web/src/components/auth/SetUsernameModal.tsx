@@ -125,7 +125,7 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
           <motion.button
             onClick={handleSave}
             disabled={status !== 'ok' || saving}
-            className="w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm disabled:opacity-40 transition-opacity mb-2"
+            className="w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-opacity mb-2"
             whileTap={{ scale: 0.97 }}
           >
             {saving ? 'Saving…' : isRename ? 'Change username' : 'Save username'}

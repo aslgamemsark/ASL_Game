@@ -278,7 +278,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
               <motion.button
                 onClick={handleStart}
                 disabled={recognition.status === 'loading'}
-                className="mt-4 px-8 py-3 rounded-2xl font-bold text-white text-lg disabled:opacity-50 bg-gradient-primary"
+                className="mt-4 px-8 py-3 rounded-2xl font-bold text-white text-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-primary"
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
               >
@@ -316,9 +316,9 @@ export function LessonPage({ lessonId, onExit }: Props) {
                   compact
                 />
               ) : currentSignData.howTo ? (
-                <div className="rounded-2xl border border-z-gray-500/20 bg-z-gray-800/40 p-3 text-center">
-                  <p className="text-duo-text-secondary text-xs font-bold uppercase tracking-widest mb-1">No video yet — how to sign it</p>
-                  <p className="text-duo-text text-sm leading-snug">{currentSignData.howTo}</p>
+                <div className="rounded-2xl border border-z-gray-500/20 bg-z-card p-3 text-center">
+                  <p className="text-z-gray-300 text-xs font-bold uppercase tracking-widest mb-1">No video yet — how to sign it</p>
+                  <p className="text-z-gray-100 text-sm leading-snug">{currentSignData.howTo}</p>
                 </div>
               ) : null}
 
@@ -397,7 +397,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
                   <button
                     onClick={() => setPhase('replay')}
                     disabled={!recorder.replayUrl}
-                    className="text-xs text-z-purple-light hover:text-white px-3 py-1.5 rounded-lg border border-z-purple-light/40 disabled:opacity-40"
+                    className="text-xs text-z-purple-light hover:text-white px-3 py-1.5 rounded-lg border border-z-purple-light/40 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {recorder.replayUrl ? '▶ Watch replay' : 'Preparing replay…'}
                   </button>

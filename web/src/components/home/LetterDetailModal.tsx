@@ -118,7 +118,7 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
           <motion.button
             onClick={() => canPractice && onTryYourself(def.signId!)}
             disabled={!canPractice}
-            className="w-full rounded-2xl py-3 font-bold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-50 bg-gradient-primary"
+            className="w-full rounded-2xl py-3 font-bold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-primary"
             whileHover={canPractice ? { scale: 1.02 } : undefined}
             whileTap={canPractice ? { scale: 0.97 } : undefined}
           >

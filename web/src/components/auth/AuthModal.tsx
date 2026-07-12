@@ -150,7 +150,7 @@ export function AuthModal({ onClose }: Props) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm disabled:opacity-50 transition-opacity"
+            className="w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
           >
             {loading ? '…' : 'Send reset link'}
           </button>
@@ -259,7 +259,7 @@ export function AuthModal({ onClose }: Props) {
         <button
           type="submit"
           disabled={loading || (tab === 'signup' && usernameStatus === 'error')}
-          className="w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm disabled:opacity-50 transition-opacity"
+          className="w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
         >
           {loading ? '…' : tab === 'signin' ? 'Sign in' : 'Create account'}
         </button>

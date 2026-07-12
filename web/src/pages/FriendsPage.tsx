@@ -284,7 +284,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: P
             <motion.button
               onClick={handleSearch}
               disabled={searching}
-              className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-50"
+              className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
               whileTap={{ scale: 0.96 }}
             >
               {searching ? '…' : 'Search'}

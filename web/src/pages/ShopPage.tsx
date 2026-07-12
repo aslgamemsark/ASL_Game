@@ -176,7 +176,7 @@ export function ShopPage({ onExit }: Props) {
                   <motion.button
                     onClick={() => handleBuy(selected)}
                     disabled={gold < selected.goldPrice}
-                    className="w-full py-3 rounded-2xl font-bold text-base text-white disabled:opacity-50"
+                    className="w-full py-3 rounded-2xl font-bold text-base text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ background: 'linear-gradient(135deg,#B45309,#F59E0B)' }}
                     whileTap={{ scale: 0.97 }}
                   >
@@ -199,7 +199,7 @@ export function ShopPage({ onExit }: Props) {
                 <motion.button
                   onClick={() => handleBuy(selected)}
                   disabled={gold < selected.goldPrice}
-                  className="w-full py-3 rounded-2xl font-bold text-base text-white disabled:opacity-50"
+                  className="w-full py-3 rounded-2xl font-bold text-base text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ background: 'linear-gradient(135deg,#B45309,#F59E0B)' }}
                   whileTap={{ scale: 0.97 }}
                 >

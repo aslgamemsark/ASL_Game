@@ -95,7 +95,7 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
         <motion.button
           onClick={() => { sounds.tap(); onTestMemory(pickRandomLetters(QUIZ_SIZE)); }}
           disabled={quizSize === 0}
-          className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative disabled:opacity-50"
+          className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ background: 'linear-gradient(135deg, #0F766E, #14B8A6)' }}
           whileHover={quizSize > 0 ? { scale: 1.02, boxShadow: '0 14px 40px rgba(20,184,166,0.4)' } : undefined}
           whileTap={quizSize > 0 ? { scale: 0.97 } : undefined}

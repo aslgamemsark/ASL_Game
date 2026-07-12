@@ -75,7 +75,7 @@ export function ResetPasswordModal() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm disabled:opacity-50 transition-opacity"
+                  className="w-full py-2.5 rounded-xl bg-z-purple text-white font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                 >
                   {saving ? '…' : 'Update password'}
                 </button>

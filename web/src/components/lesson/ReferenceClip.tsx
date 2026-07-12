@@ -32,7 +32,7 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
 
   return (
     <motion.div
-      className={`relative rounded-2xl overflow-hidden bg-duo-surface ${
+      className={`relative rounded-2xl overflow-hidden bg-z-card ${
         compact ? 'w-28 h-28 mx-auto' : 'aspect-square'
       }`}
       initial={{ opacity: 0, scale: 0.95 }}
@@ -41,7 +41,7 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
       {showPlaceholder ? (
         <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-center px-4">
           <span className={compact ? 'text-xl' : 'text-3xl'} aria-hidden="true">🎬</span>
-          {!compact && <p className="text-duo-text-secondary text-sm font-bold">Demo coming soon</p>}
+          {!compact && <p className="text-z-gray-300 text-sm font-bold">Demo coming soon</p>}
         </div>
       ) : (
         <video

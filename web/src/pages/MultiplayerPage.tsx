@@ -364,7 +364,7 @@ export function MultiplayerPage({ onExit, autoHostRoomId, autoJoinCode }: Props)
                     placeholder="XXXXXX"
                     className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:outline-none focus:border-z-purple/60" />
                   <motion.button onClick={() => joinRoom()} disabled={!joinCode.trim()}
-                    className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-40"
+                    className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
                     whileTap={{ scale: 0.96 }}>
                     Join
                   </motion.button>

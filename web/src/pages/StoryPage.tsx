@@ -223,7 +223,7 @@ export function StoryPage({ story, onExit }: Props) {
                 <p className="text-sm text-z-gray-400 animate-pulse">Loading camera model…</p>
               )}
               <motion.button onClick={handleStart} disabled={recognition.status === 'loading'}
-                className="mt-2 px-8 py-3 rounded-2xl font-bold text-white text-lg disabled:opacity-50 bg-gradient-primary"
+                className="mt-2 px-8 py-3 rounded-2xl font-bold text-white text-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-primary"
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                 Start
               </motion.button>

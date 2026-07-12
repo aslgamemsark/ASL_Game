@@ -81,7 +81,7 @@ function ChestItem({ chest }: { chest: Chest }) {
           <motion.button
             onClick={handleSkip}
             disabled={gold < skipCost}
-            className="text-xs px-3 py-1.5 rounded-xl border border-z-yellow/30 text-z-yellow disabled:opacity-40"
+            className="text-xs px-3 py-1.5 rounded-xl border border-z-yellow/30 text-z-yellow disabled:opacity-40 disabled:cursor-not-allowed"
             whileTap={{ scale: 0.95 }}
           >
             Skip {skipCost}🪙

@@ -369,7 +369,11 @@ export function ProfileTab() {
               <button onClick={() => setShowAuth(true)} className="text-xs bg-z-purple text-white rounded-xl px-4 py-2 font-bold">Sign in</button>
             </div>
           ) : insightsLoading ? (
-            <p className="text-z-gray-400 text-sm text-center py-6">Loading insights…</p>
+            <div className="grid grid-cols-2 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-20 bg-z-card rounded-2xl animate-pulse" />
+              ))}
+            </div>
           ) : insightsError ? (
             <p className="text-z-red text-sm text-center py-6">Couldn't load insights. Check your connection and try again.</p>
           ) : (
