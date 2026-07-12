@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { reportError } from '@/lib/errorReporting';
+import { Zippy } from './Zippy';
+import { ZIPPY_LINES } from '@/data/zippy';
 
 interface Props {
   children: ReactNode;
@@ -28,10 +30,12 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen bg-z-bg flex items-center justify-center p-6">
           <div className="text-center max-w-sm">
-            <p className="text-5xl mb-4">😵</p>
-            <h1 className="text-xl font-bold mb-2">Something went wrong</h1>
+            <div className="mb-4 flex justify-center">
+              <Zippy expression="oops" size="lg" alt="Zippy looking puzzled" priority />
+            </div>
+            <h1 className="text-xl font-bold mb-2">Oops!</h1>
             <p className="text-z-gray-400 text-sm mb-6">
-              An unexpected error occurred. Reloading usually fixes it.
+              {ZIPPY_LINES.error[0]}
             </p>
             <button
               onClick={() => window.location.reload()}

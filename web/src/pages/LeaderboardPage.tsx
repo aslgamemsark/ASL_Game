@@ -8,6 +8,8 @@ import { SHOP_ITEMS, getShopItem } from '@/data/shop';
 import { getBadge } from '@/data/badges';
 import { ReportUserModal } from '@/components/shared/ReportUserModal';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
+import { Zippy } from '@/components/shared/Zippy';
+import { ZIPPY_LINES } from '@/data/zippy';
 import { countryName } from '@/lib/geolocation';
 
 interface Props {
@@ -54,10 +56,10 @@ function BoardList({
   }
   if (rows.length === 0) {
     return (
-      <div className="text-center py-16">
-        <p className="text-4xl mb-3">🏆</p>
-        <p className="text-z-gray-300 font-semibold text-sm">No one here yet</p>
-        <p className="text-z-gray-500 text-xs mt-1">Be the first to claim the top spot!</p>
+      <div className="text-center py-16 flex flex-col items-center">
+        <Zippy expression="teaching" size="md" />
+        <p className="text-z-gray-300 font-semibold text-sm mt-3">No one here yet</p>
+        <p className="text-z-gray-500 text-xs mt-1 max-w-[16rem]">{ZIPPY_LINES.emptyLeaderboard[0]}</p>
       </div>
     );
   }
@@ -477,10 +479,10 @@ export function LeaderboardPage({ onExit }: Props) {
               ))}
             </div>
           ) : friendRows.length <= 1 ? (
-            <div className="text-center py-20">
-              <p className="text-5xl mb-4">🤝</p>
-              <p className="text-z-gray-200 font-bold text-base">No friends yet</p>
-              <p className="text-z-gray-500 text-sm mt-2">Add friends to see how you compare!</p>
+            <div className="text-center py-20 flex flex-col items-center">
+              <Zippy expression="welcome" size="md" />
+              <p className="text-z-gray-200 font-bold text-base mt-3">No friends yet</p>
+              <p className="text-z-gray-500 text-sm mt-2 max-w-[18rem]">{ZIPPY_LINES.emptyFriends[0]}</p>
             </div>
           ) : (
             <BoardList

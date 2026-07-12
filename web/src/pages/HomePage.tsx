@@ -9,6 +9,8 @@ import { AlphabetTab } from '@/components/home/AlphabetTab';
 import { DailyQuestsCard } from '@/components/home/DailyQuestsCard';
 import { WorldMap } from '@/components/home/WorldMap';
 import { ChestCard } from '@/components/home/ChestCard';
+import { ZippyMessage } from '@/components/shared/ZippyMessage';
+import { useZippyLine } from '@/hooks/useZippyLine';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -40,8 +42,9 @@ export function HomePage({
   tab,
   onTabChange: setTab,
 }: Props) {
-  const { refreshDailyQuests } = useUserStore();
+  const { refreshDailyQuests, streak } = useUserStore();
   const { user } = useAuth();
+  const greeting = useZippyLine('homeGreeting');
 
   useEffect(() => {
     refreshDailyQuests();
@@ -62,6 +65,13 @@ export function HomePage({
               exit={{ opacity: 0, x: 22, scale: 0.97 }}
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
+              <ZippyMessage
+                expression={streak > 0 ? 'proud' : 'welcome'}
+                message={greeting}
+                size="sm"
+                hideName
+                className="mb-3"
+              />
               <StreakCard />
               <ChestCard />
               <DailyQuestsCard />

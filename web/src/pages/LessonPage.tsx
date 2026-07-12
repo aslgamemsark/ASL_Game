@@ -8,6 +8,9 @@ import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { CameraOnboarding } from '@/components/shared/CameraOnboarding';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
+import { Zippy } from '@/components/shared/Zippy';
+import { pickZippyLine } from '@/data/zippy';
+import { useZippyLine } from '@/hooks/useZippyLine';
 import { LessonHeader } from '@/components/lesson/LessonHeader';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
@@ -44,6 +47,8 @@ export function LessonPage({ lessonId, onExit }: Props) {
   const [promptIdx, setPromptIdx] = useState(0);
   const [earnedXp, setEarnedXp] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
+  const [successMsg, setSuccessMsg] = useState('Nice work!');
+  const completeMsg = useZippyLine('lessonComplete');
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const signIds = lesson?.signIds ?? [];
@@ -68,6 +73,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
       if (phase !== 'signing') return;
       setPhase('success');
       setPassResult(result);
+      setSuccessMsg(pickZippyLine('success'));
       if (replayEnabled) recorder.stop();
       sounds.correct();
       burst();
@@ -265,14 +271,22 @@ export function LessonPage({ lessonId, onExit }: Props) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <div className="text-6xl mb-2">{lesson.iconEmoji}</div>
-              <h1 className="text-2xl font-bold tracking-tight">{lesson.title}</h1>
+              <Zippy expression="teaching" size="lg" float />
+              <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                <span className="text-3xl">{lesson.iconEmoji}</span>
+                {lesson.title}
+              </h1>
               <p className="text-z-gray-300 text-center max-w-xs">
                 {lesson.description} — {signIds.length} signs to learn
               </p>
 
               {recognition.status === 'loading' && (
-                <p className="text-sm text-z-gray-400 animate-pulse">Loading recognition...</p>
+                <div className="flex items-center gap-2">
+                  <Zippy expression="thinking" size="sm" />
+                  <p className="text-sm text-z-gray-400 animate-pulse">
+                    {pickZippyLine('cameraLoading')}
+                  </p>
+                </div>
               )}
 
               <motion.button
@@ -376,14 +390,8 @@ export function LessonPage({ lessonId, onExit }: Props) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
             >
-              <motion.div
-                className="text-7xl"
-                animate={{ rotate: [0, -15, 15, -10, 10, 0], scale: [1, 1.2, 1] }}
-                transition={{ duration: 0.6 }}
-              >
-                🎉
-              </motion.div>
-              <h2 className="text-2xl font-bold text-z-green">Correct!</h2>
+              <Zippy expression="thumbsup" size="lg" />
+              <h2 className="text-2xl font-bold text-z-green">{successMsg}</h2>
               <motion.div
                 className="text-lg font-bold text-z-yellow"
                 initial={{ y: 20, opacity: 0 }}
@@ -436,8 +444,9 @@ export function LessonPage({ lessonId, onExit }: Props) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <div className="text-6xl mb-2">🏆</div>
+              <Zippy expression="celebrating" size="lg" />
               <h1 className="text-2xl font-bold">Lesson Complete!</h1>
+              <p className="text-z-gray-300 text-center max-w-xs -mt-2">{completeMsg}</p>
               <div className="flex gap-6 text-center">
                 <div>
                   <p className="text-2xl font-bold text-z-yellow">{earnedXp}</p>

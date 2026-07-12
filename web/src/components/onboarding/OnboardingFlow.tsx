@@ -4,6 +4,8 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { supabaseReady } from '@/lib/supabase';
+import { Zippy } from '@/components/shared/Zippy';
+import { ZIPPY_LINES } from '@/data/zippy';
 import type { SkillLevel } from '@/types/user';
 
 interface Props {
@@ -72,20 +74,16 @@ export function OnboardingFlow({ onComplete }: Props) {
             exit={{ opacity: 0, y: -30, scale: 0.95 }}
             transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
-            <motion.div
-              className="text-8xl mb-6 inline-block"
-              animate={{ rotate: [0, -12, 12, -8, 8, 0], scale: [1, 1.12, 1] }}
-              transition={{ duration: 1.2, delay: 0.3 }}
-            >
-              🤟
-            </motion.div>
+            <div className="mb-5 flex justify-center">
+              <Zippy expression="welcome" size="lg" float priority />
+            </div>
 
             {/* Solid color, not gradient-clipped text: emphasis belongs to weight/color, and the
                 TopBar wordmark is the app's single deliberate gradient-text brand mark. */}
             <h1 className="text-4xl font-bold mb-3 text-white">
               Welcome to <span className="text-z-purple-light">SignUp</span>
             </h1>
-            <p className="text-z-gray-300 text-lg mb-10">Your journey into ASL starts here</p>
+            <p className="text-z-gray-300 text-lg mb-10">{ZIPPY_LINES.welcomeIntro[0]}</p>
 
             <motion.button
               onClick={() => setStep(supabaseReady ? 'auth' : 'skill')}
@@ -107,9 +105,12 @@ export function OnboardingFlow({ onComplete }: Props) {
             exit={{ opacity: 0, y: -30, scale: 0.95 }}
             transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
+            <div className="flex justify-center mb-3">
+              <Zippy expression="teaching" size="sm" />
+            </div>
             <h2 className="text-2xl font-bold mb-2">Save your progress</h2>
             <p className="text-z-gray-300 text-sm mb-8">
-              Sign in to sync across devices and join leaderboards
+              {ZIPPY_LINES.onboardingAuth[0]}
             </p>
 
             <div className="flex flex-col gap-3">
@@ -160,9 +161,12 @@ export function OnboardingFlow({ onComplete }: Props) {
             exit={{ opacity: 0, y: -30 }}
             transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
+            <div className="flex justify-center mb-3">
+              <Zippy expression="thinking" size="sm" />
+            </div>
             <h2 className="text-2xl font-bold text-center mb-2">How much ASL do you know?</h2>
             <p className="text-z-gray-400 text-sm text-center mb-8">
-              We'll pick the right starting point for you
+              {ZIPPY_LINES.onboardingSkill[0]}
             </p>
 
             <div className="flex flex-col gap-3">
@@ -206,13 +210,9 @@ export function OnboardingFlow({ onComplete }: Props) {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
-            <motion.div
-              className="text-7xl mb-4 inline-block"
-              animate={{ rotate: [0, -15, 15, -10, 0], scale: [1, 1.2, 1] }}
-              transition={{ duration: 0.6 }}
-            >
-              🎉
-            </motion.div>
+            <div className="mb-4 flex justify-center">
+              <Zippy expression="celebrating" size="lg" />
+            </div>
             {/* Was reusing the skill-level TITLE ("Just Starting"/"Some Experience"/
                 "Conversational") as the celebratory headline — read as a non-sequitur, restating
                 the user's own self-assessment as if it were an achievement, not a congratulation

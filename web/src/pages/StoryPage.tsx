@@ -8,6 +8,8 @@ import { useConfetti } from '@/hooks/useConfetti';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
+import { Zippy } from '@/components/shared/Zippy';
+import type { ZippyExpression } from '@/data/zippy';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAttempt } from '@/hooks/useProgressSync';
@@ -37,6 +39,16 @@ const MOOD_EMOJI: Record<string, string> = {
   surprised: '😲',
 };
 
+// Zippy narrates the greetings + coffee stories. When he's the NPC we swap the emoji avatar for his
+// real expression art, chosen by the line's mood. Other stories' NPCs (Dr. Reeves, Ms. Rowan) keep
+// their own emoji — they aren't Zippy.
+const MOOD_ZIPPY: Record<string, ZippyExpression> = {
+  neutral: 'teaching',
+  happy: 'thumbsup',
+  curious: 'thinking',
+  surprised: 'celebrating',
+};
+
 
 export function StoryPage({ story, onExit }: Props) {
   const { addXp, addSigns, addGold, addDailyMinutes, recordSign, completeLesson, checkBadges, awardBadge } = useUserStore();
@@ -57,6 +69,7 @@ export function StoryPage({ story, onExit }: Props) {
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const loopStartedRef = useRef<string | null>(null);
+  const isZippy = story.npcName === 'Zippy';
 
   const currentLine = story.lines[lineIdx];
   const currentEngineSign = currentLine ? ENGINE_SIGNS[currentLine.requiredSignId] : null;
@@ -213,7 +226,11 @@ export function StoryPage({ story, onExit }: Props) {
               <h2 className="text-2xl font-bold">{story.title}</h2>
               <p className="text-z-gray-300 text-center max-w-xs">{story.description}</p>
               <div className="flex items-center gap-3 bg-z-card rounded-2xl p-4 border border-white/5 w-full max-w-xs">
-                <span className="text-3xl">{story.npcEmoji}</span>
+                {isZippy ? (
+                  <Zippy expression="welcome" size="sm" />
+                ) : (
+                  <span className="text-3xl">{story.npcEmoji}</span>
+                )}
                 <div>
                   <p className="font-bold">{story.npcName}</p>
                   <p className="text-xs text-z-gray-400">{story.lines.length} exchanges · 10 XP each</p>
@@ -236,9 +253,15 @@ export function StoryPage({ story, onExit }: Props) {
               initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}>
               {/* NPC bubble */}
               <div className="flex items-start gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-z-purple flex items-center justify-center text-2xl shrink-0">
-                  {MOOD_EMOJI[currentLine.npcMood]}
-                </div>
+                {isZippy ? (
+                  <div className="shrink-0 self-end">
+                    <Zippy expression={MOOD_ZIPPY[currentLine.npcMood]} size="sm" />
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 rounded-2xl bg-z-purple flex items-center justify-center text-2xl shrink-0">
+                    {MOOD_EMOJI[currentLine.npcMood]}
+                  </div>
+                )}
                 <div className="bg-z-card border border-white/5 rounded-2xl rounded-tl-md px-4 py-3 flex-1">
                   <p className="text-sm font-bold text-z-purple-glow mb-0.5">{story.npcName}</p>
                   <p className="text-sm text-z-gray-100">{currentLine.npcText}</p>
@@ -304,9 +327,13 @@ export function StoryPage({ story, onExit }: Props) {
           {phase === 'fail' && currentLine && (
             <motion.div key={`fail-${lineIdx}`} className="flex-1 flex flex-col items-center justify-center gap-4"
               initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-              <div className="w-16 h-16 rounded-2xl bg-z-orange/20 border border-z-orange/30 flex items-center justify-center text-4xl">
-                😅
-              </div>
+              {isZippy ? (
+                <Zippy expression="encouraging" size="md" />
+              ) : (
+                <div className="w-16 h-16 rounded-2xl bg-z-orange/20 border border-z-orange/30 flex items-center justify-center text-4xl">
+                  😅
+                </div>
+              )}
               <div className="bg-z-card border border-white/5 rounded-2xl px-6 py-4 text-center max-w-xs">
                 <p className="text-sm font-bold text-z-orange mb-1">{story.npcName}</p>
                 <p className="text-base">{failMsg}</p>
@@ -319,7 +346,11 @@ export function StoryPage({ story, onExit }: Props) {
           {phase === 'response' && currentLine && (
             <motion.div key={`response-${lineIdx}`} className="flex-1 flex flex-col items-center justify-center gap-4"
               initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-              <div className="w-16 h-16 rounded-2xl bg-z-purple flex items-center justify-center text-4xl">😄</div>
+              {isZippy ? (
+                <Zippy expression="thumbsup" size="md" />
+              ) : (
+                <div className="w-16 h-16 rounded-2xl bg-z-purple flex items-center justify-center text-4xl">😄</div>
+              )}
               <div className="bg-z-card border border-white/5 rounded-2xl px-6 py-4 text-center max-w-xs">
                 <p className="text-sm font-bold text-z-purple-glow mb-1">{story.npcName}</p>
                 <p className="text-base">{currentLine.npcResponse}</p>
@@ -332,8 +363,12 @@ export function StoryPage({ story, onExit }: Props) {
           {phase === 'complete' && (
             <motion.div key="complete" className="flex-1 flex flex-col items-center justify-center gap-5"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              <motion.div className="text-6xl" animate={{ rotate: [0, -10, 10, -6, 0], y: [0, -8, 0] }}
-                transition={{ duration: 0.6, delay: 0.2 }}>🎬</motion.div>
+              {isZippy ? (
+                <Zippy expression="celebrating" size="lg" />
+              ) : (
+                <motion.div className="text-6xl" animate={{ rotate: [0, -10, 10, -6, 0], y: [0, -8, 0] }}
+                  transition={{ duration: 0.6, delay: 0.2 }}>🎬</motion.div>
+              )}
               <h2 className="text-2xl font-bold">Story Complete!</h2>
 
               <div className="grid grid-cols-3 gap-3 w-full max-w-xs">

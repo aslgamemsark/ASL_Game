@@ -6,6 +6,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
+import { Zippy } from '@/components/shared/Zippy';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAttempt } from '@/hooks/useProgressSync';
@@ -430,7 +431,7 @@ export function SpeedChallengePage({ onExit }: Props) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <div className="text-5xl">{score >= 8 ? '🏆' : score >= 5 ? '🎯' : '💪'}</div>
+              <Zippy expression={score >= 8 ? 'celebrating' : score >= 5 ? 'proud' : 'encouraging'} size="lg" />
               <div className="text-center">
                 <h2 className="text-2xl font-bold">Speed Run Complete</h2>
                 <p className="text-z-gray-400 text-sm mt-1">{config.icon} {config.label}</p>

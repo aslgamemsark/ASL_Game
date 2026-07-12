@@ -6,6 +6,7 @@ import { useInsights } from '@/hooks/useInsights';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { BadgesSection } from '@/components/home/BadgesSection';
+import { Zippy } from '@/components/shared/Zippy';
 import { StruggleBarList } from '@/components/insights/StruggleBarList';
 import { AccuracySparkline } from '@/components/insights/AccuracySparkline';
 import { getBadge } from '@/data/badges';
@@ -364,8 +365,9 @@ export function ProfileTab() {
       {profileSection === 'insights' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
           {!user ? (
-            <div className="bg-z-card border border-white/5 rounded-2xl p-5 text-center">
-              <p className="text-z-gray-300 text-sm mb-3">Sign in to see your personal practice insights.</p>
+            <div className="bg-z-card border border-white/5 rounded-2xl p-5 text-center flex flex-col items-center">
+              <Zippy expression="thinking" size="md" />
+              <p className="text-z-gray-300 text-sm mb-3 mt-2">Sign in and I'll show you how your signing is improving.</p>
               <button onClick={() => setShowAuth(true)} className="text-xs bg-z-purple text-white rounded-xl px-4 py-2 font-bold">Sign in</button>
             </div>
           ) : insightsLoading ? (

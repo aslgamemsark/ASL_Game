@@ -11,6 +11,8 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { ReplayCompare } from '@/components/lesson/ReplayCompare';
+import { Zippy } from '@/components/shared/Zippy';
+import { pickZippyLine } from '@/data/zippy';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { logSignAttempt, logVerification, logAttempt } from '@/hooks/useProgressSync';
@@ -489,14 +491,8 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                 />
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center gap-3">
-                  <motion.div
-                    className="text-6xl"
-                    animate={{ scale: [1, 1.3, 1] }}
-                    transition={{ duration: 0.4 }}
-                  >
-                    ✅
-                  </motion.div>
-                  <h2 className="text-xl font-bold text-z-green">Nice!</h2>
+                  <Zippy expression="thumbsup" size="md" />
+                  <h2 className="text-xl font-bold text-z-green">{pickZippyLine('success')}</h2>
                   <p className="text-z-yellow font-bold">+5 XP</p>
                   {replayEnabled && (
                     <div className="flex flex-col items-center gap-2 mt-2">
@@ -576,7 +572,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <div className="text-5xl mb-2">{goldAwarded > 0 ? '🏆' : '🎯'}</div>
+              <Zippy expression={goldAwarded > 0 ? 'celebrating' : 'proud'} size="lg" />
               <h2 className="text-2xl font-bold">
                 {goldAwarded > 0 ? 'Perfect!' : 'Session Complete'}
               </h2>
