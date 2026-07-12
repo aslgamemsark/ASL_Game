@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserStore } from '@/stores/useUserStore';
+import { useShallow } from 'zustand/react/shallow';
 import { getShopItem } from '@/data/shop';
 import { getBadge } from '@/data/badges';
 
@@ -33,7 +34,12 @@ const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
 
 export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onLeaderboard, onSettings, onProfile, onSignIn, onNotice }: Props) {
   const { user, username, signOut } = useAuth();
-  const { equippedAvatar, activeBadge, equippedBorder } = useUserStore();
+  // Always mounted on desktop widths — see TopBar's identical fix for why a selector matters here.
+  const { equippedAvatar, activeBadge, equippedBorder } = useUserStore(
+    useShallow((s) => ({
+      equippedAvatar: s.equippedAvatar, activeBadge: s.activeBadge, equippedBorder: s.equippedBorder,
+    }))
+  );
   const avatarIcon = equippedAvatar
     ? (getShopItem(equippedAvatar)?.icon ?? '🤟')
     : activeBadge ? (getBadge(activeBadge)?.icon ?? '🤟') : '🤟';

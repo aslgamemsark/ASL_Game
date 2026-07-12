@@ -1,4 +1,5 @@
 import { useUserStore } from '@/stores/useUserStore';
+import { useShallow } from 'zustand/react/shallow';
 import { getBadge } from '@/data/badges';
 import { getShopItem } from '@/data/shop';
 import { motion } from 'framer-motion';
@@ -25,7 +26,15 @@ interface TopBarProps {
 }
 
 export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
-  const { streak, signs, gold, activeBadge, equippedAvatar, equippedBorder } = useUserStore();
+  // Selector + useShallow: TopBar is always mounted, so subscribing to the whole store (the
+  // previous `useUserStore()` with no selector) re-rendered it on every unrelated field change
+  // too — e.g. an XP tick during a lesson (production audit, 2026-07-12).
+  const { streak, signs, gold, activeBadge, equippedAvatar, equippedBorder } = useUserStore(
+    useShallow((s) => ({
+      streak: s.streak, signs: s.signs, gold: s.gold,
+      activeBadge: s.activeBadge, equippedAvatar: s.equippedAvatar, equippedBorder: s.equippedBorder,
+    }))
+  );
   const activeBadgeDef = activeBadge ? getBadge(activeBadge) : null;
   const avatarItem = equippedAvatar ? getShopItem(equippedAvatar) : null;
   const profileIcon = avatarItem?.icon ?? (activeBadgeDef?.icon ?? '🤟');
