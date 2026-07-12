@@ -1,5 +1,6 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { ModalShell } from '@/components/shared/ModalShell';
 
 // Shown once per account per device, right after first sign-in, so "Help improve the AI" is an
 // explicit choice instead of a silently-defaulted-on toggle. The choice is always changeable
@@ -8,20 +9,10 @@ export function TrainingConsentModal() {
   const { dismissTrainingConsent } = useAuth();
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      >
-        <motion.div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-        <motion.div
-          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl"
-          initial={{ y: 40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 40, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        >
+    // Escape defaults to the more privacy-preserving choice (training data off) rather than
+    // silently leaving the default-on setting in place — an Escape that did nothing, or one that
+    // silently kept collection on, would both be worse than an explicit "no" for a consent prompt.
+    <ModalShell onClose={() => dismissTrainingConsent(false)} ariaLabel="Help improve the AI?">
           <div className="text-center mb-5">
             <p className="text-3xl mb-2">🧠</p>
             <h2 className="font-bold text-lg">Help improve the AI?</h2>
@@ -44,8 +35,6 @@ export function TrainingConsentModal() {
           >
             No thanks, turn it off
           </button>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    </ModalShell>
   );
 }

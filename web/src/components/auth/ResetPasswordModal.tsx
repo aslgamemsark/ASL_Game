@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { ModalShell } from '@/components/shared/ModalShell';
 
 // Shown when AuthContext.passwordRecoveryMode is true — the user followed the emailed reset
 // link and Supabase established a short-lived recovery session. No onClose prop: this can't be
@@ -27,17 +27,10 @@ export function ResetPasswordModal() {
   }
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      >
-        <motion.div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-        <motion.div
-          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl"
-          initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        >
+    // No onClose: this can't be dismissed via Escape/backdrop without either setting a new
+    // password or signing out (see file header) — same intentional restriction as before,
+    // now paired with a real focus trap + aria-modal instead of neither.
+    <ModalShell ariaLabel="Set a new password">
           {done ? (
             <div className="text-center">
               <p className="text-3xl mb-2">✅</p>
@@ -96,8 +89,6 @@ export function ResetPasswordModal() {
               </form>
             </>
           )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    </ModalShell>
   );
 }

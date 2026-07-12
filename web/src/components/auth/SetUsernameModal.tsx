@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserStore } from '@/stores/useUserStore';
 import { validateUsername } from '@/lib/username';
+import { ModalShell } from '@/components/shared/ModalShell';
 
 interface Props {
   onClose: () => void;
@@ -57,20 +58,10 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
   };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      >
-        <motion.div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-        <motion.div
-          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl"
-          initial={{ y: 40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 40, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        >
+    <ModalShell
+      onClose={isRename ? onClose : handleSkip}
+      ariaLabel={isRename ? 'Change your username' : 'Choose your username'}
+    >
           <div className="text-center mb-5">
             <p className="text-3xl mb-2">{isRename ? '🎟️' : '✏️'}</p>
             <h2 className="font-bold text-lg">{isRename ? 'Change your username' : 'Choose your username'}</h2>
@@ -156,8 +147,6 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
               Cancel
             </button>
           )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    </ModalShell>
   );
 }

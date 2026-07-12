@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { validateUsername } from '@/lib/username';
 import { supabaseReady } from '@/lib/supabase';
+import { ModalShell } from '@/components/shared/ModalShell';
 
 interface Props {
   onClose: () => void;
@@ -289,34 +289,15 @@ export function AuthModal({ onClose }: Props) {
 
 function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
-        <motion.div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          onClick={onClose}
-        />
-        <motion.div
-          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl"
-          initial={{ y: 40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 40, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        >
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🤟</span>
-              <span className="font-bold text-base">Join Zippy</span>
-            </div>
-            <button onClick={onClose} aria-label="Close" className="w-11 h-11 -mr-2 flex items-center justify-center text-z-gray-400 hover:text-white text-xl leading-none">×</button>
-          </div>
-          {children}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    <ModalShell onClose={onClose} ariaLabel="Sign in or create an account">
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🤟</span>
+          <span className="font-bold text-base">Join Zippy</span>
+        </div>
+        <button onClick={onClose} aria-label="Close" className="w-11 h-11 -mr-2 flex items-center justify-center text-z-gray-400 hover:text-white text-xl leading-none">×</button>
+      </div>
+      {children}
+    </ModalShell>
   );
 }
