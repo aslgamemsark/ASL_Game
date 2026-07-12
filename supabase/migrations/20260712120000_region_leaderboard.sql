@@ -57,7 +57,11 @@ create policy "attempts_delete_own" on public.sign_attempts
 alter table public.profiles
   add column if not exists region text;
 
-create or replace view public.weekly_leaderboard
+-- CREATE OR REPLACE VIEW cannot reorder/rename existing columns (region is inserted
+-- mid-list, before the pre-existing signs_this_week) — drop and recreate instead.
+drop view if exists public.weekly_leaderboard;
+
+create view public.weekly_leaderboard
   with (security_invoker = true)
 as
 select
