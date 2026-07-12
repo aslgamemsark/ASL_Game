@@ -78,24 +78,39 @@ export async function loadClassifier(modelUrl: string, classes: string[]): Promi
     classify: async (frames: Frame[]) => {
       const seq = clipToSequence(frames);
       if (!seq) return null;
-      const input = tf.tensor([seq]); // (1, SEQ_LEN, FEAT_DIM)
-      const out = model.predict(input);
-      const probs = await out.data();
-      input.dispose();
-      out.dispose();
+      // Every other entry point in this module honors "never throws, caller can always use the
+      // result safely" (see loadClassifier's docstring) — this one didn't: a WebGL context loss,
+      // OOM, or shape mismatch here used to reject the promise, which useRecognition's .catch
+      // only logged and swallowed, silently dropping an already-confirmed rule-verifier PASS with
+      // no hint and no retry (production audit, 2026-07-12). Returning null on failure instead
+      // makes gatePass(true, null, ...) fail OPEN exactly like "classifier disabled" already does
+      // — a broken classifier degrades to rules-only, never to "the sign silently never registers".
+      let input: TfTensor | undefined;
+      let out: TfTensor | undefined;
+      try {
+        input = tf.tensor([seq]); // (1, SEQ_LEN, FEAT_DIM)
+        out = model.predict(input);
+        const probs = await out.data();
 
-      const perSign: Record<string, number> = {};
-      let topSign = classes[0] ?? '';
-      let top = -1;
-      for (let i = 0; i < classes.length; i++) {
-        const p = probs[i] ?? 0;
-        perSign[classes[i]] = p;
-        if (p > top) {
-          top = p;
-          topSign = classes[i];
+        const perSign: Record<string, number> = {};
+        let topSign = classes[0] ?? '';
+        let top = -1;
+        for (let i = 0; i < classes.length; i++) {
+          const p = probs[i] ?? 0;
+          perSign[classes[i]] = p;
+          if (p > top) {
+            top = p;
+            topSign = classes[i];
+          }
         }
+        return { topSign, confidence: top < 0 ? 0 : top, perSign };
+      } catch (e) {
+        console.warn('[classifier] inference failed, falling back to rules-only for this attempt:', e);
+        return null;
+      } finally {
+        input?.dispose();
+        out?.dispose();
       }
-      return { topSign, confidence: top < 0 ? 0 : top, perSign };
     },
   };
 }
