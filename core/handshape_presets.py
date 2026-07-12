@@ -71,6 +71,14 @@ _THUMB_TIP_N_UNDER = np.array([-0.12, -0.80])
 # from INDEX_MCP — the generic OUT position (~1.14 units away, built for L/Y) reads as far too
 # extended for A's own predicate, so A needs its own spot rather than reusing OUT.
 _THUMB_TIP_A = np.array([-0.75, -0.55])
+# C-specific: thumb curved separately from the fingers with a clear open gap (core.handshape's
+# c_confidence wants thumb-tip-to-index-fingertip distance ~0.70 hand-scale units, distinguishing
+# it from O/F's pinch-closed thumb).
+_THUMB_TIP_C = np.array([-0.55, -0.85])
+# M-specific: thumb tucked under THREE knuckles (index+middle+ring), one more than N's two — a
+# shallower "under" position than N's since it sits centered under a wider knuckle span
+# (core.handshape's m_confidence wants thumb-tip-to-3-knuckle-midpoint distance ~0.42 units).
+_THUMB_TIP_M_UNDER = np.array([-0.10, -0.55])
 
 # (index, middle, ring, pinky) extension, thumb_extended. Aliases share one spec so a sign asking for
 # "s" and one asking for "fist" animate identically — the same reuse the recognition dispatch relies on.
@@ -106,6 +114,14 @@ SHAPE_SPECS: dict[str, tuple[tuple[float, float, float, float], bool]] = {
     "p":      ((1.0, 1.0, 0.0, 0.0), False),    # same as k, rotated to point downward
     "q":      ((1.0, 0.0, 0.0, 0.0), True),     # same as g, rotated to point downward
     "r":      ((1.0, 1.0, 0.0, 0.0), False),    # index+middle extended and crossed
+    # Dispatched under a distinct key from their generic-shape namesakes because
+    # core.handshape scores them with a separately calibrated predicate (see that module's
+    # letter_s_confidence/c_confidence/e_confidence/m_confidence/x_confidence docstrings).
+    "letter_s": ((0.0, 0.0, 0.0, 0.0), False),  # closed fist, thumb wrapped across the front
+    "c":      ((0.85, 0.85, 0.85, 0.85), False),  # gentle curved arc, thumb apart with a clear gap
+    "e":      ((0.0, 0.0, 0.0, 0.0), False),    # fingers curled toward palm, thumb tucked under
+    "m":      ((0.0, 0.0, 0.0, 0.0), False),    # fist, thumb tucked under index/middle/ring
+    "x":      ((0.752, 0.0, 0.0, 0.0), False),  # index hooked at one knuckle, rest curled
 }
 
 # Extra whole-hand rotation (degrees) applied after the base shape is built, for letters whose
@@ -167,7 +183,8 @@ def _finger_chain(name: str, extension: float) -> np.ndarray:
 
 def _thumb_chain(extended: bool, between: bool = False, pinch: bool = False,
                  k_touch: bool = False, p_touch: bool = False, n_under: bool = False,
-                 a_alongside: bool = False) -> np.ndarray:
+                 a_alongside: bool = False, c_shape: bool = False,
+                 m_under: bool = False) -> np.ndarray:
     """thumb mcp, ip, tip (3 points, 2D). cmc is fixed; the rest interpolate cmc->tip."""
     if between:
         tip = _THUMB_TIP_BETWEEN
@@ -181,6 +198,10 @@ def _thumb_chain(extended: bool, between: bool = False, pinch: bool = False,
         tip = _THUMB_TIP_N_UNDER
     elif a_alongside:
         tip = _THUMB_TIP_A
+    elif c_shape:
+        tip = _THUMB_TIP_C
+    elif m_under:
+        tip = _THUMB_TIP_M_UNDER
     else:
         tip = _THUMB_TIP_OUT if extended else _THUMB_TIP_TUCKED
     return np.array([_THUMB_CMC + (tip - _THUMB_CMC) * f for f in (0.40, 0.72, 1.0)])
@@ -209,6 +230,8 @@ def local_hand(kind: str, scale: float = CANON_SCALE, mirror: bool = False) -> n
         p_touch=(key == "p"),
         n_under=(key == "letter_n"),
         a_alongside=(key == "a"),
+        c_shape=(key == "c"),
+        m_under=(key == "m"),
     )
     pts[1, :2] = _THUMB_CMC                       # thumb cmc
     pts[2, :2], pts[3, :2], pts[4, :2] = mcp_t, ip_t, tip_t   # mcp, ip, tip
