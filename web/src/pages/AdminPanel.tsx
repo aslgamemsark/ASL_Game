@@ -272,13 +272,13 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
                     value={goldAmount}
                     onChange={(e) => setGoldAmount(e.target.value)}
                     placeholder="Amount"
-                    className="w-24 bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none"
+                    className="w-24 bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-z-purple"
                   />
                   <input
                     value={goldReason}
                     onChange={(e) => setGoldReason(e.target.value)}
                     placeholder="Reason (optional)"
-                    className="flex-1 bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none"
+                    className="flex-1 bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-z-purple"
                   />
                 </div>
                 <button onClick={handleGrantGold} className="w-full py-2 rounded-lg bg-z-yellow/15 text-z-yellow font-bold text-sm">
@@ -292,7 +292,7 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
                   <select
                     value={detail.equipped_border ?? ''}
                     onChange={(e) => void handleSetCosmetic('border', e.target.value || null)}
-                    className="bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none"
+                    className="bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-z-purple"
                   >
                     <option value="">No border</option>
                     {SHOP_ITEMS.filter((i) => i.type === 'border').map((i) => (
@@ -302,7 +302,7 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
                   <select
                     value={detail.equipped_avatar ?? ''}
                     onChange={(e) => void handleSetCosmetic('avatar', e.target.value || null)}
-                    className="bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none"
+                    className="bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-z-purple"
                   >
                     <option value="">No avatar</option>
                     {SHOP_ITEMS.filter((i) => i.type === 'avatar').map((i) => (
@@ -330,7 +330,7 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
                       value={banReason}
                       onChange={(e) => setBanReason(e.target.value)}
                       placeholder="Ban reason"
-                      className="w-full bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none mb-2"
+                      className="w-full bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-z-purple mb-2"
                     />
                     <button onClick={() => void handleBan(true)} className="w-full py-2 rounded-lg bg-z-red/15 text-z-red font-bold text-sm">
                       🚫 Ban user

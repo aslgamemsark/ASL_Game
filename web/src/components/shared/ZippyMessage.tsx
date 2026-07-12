@@ -2,6 +2,12 @@ import { motion } from 'framer-motion';
 import { Zippy } from './Zippy';
 import type { ZippyExpression } from '@/data/zippy';
 
+// Row layout puts Zippy beside a single-line-height bubble, so the natural full-body render
+// (sized by height, ~40% as wide) reads as a disproportionate sliver next to normal-width text.
+// A fixed square avatar, cropped to his face like every other chat-avatar in the app (Story
+// Mode's NPC avatars), reads correctly instead.
+const ROW_AVATAR_PX: Record<'sm' | 'md' | 'lg', number> = { sm: 48, md: 64, lg: 88 };
+
 interface Props {
   expression: ZippyExpression;
   message: string;
@@ -40,9 +46,15 @@ export function ZippyMessage({
     );
   }
 
+  const avatarPx = ROW_AVATAR_PX[size];
   return (
     <div className={`flex items-end gap-3 ${className}`}>
-      <Zippy expression={expression} size={size} />
+      <div
+        className="rounded-2xl bg-z-purple overflow-hidden shrink-0"
+        style={{ width: avatarPx, height: avatarPx }}
+      >
+        <Zippy expression={expression} fit="cover" />
+      </div>
       <motion.div
         className="bg-z-card border border-white/5 rounded-2xl rounded-bl-md px-4 py-3 flex-1 min-w-0"
         initial={{ opacity: 0, x: -8 }}

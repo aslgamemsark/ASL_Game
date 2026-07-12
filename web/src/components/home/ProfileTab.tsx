@@ -246,7 +246,7 @@ export function ProfileTab() {
               <>
                 <div className="w-px bg-z-gray-500/40" />
                 <div className="text-center">
-                  <p className="text-xl font-bold text-blue-400">⚡ {bestSpeed.score}</p>
+                  <p className="text-xl font-bold text-z-blue">⚡ {bestSpeed.score}</p>
                   <p className="text-[11px] text-z-gray-400 mt-0.5">Best speed</p>
                 </div>
               </>

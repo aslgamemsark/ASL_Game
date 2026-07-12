@@ -227,7 +227,9 @@ export function StoryPage({ story, onExit }: Props) {
               <p className="text-z-gray-300 text-center max-w-xs">{story.description}</p>
               <div className="flex items-center gap-3 bg-z-card rounded-2xl p-4 border border-white/5 w-full max-w-xs">
                 {isZippy ? (
-                  <Zippy expression="welcome" size="sm" />
+                  <div className="w-14 h-14 rounded-2xl bg-z-purple overflow-hidden shrink-0">
+                    <Zippy expression="welcome" fit="cover" />
+                  </div>
                 ) : (
                   <span className="text-3xl">{story.npcEmoji}</span>
                 )}
@@ -254,8 +256,8 @@ export function StoryPage({ story, onExit }: Props) {
               {/* NPC bubble */}
               <div className="flex items-start gap-3">
                 {isZippy ? (
-                  <div className="shrink-0 self-end">
-                    <Zippy expression={MOOD_ZIPPY[currentLine.npcMood]} size="sm" />
+                  <div className="w-12 h-12 rounded-2xl bg-z-purple overflow-hidden shrink-0">
+                    <Zippy expression={MOOD_ZIPPY[currentLine.npcMood]} fit="cover" />
                   </div>
                 ) : (
                   <div className="w-12 h-12 rounded-2xl bg-z-purple flex items-center justify-center text-2xl shrink-0">

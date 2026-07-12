@@ -46,12 +46,16 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
         <div className="flex items-center gap-2">
           <motion.button
             onClick={onOpenProfile}
-            className={`w-8 h-8 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg cursor-pointer focus:outline-none ${borderClasses}`}
-            whileHover={{ rotate: [0, -12, 12, -8, 0], scale: 1.08, transition: { duration: 0.45 } }}
+            className="w-11 h-11 flex items-center justify-center cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light focus-visible:ring-offset-2 focus-visible:ring-offset-z-bg rounded-xl"
             whileTap={{ scale: 0.9 }}
             title="My Profile"
           >
-            {profileIcon}
+            <motion.span
+              className={`w-8 h-8 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg ${borderClasses}`}
+              whileHover={{ rotate: [0, -12, 12, -8, 0], scale: 1.08, transition: { duration: 0.45 } }}
+            >
+              {profileIcon}
+            </motion.span>
           </motion.button>
           <span
             className="font-bold text-xl tracking-tight lg:hidden"

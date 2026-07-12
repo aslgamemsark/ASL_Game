@@ -281,12 +281,9 @@ export function LessonPage({ lessonId, onExit }: Props) {
               </p>
 
               {recognition.status === 'loading' && (
-                <div className="flex items-center gap-2">
-                  <Zippy expression="thinking" size="sm" />
-                  <p className="text-sm text-z-gray-400 animate-pulse">
-                    {pickZippyLine('cameraLoading')}
-                  </p>
-                </div>
+                <p className="text-sm text-z-gray-400 animate-pulse">
+                  {pickZippyLine('cameraLoading')}
+                </p>
               )}
 
               <motion.button

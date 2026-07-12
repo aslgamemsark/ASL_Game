@@ -19,12 +19,19 @@ interface Props {
   /** Load eagerly instead of lazily — use for above-the-fold heroes (welcome, error) to avoid a
    *  first-paint flash. Leave off for below-the-fold uses (empty states) so they stay deferred. */
   priority?: boolean;
+  /**
+   * 'contain' (default): natural full-body art at a fixed height, auto width — use standalone.
+   * 'cover': fills a fixed-size square parent (e.g. `w-12 h-12`) and crops to the top of the
+   * frame, so the character reads as a face-forward avatar icon instead of a tiny sliver of a
+   * full standing body — use inside a chat-avatar-style square slot alongside other avatars.
+   */
+  fit?: 'contain' | 'cover';
 }
 
 // The one image primitive every Zippy appearance goes through. Swapping the static art for an
 // animated version later (Lottie / APNG / video) means changing only this file — call sites and
 // the ZIPPY_SRC map stay the same.
-export function Zippy({ expression, size = 'md', className = '', alt, float = false, priority = false }: Props) {
+export function Zippy({ expression, size = 'md', className = '', alt, float = false, priority = false, fit = 'contain' }: Props) {
   const reduce = useReducedMotion();
   const [failed, setFailed] = useState(false);
   const px = SIZE_PX[size];
@@ -44,8 +51,12 @@ export function Zippy({ expression, size = 'md', className = '', alt, float = fa
       fetchPriority={priority ? 'high' : 'auto'}
       decoding="async"
       onError={() => setFailed(true)}
-      style={{ height: px, width: 'auto' }}
-      className={`select-none pointer-events-none object-contain ${className}`}
+      style={fit === 'cover' ? undefined : { height: px, width: 'auto' }}
+      className={
+        fit === 'cover'
+          ? `select-none pointer-events-none w-full h-full object-cover object-top ${className}`
+          : `select-none pointer-events-none object-contain ${className}`
+      }
       initial={reduce ? false : { opacity: 0, scale: 0.94 }}
       animate={
         reduce

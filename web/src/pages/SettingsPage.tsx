@@ -39,13 +39,15 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
               role="switch"
               aria-checked={theme === 'dark'}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'bg-z-purple' : 'bg-z-gray-500'}`}
+              className="p-1.5 -m-1.5 shrink-0"
             >
-              <motion.span
-                className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
-                animate={{ x: theme === 'dark' ? 24 : 0 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              />
+              <span className={`relative block w-14 h-8 rounded-full transition-colors ${theme === 'dark' ? 'bg-z-purple' : 'bg-z-gray-500'}`}>
+                <motion.span
+                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
+                  animate={{ x: theme === 'dark' ? 24 : 0 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              </span>
             </button>
           </div>
         </motion.div>
@@ -65,13 +67,15 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
               role="switch"
               aria-checked={soundEnabled}
               onClick={toggleSound}
-              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${soundEnabled ? 'bg-z-purple' : 'bg-z-gray-500'}`}
+              className="p-1.5 -m-1.5 shrink-0"
             >
-              <motion.span
-                className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
-                animate={{ x: soundEnabled ? 24 : 0 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              />
+              <span className={`relative block w-14 h-8 rounded-full transition-colors ${soundEnabled ? 'bg-z-purple' : 'bg-z-gray-500'}`}>
+                <motion.span
+                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
+                  animate={{ x: soundEnabled ? 24 : 0 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              </span>
             </button>
           </div>
           <div className="flex items-center justify-between gap-3">
@@ -86,13 +90,15 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
               role="switch"
               aria-checked={vibrationEnabled}
               onClick={toggleVibration}
-              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${vibrationEnabled ? 'bg-z-purple' : 'bg-z-gray-500'}`}
+              className="p-1.5 -m-1.5 shrink-0"
             >
-              <motion.span
-                className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
-                animate={{ x: vibrationEnabled ? 24 : 0 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              />
+              <span className={`relative block w-14 h-8 rounded-full transition-colors ${vibrationEnabled ? 'bg-z-purple' : 'bg-z-gray-500'}`}>
+                <motion.span
+                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
+                  animate={{ x: vibrationEnabled ? 24 : 0 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              </span>
             </button>
           </div>
         </motion.div>
@@ -111,13 +117,15 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
               role="switch"
               aria-checked={collectTrainingData}
               onClick={() => setCollectTrainingData(!collectTrainingData)}
-              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${collectTrainingData ? 'bg-z-purple' : 'bg-z-gray-500'}`}
+              className="p-1.5 -m-1.5 shrink-0"
             >
-              <motion.span
-                className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
-                animate={{ x: collectTrainingData ? 24 : 0 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              />
+              <span className={`relative block w-14 h-8 rounded-full transition-colors ${collectTrainingData ? 'bg-z-purple' : 'bg-z-gray-500'}`}>
+                <motion.span
+                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
+                  animate={{ x: collectTrainingData ? 24 : 0 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              </span>
             </button>
           </div>
         </motion.div>
