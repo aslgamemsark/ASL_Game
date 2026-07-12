@@ -28,3 +28,8 @@ dist-ssr
 
 # vite-plugin-pwa dev service worker output
 dev-dist
+
+# Playwright
+test-results
+playwright-report
+blob-report

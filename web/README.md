@@ -55,15 +55,22 @@ logged to the console (statically stripped from production builds via `import.me
 ## Testing and linting
 
 ```bash
-npm run test      # vitest — unit tests (engine/avatar/classifier logic)
-npm run lint      # oxlint
-npm run audit     # npm audit --audit-level=high (dependency vulnerabilities)
+npm run test       # vitest — unit tests (engine/avatar/classifier logic)
+npm run test:e2e   # playwright — real-browser smoke tests (e2e/)
+npm run lint        # oxlint
+npm run audit       # npm audit --audit-level=high (dependency vulnerabilities)
 ```
 
-All three run in CI (`../.github/workflows/ci.yml`) on every PR and push to `main` that touches
+`npm run test:e2e` needs the browser binary once: `npx playwright install chromium`. It builds
+the app and runs it via `npm run preview` (playwright.config.ts's `webServer`), then drives it in
+a real Chromium — currently onboarding-as-guest through to Home, plus the sign-in modal's
+Escape/aria-modal behavior (see `e2e/smoke.spec.ts`). Deliberately scoped to what's reachable
+without a real camera device; camera-dependent flows (lesson/practice recognition) would need a
+fake video device feed and are a separate, larger effort.
+
+All four (`test`, `test:e2e`, `lint`, `audit` — plus `build`) run in CI
+(`../.github/workflows/ci.yml`) as separate jobs on every PR and push to `main` that touches
 `web/**` (a separate CI job covers the Python side for changes to `core/`/`signs/`/`tests/`).
-There is currently no E2E/browser-automation test suite — `npm run test` covers pure-logic units
-only (recognition math, avatar IK, classifier gating), not full user flows.
 
 ## Project structure
 
