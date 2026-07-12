@@ -3,6 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { WORLDS, WORLD_UNLOCK_GOLD_COST } from '@/data/worlds';
 import { LESSON_UNITS, LESSON_SKIP_COST } from '@/data/lessons';
 import { STORIES } from '@/data/stories';
+
+// Maps a world's unlockCondition (a raw story/lesson id like "coffee-story") to a real display
+// title. The previous code did `unlockCondition.replace(/-/g, ' ')`, which for "greetings-story"
+// produced "greetings story" — a raw internal id leaking into copy, and actively misleading since
+// that story's real title is "Meet Zippy" (first-time-user pass, 2026-07-12).
+function unlockConditionLabel(conditionId: string): string {
+  return STORIES.find((s) => s.id === conditionId)?.title ?? conditionId.replace(/-/g, ' ');
+}
 import { useUserStore } from '@/stores/useUserStore';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { LessonNode } from './LessonNode';
@@ -243,7 +251,7 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                   ) : (
                     <>
                       <p className="text-white/60 text-xs mt-1 mb-3">
-                        Finish {world.unlockCondition?.replace(/-/g, ' ')} to open this world!
+                        Finish {world.unlockCondition ? unlockConditionLabel(world.unlockCondition) : 'the previous world'} to open this world!
                       </p>
                       <button
                         onClick={() => unlockWorldWithGold(world.id, WORLD_UNLOCK_GOLD_COST)}

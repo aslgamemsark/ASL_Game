@@ -213,10 +213,17 @@ export function OnboardingFlow({ onComplete }: Props) {
             >
               🎉
             </motion.div>
-            <h2 className="text-2xl font-bold">
-              {SKILLS.find(s => s.level === selectedLevel)?.title ?? 'Ready!'}
-            </h2>
-            <p className="text-z-gray-300 mt-2">Let's sign! 🤟</p>
+            {/* Was reusing the skill-level TITLE ("Just Starting"/"Some Experience"/
+                "Conversational") as the celebratory headline — read as a non-sequitur, restating
+                the user's own self-assessment as if it were an achievement, not a congratulation
+                (first-time-user pass, 2026-07-12). A real celebratory line + their choice as
+                smaller context reads correctly regardless of which level they picked. */}
+            <h2 className="text-2xl font-bold">You're all set!</h2>
+            <p className="text-z-gray-300 mt-2">
+              Starting at <span className="text-z-purple-light font-semibold">
+                {SKILLS.find(s => s.level === selectedLevel)?.title ?? 'the beginning'}
+              </span> — let's sign! 🤟
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
