@@ -400,20 +400,20 @@ export function ProfileTab() {
                 <StruggleBarList signs={struggleSigns} labelFor={signLabel} />
               </div>
 
-              {/* AI veto rate */}
+              {/* Internal ML-veto stat, reframed in plain language: a raw "Double-Check Rate %"
+                  headline reads as a score a beginner would worry about, when the mechanic can
+                  only ever add extra scrutiny, never take away a pass already earned. Showing the
+                  real counts instead of an abstract rate keeps it honest without being alarming. */}
               <div className="bg-z-card border border-white/5 rounded-2xl p-5">
-                <h3 className="font-bold text-base mb-1 tracking-wide">AI Double-Check Rate</h3>
+                <h3 className="font-bold text-base mb-1 tracking-wide">Extra Accuracy Checks</h3>
                 {vetoStats && vetoStats.ai_gated_attempts > 0 ? (
-                  <>
-                    <p className="text-2xl font-bold text-z-purple-light mt-1">{vetoStats.veto_rate_pct ?? 0}%</p>
-                    <p className="text-z-gray-400 text-xs mt-1.5 leading-relaxed">
-                      Out of {vetoStats.ai_gated_attempts} AI-checked attempts, the model disagreed with the rule
-                      engine {vetoStats.veto_count} time{vetoStats.veto_count === 1 ? '' : 's'} — that&apos;s how the
-                      classifier double-checks the rules without ever overriding a correct sign.
-                    </p>
-                  </>
+                  <p className="text-z-gray-300 text-xs mt-1.5 leading-relaxed">
+                    I took a closer look at {vetoStats.ai_gated_attempts} of your attempts, and gave{' '}
+                    {vetoStats.veto_count} of them a second opinion. This can only add a careful
+                    check — it never takes away a sign you already got right.
+                  </p>
                 ) : (
-                  <p className="text-z-gray-400 text-xs">No AI-gated attempts yet.</p>
+                  <p className="text-z-gray-400 text-xs">No extra checks needed yet.</p>
                 )}
               </div>
 

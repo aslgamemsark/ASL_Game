@@ -59,7 +59,12 @@ function fingerDirectionDeg(hand: Hand, tipIdx: number, mcpIdx: number): number 
   const v: [number, number] = [tip[0] - mcp[0], tip[1] - mcp[1]];
   const n = Math.sqrt(v[0] * v[0] + v[1] * v[1]);
   if (n < 1e-6) return 0;
-  const cosA = (v[0] * 0 + v[1] * -1) / n;
+  // cos(angle to "straight up") = dot(v, [0,-1]) / |v| = (v.x*0 + v.y*-1) / |v|, i.e. -v.y / |v| —
+  // the v.x*0 term is algebraically always zero (confirmed: this simplification changes no
+  // output), left implicit here instead of written out so the linter's dead-expression check
+  // doesn't flag it. Do not "fix" the sign or reference axis without re-verifying against a real
+  // recording — see the calibration note above this function.
+  const cosA = -v[1] / n;
   return (Math.acos(clip(cosA, -1, 1)) * 180) / Math.PI;
 }
 

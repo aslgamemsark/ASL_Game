@@ -64,6 +64,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   const [sessionXp, setSessionXp] = useState(0);
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const [goldAwarded, setGoldAwarded] = useState(0);
+  // Same gap as LessonPage's skip: silently advancing gave the "coach, don't judge" moment zero
+  // acknowledgment. A brief non-blocking toast (ShopPage's pattern) closes it without a full
+  // phase transition.
+  const [skipMsg, setSkipMsg] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const loopStartedRef = useRef<string | null>(null);
   const goldAwardedRef = useRef(false);
@@ -296,6 +300,8 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   }, [currentType, currentSignId]);
 
   const handleSkipExpressive = () => {
+    setSkipMsg(pickZippyLine('encourage'));
+    setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
       recordSign(currentSignId, false);
       if (user) {
@@ -610,6 +616,22 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
           )}
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {skipMsg && (
+          <motion.div
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-50 flex items-center gap-2"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+          >
+            <div className="w-8 h-8 rounded-xl bg-z-purple overflow-hidden shrink-0">
+              <Zippy expression="encouraging" fit="cover" />
+            </div>
+            {skipMsg}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

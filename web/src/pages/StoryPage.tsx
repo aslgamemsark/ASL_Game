@@ -10,7 +10,7 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { Zippy } from '@/components/shared/Zippy';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
-import type { ZippyExpression } from '@/data/zippy';
+import { pickZippyLine, type ZippyExpression } from '@/data/zippy';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAttempt } from '@/hooks/useProgressSync';
@@ -25,13 +25,6 @@ interface Props {
   story: StoryScript;
   onExit: () => void;
 }
-
-const FAIL_RESPONSES = [
-  "No worries, give it another try!",
-  "Almost! Let me show you again…",
-  "Take your time — you've got this!",
-  "Let's try once more. I believe in you 💜",
-];
 
 const MOOD_EMOJI: Record<string, string> = {
   neutral: '😊',
@@ -193,7 +186,7 @@ export function StoryPage({ story, onExit }: Props) {
       });
     }
     setSkipsUsed((p) => p + 1);
-    setFailMsg(FAIL_RESPONSES[Math.floor(Math.random() * FAIL_RESPONSES.length)]);
+    setFailMsg(pickZippyLine('encourage'));
     setPhase('fail');
     timerRef.current = setTimeout(() => {
       if (lineIdx + 1 < story.lines.length) {
