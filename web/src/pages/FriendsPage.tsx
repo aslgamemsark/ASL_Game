@@ -33,11 +33,12 @@ interface Props {
   onExit: () => void;
   onChallengeFriend?: (friendId: string, friendUsername: string) => void;
   onStartMultiplayer?: () => void;
+  onViewProfile: (userId: string) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: Props) {
+export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onViewProfile }: Props) {
   const { user } = useAuth();
 
   const [query, setQuery] = useState('');
@@ -298,11 +299,13 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: P
                   const rel = relationships.find((r) => r.other.id === p.id);
                   return (
                     <div key={p.id} className="flex items-center gap-3 bg-z-card border border-white/8 rounded-2xl px-4 py-3">
-                      <div className="w-10 h-10 rounded-xl bg-z-purple/20 flex items-center justify-center text-xl">🤟</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm truncate">@{p.username}</p>
-                        <p className="text-xs text-z-gray-400">{p.xp} XP · 🔥 {p.streak}d</p>
-                      </div>
+                      <button onClick={() => onViewProfile(p.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                        <div className="w-10 h-10 rounded-xl bg-z-purple/20 flex items-center justify-center text-xl">🤟</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm truncate">@{p.username}</p>
+                          <p className="text-xs text-z-gray-400">{p.xp} XP · 🔥 {p.streak}d</p>
+                        </div>
+                      </button>
                       {relatedIds.has(p.id) ? (
                         <span className="text-xs text-z-gray-400 px-3 py-1.5">
                           {rel?.status === 'accepted' ? 'Friends ✓' : rel?.status === 'pendingSent' ? 'Requested' : 'Incoming'}
@@ -343,11 +346,13 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: P
                 <motion.div key={entry.other.id}
                   className="flex items-center gap-3 bg-z-card border border-z-purple/20 rounded-2xl px-4 py-3"
                   initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-                  <div className="w-10 h-10 rounded-xl bg-z-purple/20 flex items-center justify-center text-xl">🤟</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm truncate">@{entry.other.username}</p>
-                    <p className="text-xs text-z-gray-400">{entry.other.xp} XP</p>
-                  </div>
+                  <button onClick={() => onViewProfile(entry.other.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                    <div className="w-10 h-10 rounded-xl bg-z-purple/20 flex items-center justify-center text-xl">🤟</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm truncate">@{entry.other.username}</p>
+                      <p className="text-xs text-z-gray-400">{entry.other.xp} XP</p>
+                    </div>
+                  </button>
                   <div className="flex gap-2">
                     <motion.button onClick={() => handleAccept(entry)}
                       className="text-xs px-3 py-1.5 rounded-xl font-bold bg-z-purple text-white"
@@ -395,15 +400,17 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: P
                 <motion.div key={entry.other.id}
                   className="flex items-center gap-3 bg-z-card border border-white/8 rounded-2xl px-4 py-3"
                   initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-                  <div className="w-10 h-10 rounded-xl bg-z-purple/20 flex items-center justify-center text-xl">🤟</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm truncate">@{entry.other.username}</p>
-                    <div className="flex items-center gap-2 text-xs text-z-gray-400 mt-0.5">
-                      <span>🔥 {entry.other.streak}d</span>
-                      <span>·</span>
-                      <span>⭐ {entry.other.xp} XP</span>
+                  <button onClick={() => onViewProfile(entry.other.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                    <div className="w-10 h-10 rounded-xl bg-z-purple/20 flex items-center justify-center text-xl">🤟</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm truncate">@{entry.other.username}</p>
+                      <div className="flex items-center gap-2 text-xs text-z-gray-400 mt-0.5">
+                        <span>🔥 {entry.other.streak}d</span>
+                        <span>·</span>
+                        <span>⭐ {entry.other.xp} XP</span>
+                      </div>
                     </div>
-                  </div>
+                  </button>
                   <div className="flex gap-2">
                     {onChallengeFriend && (
                       <motion.button onClick={() => handleChallenge(entry)}
@@ -442,11 +449,13 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer }: P
             <div className="space-y-2">
               {pendingSent.map((entry) => (
                 <div key={entry.other.id} className="flex items-center gap-3 bg-z-card border border-white/8 rounded-2xl px-4 py-3 opacity-70">
-                  <div className="w-10 h-10 rounded-xl bg-z-surface flex items-center justify-center text-xl">🤟</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm truncate">@{entry.other.username}</p>
-                    <p className="text-xs text-z-gray-400">Pending…</p>
-                  </div>
+                  <button onClick={() => onViewProfile(entry.other.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                    <div className="w-10 h-10 rounded-xl bg-z-surface flex items-center justify-center text-xl">🤟</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm truncate">@{entry.other.username}</p>
+                      <p className="text-xs text-z-gray-400">Pending…</p>
+                    </div>
+                  </button>
                   <motion.button onClick={() => handleCancelRequest(entry)}
                     className="text-xs px-3 py-1.5 rounded-xl font-bold border border-white/15 text-z-gray-400"
                     whileTap={{ scale: 0.96 }}>

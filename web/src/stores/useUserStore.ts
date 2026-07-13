@@ -306,6 +306,7 @@ export const useUserStore = create<UserStore>()(
           if (remote.equippedBorder) merged.equippedBorder = remote.equippedBorder;
           if (remote.equippedAvatar) merged.equippedAvatar = remote.equippedAvatar;
           if (remote.activeBadge) merged.activeBadge = remote.activeBadge;
+          if (remote.showcaseBadges) merged.showcaseBadges = remote.showcaseBadges;
           return merged;
         });
       },

@@ -19,6 +19,7 @@ type ProgressRow = {
   equipped_border: string | null;
   equipped_avatar: string | null;
   active_badge: string | null;
+  showcase_badges: string[];
   unlocked_world_ids: string[];
   signs: number;
   rename_cards: number;
@@ -85,6 +86,7 @@ export function useProgressSync() {
           equippedBorder: row.equipped_border,
           equippedAvatar: row.equipped_avatar,
           activeBadge: row.active_badge,
+          showcaseBadges: row.showcase_badges ?? [],
           unlockedWorldIds: row.unlocked_world_ids ?? [],
           signs: row.signs,
           renameCards: row.rename_cards,
@@ -142,6 +144,7 @@ export function useProgressSync() {
       equipped_border: store.equippedBorder,
       equipped_avatar: store.equippedAvatar,
       active_badge: store.activeBadge,
+      showcase_badges: store.showcaseBadges,
       unlocked_world_ids: store.unlockedWorldIds,
       signs: store.signs,
       rename_cards: store.renameCards,
@@ -181,7 +184,7 @@ export function useProgressSync() {
   }, [
     user, store.xp, store.streak, store.completedLessons, store.signAccuracy,
     store.gold, store.ownedCosmetics, store.equippedBorder, store.equippedAvatar, store.activeBadge,
-    store.unlockedWorldIds, store.signs, store.renameCards, store.badges, store.pendingChests,
+    store.showcaseBadges, store.unlockedWorldIds, store.signs, store.renameCards, store.badges, store.pendingChests,
     store.totalCorrectSigns, store.streakFreezes, store.streakMilestonesAwarded, store.speedHighScores,
   ]);
 

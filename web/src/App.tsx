@@ -21,6 +21,7 @@ const MultiplayerPage = lazy(() => import('@/pages/MultiplayerPage').then((m) =>
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
 const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })));
+const UserProfilePage = lazy(() => import('@/pages/UserProfilePage').then((m) => ({ default: m.UserProfilePage })));
 const AdminPanel = lazy(() => import('@/pages/AdminPanel').then((m) => ({ default: m.AdminPanel })));
 const AvatarLabPage = lazy(() => import('@/avatar/viewer/AvatarLabPage').then((m) => ({ default: m.AvatarLabPage })));
 import { SideNav, type SideNavScreen } from '@/components/shared/SideNav';
@@ -50,7 +51,8 @@ type Screen =
   | { type: 'settings' }
   | { type: 'leaderboard' }
   | { type: 'admin' }
-  | { type: 'privacy' };
+  | { type: 'privacy' }
+  | { type: 'user-profile'; userId: string };
 
 // Focused-task screens suppress the side nav (matches hiding chrome during a lesson).
 const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboard', 'settings'];
@@ -289,7 +291,13 @@ export default function App() {
           )}
 
           {screen.type === 'friends' && (
-            <FriendsPage key="friends" onExit={goHome} onChallengeFriend={handleChallengeFriend} onStartMultiplayer={() => setScreen({ type: 'multiplayer' })} />
+            <FriendsPage
+              key="friends"
+              onExit={goHome}
+              onChallengeFriend={handleChallengeFriend}
+              onStartMultiplayer={() => setScreen({ type: 'multiplayer' })}
+              onViewProfile={(id) => setScreen({ type: 'user-profile', userId: id })}
+            />
           )}
 
           {screen.type === 'multiplayer' && (
@@ -315,7 +323,19 @@ export default function App() {
           )}
 
           {screen.type === 'leaderboard' && (
-            <LeaderboardPage key="leaderboard" onExit={goHome} />
+            <LeaderboardPage
+              key="leaderboard"
+              onExit={goHome}
+              onViewProfile={(id) => setScreen({ type: 'user-profile', userId: id })}
+            />
+          )}
+
+          {screen.type === 'user-profile' && (
+            // Reachable from both Leaderboard and Friends — matches every other screen's
+            // "exit always goes home" convention rather than tracking an origin screen, since
+            // that pattern isn't established anywhere else (the one exception, Privacy -> Settings,
+            // is a single fixed parent, not a multi-origin case like this one).
+            <UserProfilePage key="user-profile" userId={screen.userId} onExit={goHome} />
           )}
 
           {/* Reachable only via the Settings entry point, which itself only renders for admins —
