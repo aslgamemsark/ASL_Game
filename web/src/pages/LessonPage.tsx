@@ -49,6 +49,10 @@ export function LessonPage({ lessonId, onExit }: Props) {
   const [correctCount, setCorrectCount] = useState(0);
   const [successMsg, setSuccessMsg] = useState('Nice work!');
   const completeMsg = useZippyLine('lessonComplete');
+  // A skip previously advanced with zero acknowledgment — the one moment "coach, don't judge"
+  // matters most had the coach saying nothing at all. A brief, non-blocking toast (same pattern
+  // as ShopPage's) closes that gap without turning Skip into a full phase transition.
+  const [skipMsg, setSkipMsg] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const signIds = lesson?.signIds ?? [];
@@ -193,6 +197,8 @@ export function LessonPage({ lessonId, onExit }: Props) {
   };
 
   const handleSkip = () => {
+    setSkipMsg(pickZippyLine('encourage'));
+    setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
       recordSign(currentSignId, false);
       if (user) {
@@ -233,7 +239,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
     <div className="min-h-screen bg-z-bg flex flex-col">
       <AnimatePresence>
         {showOnboarding && phase === 'intro' && (
-          <CameraOnboarding onContinue={handleOnboardingContinue} />
+          <CameraOnboarding onContinue={handleOnboardingContinue} onCancel={onExit} />
         )}
       </AnimatePresence>
 
@@ -467,6 +473,22 @@ export function LessonPage({ lessonId, onExit }: Props) {
           )}
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {skipMsg && (
+          <motion.div
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-50 flex items-center gap-2"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+          >
+            <div className="w-8 h-8 rounded-xl bg-z-purple overflow-hidden shrink-0">
+              <Zippy expression="encouraging" fit="cover" />
+            </div>
+            {skipMsg}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

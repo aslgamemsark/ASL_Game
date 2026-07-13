@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { logAttempt } from '@/hooks/useProgressSync';
 import { SIGNS } from '@/data/signs';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
+import { MovementKind } from '@/engine/schema';
 import type { VerifyResult } from '@/engine/verifier';
 import type { SpeedTier } from '@/types/user';
 
@@ -210,8 +211,16 @@ export function SpeedChallengePage({ onExit }: Props) {
 
   const startGame = async (selectedTier: SpeedTier) => {
     setTier(selectedTier);
+    // Blitz's 1.5s-per-sign budget is below core/schema's own movement-verification requirement
+    // (a rolling window of ~1.5-2s to confirm circular/linear/repeated motion, per CLAUDE.md) —
+    // a movement sign drawn into Blitz is effectively unwinnable before the window can even
+    // close. Warm Up (6s) and Sprint (3s) clear that window comfortably, so only Blitz filters.
     const allIds = Object.keys(SIGNS);
-    const shuffled = [...allIds].sort(() => Math.random() - 0.5).slice(0, 10);
+    const eligibleIds =
+      selectedTier === 'blitz'
+        ? allIds.filter((id) => ENGINE_SIGNS[id]?.movement.kind === MovementKind.NONE)
+        : allIds;
+    const shuffled = [...eligibleIds].sort(() => Math.random() - 0.5).slice(0, 10);
     setQueue(shuffled);
     setQueueIdx(0);
     setScore(0);

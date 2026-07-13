@@ -2,9 +2,13 @@ import { motion } from 'framer-motion';
 
 interface Props {
   onContinue: () => void;
+  /** Lets a hesitant first-timer back out to the previous screen instead of being stuck on a
+   *  one-way "Allow Camera" commit with no other exit (this screen is a fixed full-screen overlay
+   *  that sits on top of the lesson header's own close button). */
+  onCancel: () => void;
 }
 
-export function CameraOnboarding({ onContinue }: Props) {
+export function CameraOnboarding({ onContinue, onCancel }: Props) {
   return (
     <motion.div
       className="fixed inset-0 z-50 bg-z-bg/95 backdrop-blur-sm flex items-center justify-center p-6"
@@ -52,7 +56,14 @@ export function CameraOnboarding({ onContinue }: Props) {
           Allow Camera
         </motion.button>
 
-        <p className="text-[11px] text-z-gray-500 mt-3">
+        <button
+          onClick={onCancel}
+          className="w-full py-3 mt-2 text-sm font-semibold text-z-gray-400 hover:text-z-gray-200 transition-colors"
+        >
+          Not now
+        </button>
+
+        <p className="text-[11px] text-z-gray-500 mt-1">
           You can revoke camera access anytime in your browser settings. Full details in
           Settings → Privacy &amp; Terms.
         </p>
