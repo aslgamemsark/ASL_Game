@@ -251,16 +251,14 @@ export function StoryPage({ story, onExit }: Props) {
           {phase === 'dialogue' && currentLine && (
             <motion.div key={`dialogue-${lineIdx}`} className="flex-1 flex flex-col gap-4 pt-4"
               initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}>
-              {/* NPC bubble */}
+              {/* NPC bubble — full-body standing character, not just a cropped headshot avatar.
+                  A costume (barista/doctor/teacher) always wins over the generic mood art below:
+                  it's who the player is actually talking to in this scene. */}
               <div className="flex items-start gap-3">
-                {isZippy ? (
-                  <div className="w-12 h-12 rounded-2xl bg-z-purple overflow-hidden shrink-0">
-                    <Zippy expression={MOOD_ZIPPY[currentLine.npcMood]} fit="cover" />
-                  </div>
-                ) : npcCostume ? (
-                  <div className="w-12 h-12 rounded-2xl bg-z-purple overflow-hidden shrink-0">
-                    <Zippy expression={npcCostume} fit="cover" />
-                  </div>
+                {npcCostume ? (
+                  <Zippy expression={npcCostume} size="md" className="shrink-0" />
+                ) : isZippy ? (
+                  <Zippy expression={MOOD_ZIPPY[currentLine.npcMood]} size="md" className="shrink-0" />
                 ) : (
                   <div className="w-12 h-12 rounded-2xl bg-z-purple flex items-center justify-center text-2xl shrink-0">
                     {MOOD_EMOJI[currentLine.npcMood]}
