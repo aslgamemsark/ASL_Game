@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserStore } from '@/stores/useUserStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getShopItem } from '@/data/shop';
 import { getBadge } from '@/data/badges';
+import { LogoutConfirm } from '@/components/auth/LogoutConfirm';
 
 export type SideNavScreen = 'home' | 'review' | 'alphabet' | 'shop' | 'friends' | 'leaderboard' | 'settings' | 'profile';
 
@@ -26,14 +28,15 @@ interface Props {
 const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'home', label: 'Journey', icon: '🗺️' },
   { id: 'review', label: 'Review', icon: '🪞' },
-  { id: 'alphabet', label: 'ABCs', icon: '🔤' },
+  { id: 'alphabet', label: 'Alphabets', icon: '🔤' },
   { id: 'shop', label: 'Shop', icon: '🪙' },
   { id: 'friends', label: 'Friends', icon: '🤝' },
   { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
 ];
 
 export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onLeaderboard, onSettings, onProfile, onSignIn, onNotice }: Props) {
-  const { user, username, signOut } = useAuth();
+  const { user, username } = useAuth();
+  const [showLogout, setShowLogout] = useState(false);
   // Always mounted on desktop widths — see TopBar's identical fix for why a selector matters here.
   const { equippedAvatar, activeBadge, equippedBorder } = useUserStore(
     useShallow((s) => ({
@@ -131,7 +134,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
           Settings
         </motion.button>
         <motion.button
-          onClick={() => (user ? signOut() : onNotice("You're already logged out"))}
+          onClick={() => (user ? setShowLogout(true) : onNotice("You're already logged out"))}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-z-gray-300 hover:bg-white/5 hover:text-z-red transition-colors"
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
@@ -140,6 +143,8 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
           Log out
         </motion.button>
       </div>
+
+      <LogoutConfirm open={showLogout} onClose={() => setShowLogout(false)} />
     </aside>
   );
 }

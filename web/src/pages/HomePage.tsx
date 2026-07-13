@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TopBar } from '@/components/shared/TopBar';
 import { StreakCard } from '@/components/home/StreakCard';
@@ -13,6 +13,17 @@ import { ZippyMessage } from '@/components/shared/ZippyMessage';
 import { useZippyLine } from '@/hooks/useZippyLine';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Session-scoped so the warm welcome-back greeting shows at most once per app open, not on every
+// return to the Learn tab. Reset naturally on a full reload.
+let welcomeBackShown = false;
+
+function daysSince(dateStr: string | null): number {
+  if (!dateStr) return 0;
+  const then = new Date(`${dateStr}T00:00:00`).getTime();
+  const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00`).getTime();
+  return Math.round((today - then) / 86_400_000);
+}
 
 interface Props {
   onStartLesson: (id: string) => void;
@@ -42,9 +53,17 @@ export function HomePage({
   tab,
   onTabChange: setTab,
 }: Props) {
-  const { refreshDailyQuests, streak } = useUserStore();
+  const { refreshDailyQuests, streak, lastPracticeDate } = useUserStore();
   const { user } = useAuth();
   const greeting = useZippyLine('homeGreeting');
+  const welcomeBackLine = useZippyLine('welcomeBack');
+  // Returning after a couple of days away → a one-time warm welcome-back (never counts missed
+  // days, never guilts). Decided once at mount so it stays stable while the tab is open.
+  const [showWelcomeBack] = useState(() => {
+    if (welcomeBackShown) return false;
+    if (daysSince(lastPracticeDate) >= 2) { welcomeBackShown = true; return true; }
+    return false;
+  });
 
   useEffect(() => {
     refreshDailyQuests();
@@ -66,8 +85,8 @@ export function HomePage({
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
               <ZippyMessage
-                expression={streak > 0 ? 'proud' : 'welcome'}
-                message={greeting}
+                expression={showWelcomeBack ? 'sleeping' : streak > 0 ? 'proud' : 'welcome'}
+                message={showWelcomeBack ? welcomeBackLine : greeting}
                 size="sm"
                 hideName
                 className="mb-3"

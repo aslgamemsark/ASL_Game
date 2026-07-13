@@ -390,6 +390,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
+              <Zippy expression="ready" size="md" float />
               <h2 className="text-2xl font-bold mb-2">Choose a mode</h2>
 
               <motion.button

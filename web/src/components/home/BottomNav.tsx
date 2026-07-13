@@ -13,7 +13,7 @@ interface Props {
 const STATIC_TABS = [
   { id: 'learn'    as Tab, label: 'Journey',  icon: '🗺️' },
   { id: 'review'   as Tab, label: 'Review',   icon: '🪞'  },
-  { id: 'alphabet' as Tab, label: 'ABCs',     icon: '🔤'  },
+  { id: 'alphabet' as Tab, label: 'Alphabets', icon: '🔤'  },
 ];
 
 const ICON_HOVER: Record<Tab, TargetAndTransition> = {

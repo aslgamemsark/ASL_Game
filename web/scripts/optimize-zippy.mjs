@@ -42,6 +42,21 @@ const MAP = {
   proud: 'zippy_proud.png',
   applauding: 'zippy_applauding.png',
   oops: 'zippy_oops.png',
+  // Generic app-loading pose: the calm "hands clasped, waiting" art reads better as a neutral
+  // spinner companion than the binoculars "searching" pose (which is reserved for camera-loading).
+  loading: 'zippy-waiting.png',
+  // Second batch (2026-07-13) — hyphenated source names, delivered in D:\Zippy-Images.
+  looking: 'zippy-looking.png',
+  reading: 'zippy-reading.png',
+  ready: 'zippy-ready.png',
+  streak: 'zippy-streak.png',
+  tryagain: 'zippy-tryagain.png',
+  surprised: 'zippy-surprised.png',
+  reward: 'zippy-reward.png',
+  levelup: 'zippy-levelup.png',
+  achievement: 'zippy-achievement.png',
+  goodbye: 'zippy-goodbye.png',
+  sleeping: 'zippy-sleeping.png',
 };
 
 const TARGET_H = 512; // px tall; covers the largest in-app render (~200px) at 2x+
