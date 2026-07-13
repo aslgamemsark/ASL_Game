@@ -43,17 +43,6 @@ const MOOD_ZIPPY: Record<string, ZippyExpression> = {
   surprised: 'celebrating',
 };
 
-// Dr. Reeves and Ms. Rowan (and the coffee-shop barista) are still Zippy underneath — just dressed
-// for the part. The costume art has one static pose (no per-mood variants like MOOD_ZIPPY), so it's
-// used everywhere a non-Zippy NPC previously fell back to a generic emoji.
-const STORY_NPC_COSTUME: Record<string, ZippyExpression> = {
-  'coffee-story': 'barista',
-  'coffee-story-2': 'barista',
-  'hospital-story': 'doctor',
-  'classroom-story': 'teacher',
-};
-
-
 export function StoryPage({ story, onExit }: Props) {
   const { addXp, addSigns, addGold, addDailyMinutes, recordSign, completeLesson, checkBadges, awardBadge } = useUserStore();
   const { user } = useAuth();
@@ -74,7 +63,7 @@ export function StoryPage({ story, onExit }: Props) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const loopStartedRef = useRef<string | null>(null);
   const isZippy = story.npcName === 'Zippy';
-  const npcCostume = STORY_NPC_COSTUME[story.id];
+  const npcCostume = story.npcCostume;
 
   const currentLine = story.lines[lineIdx];
   const currentEngineSign = currentLine ? ENGINE_SIGNS[currentLine.requiredSignId] : null;
