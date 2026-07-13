@@ -25,6 +25,7 @@ const AdminPanel = lazy(() => import('@/pages/AdminPanel').then((m) => ({ defaul
 const AvatarLabPage = lazy(() => import('@/avatar/viewer/AvatarLabPage').then((m) => ({ default: m.AvatarLabPage })));
 import { SideNav, type SideNavScreen } from '@/components/shared/SideNav';
 import { STORIES } from '@/data/stories';
+import { SIGNS } from '@/data/signs';
 import { useProgressSync } from '@/hooks/useProgressSync';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -186,6 +187,24 @@ export default function App() {
     return (
       <Suspense fallback={<ScreenFallback />}>
         <AvatarLabPage />
+      </Suspense>
+    );
+  }
+
+  // Dev-only QA tool: run every sign in the registry through the real camera + recognition
+  // pipeline, one at a time, instead of a lesson-scoped subset. Deliberately reuses PracticePage
+  // wholesale rather than reimplementing camera/verifier logic — CLAUDE.md is explicit that the
+  // recognition engine must never be duplicated (divergent per-copy logic is exactly how the old
+  // COFFEE bug shipped). Same dead-code-elimination guarantee as /avatarlab above.
+  if (import.meta.env.DEV && window.location.pathname === '/test-signs') {
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        <PracticePage
+          onExit={() => { window.location.pathname = '/'; }}
+          filterSignIds={Object.keys(SIGNS)}
+          autoStartExpressive
+          heading="Test All Signs"
+        />
       </Suspense>
     );
   }
