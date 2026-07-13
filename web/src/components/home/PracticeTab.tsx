@@ -1,15 +1,113 @@
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { SIGNS } from '@/data/signs';
+import { LESSON_UNITS } from '@/data/lessons';
 import { useUserStore } from '@/stores/useUserStore';
 
 interface Props {
   onStartPractice: () => void;
   onStartWeakPractice: (signIds: string[]) => void;
-  onStartStory: () => void;
-  onStartSpeed: () => void;
 }
 
-export function PracticeTab({ onStartPractice, onStartWeakPractice, onStartStory, onStartSpeed }: Props) {
+// Groups every taught (non-letter) sign by the lesson `scenario` tag it first appears under —
+// derived from LESSON_UNITS so this never drifts out of sync with the actual curriculum. Letters
+// get their own dedicated "Alphabet" dropdown instead of being scattered across scenarios.
+const SCENARIO_LABELS: Record<string, string> = {
+  greetings: 'Greetings',
+  coffee_shop: 'Coffee Shop',
+  hospital: 'Hospital',
+  classroom: 'Classroom',
+};
+
+function buildScenarioGroups(): { key: string; label: string; signIds: string[] }[] {
+  const byScenario = new Map<string, Set<string>>();
+  for (const unit of LESSON_UNITS) {
+    for (const node of unit.nodes) {
+      if (!byScenario.has(node.scenario)) byScenario.set(node.scenario, new Set());
+      const set = byScenario.get(node.scenario)!;
+      for (const id of node.signIds) {
+        if (!id.startsWith('LETTER_')) set.add(id);
+      }
+    }
+  }
+  return Object.entries(SCENARIO_LABELS).map(([key, label]) => ({
+    key,
+    label,
+    signIds: Array.from(byScenario.get(key) ?? []),
+  }));
+}
+
+const SCENARIO_GROUPS = buildScenarioGroups();
+const ALPHABET_IDS = Object.keys(SIGNS).filter((id) => id.startsWith('LETTER_')).sort();
+// Safety net: any sign not covered by a scenario grouping or the alphabet (e.g. added later
+// without a lesson yet) still shows up somewhere instead of silently vanishing from Review.
+const GROUPED_IDS = new Set([...SCENARIO_GROUPS.flatMap((g) => g.signIds), ...ALPHABET_IDS]);
+const OTHER_IDS = Object.keys(SIGNS).filter((id) => !GROUPED_IDS.has(id));
+
+function SignChip({ id, name, accuracy, isWeak }: { id: string; name: string; accuracy: number | null; isWeak: boolean }) {
+  return (
+    <div
+      key={id}
+      className={`border rounded-xl p-3 text-center ${
+        isWeak ? 'bg-z-orange/10 border-z-orange/20' : 'bg-z-card border-white/5'
+      }`}
+    >
+      <p className="font-semibold text-xs truncate text-z-gray-100">{name.replace(/_/g, ' ')}</p>
+      {accuracy !== null ? (
+        <p className={`text-[11px] mt-1 font-bold ${accuracy >= 70 ? 'text-emerald-400' : 'text-z-orange'}`}>
+          {accuracy}%
+        </p>
+      ) : (
+        <p className="text-[11px] mt-1 text-z-gray-500">—</p>
+      )}
+    </div>
+  );
+}
+
+function ScenarioDropdown({ label, signIds }: { label: string; signIds: string[] }) {
+  const [open, setOpen] = useState(false);
+  const { signAccuracy } = useUserStore();
+
+  if (signIds.length === 0) return null;
+
+  return (
+    <div className="mb-2 rounded-2xl border border-white/5 bg-z-card overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
+        <span className="font-bold text-sm text-z-gray-100">{label}</span>
+        <span className="flex items-center gap-2 text-xs text-z-gray-400">
+          {signIds.length} sign{signIds.length !== 1 ? 's' : ''}
+          <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>▾</motion.span>
+        </span>
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="grid grid-cols-3 gap-2 px-4 pb-4">
+              {signIds.map((id) => {
+                const sign = SIGNS[id];
+                const stats = signAccuracy[id];
+                const accuracy = stats ? Math.round((stats.successes / stats.attempts) * 100) : null;
+                const isWeak = !!stats && stats.easeFactor < 2.2 && stats.attempts > 0;
+                return <SignChip key={id} id={id} name={sign.name} accuracy={accuracy} isWeak={isWeak} />;
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+export function PracticeTab({ onStartPractice, onStartWeakPractice }: Props) {
   const { signAccuracy } = useUserStore();
 
   const signEntries = Object.entries(SIGNS);
@@ -84,43 +182,6 @@ export function PracticeTab({ onStartPractice, onStartWeakPractice, onStartStory
         </motion.button>
       </motion.div>
 
-      {/* Speed Challenge */}
-      <motion.div
-        className="mb-3"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.11 }}
-      >
-        <motion.button
-          onClick={onStartSpeed}
-          className="w-full rounded-2xl p-5 text-left border border-white/5 overflow-hidden relative"
-          style={{ background: 'linear-gradient(135deg, #1E40AF, #3B82F6)' }}
-          initial="rest"
-          animate="rest"
-          whileHover="hover"
-          whileTap={{ scale: 0.97 }}
-          variants={{
-            rest:  { scale: 1, boxShadow: '0 0 0 rgba(0,0,0,0)' },
-            hover: { scale: 1.02, boxShadow: '0 14px 40px rgba(59,130,246,0.45)', transition: { duration: 0.25, ease: 'easeOut' } },
-          }}
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
-          <div className="relative flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-white">⚡ Speed Challenge</h3>
-              <p className="text-blue-200 text-sm mt-1">Race the clock · 3× XP in Blitz mode</p>
-            </div>
-            <motion.span
-              className="text-3xl inline-block"
-              variants={{
-                rest:  { x: 0, transition: { duration: 0.3 } },
-                hover: { x: [0, 6, -3, 5, 0], transition: { duration: 0.8, repeat: Infinity } },
-              }}
-            >⚡</motion.span>
-          </div>
-        </motion.button>
-      </motion.div>
-
       {/* Weak Signs — only shows if there are struggling signs */}
       {weakSignIds.length > 0 && (
         <motion.div
@@ -164,98 +225,15 @@ export function PracticeTab({ onStartPractice, onStartWeakPractice, onStartStory
         </motion.div>
       )}
 
-      {/* Story mode */}
-      <motion.div
-        className="mb-3"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.17 }}
-      >
-        <motion.button
-          onClick={onStartStory}
-          className="w-full rounded-2xl p-5 text-left border border-white/5 overflow-hidden relative"
-          style={{ background: 'linear-gradient(135deg, #0F766E, #14B8A6)' }}
-          initial="rest"
-          animate="rest"
-          whileHover="hover"
-          whileTap={{ scale: 0.97 }}
-          variants={{
-            rest:  { scale: 1, boxShadow: '0 0 0 rgba(0,0,0,0)' },
-            hover: { scale: 1.02, boxShadow: '0 14px 40px rgba(15,118,110,0.55)', transition: { duration: 0.25, ease: 'easeOut' } },
-          }}
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
-          {/* White text directly on this gradient failed WCAG contrast (2.3:1, needs 4.5:1) —
-              caught by an `impeccable detect` scan. A scrim behind the text keeps the vibrant
-              gradient intact while giving text enough contrast to read on. */}
-          <div className="absolute inset-0 bg-black/30 rounded-2xl" />
-          <div className="relative flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-white">Coffee Shop Story</h3>
-              <p className="text-teal-100 text-sm mt-1">Chat with Zippy the barista in ASL</p>
-            </div>
-            <div className="relative inline-flex items-center justify-center">
-              {[0, 1, 2].map((s) => (
-                <motion.span
-                  key={s}
-                  className="absolute rounded-full bg-white/60"
-                  style={{ width: 4, height: 9, left: `${36 + s * 13}%`, bottom: '70%', filter: 'blur(1.5px)' }}
-                  variants={{
-                    rest:  { opacity: 0, y: 0, transition: { duration: 0.3 } },
-                    hover: { opacity: [0, 0.65, 0], y: [0, -16], transition: { duration: 1.5, repeat: Infinity, delay: s * 0.3, ease: 'easeOut' } },
-                  }}
-                />
-              ))}
-              <motion.span
-                className="text-3xl inline-block"
-                variants={{
-                  rest:  { y: 0, transition: { duration: 0.25, ease: 'easeOut' } },
-                  hover: { y: -4, transition: { duration: 0.25, ease: 'easeOut' } },
-                }}
-              >☕</motion.span>
-            </div>
-          </div>
-        </motion.button>
-      </motion.div>
-
-      {/* Vocabulary grid */}
+      {/* Vocabulary, grouped by scenario + alphabet — collapsed by default */}
       <h3 className="font-bold text-sm mb-3 mt-6 text-z-gray-300 uppercase tracking-widest">
         Your vocabulary
       </h3>
-      <div className="grid grid-cols-3 gap-2">
-        {signEntries.map(([id, sign], i) => {
-          const stats = signAccuracy[id];
-          const accuracy = stats
-            ? Math.round((stats.successes / stats.attempts) * 100)
-            : null;
-          const isWeak = stats && stats.easeFactor < 2.2 && stats.attempts > 0;
-
-          return (
-            <motion.div
-              key={id}
-              className={`border rounded-xl p-3 text-center ${
-                isWeak ? 'bg-z-orange/10 border-z-orange/20' : 'bg-z-card border-white/5'
-              }`}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.02 }}
-            >
-              <p className="font-semibold text-xs truncate text-z-gray-100">
-                {sign.name.replace(/_/g, ' ')}
-              </p>
-              {accuracy !== null ? (
-                <p className={`text-[11px] mt-1 font-bold ${
-                  accuracy >= 70 ? 'text-emerald-400' : 'text-z-orange'
-                }`}>
-                  {accuracy}%
-                </p>
-              ) : (
-                <p className="text-[11px] mt-1 text-z-gray-500">—</p>
-              )}
-            </motion.div>
-          );
-        })}
-      </div>
+      {SCENARIO_GROUPS.map((g) => (
+        <ScenarioDropdown key={g.key} label={g.label} signIds={g.signIds} />
+      ))}
+      <ScenarioDropdown label="Alphabet" signIds={ALPHABET_IDS} />
+      {OTHER_IDS.length > 0 && <ScenarioDropdown label="Other Signs" signIds={OTHER_IDS} />}
     </div>
   );
 }

@@ -57,6 +57,11 @@ const MAP = {
   achievement: 'zippy-achievement.png',
   goodbye: 'zippy-goodbye.png',
   sleeping: 'zippy-sleeping.png',
+  // Third batch (2026-07-13) — costume variants for story roleplay NPCs (he's still Zippy,
+  // just dressed for the part).
+  barista: 'zippy-barista.png',
+  doctor: 'zippy-doctor.png',
+  teacher: 'zippy-teacher.png',
 };
 
 const TARGET_H = 512; // px tall; covers the largest in-app render (~200px) at 2x+
