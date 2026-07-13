@@ -1,4 +1,4 @@
-# SignUp — web app
+# Segno — web app
 
 The React/TypeScript/Vite port of ASL_Game. Same five-parameter recognition schema and
 confusor-test discipline as the Python prototype in the repo root (see [../README.md](../README.md)

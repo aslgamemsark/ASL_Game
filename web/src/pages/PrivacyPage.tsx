@@ -55,7 +55,7 @@ export function PrivacyPage({ onExit }: Props) {
         <section>
           <h2 className="font-bold text-white mb-2">Terms</h2>
           <p>
-            SignUp is currently in beta. Features, balance, and content may change without notice.
+            Segno is currently in beta. Features, balance, and content may change without notice.
             Don't use the app to harass or impersonate other users — accounts doing so may be
             suspended. Found a bug or have feedback? Use the "Report a bug" link in Settings.
           </p>

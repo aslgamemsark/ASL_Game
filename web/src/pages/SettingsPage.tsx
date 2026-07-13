@@ -153,7 +153,7 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
           <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">Support</h2>
           <div className="space-y-2">
             <a
-              href="mailto:msaad9632@gmail.com?subject=SignUp%20bug%20report&body=What%20happened%3A%0A%0ASteps%20to%20reproduce%3A%0A"
+              href="mailto:msaad9632@gmail.com?subject=Segno%20bug%20report&body=What%20happened%3A%0A%0ASteps%20to%20reproduce%3A%0A"
               className="block w-full py-2.5 rounded-xl bg-z-purple/15 text-z-purple-light font-bold text-sm text-center"
             >
               🐛 Report a bug
