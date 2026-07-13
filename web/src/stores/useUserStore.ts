@@ -497,7 +497,7 @@ export const useUserStore = create<UserStore>()(
         const chest = s.pendingChests.find((c: Chest) => c.id === chestId);
         if (!chest || chest.readyAt > Date.now()) return { signs: 0, gold: 0 };
         const signsWon = Math.floor(Math.random() * 150) + 50;
-        const goldWon = Math.floor(Math.random() * 8) + 2;
+        const goldWon = 5;
         set((st) => ({
           pendingChests: st.pendingChests.filter((c: Chest) => c.id !== chestId),
           signs: st.signs + signsWon,
