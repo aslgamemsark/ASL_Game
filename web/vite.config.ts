@@ -44,7 +44,7 @@ export default defineConfig({
       },
       // Enabled in dev too so the manifest + registration can be verified without a prod build.
       devOptions: { enabled: true, type: 'module' },
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.png', 'favicon-16x16.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Segno — Learn ASL with Zippy',
         short_name: 'Segno',
