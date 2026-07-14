@@ -95,18 +95,19 @@ function bestConsecutivePassStreak(fixture: Fixture, sign: Sign): number {
   return best;
 }
 
-// HELP was removed from playable content 2026-07-14 (commit 3f25711) specifically because its
-// rule-based recognition is unreliable, not just for the rapid-motion confusor but for genuine
-// correct performances too: this exact help_correct.json recording never reaches a 6-frame streak
-// because its nondominant hand drops out of camera view in the final ~0.5s (a real characteristic
-// of the recording, not a scoring bug) — see the matching KNOWN_ACCEPTED_GAPS entry in
-// test-all-signs.ts. Excluded here rather than silently left red, for the same documented reason.
+// HELP's rule-based recognition is unreliable (commit 3f25711, 2026-07-14) not just for the
+// rapid-motion confusor but for genuine correct performances too: this exact help_correct.json
+// recording never reaches a 6-frame streak because its nondominant hand drops out of camera view
+// in the final ~0.5s (a real characteristic of the recording, not a scoring bug). HELP was briefly
+// removed from playable content over this, then re-added (commit 9e9a139) as an accepted risk with
+// the same profile as DOCTOR — see the matching KNOWN_ACCEPTED_GAPS entry in test-all-signs.ts.
+// Excluded here rather than silently left red, for the same documented reason.
 const KNOWN_UNRELIABLE_CORRECT = new Set(['HELP']);
 
 describe('correct performance still triggers live (>= 6 consecutive passing frames)', () => {
   for (const [name, sign, correct] of CASES) {
     if (KNOWN_UNRELIABLE_CORRECT.has(name)) {
-      it.todo(`${name} — known unreliable rule-based ceiling, removed from playable content (commit 3f25711)`);
+      it.todo(`${name} — known unreliable rule-based ceiling, kept in playable content as an accepted risk (commits 3f25711, 9e9a139)`);
       continue;
     }
     it(name, () => {

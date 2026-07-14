@@ -5,7 +5,7 @@ import { Zippy } from '@/components/shared/Zippy';
 const MILESTONES = [7, 30, 100];
 
 export function StreakCard() {
-  const { streak, dailyGoalMinutes, dailyProgressMinutes, streakFreezes, streakMilestonesAwarded } = useUserStore();
+  const { streak, dailyGoalMinutes, dailyProgressMinutes, streakMilestonesAwarded } = useUserStore();
   const progress = Math.min(1, dailyProgressMinutes / dailyGoalMinutes);
 
   const nextMilestone = MILESTONES.find(m => streak < m) ?? null;
@@ -113,14 +113,8 @@ export function StreakCard() {
           </div>
         </div>
 
-        {/* Footer: freeze count + next milestone */}
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm">🧊</span>
-            <span className="text-xs text-white/80">
-              {streakFreezes} freeze{streakFreezes !== 1 ? 's' : ''} left
-            </span>
-          </div>
+        {/* Footer: next milestone */}
+        <div className="flex items-center justify-end mt-3">
           <AnimatePresence>
             {nextMilestone && streak > 0 && (
               <motion.span

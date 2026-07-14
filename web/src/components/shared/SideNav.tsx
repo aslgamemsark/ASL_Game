@@ -63,8 +63,8 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
   };
 
   return (
-    <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-64 flex-col py-6 px-4 bg-z-card border-r border-white/5 z-40">
-      <div className="flex items-center gap-2 px-2 mb-8">
+    <aside className="hidden lg:flex fixed left-0 top-0 h-dvh w-64 flex-col py-6 px-4 bg-z-card border-r border-white/5 z-40">
+      <div className="flex items-center gap-2 px-2 mb-8 shrink-0">
         <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
           <img src="/pwa-192x192.png" alt="" className="w-full h-full object-cover" />
         </div>
@@ -83,7 +83,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
       {/* Tapping the chip goes to the Me tab when signed in, or opens the sign-in modal for a guest. */}
       <motion.button
         onClick={() => (user ? onProfile() : onSignIn())}
-        className="flex items-center gap-2.5 px-2 py-2.5 mb-6 rounded-xl bg-z-surface/60 hover:bg-z-surface transition-colors text-left w-full"
+        className="flex items-center gap-2.5 px-2 py-2.5 mb-6 rounded-xl bg-z-surface/60 hover:bg-z-surface transition-colors text-left w-full shrink-0"
         whileTap={{ scale: 0.98 }}
       >
         <div className={`w-9 h-9 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg shrink-0 ${borderClasses}`}>
@@ -95,7 +95,11 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
         </div>
       </motion.button>
 
-      <nav className="flex-1 flex flex-col gap-1">
+      {/* min-h-0 lets this shrink below its content size inside the flex column (the default
+          min-height:auto would otherwise stop it from ever compressing), so it's the ONLY part
+          that scrolls if content is ever taller than the viewport — the header above and the
+          Settings/Log out block below stay pinned and always visible without any scrolling. */}
+      <nav className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
           const isActive = active === item.id;
           return (
@@ -126,7 +130,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
         </motion.button>
       </nav>
 
-      <div className="flex flex-col gap-1 pt-4 mt-4 border-t border-white/5">
+      <div className="flex flex-col gap-1 pt-4 mt-4 border-t border-white/5 shrink-0">
         <motion.button
           onClick={onSettings}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${

@@ -11,6 +11,9 @@ interface Props {
   /** Navigates to the top-level Multiplayer screen directly — not a home sub-tab, so it never
    *  participates in `active`/`onChange` or gets a highlighted state. */
   onMultiplayer: () => void;
+  /** Settings is a separate top-level Screen (not a HomePage-internal Tab, unlike the other
+      four) — navigating there leaves Home entirely, matching SideNav's onSettings on desktop. */
+  onSettings: () => void;
 }
 
 const STATIC_TABS = [
@@ -26,7 +29,11 @@ const ICON_HOVER: Record<Tab, TargetAndTransition> = {
   profile:  { rotate: [0, -18, 14, -18, 14, 0],    transition: { duration: 1.1, repeat: Infinity, ease: 'easeInOut' as const } },
 };
 
-export function BottomNav({ active, onChange, onMultiplayer }: Props) {
+const SETTINGS_HOVER: TargetAndTransition = {
+  rotate: [0, 24, -18, 24, 0], transition: { duration: 1.1, repeat: Infinity, ease: 'easeInOut' as const },
+};
+
+export function BottomNav({ active, onChange, onMultiplayer, onSettings }: Props) {
   const { equippedAvatar, activeBadge } = useUserStore();
   const avatarIcon = equippedAvatar
     ? (getShopItem(equippedAvatar)?.icon ?? '🤟')
@@ -108,6 +115,32 @@ export function BottomNav({ active, onChange, onMultiplayer }: Props) {
             ⚔️
           </motion.span>
           <span className="text-[10px] font-semibold tracking-wide text-z-gray-400">Duel</span>
+        </motion.button>
+
+        <motion.button
+          onClick={onSettings}
+          className="relative flex flex-col items-center gap-1 px-4 py-1.5 rounded-2xl transition-colors"
+          initial="rest"
+          animate="rest"
+          whileHover="hover"
+          whileTap={{ scale: 0.88, y: 0 }}
+          variants={{
+            rest:  { y: 0, scale: 1, transition: { duration: 0.18, ease: 'easeOut' } },
+            hover: { y: -3, scale: 1.06, transition: { duration: 0.18, ease: 'easeOut' } },
+          }}
+        >
+          <motion.span
+            className="text-xl inline-block"
+            variants={{
+              rest:  { rotate: 0, scale: 1, transition: { duration: 0.25, ease: 'easeOut' } },
+              hover: SETTINGS_HOVER,
+            }}
+          >
+            ⚙️
+          </motion.span>
+          <span className="text-[10px] font-semibold tracking-wide text-z-gray-400">
+            Settings
+          </span>
         </motion.button>
       </div>
     </div>

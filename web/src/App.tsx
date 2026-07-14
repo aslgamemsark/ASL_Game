@@ -263,6 +263,7 @@ export default function App() {
               onOpenShop={() => setScreen({ type: 'shop' })}
               onOpenMultiplayer={() => setScreen({ type: 'multiplayer' })}
               onRequireSignIn={() => setShowAuth(true)}
+              onSettings={() => setScreen({ type: 'settings' })}
               tab={homeTab}
               onTabChange={setHomeTab}
             />

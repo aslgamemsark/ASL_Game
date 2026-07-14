@@ -198,6 +198,14 @@ export const HOSPITAL_STORY: StoryScript = {
   backgroundEmoji: '🏥',
   lines: [
     {
+      npcText: "A patient needs help — can you sign it?",
+      npcMood: 'neutral',
+      userLine: 'They need help!',
+      requiredSignId: 'HELP',
+      hint: 'Fist on palm, lift it up!',
+      npcResponse: "Great — I can see you know ASL. Let's communicate!",
+    },
+    {
       npcText: "Where is the pain?",
       npcMood: 'curious',
       userLine: 'Right here, it hurts.',

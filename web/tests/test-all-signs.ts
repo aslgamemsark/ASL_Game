@@ -75,13 +75,15 @@ const KNOWN_STALE_REAL_FIXTURES = new Set([
 // safe schema-level fix exists; the ML classifier gate is the backstop (see GATE_EXCLUDED_SIGNS
 // and knownSigns in config/classifier.ts).
 const KNOWN_ACCEPTED_GAPS: Record<string, string> = {
-  // HELP: removed from playable content 2026-07-14 (commit 3f25711) after multi-take testing
-  // showed the rule-based rapid-movement bypass is luck-dependent (0-64% of a clip's frames
-  // score high enough depending on the specific motion), not a reliably reproducible bug with a
-  // reliable fix. help_correct.json itself also has a documented rule-based ceiling: the specific
-  // 103-frame recording's nondominant hand drops out of frame in the final ~0.5s tail, and no
-  // frame with both hands present ever clears every required param simultaneously.
-  'help_correct.json': 'HELP is at a documented rule-based-v1 ceiling; removed from playable content, see commit 3f25711',
+  // HELP: multi-take testing (commit 3f25711, 2026-07-14) found the rule-based rapid-movement
+  // bypass is luck-dependent (0-64% of a clip's frames score high enough depending on the specific
+  // motion), not a reliably reproducible bug with a fix. Briefly removed from playable content over
+  // this, then re-added (commit 9e9a139, 2026-07-14) as an accepted risk — same profile as DOCTOR,
+  // which ships with the identical rule-based ceiling. help_correct.json itself also has a
+  // documented rule-based ceiling: the specific 103-frame recording's nondominant hand drops out of
+  // frame in the final ~0.5s tail, and no frame with both hands present ever clears every required
+  // param simultaneously.
+  'help_correct.json': 'HELP is at a documented rule-based-v1 ceiling, same profile as DOCTOR; kept in playable content as an accepted risk, see commits 3f25711 and 9e9a139',
   // MEDICINE: both dominant/nondominant handshapes are "open" (the real claw-vs-flat-palm
   // distinction was tried and found unreliable, then dropped) — role assignment is entirely
   // motion-based ("whichever hand moved more"), so wiggling the non-acting hand instead of the

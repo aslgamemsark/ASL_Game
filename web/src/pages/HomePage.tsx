@@ -40,6 +40,7 @@ interface Props {
   onOpenShop: () => void;
   onOpenMultiplayer: () => void;
   onRequireSignIn: () => void;
+  onSettings: () => void;
   tab: Tab;
   onTabChange: (tab: Tab) => void;
 }
@@ -52,6 +53,7 @@ export function HomePage({
   onOpenShop,
   onOpenMultiplayer,
   onRequireSignIn,
+  onSettings,
   tab,
   onTabChange: setTab,
 }: Props) {
@@ -193,7 +195,7 @@ export function HomePage({
       </div>
 
       <div className="lg:hidden">
-        <BottomNav active={tab} onChange={setTab} onMultiplayer={onOpenMultiplayer} />
+        <BottomNav active={tab} onChange={setTab} onMultiplayer={onOpenMultiplayer} onSettings={onSettings} />
       </div>
     </div>
   );
