@@ -65,6 +65,66 @@ Smoke-test on the ~24 **game** signs first (fast, proves the pipeline), then sca
 ASL Citizen with identical code. The full model's logits are mapped down to the game
 vocabulary for the in-browser disambiguation gate.
 
+## Multi-source data + NO_SIGN class (ML hardening pass, 2026-07)
+
+The model previously only ever learned real signs — a closed-set classifier forced a confident
+prediction for *some* known sign even on pure nonsense/idle motion, since softmax has no way to
+say "this isn't a sign at all." Fixed by adding a NO_SIGN class trained alongside the real signs,
+from three sources merged into one cache:
+
+1. **Synthetic chaotic motion** (`tools/make_no_sign_synth.py`) — random-walk trajectories
+   (varied speed, direction, location, non-sign handshape), unlike the confusor tests' clean
+   sinusoidal negatives. Cheap, unlimited, no licensing. Regenerate with:
+   ```bash
+   python -m tools.make_no_sign_synth --count 400 --out data/synth_no_sign/landmarks
+   ```
+2. **HMDB51** (`tools/hmdb51_extract.py`) — a capped subset (default 50/class) of daily-action
+   classes that plausibly resemble non-signing webcam behavior: brush_hair, wave, clap, drink,
+   eat, talk, smile, chew, smoke. Sports/instrument/vehicle classes are never even opened —
+   wrong domain. The dataset's original host (serre-lab.clps.brown.edu) has restructured since
+   this was first researched; fetch it from the HuggingFace mirror instead:
+   ```bash
+   python -c "from huggingface_hub import hf_hub_download; \
+     hf_hub_download(repo_id='jili5044/hmdb51', filename='hmdb51.zip', \
+     repo_type='dataset', local_dir='data/hmdb51/raw')"
+   python -m tools.hmdb51_extract --zip data/hmdb51/raw/hmdb51.zip --out data/hmdb51/landmarks
+   ```
+3. **Real app data** (consent-gated, not yet wired) — failed rule-verifier attempts where the ML
+   vote (if active) also didn't confidently agree with the prompt. Deferred; see the ML
+   hardening plan's Phase 4.5.
+
+NTU RGB+D was in the original candidate list but is NOT used — it requires registering an
+account and getting manual approval from ROSE Lab staff (not automatable). MS-ASL positive-data
+clips (see below) hit the same YouTube-link-rot issue Kinetics-700 was already excluded for;
+included anyway as a partial-yield attempt per an explicit decision to try it, not because the
+fragility risk went away.
+
+Target ratio: NO_SIGN class size ≈ sum of all real sign classes combined (a 50/50 "is this a
+sign at all" balance at the class level) — not real-world prevalence, which would collapse the
+model toward always predicting NO_SIGN. `web/src/engine/gate.ts` needed ZERO changes to support
+this: its veto-only logic already treats any confident vote for a class other than the prompted
+sign as a veto, and NO_SIGN is just another such class.
+
+## MS-ASL (additional positive-data source)
+
+Metadata-only, like WLASL (YouTube URL + start/end time in seconds, not raw video) — same
+partial-yield situation, ~5+ years of potential link rot. Extraction groups instances by source
+video (many MS-ASL videos contain multiple signs) so each video downloads once:
+```bash
+python -m tools.msasl_extract --zip data/ms_asl/MS-ASL.zip --out data/ms_asl/landmarks
+```
+Get `MS-ASL.zip` from the Microsoft Download Center download page (search "MS-ASL dataset
+download microsoft") — the download link is dynamically generated per-session, so it can't be
+hardcoded here.
+
+## Cross-dataset validation (origin field)
+
+`ml/dataset.py`'s cache now includes an `origin` array (one label per clip, derived from the
+dataset root's own folder name: `asl_citizen`, `wlasl`, `ms_asl`, `hmdb51`, `synth_no_sign`).
+Train on all-but-one origin and hold the remaining one out entirely as an extra test set — a
+big accuracy drop there (vs. the normal held-out-signer split) means the model learned
+dataset-specific shortcuts (framing/compression/watermarks) rather than the sign itself.
+
 ## Notes
 - **Split by signer, not by video** — `extract_dataset.py dataset` does this in the manifest.
 - **Augmentation** (`ml/augment.py`): rotation / scale / time-warp / jitter only. Horizontal
