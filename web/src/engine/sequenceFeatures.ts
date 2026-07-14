@@ -6,8 +6,15 @@
  * (web/tests/feature-parity.test.ts) compares this output against the Python output for a
  * committed fixture; keep them in lockstep.
  *
- * Layout (86 dims/frame): two slots [Right, Left], each = 21*(x,y) centered on the shoulder
- * midpoint and scaled by shoulder width, followed by a presence flag. z is dropped.
+ * Layout (86 dims/frame): two slots [Dominant, Nondominant] — by ROLE (whichever hand's
+ * palm-center travels farther across the clip), not raw MediaPipe Right/Left handedness. This
+ * MUST match ml/dataset.py's assign_roles() (and web/src/engine/verifier.ts's own
+ * assignRoles(), which the rule verifier uses) exactly, or a left-handed signer's features land
+ * in the opposite slot from what the model was trained on — a real bug found and fixed here
+ * (2026-07-14): this file previously slotted by raw handedness while ml/dataset.py had already
+ * been fixed to slot by role, silently mismatching every model trained after that fix.
+ * Each slot = 21*(x,y) centered on the shoulder midpoint and scaled by shoulder width, followed
+ * by a presence flag. z is dropped.
  */
 import type { Frame } from './landmarks';
 
@@ -16,9 +23,55 @@ const N_LANDMARKS = 21;
 const PER_HAND = N_LANDMARKS * 2; // 42
 const PER_HAND_F = PER_HAND + 1; // 43
 export const FEAT_DIM = PER_HAND_F * 2; // 86
-const HAND_SLOTS = ['Right', 'Left'] as const;
 const WRIST = 0;
 const MIDDLE_MCP = 9;
+const INDEX_MCP = 5;
+const RING_MCP = 13;
+const PINKY_MCP = 17;
+const PALM_POINTS = [WRIST, INDEX_MCP, MIDDLE_MCP, RING_MCP, PINKY_MCP];
+
+/** Palm-center proxy: mean of wrist + finger MCPs. Mirrors core/landmarks.py's Hand.center. */
+function handCenter(points: number[][]): [number, number] {
+  let sx = 0, sy = 0;
+  for (const idx of PALM_POINTS) { sx += points[idx][0]; sy += points[idx][1]; }
+  return [sx / PALM_POINTS.length, sy / PALM_POINTS.length];
+}
+
+/** Total path length of a hand's palm-center across frames where it's present. */
+function pathLength(centers: [number, number][]): number {
+  let total = 0;
+  for (let i = 1; i < centers.length; i++) {
+    const dx = centers[i][0] - centers[i - 1][0];
+    const dy = centers[i][1] - centers[i - 1][1];
+    total += Math.sqrt(dx * dx + dy * dy);
+  }
+  return total;
+}
+
+/**
+ * Map "Dominant"/"Nondominant" to detected MediaPipe handedness labels by relative motion —
+ * same heuristic as ml/dataset.py's assign_roles() and engine/verifier.ts's assignRoles()
+ * (whichever hand's palm-center travels farther across the clip is dominant).
+ */
+function assignRoles(frames: Frame[]): Record<string, string> {
+  const labels: string[] = [];
+  for (const f of frames) {
+    for (const h of f.hands) {
+      if (!labels.includes(h.handedness)) labels.push(h.handedness);
+    }
+  }
+  if (labels.length === 0) return {};
+  if (labels.length === 1) return { Dominant: labels[0] };
+
+  const centersByLabel = new Map<string, [number, number][]>(labels.map((l) => [l, []]));
+  for (const f of frames) {
+    for (const h of f.hands) {
+      centersByLabel.get(h.handedness)!.push(handCenter(h.points));
+    }
+  }
+  labels.sort((a, b) => pathLength(centersByLabel.get(b)!) - pathLength(centersByLabel.get(a)!));
+  return { Dominant: labels[0], Nondominant: labels[1] };
+}
 
 /** numpy-style median: average of the two middle values for even-length input. */
 function median(values: number[]): number {
@@ -73,12 +126,20 @@ function clipNorm(frames: Frame[]): { mid: [number, number]; scale: number } {
   return { mid: [0, 0], scale: 1 };
 }
 
-function frameFeatures(f: Frame, mid: [number, number], scale: number): number[] {
+const ROLE_SLOTS = ['Dominant', 'Nondominant'] as const;
+
+function frameFeatures(
+  f: Frame,
+  mid: [number, number],
+  scale: number,
+  roles: Record<string, string>
+): number[] {
   const out = new Array(FEAT_DIM).fill(0);
   const byHand = new Map<string, Frame['hands'][number]>();
   for (const h of f.hands) byHand.set(h.handedness, h);
-  for (let slot = 0; slot < HAND_SLOTS.length; slot++) {
-    const h = byHand.get(HAND_SLOTS[slot]);
+  for (let slot = 0; slot < ROLE_SLOTS.length; slot++) {
+    const label = roles[ROLE_SLOTS[slot]];
+    const h = label ? byHand.get(label) : undefined;
     const base = slot * PER_HAND_F;
     if (h) {
       for (let i = 0; i < N_LANDMARKS; i++) {
@@ -125,6 +186,7 @@ export function clipToSequence(frames: Frame[], seqLen: number = SEQ_LEN): numbe
   if (i0 > i1) return null;
   const active = frames.slice(i0, i1 + 1);
   const { mid, scale } = clipNorm(active);
-  const feats = active.map((f) => frameFeatures(f, mid, scale));
+  const roles = assignRoles(active);
+  const feats = active.map((f) => frameFeatures(f, mid, scale, roles));
   return resampleTime(feats, seqLen);
 }
