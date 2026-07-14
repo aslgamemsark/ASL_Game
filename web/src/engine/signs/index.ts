@@ -312,6 +312,15 @@ export const EMERGENCY = createSign({
   movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 3, minDurationS: 0.5, required: true, minConfidence: 0.25},
 });
 
+// DOCTOR/NURSE/SICK/HOSPITAL below all leave nondominant handshape unrequired — audited (2026-07)
+// rather than changed. In real ASL these four are single-active-hand signs where the "other hand"
+// is the resting forearm being tapped/pointed at, with no defined handshape of its own (unlike
+// e.g. WRITE/READ/NAME/FRIEND, genuinely two-active-hand signs, which DO require nondominant
+// shape). Absence of the second hand entirely is still blocked: the required OTHER_HAND location
+// scores 0 with no second hand in frame at all (see scoreLocation), so this isn't "no second-hand
+// check" — it's specifically "no shape check on a hand that ASL doesn't define a shape for." No
+// fixture proves this is exploitable by an active/wrong-shaped second hand; left as-is rather than
+// guessing, since tightening it risks a false-fail with no evidence it closes a real hole.
 export const DOCTOR = createSign({
   name: 'DOCTOR', twoHanded: true,
   dominant: { kind: 'open', required: true, minConfidence: 0.45 },
