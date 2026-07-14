@@ -34,8 +34,11 @@ For the point-in-time detailed snapshot this update was based on, see
 
 ## Model version
 
-- **Training run**: `ml/runs/model_v8` (started 2026-07-14, cache `data/cache_full.npz`, 80 max epochs, early-stopping enabled)
-- **As of this writing, training was still in progress.** This file will be updated with final train/val/test accuracy, NO_SIGN recall/FPR/FNR, and per-class metrics once complete — check `ml/runs/model_v8/metrics.json` directly if this file hasn't been refreshed yet.
+- **Training run**: `ml/runs/model_v7` (2026-07-14, cache `data/cache_full.npz`, 59/80 epochs, early-stopped)
+- **Results**: train accuracy 99.98%, val accuracy 84.81%, **test accuracy 78.23%** (21.7pp train→test gap — real overfitting at this data scale, not a bug; regularization is doing real work but can't fully close it on ~2,200 clips). Macro F1 0.728, weighted F1 0.777.
+- **NO_SIGN**: recall 94.9%, false-positive rate 5.1% (hallucinating a sign from nonsense), false-negative rate 10.4% (over-rejecting a genuine attempt — HELLO accounts for the largest single share of this, 8/31 test clips, not yet root-caused).
+- **This run required one mid-session fix**: the first attempt reported NO_SIGN recall=0.000, which turned out to be a data-pipeline bug (all 729 NO_SIGN clips had defaulted to the "train" split, leaving zero in val/test) rather than a model failure — see `docs/ml_reports/ML_INTELLIGENCE_REPORT_20260714.md` Section 7 for the full story. Fixed in commit `6a70895`; the numbers above are from the corrected re-run.
+- **NOT yet deployed** — `web/public/models/signs/` still has whichever model was live before tonight. Deploying `model_v7` is a deliberate next step, not done automatically (see Recommended next steps).
 - **Which model is actually deployed**: `web/src/config/classifier.ts`'s `MODEL_URL` points at a fixed path (`web/public/models/signs/`) — check `git log -- web/public/models/signs/` for the most recent "Deploy model_vN" commit message to know what's currently live (convention introduced 2026-07-14; not automated).
 
 ## Known issues
@@ -67,8 +70,8 @@ For the point-in-time detailed snapshot this update was based on, see
 
 ## Recommended next steps (prioritized)
 
-1. Confirm tonight's training run completed cleanly; review `metrics.json` for train/val/test accuracy gap and NO_SIGN recall/FPR/FNR.
-2. Run cross-dataset holdout evaluation (`--holdout-origin` per source) to confirm the model generalizes rather than memorizing dataset artifacts.
-3. Deploy the new model (update `web/public/models/signs/`, commit with a "Deploy model_v8" message per the new versioning convention) — only after step 1-2 look healthy.
-4. Manually test in the browser: flail randomly in front of the camera, confirm NO_SIGN now catches it; perform real signs correctly, confirm no new false-fails from tonight's rule-verifier changes.
+1. ~~Confirm tonight's training run completed cleanly~~ — done, see Model version above.
+2. Cross-dataset holdout evaluation (`--holdout-origin ms_asl`) was kicked off this session — check `ml/runs/` for the resulting run's `cross_dataset_holdout` metric once it lands; repeat for `wlasl` and `asl_citizen` if time allows.
+3. Deploy `model_v7` (update `web/public/models/signs/`, commit with a "Deploy model_v7" message per the new versioning convention) — only after step 2 confirms the model isn't just memorizing dataset-specific artifacts.
+4. Manually test in the browser: flail randomly in front of the camera, confirm NO_SIGN now catches it; perform real signs correctly, confirm no new false-fails from tonight's rule-verifier changes. **Pay particular attention to HELLO** — it has the highest false-rejection rate of any sign (Section 9/10 of the full report) and is worth a specific live check.
 5. Work through "Remaining manual tasks" above.

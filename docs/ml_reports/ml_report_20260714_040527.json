@@ -1,7 +1,7 @@
 {
-  "generated_at_utc": "2026-07-14T03:12:29.143486+00:00",
+  "generated_at_utc": "2026-07-14T04:05:27.603372+00:00",
   "cache_path": "data/cache_full.npz",
-  "run_path": null,
+  "run_path": "ml/runs/model_v7",
   "datasets": {
     "asl_citizen": {
       "total_files": 616,
@@ -201,9 +201,9 @@
       "YES",
       "YOU"
     ],
-    "train_clips": 1612,
-    "val_clips": 219,
-    "test_clips": 366,
+    "train_clips": 1417,
+    "val_clips": 316,
+    "test_clips": 464,
     "clips_per_class": {
       "NO_SIGN": 729,
       "WANT": 110,
@@ -248,5 +248,203 @@
       "status": "NOT USED",
       "reason": "Gated behind a Qualcomm developer-portal registration page (free for research, commercial license on request). Identified during this session's research as a BETTER-matched NO_SIGN source than HMDB51 (webcam hand-gesture domain with a dedicated 'doing other things' class) but requires the project owner to register \u2014 not automatable."
     }
+  },
+  "training_metrics": {
+    "train_accuracy": 0.9998075366020203,
+    "val_accuracy": 0.8481012582778931,
+    "test_accuracy": 0.7823275862068966,
+    "n_classes": 25,
+    "minimal_pairs": [
+      {
+        "pair": "DOCTOR<->NURSE",
+        "a_as_b": 1,
+        "b_as_a": 1,
+        "a_total": 30,
+        "b_total": 17
+      },
+      {
+        "pair": "COFFEE<->YES",
+        "a_as_b": 0,
+        "b_as_a": 0,
+        "a_total": 15,
+        "b_total": 14
+      },
+      {
+        "pair": "MEDICINE<->DOCTOR",
+        "a_as_b": 0,
+        "b_as_a": 3,
+        "a_total": 16,
+        "b_total": 30
+      }
+    ],
+    "no_sign": {
+      "false_positive_rate": 0.05102040816326531,
+      "false_negative_rate": 0.10382513661202186,
+      "no_sign_recall": 0.9489795918367347,
+      "no_sign_support": 98
+    },
+    "cross_dataset_holdout": null,
+    "per_class": {
+      "BREATHE": {
+        "precision": 1.0,
+        "recall": 0.6923076923076923,
+        "f1": 0.8181818181818181,
+        "support": 13
+      },
+      "COFFEE": {
+        "precision": 0.9090909090909091,
+        "recall": 0.6666666666666666,
+        "f1": 0.7692307692307692,
+        "support": 15
+      },
+      "DIZZY": {
+        "precision": 0.7777777777777778,
+        "recall": 0.5384615384615384,
+        "f1": 0.6363636363636364,
+        "support": 13
+      },
+      "DOCTOR": {
+        "precision": 0.9333333333333333,
+        "recall": 0.4666666666666667,
+        "f1": 0.6222222222222223,
+        "support": 30
+      },
+      "EMERGENCY": {
+        "precision": 0.3333333333333333,
+        "recall": 0.3333333333333333,
+        "f1": 0.3333333333333333,
+        "support": 3
+      },
+      "FRIEND": {
+        "precision": 0.25,
+        "recall": 0.3333333333333333,
+        "f1": 0.28571428571428575,
+        "support": 3
+      },
+      "HELLO": {
+        "precision": 0.8214285714285714,
+        "recall": 0.7419354838709677,
+        "f1": 0.7796610169491526,
+        "support": 31
+      },
+      "HELP": {
+        "precision": 0.7222222222222222,
+        "recall": 0.7647058823529411,
+        "f1": 0.7428571428571428,
+        "support": 17
+      },
+      "HOSPITAL": {
+        "precision": 0.8928571428571429,
+        "recall": 0.8064516129032258,
+        "f1": 0.8474576271186439,
+        "support": 31
+      },
+      "MEDICINE": {
+        "precision": 0.6875,
+        "recall": 0.6875,
+        "f1": 0.6875,
+        "support": 16
+      },
+      "MORE": {
+        "precision": 0.4,
+        "recall": 1.0,
+        "f1": 0.5714285714285715,
+        "support": 2
+      },
+      "NAME": {
+        "precision": 0.6666666666666666,
+        "recall": 1.0,
+        "f1": 0.8,
+        "support": 4
+      },
+      "NO_SIGN": {
+        "precision": 0.7099236641221374,
+        "recall": 0.9489795918367347,
+        "f1": 0.8122270742358079,
+        "support": 98
+      },
+      "NURSE": {
+        "precision": 0.75,
+        "recall": 0.35294117647058826,
+        "f1": 0.48,
+        "support": 17
+      },
+      "PAIN": {
+        "precision": 0.6923076923076923,
+        "recall": 0.6,
+        "f1": 0.6428571428571429,
+        "support": 15
+      },
+      "PLEASE": {
+        "precision": 0.75,
+        "recall": 0.9473684210526315,
+        "f1": 0.8372093023255814,
+        "support": 19
+      },
+      "READ": {
+        "precision": 0.8333333333333334,
+        "recall": 0.625,
+        "f1": 0.7142857142857143,
+        "support": 8
+      },
+      "SICK": {
+        "precision": 0.7777777777777778,
+        "recall": 0.7368421052631579,
+        "f1": 0.7567567567567567,
+        "support": 19
+      },
+      "TEACHER": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 11
+      },
+      "THANK_YOU": {
+        "precision": 1.0,
+        "recall": 0.8,
+        "f1": 0.888888888888889,
+        "support": 15
+      },
+      "WANT": {
+        "precision": 0.9666666666666667,
+        "recall": 0.9354838709677419,
+        "f1": 0.9508196721311476,
+        "support": 31
+      },
+      "WATER": {
+        "precision": 0.8333333333333334,
+        "recall": 0.9375,
+        "f1": 0.8823529411764706,
+        "support": 16
+      },
+      "WRITE": {
+        "precision": 0.5384615384615384,
+        "recall": 1.0,
+        "f1": 0.7000000000000001,
+        "support": 7
+      },
+      "YES": {
+        "precision": 0.9090909090909091,
+        "recall": 0.7142857142857143,
+        "f1": 0.8,
+        "support": 14
+      },
+      "YOU": {
+        "precision": 0.8235294117647058,
+        "recall": 0.875,
+        "f1": 0.8484848484848485,
+        "support": 16
+      }
+    },
+    "macro_f1": 0.7283133105816774,
+    "weighted_f1": 0.7766947576889842
+  },
+  "training_config": {
+    "cache": "data/cache_full.npz",
+    "epochs": 80,
+    "batch": 32,
+    "n_aug": 10,
+    "dry_run": false,
+    "holdout_origin": null
   }
 }

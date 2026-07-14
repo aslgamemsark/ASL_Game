@@ -1,6 +1,6 @@
 # ML Intelligence Report — ASL Recognition Pipeline
-**Generated:** 2026-07-14 (UTC, overnight session) · **Cache:** `data/cache_full.npz` · **Model run:** `ml/runs/model_v8` (pending completion, see Training Report)
-**Companion machine-readable file:** `docs/ml_reports/ml_report_20260714_031229.json`
+**Generated:** 2026-07-14 (UTC, overnight session) · **Cache:** `data/cache_full.npz` · **Model run:** `ml/runs/model_v7` (complete)
+**Companion machine-readable file:** `docs/ml_reports/ml_report_20260714_040527.json` (final; supersedes the earlier `ml_report_20260714_031229.json`, generated before a data-pipeline bug fix described in Section 7)
 
 > **Read this first.** Every number in this report was either computed directly from files on
 > disk (`tools/generate_ml_report.py`) or measured from an actual training/test run. Anything
@@ -181,9 +181,77 @@ Exact feature pipeline, `ml/dataset.py` (training) and `web/src/engine/sequenceF
 
 ## 7. Training Report
 
-**[PENDING — this run was still training when this report was generated. Placeholder below shows the exact fields that will populate from `ml/runs/model_v8/metrics.json` once complete; see the companion JSON file's `training_metrics` key for the final numbers, and the follow-up report addendum.]**
+**Real bug found and fixed mid-session, worth recording in full**: the first training run
+against `data/cache_full.npz` produced `NO_SIGN recall=0.000, FPR=0.000, FNR=0.093` — which
+looked like a total NO_SIGN failure but was actually a **data-pipeline bug**, not a model
+problem. Root cause: `tools/hmdb51_extract.py` hardcoded `split="train"` for every clip, and
+`tools/make_no_sign_synth.py` never wrote a manifest at all — so every one of the 729 NO_SIGN
+clips defaulted to the "train" split, leaving **zero** true NO_SIGN examples in val or test.
+`no_sign_metrics()`'s `0/0 -> 0.0` fallback silently produced uninformative zeros instead of an
+error, which is exactly why this was caught by *reading* the numbers rather than trusting a
+green checkmark — 0.000/0.000/0.093 is a mathematically consistent but meaningless combination
+once you notice both NO_SIGN-conditioned rates share the same (zero) denominator. Fixed both
+scripts to assign a deterministic 70/15/15 split by clip index, regenerated the NO_SIGN data
+(now 534/97/98 clips across train/val/test), rebuilt the cache, and retrained. All numbers below
+are from that corrected run.
 
-Expected fields once training completes: train/val/test accuracy, per-class precision/recall/F1/support, minimal-pair confusion counts, NO_SIGN false-positive/false-negative rate and recall, macro/weighted F1, confusion matrix (`confusion_matrix.png`).
+| Metric | Value |
+|---|---|
+| Train accuracy | **99.98%** |
+| Validation accuracy | **84.81%** |
+| Test accuracy | **78.23%** |
+| Train→test gap | 21.7 percentage points — real overfitting, expected at this data scale (2,197 clips / 25 classes with a 105K-parameter model); regularization (dropout 0.25-0.45, L2, label smoothing, early stopping) is doing real work but can't fully close a gap this size on this little data |
+| Macro F1 | 0.728 |
+| Weighted F1 | 0.777 |
+| Epochs run | 59 of 80 max (early-stopped, `restore_best_weights=True`) |
+| Training wall-clock | ~31s/epoch × 59 epochs ≈ 30 minutes (CPU, no GPU) |
+
+**Minimal-pair confusions** (pre-existing tracked pairs, current 25-class vocab only supports 3 of the original list):
+
+| Pair | A→B confusions | B→A confusions |
+|---|---|---|
+| DOCTOR ↔ NURSE | 1/30 | 1/17 |
+| COFFEE ↔ YES | 0/15 | 0/14 |
+| MEDICINE ↔ DOCTOR | 0/16 | 3/30 |
+
+**Per-class metrics, ranked hardest → easiest by F1** (⚠️ = fewer than 5 test examples, treat as noisy, not a reliable signal):
+
+| Sign | Precision | Recall | F1 | Support |
+|---|---|---|---|---|
+| FRIEND ⚠️ | 0.25 | 0.33 | 0.29 | 3 |
+| EMERGENCY ⚠️ | 0.33 | 0.33 | 0.33 | 3 |
+| NURSE | 0.75 | 0.35 | 0.48 | 17 |
+| MORE ⚠️ | 0.40 | 1.00 | 0.57 | 2 |
+| DOCTOR | 0.93 | 0.47 | 0.62 | 30 |
+| DIZZY | 0.78 | 0.54 | 0.64 | 13 |
+| PAIN | 0.69 | 0.60 | 0.64 | 15 |
+| MEDICINE | 0.69 | 0.69 | 0.69 | 16 |
+| WRITE ⚠️ | 0.54 | 1.00 | 0.70 | 7 |
+| READ ⚠️ | 0.83 | 0.62 | 0.71 | 8 |
+| HELP | 0.72 | 0.76 | 0.74 | 17 |
+| SICK | 0.78 | 0.74 | 0.76 | 19 |
+| COFFEE | 0.91 | 0.67 | 0.77 | 15 |
+| HELLO | 0.82 | 0.74 | 0.78 | 31 |
+| NAME ⚠️ | 0.67 | 1.00 | 0.80 | 4 |
+| YES | 0.91 | 0.71 | 0.80 | 14 |
+| NO_SIGN | 0.71 | 0.95 | 0.81 | 98 |
+| BREATHE | 1.00 | 0.69 | 0.82 | 13 |
+| PLEASE | 0.75 | 0.95 | 0.84 | 19 |
+| HOSPITAL | 0.89 | 0.81 | 0.85 | 31 |
+| YOU | 0.82 | 0.88 | 0.85 | 16 |
+| WATER | 0.83 | 0.94 | 0.88 | 16 |
+| THANK_YOU | 1.00 | 0.80 | 0.89 | 15 |
+| WANT | 0.97 | 0.94 | 0.95 | 31 |
+| TEACHER | 1.00 | 1.00 | 1.00 | 11 |
+
+**Reading this table honestly**: the bottom (hardest) entries are dominated by two effects, not
+one — genuinely hard signs (DOCTOR/NURSE/MEDICINE are the tracked confusable trio, so their low
+scores are expected and match the minimal-pair table above), and small-sample noise (FRIEND,
+EMERGENCY, MORE, NAME, WRITE, READ all have single-digit test support — a couple of misclassified
+clips swings their F1 wildly). Don't read "FRIEND is a hard sign" from this table; read "FRIEND
+needs more test data before its score means anything."
+
+Plots: `ml/runs/model_v7/confusion_matrix.png` (25×25 confusion matrix, generated this run).
 
 ---
 
@@ -195,15 +263,64 @@ Enabled via this session's new `--holdout-origin` flag in `ml/train.py` (verifie
 
 ## 9. NO_SIGN Report
 
-**[PENDING training completion — will populate `false_positive_rate`, `false_negative_rate`, `no_sign_recall` from `ml/train.py`'s `no_sign_metrics()`, already implemented and tested this session (see commit `3d6288c`).]**
+| Metric | Value | Reading |
+|---|---|---|
+| NO_SIGN recall | **94.9%** (93/98 test clips) | Of genuine nonsense/idle motion, the model correctly flags it as NO_SIGN 95% of the time — this is the core fix for "random flailing predicts a real sign" |
+| False positive rate (true NO_SIGN → predicted a real sign) | **5.1%** | The "hallucinating a sign out of nonsense" failure mode this whole effort targeted — down from effectively undefined/untested before tonight (the model had no NO_SIGN class at all) |
+| False negative rate (true real sign → predicted NO_SIGN) | **10.4%** | The over-correction risk — roughly 1 in 10 genuine correct attempts gets misclassified as NO_SIGN by the raw classifier. Important caveat: this is the classifier's raw argmax rate, not the production rate — `gate.ts` only vetoes when confidence ≥ 0.7, so some of these 10.4% may not reach production-visible rejection if the model's NO_SIGN confidence on a genuine sign is below that threshold. Worth measuring directly (log gate decisions) before assuming 10.4% is the real user-facing rate. |
+| NO_SIGN class composition | 729 total clips (400 synthetic chaotic-motion + 329 HMDB51 daily-action subset) | ≈50% of the combined real-sign total (1,468) — matches the target ratio in `ml/README.md` ("NO_SIGN size ≈ sum of real classes combined," a 50/50 class-level balance, not real-world prevalence) |
 
-NO_SIGN class composition: 729 clips (400 synthetic chaotic-motion + 329 HMDB51 daily-action subset), roughly half the combined real-sign total (1,468) — matching the target ratio documented in `ml/README.md` ("NO_SIGN size ≈ sum of real classes combined," a 50/50 class-level "is this a sign at all" balance, not real-world prevalence).
+**Which signs get confused with NO_SIGN most often** (computed directly from the trained model against the test split, not estimated):
+
+| Sign misclassified as NO_SIGN | Count / support | Rate |
+|---|---|---|
+| **HELLO** | 8/31 | **25.8%** — the single largest contributor to the 10.4% FNR |
+| DOCTOR | 5/30 | 16.7% |
+| PAIN | 4/15 | 26.7% |
+| EMERGENCY ⚠️ | 2/3 | 66.7% (tiny sample, not reliable) |
+| COFFEE, DIZZY, HELP, HOSPITAL, MEDICINE, NURSE, YES | 2 each | 6-15% |
+| PLEASE, SICK, THANK_YOU, WANT, WATER | 1 each | ≤6% |
+
+**HELLO stands out as the one worth investigating**: it's a `REPEATED`-movement, `NEUTRAL_SPACE`-
+location sign per the rule-verifier schema (`web/src/engine/signs/index.ts`) — the loosest
+location constraint in the vocabulary (documented as deliberately load-bearing for
+fingerspelling, and HELLO shares that band). A plausible hypothesis: the synthetic NO_SIGN
+generator's chaotic-motion clips, drawn from a similarly broad spatial region, may overlap
+HELLO's real feature distribution more than other signs' tighter-anchored motions do. Worth
+checking specifically (not yet done) before assuming this is a labeling or data-quality issue
+rather than a genuine feature-space overlap.
+
+The reverse direction (NO_SIGN misclassified as a real sign — the false-positive/hallucination
+side) is small and spread thin: 1 clip each predicted as HELLO, HELP, NAME, PAIN, WATER (5 total
+across 98 NO_SIGN test clips) — no single sign dominates the hallucination direction the way
+HELLO dominates the over-rejection direction.
 
 ---
 
 ## 10. Sign Analysis, Error Analysis (Top Confusions)
 
-**[PENDING training completion — both sections depend on the trained model's confusion matrix and per-class predictions, not yet available. Will populate: per-sign precision/recall/F1/support (already implemented via `ml/eval_report.py`'s reused `per_class_metrics()`), plus the top confusion pairs from `ml/train.py`'s existing `CONFUSABLE_PAIRS` tracking (DOCTOR↔NURSE, LETTER_A↔YES, COFFEE↔YES, HELLO↔FEVER, MEDICINE↔DOCTOR, SICK↔FEVER — pre-existing tracked pairs; the current 25-class vocab doesn't include the LETTER_* or FEVER classes, so only DOCTOR↔NURSE, COFFEE↔YES, and MEDICINE↔DOCTOR are actually trackable in this run).**
+Per-sign precision/recall/F1/support: see the full ranked table in Section 7. Easiest signs
+(F1 ≥ 0.9, reliable sample sizes): **TEACHER (1.00), WANT (0.95), THANK_YOU (0.89)**. Hardest
+signs with reliable sample sizes (support ≥ 13, excluding the ⚠️-flagged tiny-sample ones from
+Section 7): **NURSE (0.48), DOCTOR (0.62), DIZZY (0.64), PAIN (0.64), MEDICINE (0.69)** — four of
+these five are exactly the signs already flagged in this session's rule-verifier audit as having
+residual chance-pass risk against chaotic random motion, which is a meaningful cross-check: the
+signs the ML model finds hardest to classify correctly are substantially the same signs the rule
+verifier has the least separation on. That's not a coincidence worth ignoring — it suggests
+these signs' *feature signature* (not just the rule thresholds) is inherently less distinctive
+in this landmark representation, which is exactly the kind of finding that should inform where
+to focus future data collection or feature-engineering effort (Section 5 of the audit artifact).
+
+**Top confusions** (from the tracked minimal-pairs + the NO_SIGN breakdown above, since the
+25-class vocab only supports 3 of the originally-tracked pairs):
+
+| Confusion | Count | Likely cause |
+|---|---|---|
+| HELLO → NO_SIGN | 8/31 (25.8%) | Broadest location tolerance (NEUTRAL_SPACE) in the vocabulary — likely overlaps the spatially-broad synthetic NO_SIGN distribution. Flagged for follow-up investigation, not yet root-caused. |
+| MEDICINE → DOCTOR | 3/30 (10%) | Both are wrist-tapping motions in similar body-relative locations — a genuine, previously-known confusable pair (tracked in `CONFUSABLE_PAIRS` since before this session). |
+| DOCTOR → NO_SIGN | 5/30 (16.7%) | DOCTOR's own low recall (0.47) suggests this sign's landmark signature is broadly harder to separate, not specifically confused with one other class. |
+| PAIN → NO_SIGN | 4/15 (26.7%) | Same pattern as DOCTOR — PAIN's low F1 (0.64) reflects general separability difficulty rather than one dominant confusion. |
+| DOCTOR ↔ NURSE | 1/30, 1/17 | Both wrist-taps, tracked confusable pair — LOWER than the pre-fix run's 3/30 and 2/17, a real (if small-sample) improvement from the corrected NO_SIGN split and larger dataset. |
 
 "Average inference time" and "average confidence" per sign require live browser measurement — see Performance Report; not fabricated here.
 
