@@ -25,21 +25,21 @@ For the point-in-time detailed snapshot this update was based on, see
 | WLASL | 186 | 24 signs | At its practical ceiling for automated extraction — 0/182 remaining candidate clips are downloadable (dead ~2019 links), confirmed 2026-07-14 |
 | MS-ASL | 666 | 22 signs | 61% yield of 1,089 candidates; some further yield may be possible on retry but expect diminishing returns (dead-link decay, same as WLASL) |
 | HMDB51 (NO_SIGN) | 329 | — | Capped by design (50/class × 9 relevant classes); could extract more per class if desired |
+| Jester (NO_SIGN) | 248 | — | Added 2026-07-14. Sampled 500 clips (250 "Doing other things" + 250 "No gesture") from the full 148,092-clip dataset via Qualcomm's developer portal (see `tools/jester_extract.py`); 248/500 survived MediaPipe's "no hands visible in any frame" filter — a normal yield for this source, not a bug. Raw archive (~22.8GB) deleted after extraction per disk-space constraints; only the extracted landmark JSONs are kept. More can be sampled later by re-selecting different `video_id`s from `data/jester/annotations/` if that's still on disk, or by re-downloading if not. |
 | Synthetic NO_SIGN | 400 | — | Regenerable anytime via `python -m tools.make_no_sign_synth` |
-| **Total** | **2,197** | **25 classes (24 signs + NO_SIGN)** | |
+| **Total** | **2,445** | **25 classes (24 signs + NO_SIGN)** | |
 
-**Not used, both correctly deferred (not skipped by oversight)**:
+**Not used, correctly deferred (not skipped by oversight)**:
 - **NTU RGB+D** — requires manual account registration + ROSE Lab staff approval. Cannot be automated.
-- **Jester** — a *better-matched* NO_SIGN source than HMDB51 (webcam hand-gesture domain with a purpose-built negative class), but gated behind a Qualcomm developer-portal registration. **Recommended: register when convenient, then re-run the NO_SIGN pipeline with Jester added.**
 
 ## Model version
 
-- **Training run**: `ml/runs/model_v7` (2026-07-14, cache `data/cache_full.npz`, 59/80 epochs, early-stopped)
-- **Results**: train accuracy 99.98%, val accuracy 84.81%, **test accuracy 78.23%** (21.7pp train→test gap — real overfitting at this data scale, not a bug; regularization is doing real work but can't fully close it on ~2,200 clips). Macro F1 0.728, weighted F1 0.777.
-- **NO_SIGN**: recall 94.9%, false-positive rate 5.1% (hallucinating a sign from nonsense), false-negative rate 10.4% (over-rejecting a genuine attempt — HELLO accounts for the largest single share of this, 8/31 test clips, not yet root-caused).
-- **This run required one mid-session fix**: the first attempt reported NO_SIGN recall=0.000, which turned out to be a data-pipeline bug (all 729 NO_SIGN clips had defaulted to the "train" split, leaving zero in val/test) rather than a model failure — see `docs/ml_reports/ML_INTELLIGENCE_REPORT_20260714.md` Section 7 for the full story. Fixed in commit `6a70895`; the numbers above are from the corrected re-run.
-- **NOT yet deployed** — `web/public/models/signs/` still has whichever model was live before tonight. Deploying `model_v7` is a deliberate next step, not done automatically (see Recommended next steps).
-- **Important caveat on the 78.2% test accuracy**: a cross-dataset holdout check (train on everything except MS-ASL, test only on MS-ASL) showed accuracy drops from 74.2% to **41.4%** on data the model never saw during training. The 78.2%/74.2%-style numbers measure within-distribution performance (test clips drawn from the same sources as training); real-world accuracy on genuinely novel recording conditions should be expected to be meaningfully lower than the headline number. Don't quote 78.2% as "real-world accuracy" without this caveat.
+- **Training run**: `ml/runs/model_v9` (2026-07-14, cache `data/cache_full.npz` rebuilt with Jester added, 37/80 epochs, early-stopped)
+- **Results**: train accuracy 99.66%, val accuracy 85.10%, **test accuracy 79.76%** (up from model_v7's 78.23% — a small, real improvement from the added data, not a step change). Macro F1 0.738 (up from 0.728), weighted F1 0.793 (up from 0.777).
+- **NO_SIGN**: recall 92.5% (down from model_v7's 94.9%), false-positive rate 7.5% (up from 5.1%), false-negative rate 10.9% (up slightly from 10.4%). **This is a mixed result, not a clean win** — adding Jester improved overall sign classification slightly but made the NO_SIGN class itself slightly noisier, plausibly because Jester's "Doing other things"/"No gesture" clips are visually more varied than the synthetic/HMDB51 negatives the model had been tuned against. Worth revisiting with `class_weight` reweighting (Known Issue #5) rather than more raw NO_SIGN volume.
+- **Cross-dataset holdout check specifically for Jester** (`ml/runs/model_v10`, `--holdout-origin jester`): training with Jester held out completely and testing only on its 248 clips gives **71.8% accuracy** vs. that run's own normal test accuracy of 79.5% — a **7.7-percentage-point gap**. This is much smaller than the 33-point MS-ASL gap (see below), meaning: (a) the model already rejects *most* Jester-style casual motion as NO_SIGN even without ever seeing Jester examples (HMDB51 + synthetic negatives generalize reasonably well to it), but (b) there's still a real, non-trivial slice of Jester's specific visual style the model only gets right after training on it — i.e., Jester data *is* adding genuine, non-redundant negative-class diversity, not just volume. This directly supports keeping Jester in the training set going forward.
+- **NOT yet deployed** — `web/public/models/signs/` still has whichever model was live before tonight. Deploying `model_v9` is a deliberate next step, not done automatically (see Recommended next steps).
+- **Important caveat, still applies**: the earlier cross-dataset holdout check on MS-ASL (train on everything except MS-ASL, test only on MS-ASL) showed accuracy drops from ~74% to **41.4%** on data the model never saw during training — a much bigger gap than Jester's 7.7 points. The 79.8%-style numbers measure within-distribution performance (test clips drawn from the same sources as training); real-world accuracy on genuinely novel recording conditions should still be expected to be meaningfully lower than the headline number, especially for the *sign* classes (MS-ASL-sourced) more than the *NO_SIGN* class (where Jester's addition demonstrably closes some of this gap).
 - **Which model is actually deployed**: `web/src/config/classifier.ts`'s `MODEL_URL` points at a fixed path (`web/public/models/signs/`) — check `git log -- web/public/models/signs/` for the most recent "Deploy model_vN" commit message to know what's currently live (convention introduced 2026-07-14; not automated).
 
 ## Known issues
@@ -49,7 +49,8 @@ For the point-in-time detailed snapshot this update was based on, see
 3. **EMERGENCY has only 12 training clips** — excluded from the ML gate by existing design (`GATE_EXCLUDED_SIGNS` in `web/src/config/classifier.ts`); do not re-include until real clip count grows substantially.
 4. **6 duplicate clip groups** (14 clips total) across WLASL/MS-ASL, not deduplicated in the current cache — low practical impact at this scale, worth fixing before the next data refresh.
 5. **No explicit `class_weight`** in the training loop — imbalance is currently offset only by augmentation volume, not loss reweighting.
-6. **Real cross-dataset generalization gap found**: holding MS-ASL out entirely during training and testing on it shows a 33-percentage-point accuracy drop (74.2% → 41.4%) vs. the normal in-distribution test split. The model relies partly on dataset-specific characteristics, not purely sign-invariant features. Expect real-world accuracy on genuinely novel recording conditions to be meaningfully below the 78.2% headline test accuracy.
+6. **Real cross-dataset generalization gap found**: holding MS-ASL out entirely during training and testing on it shows a 33-percentage-point accuracy drop (74.2% → 41.4%) vs. the normal in-distribution test split. The model relies partly on dataset-specific characteristics, not purely sign-invariant features. Expect real-world accuracy on genuinely novel recording conditions to be meaningfully below the 79.8% headline test accuracy. The equivalent gap for the NO_SIGN class specifically (Jester holdout) is much smaller — 7.7 points — suggesting this generalization problem is concentrated in the *sign* classes (which lean on ASL Citizen/WLASL/MS-ASL) more than the negative class.
+7. **Adding Jester slightly regressed NO_SIGN precision/recall** even though it improved overall test accuracy — see Model version above. Not yet root-caused; candidates are (a) no `class_weight` reweighting (Known Issue #5) so the larger, more-varied NO_SIGN class needs proportionally more emphasis than it's getting, or (b) some of the 248 kept Jester clips being lower-quality MediaPipe extractions (partial hand visibility) that a review-queue step (see `docs/REAL_WORLD_DATA_COLLECTION_REVIEW.md` Section 4/6) would have caught before training.
 
 ## Completed this session (2026-07-14)
 
@@ -62,18 +63,22 @@ For the point-in-time detailed snapshot this update was based on, see
 - Added train/val/test accuracy + per-class precision/recall/F1 logging (previously only test accuracy was recorded).
 - Audited every `required: false`/loose-threshold sign definition; fixed a zero-fixture-coverage gap on YOU.
 - Full architecture/dataset/feature-engineering/performance/privacy research audit — see the artifact published this session.
+- Registered for and downloaded the Jester dataset (Qualcomm developer portal), sampled 500 "Doing other things"/"No gesture" clips, extracted 248 as NO_SIGN landmark clips (`tools/jester_extract.py`), rebuilt the cache, retrained (`model_v9`), and ran a Jester-specific cross-dataset holdout (`model_v10`) — see Model version above. Raw Jester archive deleted afterward to reclaim disk space (~23GB freed).
+- Wrote `docs/REAL_WORLD_DATA_COLLECTION_REVIEW.md` — a full audit of the real-user telemetry pipeline (consent, attempt logging, Supabase schema), scored 5/10, with a concrete schema migration proposal.
 
 ## Remaining manual tasks (need the project owner)
 
-1. Register for Jester dataset access (Qualcomm developer portal, ~5 min).
-2. Record fresh CalibrationPage takes for the 8 signs flagged in "Known issues" #2, before any further rule-verifier tightening.
-3. Review the full audit artifact's recommendations and decide which future-work items to prioritize.
-4. Decide on `collectTrainingData`'s opt-out default now that "thousands of users" is the stated production target (currently defaults to enabled/opt-out).
+1. Record fresh CalibrationPage takes for the 8 signs flagged in "Known issues" #2, before any further rule-verifier tightening.
+2. Review the full audit artifact's recommendations and decide which future-work items to prioritize.
+3. Decide on `collectTrainingData`'s opt-out default now that "thousands of users" is the stated production target (currently defaults to enabled/opt-out) — see `docs/REAL_WORLD_DATA_COLLECTION_REVIEW.md` Section 8's identity-coupling note before deciding.
+4. Decide whether to deploy `model_v9` (see Recommended next steps).
+5. Consider building the review-queue / human-in-the-loop step described in `docs/REAL_WORLD_DATA_COLLECTION_REVIEW.md` before real-user `training_samples` volume grows much further.
 
 ## Recommended next steps (prioritized)
 
 1. ~~Confirm tonight's training run completed cleanly~~ — done, see Model version above.
-2. Cross-dataset holdout evaluation (`--holdout-origin ms_asl`) was kicked off this session — check `ml/runs/` for the resulting run's `cross_dataset_holdout` metric once it lands; repeat for `wlasl` and `asl_citizen` if time allows.
-3. Deploy `model_v7` (update `web/public/models/signs/`, commit with a "Deploy model_v7" message per the new versioning convention) — only after step 2 confirms the model isn't just memorizing dataset-specific artifacts.
-4. Manually test in the browser: flail randomly in front of the camera, confirm NO_SIGN now catches it; perform real signs correctly, confirm no new false-fails from tonight's rule-verifier changes. **Pay particular attention to HELLO** — it has the highest false-rejection rate of any sign (Section 9/10 of the full report) and is worth a specific live check.
-5. Work through "Remaining manual tasks" above.
+2. ~~Cross-dataset holdout evaluation~~ — done for `ms_asl` (33pp gap) and `jester` (7.7pp gap) this session; repeat for `wlasl` and `asl_citizen` if time allows.
+3. Deploy `model_v9` (update `web/public/models/signs/`, commit with a "Deploy model_v9" message per the versioning convention) — it's a small, real improvement over `model_v7` (79.8% vs 78.2% test accuracy) but not deployed automatically; also weigh the NO_SIGN recall regression (92.5% vs 94.9%) before deciding.
+4. Add `class_weight` to `ml/train.py` (Known Issue #5/#7) and re-train — likely the fix for the NO_SIGN regression noted above, cheaper to try than collecting more data.
+5. Manually test in the browser: flail randomly in front of the camera, confirm NO_SIGN now catches it; perform real signs correctly, confirm no new false-fails from tonight's rule-verifier changes. **Pay particular attention to HELLO** — it has the highest false-rejection rate of any sign (Section 9/10 of the full report) and is worth a specific live check.
+6. Work through "Remaining manual tasks" above.
