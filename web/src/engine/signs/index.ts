@@ -14,14 +14,24 @@ export const HELLO = createSign({
   name: 'HELLO', twoHanded: false,
   dominant: { kind: 'open', required: true },
   location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false, minConfidence: 0.45},
-  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true, minConfidence: 0.25},
+  // minConfidence raised 0.25->0.6 (2026-07-14): real calibration log (HELLO_2026-07-14T18-01-57)
+  // showed a tiny hand vibration sustained a 29-frame all-required-pass streak at 0.25 — well past
+  // the app's 6-frame accept debounce, a genuine false accept. At 0.6 that same confusor's longest
+  // run drops to 0, while the correct take's longest run stays a comfortable 88 frames (need only
+  // 6). See docs/vault or the downloaded CSV for the full per-threshold sweep.
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true, minConfidence: 0.6},
 });
 
 export const PLEASE = createSign({
   name: 'PLEASE', twoHanded: false,
   dominant: { kind: 'open', required: true },
   location: { anchor: Anchor.CHEST, actingHand: DOMINANT, maxDistRatio: 0.45, required: true },
-  movement: { kind: MovementKind.CIRCULAR, actor: DOMINANT, minTotalRotationDeg: 300, radiusToleranceRatio: 1.0, minDurationS: 0.6, required: true, minConfidence: 0.44},
+  // minConfidence raised 0.44->0.7 (2026-07-14): real calibration log (PLEASE_2026-07-14T18-19-02)
+  // showed a loose/partial circular confusor motion sustained a 13-frame all-required-pass streak
+  // at 0.44 — well past the app's 6-frame accept debounce, a genuine false accept. At 0.7 that same
+  // confusor's longest run drops to 0, while the correct take's longest run stays a comfortable 130
+  // frames (need only 6).
+  movement: { kind: MovementKind.CIRCULAR, actor: DOMINANT, minTotalRotationDeg: 300, radiusToleranceRatio: 1.0, minDurationS: 0.6, required: true, minConfidence: 0.7},
   orientation: { hand: DOMINANT, facing: PalmFacing.IN, required: false, minConfidence: 0.25},
 });
 
