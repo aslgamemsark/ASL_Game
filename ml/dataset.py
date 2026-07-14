@@ -184,9 +184,16 @@ def build(landmarks_dir, manifest, out: str, seq_len: int = SEQ_LEN) -> None:
     for mp in man_paths:
         split_map.update(_read_manifest(Path(mp)))
 
-    X, y, splits, raw_labels = [], [], [], []
+    X, y, splits, raw_labels, origins = [], [], [], [], []
     skipped = 0
     for root in roots:
+        # Origin = the dataset root's own parent folder name (data/asl_citizen/landmarks ->
+        # "asl_citizen", data/ms_asl/landmarks -> "ms_asl", ...) — reuses the directory
+        # convention every source already follows instead of adding a separate config knob.
+        # Enables cross-dataset validation: train on N-1 origins, hold one out entirely, to
+        # catch a model learning dataset-specific shortcuts (framing/compression/watermarks)
+        # rather than the sign itself.
+        origin = root.parent.name
         for jp in sorted(root.rglob("*.json")):
             payload = json.loads(jp.read_text(encoding="utf-8"))
             seq = clip_to_sequence(payload, seq_len)
@@ -198,6 +205,7 @@ def build(landmarks_dir, manifest, out: str, seq_len: int = SEQ_LEN) -> None:
             X.append(seq)
             raw_labels.append(sign)
             splits.append(split_map.get(clip_id, "train"))
+            origins.append(origin)
 
     if not X:
         print("no usable clips found — nothing to cache")
@@ -208,15 +216,18 @@ def build(landmarks_dir, manifest, out: str, seq_len: int = SEQ_LEN) -> None:
     y = np.array([cls_idx[s] for s in raw_labels], dtype=np.int64)
     X = np.stack(X).astype(np.float32)
     splits = np.array(splits)
+    origins = np.array(origins)
 
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(out_path, X=X, y=y, split=splits, classes=np.array(classes))
+    np.savez_compressed(out_path, X=X, y=y, split=splits, classes=np.array(classes), origin=origins)
 
     print(f"cache -> {out_path}")
     print(f"  X={X.shape}  y={y.shape}  classes={len(classes)}  skipped={skipped}")
     for split in ("train", "val", "test"):
         print(f"  {split}: {(splits == split).sum()} clips")
+    for o in sorted(set(origins.tolist())):
+        print(f"  origin={o}: {(origins == o).sum()} clips")
 
 
 def main() -> None:
