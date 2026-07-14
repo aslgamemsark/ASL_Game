@@ -10,13 +10,15 @@
  * judged the same way useRecognition.ts judges it — PASS_THRESHOLD=6 CONSECUTIVE passing frames,
  * reset on any failure.
  *
- * Fully fixed via schema thresholds: NURSE, WRITE, LETTER_P (hard assertions). DOCTOR, MEDICINE,
- * HOSPITAL, HELP, BREATHE, MORE remain a documented rule-based-v1 ceiling for this confusor
- * (rapid movement's raw displacement/amplitude/cycle-count/approach measured AS BIG OR BIGGER
- * than the real sign's own) — see each sign's movement req comment in signs/*.py for the
- * investigation. Marked as expected failures here so an improvement shows up as a loud "this
+ * Fully fixed via schema thresholds: NURSE, WRITE, LETTER_P (hard assertions). MORE was separately
+ * fixed via a handshape ceiling (flatOConfidence had no upper bound, so a fist scored identical to
+ * a real flattened-O — see handshape.ts) as a side effect of a live-testing bug report; that also
+ * closed this confusor. DOCTOR, MEDICINE, HOSPITAL, HELP, BREATHE remain a documented rule-based-v1
+ * ceiling for this confusor (rapid movement's raw displacement/amplitude/cycle-count measured AS
+ * BIG OR BIGGER than the real sign's own) — see each sign's movement req comment in signs/*.py for
+ * the investigation. Marked as expected failures here so an improvement shows up as a loud "this
  * expectFail no longer fails" rather than silently regressing further; the web app's trained
- * classifier gate (knownSigns includes all six) is the real backstop for those until this check
+ * classifier gate (knownSigns includes all five) is the real backstop for those until this check
  * has more than position/cycle-count to work with.
  */
 import { describe, it, expect } from 'vitest';
@@ -66,7 +68,7 @@ const CASES: [string, Sign, Fixture, Fixture, Fixture, boolean][] = [
   ['HOSPITAL', HOSPITAL, hospitalCorrect, hospitalIdle, hospitalRapid, false],
   ['HELP', HELP, helpCorrect, helpIdle, helpRapid, false],
   ['BREATHE', BREATHE, breatheCorrect, breatheIdle, breatheRapid, false],
-  ['MORE', MORE, moreCorrect, moreIdleFixture, moreRapid, false],
+  ['MORE', MORE, moreCorrect, moreIdleFixture, moreRapid, true],
   ['WRITE', WRITE, writeCorrect, writeIdleFixture, writeRapid, true],
   ['LETTER_P', LETTER_P, letterPCorrect, letterPIdle, letterPRapid, true],
 ];

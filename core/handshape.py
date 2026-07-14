@@ -180,19 +180,27 @@ def claw_confidence(hand: Hand) -> float:
 def flat_o_confidence(hand: Hand) -> float:
     """Flattened-O: fingertips lightly curled toward the thumb (MORE), NOT the deeper curl of a claw.
 
-    Real recorded MORE takes are noisy: mean finger curl ranged from ~0.02 to ~0.17 across separate
-    attempts at the "same" gesture — well under claw's 0.25 floor (tuned for MEDICINE/EMERGENCY's
-    deeper bent-5), which reads even a good attempt as exactly 0. The documented wrong-shape
-    confusor (a genuinely flat/open hand) measures curl ~0 with no observed variance, so there is a
-    wide, safe margin between "any real attempt" and "flat open hand" — this floor is set low enough
-    to clear the WEAKEST observed real attempt rather than the average one.
+    Real recorded MORE takes are noisy: mean finger curl ranged ~0.02-0.29 across separate attempts
+    at the "same" gesture — well under claw's 0.25 floor (tuned for MEDICINE/EMERGENCY's deeper
+    bent-5), which reads even a good attempt as exactly 0. The documented wrong-shape confusor (a
+    genuinely flat/open hand) measures curl ~0 with no observed variance, so there is a wide, safe
+    margin between "any real attempt" and "flat open hand" — the LOW floor is set to clear the
+    weakest observed real attempt rather than the average one.
+
+    Bug found 2026-07-14 (live user testing): this had no CEILING, only a floor — a plain fist
+    (curl ~1.0) or claw (~0.71) scored the exact same 1.0 as a real flattened-O, since `base` only
+    ever clips UP to 1.0 and never falls back down for deeper curls ("MORE passes even with fists").
+    Added a ceiling that holds full credit through the observed real-attempt range (up to ~0.29,
+    and the committed more_confusor.json fixture's held claw-ish 0.50) and falls to 0 by curl 0.65
+    — clear of claw's ~0.71 and fist's ~1.0, both fully rejected.
     """
     curls = _all_curls(hand)
     m = float(np.mean(curls))
     base = float(np.clip(m / 0.05, 0.0, 1.0))   # 0 at flat, full credit by curl ~0.05
+    ceiling = float(np.clip((0.65 - m) / 0.15, 0.0, 1.0))  # full credit to ~0.50, 0 by 0.65 (claw/fist)
     spread = float(np.std(curls))
     penalty = float(np.clip(1.0 - max(0.0, spread - 0.15) / 0.35, 0.0, 1.0))
-    return float(base * penalty)
+    return float(base * ceiling * penalty)
 
 
 # --------------------------------------------------------------------------- pinch-based letters

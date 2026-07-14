@@ -129,13 +129,20 @@ function clawConfidence(hand: Hand): number {
 // at the "same" gesture — well under claw's 0.25 floor (tuned for MEDICINE/EMERGENCY's deeper
 // bent-5). The wrong-shape confusor (flat/open hand) measures curl ~0 with no observed variance,
 // so this floor is set low enough to clear the WEAKEST observed real attempt, not the average one.
+// Flattened-O (MORE): fingertips lightly curled toward the thumb, not the deeper curl of a claw.
+// Bug found 2026-07-14 (live user testing, ported from core/handshape.py): this had no ceiling,
+// only a floor — a plain fist (curl ~1.0) scored the exact same 1.0 as a real flattened-O.
+// Ceiling holds full credit through the real range (up to ~0.29, and the committed
+// more_confusor.json fixture's held claw-ish 0.50) and falls to 0 by curl 0.65 — clear of claw's
+// ~0.71 and fist's ~1.0, both fully rejected.
 function flatOConfidence(hand: Hand): number {
   const curls = allCurls(hand);
   const m = mean(curls);
   const base = clip(m / 0.05, 0, 1);
+  const ceiling = clip((0.65 - m) / 0.15, 0, 1);
   const spread = std(curls);
   const penalty = clip(1.0 - Math.max(0, spread - 0.15) / 0.35, 0, 1);
-  return base * penalty;
+  return base * ceiling * penalty;
 }
 
 // Distance bands (hand-scale units) for "thumb tip touching a fingertip".

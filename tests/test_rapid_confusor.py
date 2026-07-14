@@ -17,13 +17,15 @@ separately asserted here.
 
 Investigation (see each sign's movement req in signs/*.py for the specific numbers) found this is
 only fully fixable via schema thresholds for NURSE, WRITE, LETTER_P — asserted as hard passes.
-DOCTOR, MEDICINE, HOSPITAL, HELP, BREATHE, MORE remain a documented rule-based-v1 ceiling for this
-specific confusor (rapid movement's raw displacement/amplitude/cycle-count/approach measured AS
-BIG OR BIGGER than the real sign's own at the live window — magnitude-only checks can't reject
-"moved a lot, fast" the way they reject "didn't move"). Those are marked xfail with the measured
-residual streak so a future improvement shows up as an unexpected pass rather than silently
-regressing further. The web app's trained classifier gate (knownSigns includes all six except
-LETTER_P, which isn't classifier-covered but is fully fixed via handshape anyway) is the real
+MORE was separately fixed via a handshape ceiling (flat_o_confidence had no upper bound, so a fist
+scored identical to a real flattened-O — rapid movement's chaotic hand shapes swing through
+fist-like curl often enough that closing that hole also closed this confusor). DOCTOR, MEDICINE,
+HOSPITAL, HELP, BREATHE remain a documented rule-based-v1 ceiling for this specific confusor
+(rapid movement's raw displacement/amplitude/cycle-count measured AS BIG OR BIGGER than the real
+sign's own at the live window — magnitude-only checks can't reject "moved a lot, fast" the way
+they reject "didn't move"). Those are marked xfail with the measured residual streak so a future
+improvement shows up as an unexpected pass rather than silently regressing further. The web app's
+trained classifier gate (knownSigns includes all five) is the real
 backstop for the ceiling cases — this Python engine has no equivalent second layer.
 """
 from __future__ import annotations
@@ -51,7 +53,10 @@ BASES = {
 # a false PASS streak >= CONSECUTIVE_REQUIRED at the live 2.0s window (measured 2026-07-14). Not a
 # test bug — see the movement req comment in each sign's file for the investigation and why no
 # schema threshold resolves it.
-KNOWN_RAPID_CEILING = {"DOCTOR", "MEDICINE", "HOSPITAL", "HELP", "BREATHE", "MORE"}
+KNOWN_RAPID_CEILING = {"DOCTOR", "MEDICINE", "HOSPITAL", "HELP", "BREATHE"}
+# MORE: fixed 2026-07-14 as a side effect of the flat_o_confidence ceiling fix (see
+# core/handshape.py) — chaotic rapid movement often swings the hand through fist-like curl values
+# that the new ceiling correctly rejects, closing this confusor without any further schema change.
 
 
 def _load_frames(base: str, kind: str) -> list[Frame]:
