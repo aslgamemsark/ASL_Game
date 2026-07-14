@@ -23,14 +23,28 @@ export const CLASSES_URL = '/models/signs/classes.json';
 export const GATE_CONFIDENCE = 0.7;
 
 /**
- * Verbose classifier logging during testing. Logs every gate decision (prompt, top-k, pass/veto)
- * and stashes the last vote on window.__lastVote for manual inspection.
+ * Verbose classifier logging + the on-screen ClassifierDevPanel, during testing. Logs every gate
+ * decision (prompt, top-k, pass/veto) and stashes the last vote on window.__lastVote.
  *
- * Was forced on (2026-07-03) while testing the new model_v6 classes; flipped back to
- * `import.meta.env.DEV` for the v1.0.0 beta release (2026-07-11, impeccable polish pass) — this
- * is statically eliminated from the production bundle by Vite, so it costs nothing to leave in.
+ * A RUNTIME check, not a build-time `import.meta.env.DEV` constant: the classifier itself only
+ * loads under `vite build` + `vite preview` (see MODEL_URL/CLASSES_URL fetch in useClassifier.ts —
+ * `npm run dev` doesn't serve the model correctly), which is exactly the mode where DEV is FALSE.
+ * A DEV-only gate meant the debug panel could never be visible at the same time the classifier
+ * was actually loaded — found 2026-07-14 while trying to test the AI veto layer via
+ * `npm run preview`. Default (no opt-in) still behaves like DEV-only: on under `vite dev`, off in
+ * a plain production build/deploy. Opt in during a preview/production build with either
+ * `?debug=1` in the URL or `localStorage.setItem('quicksign_debug', '1')` in the console.
  */
-export const CLASSIFIER_DEBUG = import.meta.env.DEV;
+export function isClassifierDebugEnabled(): boolean {
+  if (import.meta.env.DEV) return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    return new URLSearchParams(window.location.search).get('debug') === '1'
+      || window.localStorage.getItem('quicksign_debug') === '1';
+  } catch {
+    return false;
+  }
+}
 
 /** How many top predictions to surface for debugging. */
 export const TOP_K = 3;

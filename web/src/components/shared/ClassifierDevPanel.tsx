@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { GateDecision } from '@/engine/gate';
 import type { ClassifierStatus } from '@/hooks/useClassifier';
 import { paramCleared, type VerifyResult } from '@/engine/verifier';
+import { isClassifierDebugEnabled } from '@/config/classifier';
 
 interface Props {
   status: ClassifierStatus;
@@ -12,14 +13,15 @@ interface Props {
 }
 
 /**
- * Dev-only overlay showing both layers of recognition — the rule verifier's live per-parameter
+ * Debug overlay showing both layers of recognition — the rule verifier's live per-parameter
  * scores AND the ML veto layer's decision — so you can watch the whole pipeline work without
- * opening the console. Renders nothing outside `import.meta.env.DEV` (statically eliminated from
- * the production bundle by Vite, same pattern as CLASSIFIER_DEBUG in config/classifier.ts).
+ * opening the console. Renders nothing unless `isClassifierDebugEnabled()` says so (on by
+ * default under `vite dev`; opt-in elsewhere via `?debug=1` or a localStorage flag — see that
+ * function's comment for why this can't be a build-time DEV-only gate).
  */
 export function ClassifierDevPanel({ status, lastVote, result }: Props) {
   const [collapsed, setCollapsed] = useState(false);
-  if (!import.meta.env.DEV) return null;
+  if (!isClassifierDebugEnabled()) return null;
 
   return (
     <div className="fixed bottom-2 right-2 z-[9999] font-mono text-[11px] max-w-xs">

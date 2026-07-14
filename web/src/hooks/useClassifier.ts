@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { loadClassifier, type SignClassifier } from '@/engine/classifier';
 import type { GateDecision } from '@/engine/gate';
-import { MODEL_URL, CLASSES_URL, CLASSIFIER_DEBUG } from '@/config/classifier';
+import { MODEL_URL, CLASSES_URL, isClassifierDebugEnabled } from '@/config/classifier';
 
 export type ClassifierStatus = 'disabled' | 'loading' | 'ready';
 
@@ -64,7 +64,7 @@ export function useClassifier(enabled: boolean = true) {
     loadOnce().then((r) => {
       if (!active) return;
       setState(r);
-      if (CLASSIFIER_DEBUG) {
+      if (isClassifierDebugEnabled()) {
         console.log(`[classifier] ${r.status}${r.status === 'ready' ? ' — disambiguation active' : ''}`);
       }
     });
@@ -74,13 +74,12 @@ export function useClassifier(enabled: boolean = true) {
   // Gated debug logger for gate decisions. Stable identity across renders.
   // TEMPORARY DEBUG: prints a labeled per-prediction breakdown proving the AI classifier is
   // live (rule vs AI vs final, and whether the AI changed/vetoed the rule). Logging only —
-  // it reads the already-computed GateDecision and changes no behavior. To silence, set
-  // CLASSIFIER_DEBUG = false in src/config/classifier.ts.
+  // it reads the already-computed GateDecision and changes no behavior.
   const logVote = useCallback((d: GateDecision) => {
-    // Feeds the dev-only ClassifierDevPanel — gated on DEV (not CLASSIFIER_DEBUG, which only
-    // controls console verbosity) so production builds never pay for this extra re-render.
-    if (import.meta.env.DEV) setLastVote(d);
-    if (!CLASSIFIER_DEBUG) return;
+    // Feeds the ClassifierDevPanel — same runtime check as the console logging below (see
+    // isClassifierDebugEnabled's comment for why this can't be a build-time DEV-only gate).
+    if (!isClassifierDebugEnabled()) return;
+    setLastVote(d);
     const ai = d.vote;
     // The gate only runs AFTER the rule verifier passed for the prompted sign, so the rule's
     // prediction here is the prompted sign.
