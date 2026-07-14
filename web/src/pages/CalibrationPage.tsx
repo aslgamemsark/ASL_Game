@@ -27,6 +27,14 @@ interface LogRow {
   required: boolean;
 }
 
+interface NoteEntry {
+  timestamp: number;
+  sign: string;
+  phase: Phase;
+  frameIdx: number;
+  text: string;
+}
+
 const PHASE_COLOR: Record<Phase, string> = {
   idle: '#888',
   correct: '#2ecc71',
@@ -39,6 +47,23 @@ function stats(vals: number[]): string {
   const min = sorted[0];
   const max = sorted[sorted.length - 1];
   return `n=${vals.length} med=${median(vals).toFixed(2)} min=${min.toFixed(2)} max=${max.toFixed(2)}`;
+}
+
+function downloadNotes(signName: string, notes: NoteEntry[]) {
+  const header = 'timestamp,sign,phase,frame_idx,text';
+  const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+  const lines = notes.map((n) =>
+    [new Date(n.timestamp).toISOString(), n.sign, n.phase, n.frameIdx, esc(n.text)].join(',')
+  );
+  const csv = [header, ...lines].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  a.href = url;
+  a.download = `${signName}_notes_${stamp}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function downloadCsv(signName: string, rows: LogRow[]) {
@@ -75,6 +100,23 @@ export function CalibrationPage() {
     { name: string; required: boolean; threshold: number; correct: string; confusor: string; flags: string[] }[]
     | null
   >(null);
+
+  // Free-text observations ("that felt loose", "it accepted my hand too far right") tagged with
+  // whatever sign/phase/frame was active when logged — turns a vague in-the-moment impression into
+  // something searchable against the numeric log afterward instead of relying on memory.
+  const [noteText, setNoteText] = useState('');
+  const [notes, setNotes] = useState<NoteEntry[]>([]);
+
+  const logNote = useCallback(() => {
+    const text = noteText.trim();
+    if (!text) return;
+    setNotes((prev) => [
+      ...prev,
+      { timestamp: Date.now(), sign: signName, phase: phaseRef.current, frameIdx: frameIdxRef.current[phaseRef.current === 'idle' ? 'correct' : phaseRef.current], text },
+    ]);
+    setNoteText('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noteText, signName]);
 
   useEffect(() => {
     void recognition.init();
@@ -162,7 +204,9 @@ export function CalibrationPage() {
         Dev-only (/calibrate). Pick a sign, press "Record CORRECT" and perform it correctly for a
         few seconds, press it again to stop. Then "Record CONFUSOR" and perform the likeliest
         accidental false positive. Press "Build report" to see per-parameter medians against the
-        real thresholds, and "Download CSV" to save every raw frame.
+        real thresholds, and "Download CSV" to save every raw frame. Use the Notes box any time to
+        jot what looked wrong in plain English — it's tagged with the current sign/phase/frame
+        automatically so you can match it back up against the numbers later.
       </p>
 
       <div style={{ display: 'flex', gap: 24 }}>
@@ -194,6 +238,43 @@ export function CalibrationPage() {
           <p style={{ marginTop: 8, fontWeight: 'bold', color: PHASE_COLOR[phase] }}>
             phase: {phase}
           </p>
+
+          <div style={{ marginTop: 16 }}>
+            <h2 style={{ fontSize: 14 }}>Notes — what looked off?</h2>
+            <textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); logNote(); }
+              }}
+              placeholder="e.g. 'movement passed even though my hand barely moved' — Ctrl+Enter to log"
+              rows={3}
+              style={{ width: 320, background: '#222', color: '#eee', padding: 6, fontFamily: 'monospace', fontSize: 12, border: '1px solid #444', borderRadius: 6 }}
+            />
+            <div style={{ marginTop: 6, display: 'flex', gap: 8 }}>
+              <button onClick={logNote} style={{ padding: '6px 10px' }}>
+                Log note ({phase}, frame {frameIdxRef.current[phase === 'idle' ? 'correct' : phase]})
+              </button>
+              <button onClick={() => downloadNotes(signName, notes)} disabled={notes.length === 0} style={{ padding: '6px 10px' }}>
+                Download notes ({notes.length})
+              </button>
+              <button onClick={() => setNotes([])} disabled={notes.length === 0} style={{ padding: '6px 10px' }}>
+                Clear notes
+              </button>
+            </div>
+            {notes.length > 0 && (
+              <ul style={{ marginTop: 8, maxHeight: 200, overflowY: 'auto', fontSize: 12, paddingLeft: 16 }}>
+                {[...notes].reverse().map((n, i) => (
+                  <li key={notes.length - i} style={{ marginBottom: 6 }}>
+                    <span style={{ color: '#888' }}>
+                      [{n.sign} · {n.phase} · frame {n.frameIdx}]
+                    </span>{' '}
+                    {n.text}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         <div style={{ minWidth: 420 }}>
