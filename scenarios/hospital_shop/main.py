@@ -24,16 +24,18 @@ from core.landmarks import HandStabilizer, RollingBuffer
 from core.lesson import PassDebouncer
 from core.verifier import movement_debug, verify
 from scenarios.hospital_shop.scene import HospitalScene
-from signs import HELP, PAIN, MEDICINE, EMERGENCY, FEVER, WATER, HOSPITAL, DIZZY
+from signs import PAIN, MEDICINE, EMERGENCY, FEVER, WATER, HOSPITAL, DIZZY
 
 SUCCESS_SECONDS = 2.0
 
 # The patient queue: (sign, banner title, how-to instruction). Cycles forever.
-# v1 ships the 8 signs that recognise reliably (calibrated to real recordings). DOCTOR, NURSE,
-# SICK and BREATHE are at the rule-based ceiling (the signer's hand reads "open" for the
-# distinguishing shapes) — their definitions and recordings are kept for the learned classifier.
+# v1 ships the signs that recognise reliably (calibrated to real recordings). DOCTOR, NURSE, SICK
+# and BREATHE are at the rule-based ceiling (the signer's hand reads "open" for the distinguishing
+# shapes) — their definitions and recordings are kept for the learned classifier. HELP was removed
+# 2026-07-14: live testing (multiple recorded takes) found rapid/random hand movement passes it
+# unpredictably (0-64% of a clip's frames scored high enough depending on the specific motion) with
+# no reliable schema-level fix found — see signs/help.py and tests/test_rapid_confusor.py.
 PATIENTS = [
-    (HELP, "A patient needs HELP", "Rest your FIST on your open palm, then lift the fist straight UP"),
     (PAIN, "Where's the PAIN?", "Point both index fingers and move them TOWARD each other"),
     (MEDICINE, "Give the MEDICINE", "Open hand over your other palm: twist it back and forth"),
     (EMERGENCY, "It's an EMERGENCY!", "Make a claw and SHAKE it quickly, side to side"),
