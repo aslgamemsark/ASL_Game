@@ -52,6 +52,16 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Calendar-day gap between two "YYYY-MM-DD" date strings (UTC-based, matching todayStr()).
+// Parsed as UTC so this is exact regardless of local DST transitions.
+function daysBetween(dateStr1: string, dateStr2: string): number {
+  const [y1, m1, d1] = dateStr1.split('-').map(Number);
+  const [y2, m2, d2] = dateStr2.split('-').map(Number);
+  const t1 = Date.UTC(y1, m1 - 1, d1);
+  const t2 = Date.UTC(y2, m2 - 1, d2);
+  return Math.round((t2 - t1) / 86400000);
+}
+
 interface UserStore extends UserProgress {
   addXp: (amount: number) => void;
   addSigns: (amount: number) => void;
@@ -196,18 +206,16 @@ export const useUserStore = create<UserStore>()(
           const today = todayStr();
           if (s.lastPracticeDate === today) return s;
 
-          const yesterday = new Date();
-          yesterday.setDate(yesterday.getDate() - 1);
-          const yesterdayStr = yesterday.toISOString().slice(0, 10);
-
-          let newStreak = s.streak;
-          if (s.lastPracticeDate === yesterdayStr) {
-            newStreak += 1;
-          } else if (s.lastPracticeDate !== today) {
-            if (s.streakFreezes > 0 && s.lastPracticeDate) {
-              return { lastPracticeDate: today, streakFreezes: s.streakFreezes - 1 };
-            }
+          // Grace period: missing 1 or 2 full days doesn't break the streak (gap of up to 3
+          // calendar days — practiced Mon, back by Thu still counts). Only a gap of 4+ days
+          // (3+ full days missed) resets it. No lastPracticeDate means this is the first-ever
+          // practice.
+          let newStreak: number;
+          if (!s.lastPracticeDate) {
             newStreak = 1;
+          } else {
+            const gapDays = daysBetween(s.lastPracticeDate, today);
+            newStreak = gapDays <= 3 ? s.streak + 1 : 1;
           }
 
           let goldBonus = 0;
