@@ -26,7 +26,11 @@ export type ZippyExpression =
   | 'levelup'
   | 'achievement'
   | 'goodbye'
-  | 'sleeping';
+  | 'sleeping'
+  // Third batch (2026-07-13) — costume variants for story roleplay NPCs.
+  | 'barista'
+  | 'doctor'
+  | 'teacher';
 
 // Role → optimized asset (produced by scripts/optimize-zippy.mjs → public/zippy/*.webp).
 // This is the swap-point for a future animated Zippy: change the values here (or the <Zippy>
@@ -53,6 +57,9 @@ export const ZIPPY_SRC: Record<ZippyExpression, string> = {
   achievement: '/zippy/achievement.webp',
   goodbye: '/zippy/goodbye.webp',
   sleeping: '/zippy/sleeping.webp',
+  barista: '/zippy/barista.webp',
+  doctor: '/zippy/doctor.webp',
+  teacher: '/zippy/teacher.webp',
 };
 
 // Rotating line banks. Tone rules (from the brief): warm, short, positive, never sarcastic, never
@@ -97,11 +104,23 @@ export const ZIPPY_LINES = {
     'Nice try! Once more, you’ve got this.',
     'Signing takes practice. Let’s try again together.',
   ],
-  // Finishing a whole lesson.
+  // Finishing a whole lesson with a mixed/good score (some signs needed a skip).
   lessonComplete: [
     'Awesome work! Ready for the next challenge?',
     'You did it! Proud of you.',
     'Lesson complete — you’re getting stronger every time.',
+  ],
+  // Finishing a lesson with every sign correct, no skips.
+  lessonCompletePerfect: [
+    'Perfect lesson — every sign, spot on!',
+    'Flawless! You nailed every single one.',
+    'Wow, 100%! That was incredible signing.',
+  ],
+  // Finishing a lesson with more than half skipped — still warm, never shaming.
+  lessonCompleteEncourage: [
+    'Nice effort! A little more practice and these will click.',
+    'You made it through — that’s what counts. Let’s review these again soon.',
+    'Good try! Some of these are tricky — practice makes it easier.',
   ],
   // Empty-state explainers.
   emptyLeaderboard: [

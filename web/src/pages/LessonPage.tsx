@@ -11,7 +11,6 @@ import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
 import { Zippy } from '@/components/shared/Zippy';
 import { pickZippyLine } from '@/data/zippy';
-import { useZippyLine } from '@/hooks/useZippyLine';
 import { LessonHeader } from '@/components/lesson/LessonHeader';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
@@ -51,7 +50,11 @@ export function LessonPage({ lessonId, onExit }: Props) {
   const [earnedXp, setEarnedXp] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [successMsg, setSuccessMsg] = useState('Nice work!');
-  const completeMsg = useZippyLine('lessonComplete');
+  const [completeMsg, setCompleteMsg] = useState('');
+  // Mirrors correctCount so the ratio can be read the instant phase flips to 'complete' — the
+  // setTimeout in handlePass fires advancePrompt with whatever closure it captured, and waiting on
+  // the correctCount *state* there would risk reading a value from before the final increment.
+  const correctCountRef = useRef(0);
   // A skip previously advanced with zero acknowledgment — the one moment "coach, don't judge"
   // matters most had the coach saying nothing at all. A brief, non-blocking toast (same pattern
   // as ShopPage's) closes that gap without turning Skip into a full phase transition.
@@ -63,17 +66,30 @@ export function LessonPage({ lessonId, onExit }: Props) {
   const currentSignData = currentSignId ? SIGNS[currentSignId] : null;
   const currentEngineSign = currentSignId ? ENGINE_SIGNS[currentSignId] : null;
 
+  // Never shames the low end of the range — just calmer instead of celebratory.
+  const pickCompleteMessage = useCallback(() => {
+    const ratio = signIds.length > 0 ? correctCountRef.current / signIds.length : 1;
+    return ratio >= 1 ? pickZippyLine('lessonCompletePerfect')
+      : ratio >= 0.5 ? pickZippyLine('lessonComplete')
+      : pickZippyLine('lessonCompleteEncourage');
+  }, [signIds.length]);
+
+  const finishLesson = useCallback(() => {
+    setCompleteMsg(pickCompleteMessage());
+    setPhase('complete');
+    completeLesson(lessonId);
+    sounds.levelUp();
+    bigCelebration();
+  }, [pickCompleteMessage, completeLesson, lessonId, sounds, bigCelebration]);
+
   const advancePrompt = useCallback(() => {
     if (promptIdx + 1 < signIds.length) {
       setPromptIdx((prev) => prev + 1);
       setPhase('signing');
     } else {
-      setPhase('complete');
-      completeLesson(lessonId);
-      sounds.levelUp();
-      bigCelebration();
+      finishLesson();
     }
-  }, [promptIdx, signIds.length, completeLesson, lessonId, sounds, bigCelebration]);
+  }, [promptIdx, signIds.length, finishLesson]);
 
   const handlePass = useCallback(
     (result: VerifyResult) => {
@@ -87,6 +103,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
       const xp = 10;
       setEarnedXp((prev) => prev + xp);
       setCorrectCount((prev) => prev + 1);
+      correctCountRef.current += 1;
       addXp(xp);
       addDailyMinutes(1.5);
       if (currentSignId) {
@@ -223,6 +240,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
     if (promptIdx + 1 < signIds.length) {
       setPromptIdx((prev) => prev + 1);
     } else {
+      setCompleteMsg(pickCompleteMessage());
       setPhase('complete');
       completeLesson(lessonId);
     }
@@ -452,7 +470,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <Zippy expression="celebrating" size="lg" />
+              <Zippy expression={correctCount / (signIds.length || 1) >= 0.5 ? 'celebrating' : 'proud'} size="lg" />
               <h1 className="text-2xl font-bold">Lesson Complete!</h1>
               <p className="text-z-gray-300 text-center max-w-xs -mt-2">{completeMsg}</p>
               <div className="flex gap-6 text-center">

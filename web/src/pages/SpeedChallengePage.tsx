@@ -20,7 +20,7 @@ import type { SpeedTier } from '@/types/user';
 const TIER_CONFIG = {
   warmup: { label: 'Warm Up', icon: '🌡️', timePerSign: 6,   xpMult: 1, signsMult: 1, bg: 'linear-gradient(135deg,#0F766E,#14B8A6)', glow: 'rgba(20,184,166,0.45)' },
   sprint: { label: 'Sprint',  icon: '🏃',  timePerSign: 3,   xpMult: 2, signsMult: 2, bg: 'linear-gradient(135deg,#1E40AF,#3B82F6)', glow: 'rgba(59,130,246,0.45)' },
-  blitz:  { label: 'Blitz',   icon: '⚡',  timePerSign: 1.5, xpMult: 3, signsMult: 3, bg: 'linear-gradient(135deg,#5B21B6,#A855F7)', glow: 'rgba(168,85,247,0.55)' },
+  blitz:  { label: 'Blitz',   icon: '⚡',  timePerSign: 5,   xpMult: 3, signsMult: 3, bg: 'linear-gradient(135deg,#5B21B6,#A855F7)', glow: 'rgba(168,85,247,0.55)' },
 } as const;
 
 type GamePhase = 'tier-select' | 'countdown' | 'playing' | 'done';

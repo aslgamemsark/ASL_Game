@@ -71,6 +71,35 @@ export const SIGN_PATHS: Record<string, SignPathSpec> = {
     domCircle: { center: { x: 0.0, y: 0.16, z: 0.5 }, radius: 0.1, plane: 'xz', turns: 2.0 },
     ndomPath: [[0.0, { x: 0.0, y: -0.04, z: 0.5 }]],
   },
+  // SICK and FEVER (2026-07-13): placeholder-only entries. Both signs ship as real baked Blender
+  // clips extracted via extractBakedAnimation.ts, so the procedural path below is never actually
+  // rendered — keyframeResolver takes priority the moment >=2 baked poses exist for a sign name
+  // (see AnimationSource.ts). This entry exists solely because extractBakedAnimation.ts hard-requires
+  // signName to already be a SIGN_PATHS key before it will extract (see its guard). Values below are
+  // a rough approximation of the real sign (forehead contact) — not verified against the rig — do
+  // not treat this as an authored path worth trusting if the baked clip is ever removed.
+  SICK: {
+    anchorJoint: 'Head',
+    durationS: 1.0,
+    twoHanded: false,
+    domShape: 'point',
+    palmFace: { x: 0, y: 0, z: 1 },
+    domPath: [
+      [0.0, { x: 0.05, y: 0.25, z: 0.4 }],
+      [1.0, { x: 0.05, y: 0.25, z: 0.4 }],
+    ],
+  },
+  FEVER: {
+    anchorJoint: 'Head',
+    durationS: 1.2,
+    twoHanded: false,
+    domShape: 'open',
+    palmFace: { x: 0, y: 0, z: 1 },
+    domPath: [
+      [0.0, { x: -0.15, y: 0.25, z: 0.4 }],
+      [1.0, { x: 0.15, y: 0.25, z: 0.4 }],
+    ],
+  },
 };
 
 const FPS = 30;

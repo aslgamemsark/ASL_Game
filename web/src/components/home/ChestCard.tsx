@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUserStore } from '@/stores/useUserStore';
+import { useConfetti } from '@/hooks/useConfetti';
 import { Zippy } from '@/components/shared/Zippy';
 import { pickZippyLine } from '@/data/zippy';
 import type { Chest } from '@/types/user';
@@ -26,6 +27,7 @@ function formatTime(ms: number): string {
 
 function ChestItem({ chest }: { chest: Chest }) {
   const { gold, openChest, skipChest } = useUserStore();
+  const { burst } = useConfetti();
   const now = useNow();
   const ready = chest.readyAt <= now;
   const msLeft = Math.max(0, chest.readyAt - now);
@@ -37,6 +39,7 @@ function ChestItem({ chest }: { chest: Chest }) {
     if (!ready) return;
     const result = openChest(chest.id);
     setOpenResult(result);
+    burst();
   };
 
   const handleSkip = () => {
@@ -47,10 +50,17 @@ function ChestItem({ chest }: { chest: Chest }) {
     return (
       <motion.div
         className="flex items-center gap-3 bg-z-card border border-z-green/30 rounded-2xl p-4"
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
+        initial={{ scale: 0.6, opacity: 0, rotate: -8 }}
+        animate={{ scale: 1, opacity: 1, rotate: 0 }}
+        transition={{ type: 'spring', damping: 12, stiffness: 260 }}
       >
-        <Zippy expression="reward" size="xs" />
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', damping: 10, stiffness: 300, delay: 0.1 }}
+        >
+          <Zippy expression="reward" size="xs" />
+        </motion.div>
         <div className="flex-1">
           <p className="font-bold text-sm text-z-green">{pickZippyLine('chestReward')}</p>
           <p className="text-xs text-z-gray-300 mt-0.5">

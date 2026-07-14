@@ -10,6 +10,7 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
 import { Zippy } from '@/components/shared/Zippy';
+import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { pickZippyLine, type ZippyExpression } from '@/data/zippy';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,6 +45,16 @@ const MOOD_ZIPPY: Record<string, ZippyExpression> = {
   surprised: 'celebrating',
 };
 
+// Dr. Reeves and Ms. Rowan (and the coffee-shop barista) are still Zippy underneath — just dressed
+// for the part. The costume art has one static pose (no per-mood variants like MOOD_ZIPPY), so it's
+// used everywhere a non-Zippy NPC previously fell back to a generic emoji.
+const STORY_NPC_COSTUME: Record<string, ZippyExpression> = {
+  'coffee-story': 'barista',
+  'coffee-story-2': 'barista',
+  'hospital-story': 'doctor',
+  'classroom-story': 'teacher',
+};
+
 
 export function StoryPage({ story, onExit }: Props) {
   const { addXp, addSigns, addGold, addDailyMinutes, recordSign, completeLesson, checkBadges, awardBadge, equippedBorder } = useUserStore();
@@ -66,6 +77,7 @@ export function StoryPage({ story, onExit }: Props) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const loopStartedRef = useRef<string | null>(null);
   const isZippy = story.npcName === 'Zippy';
+  const npcCostume = STORY_NPC_COSTUME[story.id];
 
   const currentLine = story.lines[lineIdx];
   const currentEngineSign = currentLine ? ENGINE_SIGNS[currentLine.requiredSignId] : null;
@@ -226,6 +238,10 @@ export function StoryPage({ story, onExit }: Props) {
                   <div className="w-14 h-14 rounded-2xl bg-z-purple overflow-hidden shrink-0">
                     <Zippy expression="welcome" fit="cover" />
                   </div>
+                ) : npcCostume ? (
+                  <div className="w-14 h-14 rounded-2xl bg-z-purple overflow-hidden shrink-0">
+                    <Zippy expression={npcCostume} fit="cover" />
+                  </div>
                 ) : (
                   <span className="text-3xl">{story.npcEmoji}</span>
                 )}
@@ -255,6 +271,10 @@ export function StoryPage({ story, onExit }: Props) {
                   <div className="w-12 h-12 rounded-2xl bg-z-purple overflow-hidden shrink-0">
                     <Zippy expression={MOOD_ZIPPY[currentLine.npcMood]} fit="cover" />
                   </div>
+                ) : npcCostume ? (
+                  <div className="w-12 h-12 rounded-2xl bg-z-purple overflow-hidden shrink-0">
+                    <Zippy expression={npcCostume} fit="cover" />
+                  </div>
                 ) : (
                   <div className="w-12 h-12 rounded-2xl bg-z-purple flex items-center justify-center text-2xl shrink-0">
                     {MOOD_EMOJI[currentLine.npcMood]}
@@ -268,30 +288,30 @@ export function StoryPage({ story, onExit }: Props) {
 
               {/* Sign prompt + hint */}
               <div className="bg-z-surface/50 rounded-2xl p-4 border border-z-purple/30">
-                <p className="text-xs text-z-gray-400 uppercase tracking-widest mb-1">Your turn — sign</p>
+                {/* What the player's character says back, in plain English — turns the exchange
+                    into a real conversation instead of a bare vocabulary word. */}
+                <p className="text-sm text-z-gray-200 italic mb-2">"{currentLine.userLine}"</p>
+                <p className="text-xs text-z-gray-400 uppercase tracking-widest mb-1">Sign</p>
                 <p className="text-xl font-bold text-z-purple-glow">
-                  {hintLevel >= 2
-                    ? currentSignData?.name.replace(/_/g, ' ')
-                    : 'Give it a try!'}
+                  {currentSignData?.name.replace(/_/g, ' ')}
                 </p>
-                {/* Hint levels */}
+                {/* Hint levels — both start hidden; nothing shows until the player explicitly asks. */}
                 <AnimatePresence>
-                  {hintLevel >= 0 && (
-                    <motion.p key="hint0" className="text-xs text-z-gray-300 mt-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  {hintLevel >= 1 && (
+                    <motion.p key="hint1" className="text-xs text-z-gray-300 mt-2 border-t border-white/5 pt-2"
+                      initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
                       {currentLine.hint}
                     </motion.p>
                   )}
-                  {hintLevel >= 1 && currentSignData && (
-                    <motion.p key="hint1" className="text-xs text-z-gray-400 mt-1 italic border-t border-white/5 pt-1"
-                      initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
-                      {currentSignData.description}
-                    </motion.p>
-                  )}
                   {hintLevel >= 2 && (
-                    <motion.p key="hint2" className="text-xs text-z-green font-bold mt-1 border-t border-white/5 pt-1"
+                    <motion.div key="hint2" className="mt-2 border-t border-white/5 pt-2"
                       initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
-                      Answer: {currentSignData?.name.replace(/_/g, ' ')} — just try to form the shape!
-                    </motion.p>
+                      <ReferenceClip
+                        clipUrl={currentSignData?.clip}
+                        signName={currentSignData?.name ?? currentLine.requiredSignId}
+                        compact
+                      />
+                    </motion.div>
                   )}
                 </AnimatePresence>
               </div>
@@ -309,7 +329,7 @@ export function StoryPage({ story, onExit }: Props) {
                   <motion.button onClick={handleHint}
                     className="flex-1 py-2 text-xs rounded-xl border border-z-purple/30 text-z-purple-light hover:border-z-purple/60 transition-colors"
                     whileTap={{ scale: 0.96 }}>
-                    💡 {hintLevel === 0 ? 'Show hint' : 'More help'}
+                    {hintLevel === 0 ? '💡 Hint' : '🎥 More hint'}
                   </motion.button>
                 )}
                 <motion.button onClick={handleSkip}
@@ -327,6 +347,8 @@ export function StoryPage({ story, onExit }: Props) {
               initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
               {isZippy ? (
                 <Zippy expression="tryagain" size="md" />
+              ) : npcCostume ? (
+                <Zippy expression={npcCostume} size="md" />
               ) : (
                 <div className="w-16 h-16 rounded-2xl bg-z-orange/20 border border-z-orange/30 flex items-center justify-center text-4xl">
                   😅
@@ -346,6 +368,8 @@ export function StoryPage({ story, onExit }: Props) {
               initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
               {isZippy ? (
                 <Zippy expression="thumbsup" size="md" />
+              ) : npcCostume ? (
+                <Zippy expression={npcCostume} size="md" />
               ) : (
                 <div className="w-16 h-16 rounded-2xl bg-z-purple flex items-center justify-center text-4xl">😄</div>
               )}
@@ -363,6 +387,8 @@ export function StoryPage({ story, onExit }: Props) {
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
               {isZippy ? (
                 <Zippy expression="celebrating" size="lg" />
+              ) : npcCostume ? (
+                <Zippy expression={npcCostume} size="lg" />
               ) : (
                 <motion.div className="text-6xl" animate={{ rotate: [0, -10, 10, -6, 0], y: [0, -8, 0] }}
                   transition={{ duration: 0.6, delay: 0.2 }}>🎬</motion.div>
