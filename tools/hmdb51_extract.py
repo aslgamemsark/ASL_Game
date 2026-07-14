@@ -62,14 +62,19 @@ def main() -> None:
             out_dir = Path(args.out) / "NO_SIGN"
             out_dir.mkdir(parents=True, exist_ok=True)
 
-            for member in members:
+            for i, member in enumerate(members):
                 stem = Path(member).stem
                 out_path = out_dir / f"{cls}_{stem}.json"
                 clip_id = f"NO_SIGN/{cls}_{stem}"
+                # Deterministic 70/15/15 split BY INDEX within each class — every clip
+                # previously defaulted to "train" (a real bug: NO_SIGN never appeared in val/
+                # test, so no_sign_metrics() always computed 0/0 -> silently uninformative
+                # rather than actually measuring rejection on held-out nonsense).
+                split = "train" if i % 20 < 14 else ("val" if i % 20 < 17 else "test")
 
                 if out_path.exists() and not args.force:
                     payload = json.loads(out_path.read_text(encoding="utf-8"))
-                    writer.add(clip_id, "NO_SIGN", f"hmdb51_{cls}", "train", clip_stats(payload))
+                    writer.add(clip_id, "NO_SIGN", f"hmdb51_{cls}", split, clip_stats(payload))
                     skip += 1
                     continue
 
@@ -85,7 +90,7 @@ def main() -> None:
                         continue
                     out_path.write_text(json.dumps(payload), encoding="utf-8")
                     stats = clip_stats(payload)
-                    writer.add(clip_id, "NO_SIGN", f"hmdb51_{cls}", "train", stats)
+                    writer.add(clip_id, "NO_SIGN", f"hmdb51_{cls}", split, stats)
                     ok += 1
                     print(f"  + {clip_id} frames={stats['n_frames']} cover={stats['hand_coverage']}")
                 except (IOError, OSError) as e:

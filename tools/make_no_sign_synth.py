@@ -18,11 +18,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
 
-from core.landmarks import Frame, Hand, WRIST, THUMB_TIP, INDEX_MCP, MIDDLE_MCP, RING_MCP, PINKY_MCP
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from core.landmarks import Frame, Hand, WRIST, THUMB_TIP, INDEX_MCP, MIDDLE_MCP, RING_MCP, PINKY_MCP  # noqa: E402
+from tools.extract_dataset import ManifestWriter  # noqa: E402
 
 W, H = 640, 480
 CX = 320.0
@@ -136,11 +140,21 @@ def main() -> None:
     out_dir = Path(args.out) / "NO_SIGN"
     out_dir.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(args.seed)
+    writer = ManifestWriter(args.out)
 
     for i in range(args.count):
         clip = make_clip(rng)
-        (out_dir / f"no_sign_{i:04d}.json").write_text(json.dumps(clip), encoding="utf-8")
+        stem = f"no_sign_{i:04d}"
+        (out_dir / f"{stem}.json").write_text(json.dumps(clip), encoding="utf-8")
+        # Deterministic 70/15/15 split by index -- without this, every synthetic clip defaulted
+        # to "train" (no manifest was ever written here), so NO_SIGN never appeared in val/test
+        # and no_sign_metrics() always computed an uninformative 0/0 rather than actually
+        # measuring rejection of held-out nonsense.
+        split = "train" if i % 20 < 14 else ("val" if i % 20 < 17 else "test")
+        writer.add(f"NO_SIGN/{stem}", "NO_SIGN", "synthetic", split,
+                    {"n_frames": len(clip["frames"]), "hand_coverage": 1.0, "left_obs": 0, "right_obs": 0})
 
+    writer.flush()
     print(f"wrote {args.count} synthetic NO_SIGN clips -> {out_dir}")
 
 
