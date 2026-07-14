@@ -29,6 +29,7 @@ from pathlib import Path
 import numpy as np
 
 from ml.augment import augment_dataset
+from ml.eval_report import per_class_metrics
 
 # Known visually-confusable pairs (scoped to whatever classes are present at train time).
 # These are the pairs we care about MORE than overall accuracy — the rules struggle here.
@@ -89,6 +90,32 @@ def save_confusion_png(cm, classes, path):
             if cm[i, j]:
                 ax.text(j, i, cm[i, j], ha="center", va="center", fontsize=6)
     fig.tight_layout(); fig.savefig(path, dpi=110); plt.close(fig)
+
+def no_sign_metrics(y_true, y_pred, classes) -> dict | None:
+    """NO_SIGN-specific rates, called out on their own rather than buried in the per-class
+    table — these are the exact numbers this bug was fixed for. None if the vocab being trained
+    has no NO_SIGN class yet (added in a later phase alongside the negative dataset).
+
+    false_positive_rate: a REAL sign predicted when the true label was NO_SIGN (the model
+        hallucinating a sign out of nonsense/idle motion — the original bug).
+    false_negative_rate: NO_SIGN predicted when the true label was a real sign (over-correction —
+        rejecting a genuine attempt).
+    no_sign_recall: fraction of true NO_SIGN clips correctly caught.
+    """
+    if "NO_SIGN" not in classes:
+        return None
+    ns = classes.index("NO_SIGN")
+    is_ns_true = y_true == ns
+    is_ns_pred = y_pred == ns
+    n_ns_true = int(is_ns_true.sum())
+    n_real_true = int((~is_ns_true).sum())
+    return {
+        "false_positive_rate": float(np.sum(is_ns_true & ~is_ns_pred)) / n_ns_true if n_ns_true else 0.0,
+        "false_negative_rate": float(np.sum(~is_ns_true & is_ns_pred)) / n_real_true if n_real_true else 0.0,
+        "no_sign_recall": float(np.sum(is_ns_true & is_ns_pred)) / n_ns_true if n_ns_true else 0.0,
+        "no_sign_support": n_ns_true,
+    }
+
 
 def minimal_pair_report(cm, classes) -> list[dict]:
     idx = {c: i for i, c in enumerate(classes)}
@@ -185,16 +212,30 @@ def main() -> None:
     model.fit(Xtr, ytr_oh, validation_data=(X[va], yva_oh) if va.sum() else None,
               epochs=args.epochs, batch_size=args.batch, callbacks=cbs, verbose=2)
 
-    # Evaluate
+    # Evaluate — train/val accuracy re-measured against the FINAL (post-EarlyStopping-restore)
+    # weights, not read from Keras's fit history, since restore_best_weights means the history's
+    # last logged epoch isn't necessarily the epoch actually saved. This is what closes the
+    # original "only ever recorded test accuracy, no way to see over/underfitting" gap.
+    train_acc = float(model.evaluate(Xtr, ytr_oh, verbose=0)[1])
+    val_acc = float(model.evaluate(X[va], yva_oh, verbose=0)[1]) if va.sum() else None
+
     eval_mask = te if te.sum() else va
+    eval_split = "test" if te.sum() else "val"
     yp = model.predict(X[eval_mask], verbose=0).argmax(1)
     yt = y[eval_mask]
     acc = float((yp == yt).mean())
     cm = confusion(yt, yp, len(classes))
     mpr = minimal_pair_report(cm, classes)
-    print(f"\ntest accuracy: {acc:.3f}")
+    prec, rec, f1, sup = per_class_metrics(yt, yp, len(classes))
+    ns_metrics = no_sign_metrics(yt, yp, classes)
+
+    print(f"\ntrain accuracy: {train_acc:.3f}" + (f"  val accuracy: {val_acc:.3f}" if val_acc is not None else ""))
+    print(f"{eval_split} accuracy: {acc:.3f}  (gap vs train: {train_acc - acc:+.3f})")
     for r in mpr:
         print(f"  {r['pair']}: A->B {r['a_as_b']}/{r['a_total']}  B->A {r['b_as_a']}/{r['b_total']}")
+    if ns_metrics:
+        print(f"  NO_SIGN recall={ns_metrics['no_sign_recall']:.3f}  "
+              f"FPR={ns_metrics['false_positive_rate']:.3f}  FNR={ns_metrics['false_negative_rate']:.3f}")
 
     # Save versioned run
     run = next_run_dir()
@@ -202,8 +243,20 @@ def main() -> None:
     model.save(run / "model.keras")
     (run / "classes.json").write_text(json.dumps(classes), encoding="utf-8")
     (run / "config.json").write_text(json.dumps(vars(args), indent=2), encoding="utf-8")
-    (run / "metrics.json").write_text(json.dumps(
-        {"test_accuracy": acc, "n_classes": len(classes), "minimal_pairs": mpr}, indent=2), encoding="utf-8")
+    w = sup / sup.sum()
+    (run / "metrics.json").write_text(json.dumps({
+        "train_accuracy": train_acc,
+        "val_accuracy": val_acc,
+        f"{eval_split}_accuracy": acc,
+        "n_classes": len(classes),
+        "minimal_pairs": mpr,
+        "no_sign": ns_metrics,
+        "per_class": {classes[c]: {"precision": float(prec[c]), "recall": float(rec[c]),
+                                    "f1": float(f1[c]), "support": int(sup[c])}
+                      for c in range(len(classes))},
+        "macro_f1": float(f1.mean()),
+        "weighted_f1": float((f1 * w).sum()),
+    }, indent=2), encoding="utf-8")
     save_confusion_png(cm, classes, run / "confusion_matrix.png")
 
     # TF.js export for in-browser inference (optional dep)
