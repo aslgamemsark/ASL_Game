@@ -127,7 +127,7 @@ def render_sign(seq: np.ndarray, sign: str, out_dir: Path, n_cols: int = 8) -> N
         if not drew:
             ax.text(0, 0, "no hands", ha="center", va="center", fontsize=7, color="red")
 
-    fig.suptitle(f"{sign}   (purple=Right  amber=Left)", fontsize=10)
+    fig.suptitle(f"{sign}   (purple=Dominant  amber=Nondominant)", fontsize=10)
     fig.tight_layout()
     out = out_dir / f"{sign}.png"
     fig.savefig(out, dpi=90)
@@ -147,7 +147,7 @@ def visual_gate(cache: Path, out_dir: Path, per_class: int = 1) -> None:
             render_sign(X[idx], name, out_dir)
     print(f"rendered {len(classes)} sign(s). Open the PNGs and confirm each reads correctly:")
     print("  - hands UPRIGHT (not upside down)")
-    print("  - correct handedness colors (purple=Right, amber=Left)")
+    print("  - correct role colors (purple=Dominant, amber=Nondominant)")
     print("  - hands present through the motion (no 'no hands' frames mid-sign)")
 
 
