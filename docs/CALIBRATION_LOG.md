@@ -56,7 +56,7 @@ immediately when I put my hand on screen".
 cliff rather than a gradual slope — present at every threshold up to 0.25, gone entirely by 0.28.
 
 **Fix**: raised `movement.minConfidence` 0.25 → 0.4 (real margin past the cliff, not sitting right
-on the edge). Confusor streak drops to 0; correct-take streak stays 70 frames. Commit `<pending>`.
+on the edge). Confusor streak drops to 0; correct-take streak stays 70 frames. Commit `1214b19`.
 
 ## Pattern noticed 2026-07-14 — `minConfidence: 0.25` looks like an uncalibrated shared default
 
