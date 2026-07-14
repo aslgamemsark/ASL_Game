@@ -161,15 +161,10 @@ export function repeatedConfidence(actorTraj: Traj, shoulderWidth: number, req: 
   const noise = 0.25 * maxAbs;
   let crossings = 0;
   let last = 0;
-  const crossingTimes: number[] = [];
-  for (let i = 0; i < centered.length; i++) {
-    const v = centered[i];
+  for (const v of centered) {
     if (Math.abs(v) < noise) continue;
     const cur = v > 0 ? 1 : -1;
-    if (last !== 0 && cur !== last) {
-      crossings++;
-      crossingTimes.push(ts[i]);
-    }
+    if (last !== 0 && cur !== last) crossings++;
     last = cur;
   }
   const cycles = crossings / 2;
@@ -177,22 +172,17 @@ export function repeatedConfidence(actorTraj: Traj, shoulderWidth: number, req: 
   const cycleScore = clip(cycles / Math.max(req.minCycles, 1), 0, 1);
   const ampScore = clip(ampRatio / (ampFloor * 1.6), 0, 1);
 
-  // Regularity: true periodic motion crosses the centerline at roughly even intervals; chaotic
-  // large-swing flailing can rack up the same crossing count with wildly uneven gaps between
-  // them. Score by the coefficient of variation of inter-crossing intervals — low CV (regular)
-  // scores near 1, high CV (erratic) scores near 0. Needs at least 2 intervals (3 crossings) to
-  // mean anything; below that (e.g. minCycles: 1 signs) there's nothing to measure periodicity
-  // against, so don't penalize — the amplitude/cycle gates above already cover that case.
-  let regularityScore = 1.0;
-  if (crossingTimes.length >= 3) {
-    const intervals: number[] = [];
-    for (let i = 1; i < crossingTimes.length; i++) intervals.push(crossingTimes[i] - crossingTimes[i - 1]);
-    const meanInterval = arrMean(intervals);
-    const cv = meanInterval > 1e-6 ? arrStd(intervals) / meanInterval : 99;
-    regularityScore = clip(1.0 - cv / 0.7, 0, 1);
-  }
-
-  return Math.min(cycleScore, ampScore, regularityScore);
+  // An interval-regularity term (coefficient of variation of inter-crossing gaps) was tried here
+  // 2026-07-14 and reverted the same day: measured against real recordings, it did NOT separate
+  // genuine repeated signing from the rapid/random confusor fixtures it was meant to catch. Real
+  // DOCTOR/MEDICINE/NURSE tapping has inter-tap CV ~0.4-0.8 (humans don't tap like a metronome),
+  // and the rapid-motion confusors for MEDICINE/NURSE measured LOWER (more "regular") CV than the
+  // genuine correct recordings — the opposite of what the check assumed. It also pushed several
+  // real correct/real fixtures below their pass threshold. The minCycles/minConfidence tuning
+  // already in each sign's definition is what actually closes the rapid/random-motion hole;
+  // this term was redundant with that and net-harmful. Left as a documented dead end rather than
+  // silently dropped, so it isn't reintroduced without new evidence.
+  return Math.min(cycleScore, ampScore);
 }
 
 export type PointsTraj = [number, number[][]][]; // (t, all 21 landmark points)[]

@@ -8,6 +8,7 @@ levels + theme.
 """
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, field
 
 from core.schema import Sign
@@ -15,6 +16,39 @@ from core.schema import Sign
 POINTS_PER_SIGN = 10
 SUCCESS_SECONDS = 1.4          # how long the "+10" celebration shows before advancing
 LEVEL_CARD_SECONDS = 3.0       # how long the level-complete card shows
+
+# Flicker-tolerant debounce: a sign only counts as recognized once it verifies as passed on at
+# least PASS_MIN_FRAMES frames within the last PASS_WINDOW seconds. Blocks single-frame flukes
+# (the same class of bug as approving a sign from one video frame) while still tolerating the
+# brief handshape dropouts that happen mid-motion. Values match scenarios/hospital_shop/main.py's
+# already-proven debounce — classroom and coffee_shop previously had NONE (fired on the very
+# first passing frame), found 2026-07-14 while investigating reports of signs passing on idle or
+# rapid random hand movement.
+PASS_WINDOW = 0.6
+PASS_MIN_FRAMES = 4
+
+
+class PassDebouncer:
+    """Call `record(now, passed)` every frame; `record` returns True the moment the sign has
+    verified as passed on enough frames within the recent window. Call `reset()` when a new
+    prompt starts so leftover motion/passes can't bleed into it."""
+
+    def __init__(self, window: float = PASS_WINDOW, min_frames: int = PASS_MIN_FRAMES) -> None:
+        self._window = window
+        self._min_frames = min_frames
+        self._recent: deque[tuple[float, bool]] = deque()
+
+    def record(self, now: float, passed: bool) -> bool:
+        self._recent.append((now, passed))
+        while self._recent and now - self._recent[0][0] > self._window:
+            self._recent.popleft()
+        if sum(1 for _, p in self._recent if p) >= self._min_frames:
+            self._recent.clear()
+            return True
+        return False
+
+    def reset(self) -> None:
+        self._recent.clear()
 
 
 @dataclass(frozen=True)

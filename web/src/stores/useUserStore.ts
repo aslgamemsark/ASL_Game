@@ -10,7 +10,7 @@ const MILESTONE_GOLD: Record<number, number> = { 7: 5, 30: 15, 100: 50 };
 const SKILL_UNLOCK_LESSONS: Record<SkillLevel, string[]> = {
   beginner: [],
   intermediate: ['greetings-1', 'cafe-order'],
-  advanced: ['greetings-1', 'cafe-order', 'fingerspelling-1', 'fingerspelling-2'],
+  advanced: ['greetings-1', 'cafe-order'],
 };
 
 function defaultProgress(): UserProgress {
@@ -316,6 +316,7 @@ export const useUserStore = create<UserStore>()(
           if (remote.equippedBorder) merged.equippedBorder = remote.equippedBorder;
           if (remote.equippedAvatar) merged.equippedAvatar = remote.equippedAvatar;
           if (remote.activeBadge) merged.activeBadge = remote.activeBadge;
+          if (remote.showcaseBadges) merged.showcaseBadges = remote.showcaseBadges;
           return merged;
         });
       },

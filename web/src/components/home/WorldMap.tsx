@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { WORLDS, WORLD_UNLOCK_GOLD_COST } from '@/data/worlds';
 import { LESSON_UNITS, LESSON_SKIP_COST } from '@/data/lessons';
 import { STORIES } from '@/data/stories';
+import { Zippy } from '@/components/shared/Zippy';
 
 // Maps a world's unlockCondition (a raw story/lesson id like "coffee-story") to a real display
 // title. The previous code did `unlockCondition.replace(/-/g, ' ')`, which for "greetings-story"
@@ -153,6 +154,10 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                 const isStoryNode = node.id === selectedWorld.storyId || STORIES.some((s) => s.id === node.id);
                 if (isStoryNode) {
                   const status = getNodeStatus(node.id, units);
+                  // Dr. Reeves / Ms. Rowan / the coffee-shop barista are Zippy in costume — show
+                  // that art here too instead of the generic emoji, so the character who's
+                  // actually waiting to talk to you is visible before you even tap in.
+                  const npcCostume = STORIES.find((s) => s.id === node.id)?.npcCostume;
                   return (
                     <motion.button
                       key={node.id}
@@ -171,7 +176,13 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                       whileHover={status !== 'locked' ? { scale: 1.02 } : {}}
                       whileTap={status !== 'locked' ? { scale: 0.97 } : {}}
                     >
-                      <span className="text-2xl">{node.iconEmoji}</span>
+                      {npcCostume ? (
+                        <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 bg-z-purple">
+                          <Zippy expression={npcCostume} fit="cover" />
+                        </div>
+                      ) : (
+                        <span className="text-2xl">{node.iconEmoji}</span>
+                      )}
                       <div>
                         <p className="font-bold text-sm">{node.title}</p>
                         <p className="text-xs text-z-gray-400">{node.description}</p>

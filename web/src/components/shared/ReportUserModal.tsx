@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 
-export type ReportContext = 'leaderboard' | 'friends' | 'multiplayer';
+export type ReportContext = 'leaderboard' | 'friends' | 'multiplayer' | 'profile';
 type ReportReason = 'offensive' | 'impersonation' | 'spam' | 'other';
 
 const REASONS: { id: ReportReason; label: string }[] = [

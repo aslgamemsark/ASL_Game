@@ -14,6 +14,7 @@ import { countryName } from '@/lib/geolocation';
 
 interface Props {
   onExit: () => void;
+  onViewProfile: (userId: string) => void;
 }
 
 type BoardTab = 'world' | 'region' | 'friends';
@@ -36,7 +37,7 @@ function getMedal(i: number) {
 }
 
 function BoardList({
-  rows, userId, loading, relations, onAddFriend, onReport,
+  rows, userId, loading, relations, onAddFriend, onReport, onViewProfile,
 }: {
   rows: BoardRow[];
   userId?: string;
@@ -44,6 +45,7 @@ function BoardList({
   relations?: Map<string, 'accepted' | 'pendingSent' | 'pendingReceived'>;
   onAddFriend?: (id: string, username: string) => void;
   onReport?: (id: string, username: string) => void;
+  onViewProfile: (id: string) => void;
 }) {
   if (loading) {
     return (
@@ -96,17 +98,24 @@ function BoardList({
               )}
             </div>
 
-            {/* Avatar (equipped avatar/badge + equipped border, matching Me tab / side nav) */}
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg shrink-0 ${borderClasses}`}>
-              {avatarIcon}
-            </div>
+            {/* Avatar + name — tap to view their profile. A plain button, not a click handler on
+                the whole row, so it never fights the Add/Report buttons that are its siblings. */}
+            <button
+              onClick={() => onViewProfile(row.id)}
+              className="flex items-center gap-3 flex-1 min-w-0 text-left"
+            >
+              {/* Avatar (equipped avatar/badge + equipped border, matching Me tab / side nav) */}
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg shrink-0 ${borderClasses}`}>
+                {avatarIcon}
+              </div>
 
-            {/* Name */}
-            <div className="flex-1 min-w-0">
-              <p className={`font-bold text-sm truncate ${isMe ? 'text-z-purple-light' : 'text-white'}`}>
-                {isMe ? `${row.username} (you)` : row.username}
-              </p>
-            </div>
+              {/* Name */}
+              <div className="flex-1 min-w-0">
+                <p className={`font-bold text-sm truncate ${isMe ? 'text-z-purple-light' : 'text-white'}`}>
+                  {isMe ? `${row.username} (you)` : row.username}
+                </p>
+              </div>
+            </button>
 
             {/* Rank tier name + XP + streak, stacked */}
             <div className="text-right shrink-0">
@@ -154,7 +163,7 @@ function BoardList({
   );
 }
 
-export function LeaderboardPage({ onExit }: Props) {
+export function LeaderboardPage({ onExit, onViewProfile }: Props) {
   const { user } = useAuth();
   const { xp, streak } = useUserStore();
   const [tab, setTab] = useState<BoardTab>('world');
@@ -424,6 +433,7 @@ export function LeaderboardPage({ onExit }: Props) {
             relations={relations}
             onAddFriend={user ? sendFriendRequest : undefined}
             onReport={user ? (id, username) => setReportTarget({ id, username }) : undefined}
+            onViewProfile={onViewProfile}
           />
         )}
 
@@ -459,6 +469,7 @@ export function LeaderboardPage({ onExit }: Props) {
               relations={relations}
               onAddFriend={sendFriendRequest}
               onReport={(id, username) => setReportTarget({ id, username })}
+              onViewProfile={onViewProfile}
             />
           </>
         )}
@@ -490,6 +501,7 @@ export function LeaderboardPage({ onExit }: Props) {
               userId={user.id}
               loading={false}
               onReport={(id, username) => setReportTarget({ id, username })}
+              onViewProfile={onViewProfile}
             />
           )
         )}

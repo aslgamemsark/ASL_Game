@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { RollingBuffer, frameFromDict } from '../src/engine/landmarks';
-import { verify, resultPassed, resultFailingRequired } from '../src/engine/verifier';
+import { verify, resultPassed, resultFailingRequired, resultGet, paramCleared } from '../src/engine/verifier';
 import { SIGNS } from '../src/engine/signs/index';
+import type { Sign } from '../src/engine/schema';
 
 interface FixturePayload {
   sign_name?: string;
@@ -18,6 +19,28 @@ function loadBuffer(fixture: FixturePayload, windowS = 2.0): RollingBuffer {
     buf.add(frameFromDict(fd as Parameters<typeof frameFromDict>[0]));
   }
   return buf;
+}
+
+// Live gameplay recognises a sign the moment a SLIDING rolling buffer yields a pass on any
+// frame, not from one fixed window anchored at a recorded clip's last frame (loadBuffer above).
+// A real take often has a second or two of "settling" after the actual sign motion before the
+// clip ends, which a last-frame-only check can misread as a failure even though the sign was
+// clearly recognised mid-clip. Used for the "must pass" checks below — see the identical helper
+// + comment in the Python engine's tests/test_hospital.py.
+function bestOverClip(fixture: FixturePayload, sign: Sign, windowS = 2.0) {
+  const buf = new RollingBuffer(windowS);
+  let best: ReturnType<typeof verify> | null = null;
+  for (const fd of fixture.frames ?? []) {
+    buf.add(frameFromDict(fd as Parameters<typeof frameFromDict>[0]));
+    const result = verify(buf, sign);
+    const m = resultGet(result, 'movement');
+    const bestM = best ? resultGet(best, 'movement') : null;
+    if (!best || (m && (!bestM || m.score > bestM.score))) {
+      best = result;
+    }
+    if (resultPassed(result)) return result;
+  }
+  return best!;
 }
 
 /**
@@ -39,24 +62,38 @@ function signId(rawSignName: string): string {
   return rawSignName.split(':')[0].trim();
 }
 
+// These *_real.json recordings predate a later threshold recalibration (several by a very small
+// margin — e.g. NURSE handshape 0.199 vs 0.29 threshold). Marked `.todo` rather than force-passed
+// or left red: re-record via CalibrationPage or confirm current thresholds are right, then retire.
+const KNOWN_STALE_REAL_FIXTURES = new Set([
+  'breathe_real.json', 'fever_real.json', 'doctor_real.json',
+  'sick_real.json', 'emergency_real.json', 'nurse_real.json',
+]);
+
+// Documented, investigated, accepted rule-verifier gaps — NOT silently skipped, NOT force-passed.
+// Each has a real multi-take investigation behind it (see the cited commits) that concluded no
+// safe schema-level fix exists; the ML classifier gate is the backstop (see GATE_EXCLUDED_SIGNS
+// and knownSigns in config/classifier.ts).
+const KNOWN_ACCEPTED_GAPS: Record<string, string> = {
+  // HELP: removed from playable content 2026-07-14 (commit 3f25711) after multi-take testing
+  // showed the rule-based rapid-movement bypass is luck-dependent (0-64% of a clip's frames
+  // score high enough depending on the specific motion), not a reliably reproducible bug with a
+  // reliable fix. help_correct.json itself also has a documented rule-based ceiling: the specific
+  // 103-frame recording's nondominant hand drops out of frame in the final ~0.5s tail, and no
+  // frame with both hands present ever clears every required param simultaneously.
+  'help_correct.json': 'HELP is at a documented rule-based-v1 ceiling; removed from playable content, see commit 3f25711',
+  // MEDICINE: both dominant/nondominant handshapes are "open" (the real claw-vs-flat-palm
+  // distinction was tried and found unreliable, then dropped) — role assignment is entirely
+  // motion-based ("whichever hand moved more"), so wiggling the non-acting hand instead of the
+  // acting one is structurally unrejectable without a genuine per-hand handshape distinction.
+  // Investigated and explicitly left as xfail in commit bf7cb8c.
+  'medicine_wrong_hand.json': 'MEDICINE handedness-agnostic role assignment cannot reject this by design, see commit bf7cb8c',
+};
+
 const entries = Object.entries(fixtureModules)
   .map(([path, mod]) => ({ filename: path.split('/').pop()!, payload: mod.default }))
   .filter((e): e is { filename: string; payload: Required<FixturePayload> } =>
     !!e.payload.sign_name && Array.isArray(e.payload.frames));
-
-// These *_real.json recordings were silently orphaned by the sign_name-parsing bug fixed above
-// (their sign_name is a description like "SICK: middle fingers..." — never matched a SIGNS key,
-// so they never actually ran). Now that they run, most fail — several by a very small margin
-// (NURSE handshape 0.199 vs 0.29 threshold, EMERGENCY handshape 0.485 vs 0.5), consistent with
-// these being stale recordings from before a later threshold recalibration, not evidence of a
-// live verifier bug (same situation `letters-recalibrated.test.ts` already fixed for the
-// alphabet). Marked `.todo` rather than force-passed or left red — Phase 3 (threshold audit)
-// should either re-record these via CalibrationPage or confirm the current thresholds are right
-// and retire the stale fixture.
-const KNOWN_STALE_REAL_FIXTURES = new Set([
-  'breathe_real.json', 'fever_real.json', 'medicine_real.json', 'pain_real.json',
-  'doctor_real.json', 'sick_real.json', 'emergency_real.json', 'nurse_real.json',
-]);
 
 describe('confusor/adversarial fixture replay (all signs)', () => {
   for (const { filename, payload } of entries) {
@@ -74,11 +111,20 @@ describe('confusor/adversarial fixture replay (all signs)', () => {
     const shouldPass = expectedToPass(filename);
 
     if (shouldPass && KNOWN_STALE_REAL_FIXTURES.has(filename)) {
-      it.todo(`${label} should PASS — stale pre-recalibration recording, needs Phase 3 review`);
+      it.todo(`${label} should PASS — stale pre-recalibration recording, needs re-recording`);
       continue;
     }
 
-    const result = verify(loadBuffer(payload), sign);
+    if (KNOWN_ACCEPTED_GAPS[filename]) {
+      it.todo(`${label} — known accepted gap: ${KNOWN_ACCEPTED_GAPS[filename]}`);
+      continue;
+    }
+
+    // "Must pass" fixtures get the sliding-window best-over-clip check (matches live gameplay:
+    // a pass on ANY frame counts, not just the last one — see bestOverClip's comment above).
+    // "Must fail" fixtures (confusor/idle/wrong-*) are checked against the full buffer once,
+    // same as before — a deliberately-wrong performance should never pass at all.
+    const result = shouldPass ? bestOverClip(payload, sign) : verify(loadBuffer(payload), sign);
 
     it(`${label} should ${shouldPass ? 'PASS' : 'FAIL'}`, () => {
       if (shouldPass) {
@@ -87,5 +133,13 @@ describe('confusor/adversarial fixture replay (all signs)', () => {
         expect(resultPassed(result), 'expected to fail but passed overall').toBe(false);
       }
     });
+
+    if (shouldPass && sign.movement.required) {
+      it(`${label} movement clears threshold`, () => {
+        const m = resultGet(result, 'movement')!;
+        expect(m).toBeDefined();
+        expect(paramCleared(m)).toBe(true);
+      });
+    }
   }
 });

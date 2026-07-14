@@ -180,19 +180,27 @@ def claw_confidence(hand: Hand) -> float:
 def flat_o_confidence(hand: Hand) -> float:
     """Flattened-O: fingertips lightly curled toward the thumb (MORE), NOT the deeper curl of a claw.
 
-    Real recorded MORE takes are noisy: mean finger curl ranged from ~0.02 to ~0.17 across separate
-    attempts at the "same" gesture — well under claw's 0.25 floor (tuned for MEDICINE/EMERGENCY's
-    deeper bent-5), which reads even a good attempt as exactly 0. The documented wrong-shape
-    confusor (a genuinely flat/open hand) measures curl ~0 with no observed variance, so there is a
-    wide, safe margin between "any real attempt" and "flat open hand" — this floor is set low enough
-    to clear the WEAKEST observed real attempt rather than the average one.
+    Real recorded MORE takes are noisy: mean finger curl ranged ~0.02-0.29 across separate attempts
+    at the "same" gesture — well under claw's 0.25 floor (tuned for MEDICINE/EMERGENCY's deeper
+    bent-5), which reads even a good attempt as exactly 0. The documented wrong-shape confusor (a
+    genuinely flat/open hand) measures curl ~0 with no observed variance, so there is a wide, safe
+    margin between "any real attempt" and "flat open hand" — the LOW floor is set to clear the
+    weakest observed real attempt rather than the average one.
+
+    Bug found 2026-07-14 (live user testing): this had no CEILING, only a floor — a plain fist
+    (curl ~1.0) or claw (~0.71) scored the exact same 1.0 as a real flattened-O, since `base` only
+    ever clips UP to 1.0 and never falls back down for deeper curls ("MORE passes even with fists").
+    Added a ceiling that holds full credit through the observed real-attempt range (up to ~0.29,
+    and the committed more_confusor.json fixture's held claw-ish 0.50) and falls to 0 by curl 0.65
+    — clear of claw's ~0.71 and fist's ~1.0, both fully rejected.
     """
     curls = _all_curls(hand)
     m = float(np.mean(curls))
     base = float(np.clip(m / 0.05, 0.0, 1.0))   # 0 at flat, full credit by curl ~0.05
+    ceiling = float(np.clip((0.65 - m) / 0.15, 0.0, 1.0))  # full credit to ~0.50, 0 by 0.65 (claw/fist)
     spread = float(np.std(curls))
     penalty = float(np.clip(1.0 - max(0.0, spread - 0.15) / 0.35, 0.0, 1.0))
-    return float(base * penalty)
+    return float(base * ceiling * penalty)
 
 
 # --------------------------------------------------------------------------- pinch-based letters
@@ -358,13 +366,30 @@ def _p_thumb_pos(hand: Hand) -> float:
 
 
 def p_confidence(hand: Hand) -> float:
-    """Letter P: K-like V-shape with both fingers pointing downward, thumb near middle-PIP."""
-    v_pattern = _match(hand, {"index": 1, "middle": 1, "ring": 0, "pinky": 0})
+    """Letter P: K-like V-shape with both fingers pointing downward, thumb near middle-PIP.
+
+    Two components needed real-recording recalibration (2026-07-14), both from the same root
+    cause as the G/H fix: pointing the hand DOWNWARD distorts the wrist-relative geometry these
+    checks were tuned against upright.
+      - middle-finger curl: _finger_curl's tip/wrist-vs-mcp/wrist RATIO reads a genuinely extended
+        middle finger as only ~0.25 "extended" (0.75 "curled") when the hand points down, vs
+        index's normal ~0.73 — the ratio assumes an upright reference. A real P recording measured
+        this consistently (median 0.25, idle/rapid confusors measured ~0.0-0.01), so rather than
+        touching the shared `extensions()`/`_finger_curl` used by every other letter, P uses its
+        own low floor for the middle finger specifically: it only asks for >=0.20, and confusors
+        stay ~15x below that.
+      - orientation: target_deg was 180 (straight down); a real P's own MCP->TIP angle measured
+        152 (median, tight IQR 150-153), not 180 — recentered to match.
+    """
+    ext = extensions(hand)
+    index_score = ext["index"]
+    middle_score = float(np.clip(ext["middle"] / 0.20, 0.0, 1.0))
+    rest_curled = float(min(1.0 - ext["ring"], 1.0 - ext["pinky"]))
     spread = _finger_spread(hand, INDEX_TIP, MIDDLE_TIP)
     spread_score = float(np.clip((spread - 0.15) / (0.40 - 0.15), 0.0, 1.0))
     thumb_touch = _p_thumb_pos(hand)
-    orient = _orientation_score(hand, MIDDLE_TIP, MIDDLE_MCP, target_deg=180.0)
-    return float(min(v_pattern, spread_score, thumb_touch, orient))
+    orient = _orientation_score(hand, MIDDLE_TIP, MIDDLE_MCP, target_deg=152.0)
+    return float(min(index_score, middle_score, rest_curled, spread_score, thumb_touch, orient))
 
 
 def r_confidence(hand: Hand) -> float:
@@ -478,15 +503,34 @@ _PATTERNS = {
     "1": dict(index=1, middle=0, ring=0, pinky=0),
     "l": dict(thumb=1, index=1, middle=0, ring=0, pinky=0),
     "y": dict(thumb=1, index=0, middle=0, ring=0, pinky=1),
-    # finger-count shapes for the hospital signs (every finger condition required):
-    "n": dict(index=1, middle=1, ring=0, pinky=0),      # 2 fingers — NURSE
-    "h": dict(index=1, middle=1, ring=0, pinky=0),      # H = same 2-finger shape — HOSPITAL
-    "u": dict(index=1, middle=1, ring=0, pinky=0),
     "w": dict(index=1, middle=1, ring=1, pinky=0),      # 3 fingers — WATER
     "middle": dict(index=0, middle=1, ring=0, pinky=0), # SICK
     # thumb=0 is required here (unlike y) so an actual Y-hand (thumb+pinky out) can't pass as I.
     "i": dict(thumb=0, index=0, middle=0, ring=0, pinky=1),  # pinky only — LETTER_I
 }
+
+
+def _two_finger_confidence(hand: Hand) -> float:
+    """Index + middle both extended together, ring + pinky curled — N/H/U's shared 2-finger shape.
+
+    Bug found 2026-07-14 (live user testing): a plain MIN-over-fingers pattern match (what "n"/"h"/
+    "u" used before) can't tell "both fingers genuinely extended together" from "only one finger
+    intentionally extended, the other incidentally reads partially extended" — real fingers aren't
+    independent, so a deliberate single-middle-finger tap still measured index~0.36 via the
+    wrist-ratio curl metric. Worse, that confusor's OWN middle-finger score (0.85) was HIGHER than
+    a real two-finger N's (0.47) — no threshold on the MIN alone can separate them, since the
+    confusor doesn't score lower, just unevenly.
+
+    The real distinguishing feature: genuine N/H execution has index and middle SIMILARLY
+    extended (measured gap ~0.04), while the one-finger confusor has one dominant, one weak
+    (measured gap ~0.51). Added a parity term alongside the existing per-finger floor.
+    """
+    ext = extensions(hand)
+    both_extended = float(min(ext["index"], ext["middle"]))
+    rest_curled = float(min(1.0 - ext["ring"], 1.0 - ext["pinky"]))
+    gap = abs(ext["middle"] - ext["index"])
+    parity = float(np.clip(1.0 - gap / 0.25, 0.0, 1.0))
+    return float(min(both_extended, rest_curled, parity))
 
 
 def _match(hand: Hand, pattern: dict) -> float:
@@ -512,6 +556,8 @@ _DISPATCH = {
     "t": t_confidence,
     "v": v_confidence,
     "letter_h": letter_h_confidence,
+    "n": _two_finger_confidence,   # NURSE
+    "h": _two_finger_confidence,   # HOSPITAL — same 2-finger shape as N
     "u": u_confidence,
     "k": k_confidence,
     "letter_n": letter_n_confidence,

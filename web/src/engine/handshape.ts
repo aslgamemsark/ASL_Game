@@ -129,13 +129,20 @@ function clawConfidence(hand: Hand): number {
 // at the "same" gesture — well under claw's 0.25 floor (tuned for MEDICINE/EMERGENCY's deeper
 // bent-5). The wrong-shape confusor (flat/open hand) measures curl ~0 with no observed variance,
 // so this floor is set low enough to clear the WEAKEST observed real attempt, not the average one.
+// Flattened-O (MORE): fingertips lightly curled toward the thumb, not the deeper curl of a claw.
+// Bug found 2026-07-14 (live user testing, ported from core/handshape.py): this had no ceiling,
+// only a floor — a plain fist (curl ~1.0) scored the exact same 1.0 as a real flattened-O.
+// Ceiling holds full credit through the real range (up to ~0.29, and the committed
+// more_confusor.json fixture's held claw-ish 0.50) and falls to 0 by curl 0.65 — clear of claw's
+// ~0.71 and fist's ~1.0, both fully rejected.
 function flatOConfidence(hand: Hand): number {
   const curls = allCurls(hand);
   const m = mean(curls);
   const base = clip(m / 0.05, 0, 1);
+  const ceiling = clip((0.65 - m) / 0.15, 0, 1);
   const spread = std(curls);
   const penalty = clip(1.0 - Math.max(0, spread - 0.15) / 0.35, 0, 1);
-  return base * penalty;
+  return base * ceiling * penalty;
 }
 
 // Distance bands (hand-scale units) for "thumb tip touching a fingertip".
@@ -202,8 +209,6 @@ const PATTERNS: Record<string, Record<string, number>> = {
   l: { thumb: 1, index: 1, middle: 0, ring: 0, pinky: 0 },
   y: { thumb: 1, index: 0, middle: 0, ring: 0, pinky: 1 },
   // strict min-based: averaged version let open hands score 0.5+
-  n: { index: 1, middle: 1, ring: 0, pinky: 0 },
-  h: { index: 1, middle: 1, ring: 0, pinky: 0 },
   u: { index: 1, middle: 1, ring: 0, pinky: 0 },
   w: { index: 1, middle: 1, ring: 1, pinky: 0 },
   middle: { index: 0, middle: 1, ring: 0, pinky: 0 },
@@ -217,6 +222,23 @@ function matchPattern(hand: Hand, pattern: Record<string, number>): number {
     target === 1 ? ext[f] : 1.0 - ext[f]
   );
   return scores.length > 0 ? Math.min(...scores) : 0;
+}
+
+// Index + middle both extended together, ring + pinky curled — N/H's shared 2-finger shape.
+// Bug found 2026-07-14 (live user testing, ported from core/handshape.py): a plain MIN-over-
+// fingers pattern match can't tell "both fingers genuinely extended together" from "only one
+// finger intentionally extended, the other incidentally reads partially extended" — real fingers
+// aren't independent. Real N/H execution measures index/middle SIMILARLY extended (gap ~0.04); a
+// one-finger confusor measures one dominant, one weak (gap ~0.51) — its own middle-finger score
+// can even be HIGHER than a real N's, so no threshold on the MIN alone separates them. Added a
+// parity term penalizing a large index/middle gap.
+function twoFingerConfidence(hand: Hand): number {
+  const ext = extensions(hand);
+  const bothExtended = Math.min(ext.index, ext.middle);
+  const restCurled = Math.min(1.0 - ext.ring, 1.0 - ext.pinky);
+  const gap = Math.abs(ext.middle - ext.index);
+  const parity = clip(1.0 - gap / 0.25, 0, 1);
+  return Math.min(bothExtended, restCurled, parity);
 }
 
 // Letter V: index + middle extended AND held apart (spread) — a real recorded confusor found the
@@ -303,13 +325,25 @@ function pThumbPos(hand: Hand): number {
 }
 
 // Letter P: K-like V-shape with both fingers pointing downward, thumb near middle-PIP.
+//
+// Recalibrated 2026-07-14 to match the Python engine (core/handshape.py's p_confidence) after a
+// real webcam recording found two components miscalibrated, both from pointing the hand DOWNWARD
+// distorting geometry these checks were tuned against upright (same root cause as the G/H fix):
+//   - middle-finger curl: fingerCurl's tip/wrist-vs-mcp/wrist RATIO reads a genuinely extended
+//     middle finger as only ~0.25 "extended" when the hand points down (vs index's normal ~0.73)
+//     — a real P recording measured this consistently, so P uses its own low floor (>=0.20) for
+//     the middle finger instead of the shared matchPattern gate.
+//   - orientation: target was 180 (straight down); a real P's own MCP->TIP angle measured 152.
 function pConfidence(hand: Hand): number {
-  const vPattern = matchPattern(hand, { index: 1, middle: 1, ring: 0, pinky: 0 });
+  const ext = extensions(hand);
+  const indexScore = ext.index;
+  const middleScore = clip(ext.middle / 0.20, 0, 1);
+  const restCurled = Math.min(1.0 - ext.ring, 1.0 - ext.pinky);
   const spread = fingerSpread(hand, INDEX_TIP, MIDDLE_TIP);
   const spreadScore = clip((spread - 0.15) / (0.40 - 0.15), 0, 1);
   const thumbTouch = pThumbPos(hand);
-  const orient = orientationScore(hand, MIDDLE_TIP, MIDDLE_MCP, 180);
-  return Math.min(vPattern, spreadScore, thumbTouch, orient);
+  const orient = orientationScore(hand, MIDDLE_TIP, MIDDLE_MCP, 152);
+  return Math.min(indexScore, middleScore, restCurled, spreadScore, thumbTouch, orient);
 }
 
 // Letter R: index and middle extended and CROSSED (their left-right order at the tip is swapped
@@ -423,6 +457,8 @@ const DISPATCH: Record<string, (hand: Hand) => number> = {
   t: tConfidence,
   v: vConfidence,
   letter_h: letterHConfidence,
+  n: twoFingerConfidence,   // NURSE
+  h: twoFingerConfidence,   // HOSPITAL — same 2-finger shape as N
   u: uConfidence,
   k: kConfidence,
   letter_n: letterNConfidence,

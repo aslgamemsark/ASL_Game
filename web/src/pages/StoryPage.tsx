@@ -45,17 +45,6 @@ const MOOD_ZIPPY: Record<string, ZippyExpression> = {
   surprised: 'celebrating',
 };
 
-// Dr. Reeves and Ms. Rowan (and the coffee-shop barista) are still Zippy underneath — just dressed
-// for the part. The costume art has one static pose (no per-mood variants like MOOD_ZIPPY), so it's
-// used everywhere a non-Zippy NPC previously fell back to a generic emoji.
-const STORY_NPC_COSTUME: Record<string, ZippyExpression> = {
-  'coffee-story': 'barista',
-  'coffee-story-2': 'barista',
-  'hospital-story': 'doctor',
-  'classroom-story': 'teacher',
-};
-
-
 export function StoryPage({ story, onExit }: Props) {
   const { addXp, addSigns, addGold, addDailyMinutes, recordSign, completeLesson, checkBadges, awardBadge, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
@@ -77,7 +66,7 @@ export function StoryPage({ story, onExit }: Props) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const loopStartedRef = useRef<string | null>(null);
   const isZippy = story.npcName === 'Zippy';
-  const npcCostume = STORY_NPC_COSTUME[story.id];
+  const npcCostume = story.npcCostume;
 
   const currentLine = story.lines[lineIdx];
   const currentEngineSign = currentLine ? ENGINE_SIGNS[currentLine.requiredSignId] : null;
@@ -265,16 +254,14 @@ export function StoryPage({ story, onExit }: Props) {
           {phase === 'dialogue' && currentLine && (
             <motion.div key={`dialogue-${lineIdx}`} className="flex-1 flex flex-col gap-4 pt-4"
               initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}>
-              {/* NPC bubble */}
+              {/* NPC bubble — full-body standing character, not just a cropped headshot avatar.
+                  A costume (barista/doctor/teacher) always wins over the generic mood art below:
+                  it's who the player is actually talking to in this scene. */}
               <div className="flex items-start gap-3">
-                {isZippy ? (
-                  <div className="w-12 h-12 rounded-2xl bg-z-purple overflow-hidden shrink-0">
-                    <Zippy expression={MOOD_ZIPPY[currentLine.npcMood]} fit="cover" />
-                  </div>
-                ) : npcCostume ? (
-                  <div className="w-12 h-12 rounded-2xl bg-z-purple overflow-hidden shrink-0">
-                    <Zippy expression={npcCostume} fit="cover" />
-                  </div>
+                {npcCostume ? (
+                  <Zippy expression={npcCostume} size="md" className="shrink-0" />
+                ) : isZippy ? (
+                  <Zippy expression={MOOD_ZIPPY[currentLine.npcMood]} size="md" className="shrink-0" />
                 ) : (
                   <div className="w-12 h-12 rounded-2xl bg-z-purple flex items-center justify-center text-2xl shrink-0">
                     {MOOD_EMOJI[currentLine.npcMood]}

@@ -280,11 +280,16 @@ export const HELP = createSign({
   nondominant: { kind: 'open', required: true, minConfidence: 0.45 },
   // maxDistRatio 0.80 lets the lifted fist move higher before location fails
   location: { anchor: Anchor.OTHER_HAND, actingHand: DOMINANT, maxDistRatio: 0.80, required: true, minConfidence: 0.44 },
-  // No direction: the net-displacement vector spans the full 2 s buffer including the
-  // approach phase, which dilutes the upward component and kills dirScore. Removing the
-  // direction check means any deliberate movement (lift, press, push) while fist is near
-  // palm will pass — the two-handed position requirement is specific enough.
-  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, minDisplacementRatio: 0.12, minDurationS: 0.3, minConfidence: 0.25, required: true },
+  // direction re-added 2026-07-14: dropping it (as this file used to) made HELP magnitude-only,
+  // and a real "hands present, not signing" recording found that's exploitable — natural settling
+  // drift over the live 2.0s window cleared minConfidence=0.25 with no direction gate to reject
+  // it, sustaining a false PASS. Verified against the same real recordings: WITH direction,
+  // correct still clears the app's 6-frame debounce (streak 7, matching the Python engine's own
+  // margin at this window size) while idle drops to 0. A real rapid/random-movement confusor
+  // still passes (streak 12) — a documented rule-based-v1 ceiling, not something this fixes; see
+  // signs/help.py in the Python engine for the parallel investigation. The classifier gate
+  // (knownSigns includes HELP) is the backstop for that.
+  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, -1], minDisplacementRatio: 0.12, minDurationS: 0.3, minConfidence: 0.25, required: true },
   orientation: { hand: NONDOMINANT, facing: PalmFacing.UP, required: false, minConfidence: 0.25},
 });
 
@@ -301,7 +306,9 @@ export const MEDICINE = createSign({
   dominant: { kind: 'open', required: true, minConfidence: 0.55 },
   nondominant: { kind: 'open', required: true, minConfidence: 0.55 },
   location: { anchor: Anchor.OTHER_HAND, actingHand: DOMINANT, maxDistRatio: 0.50, required: true },
-  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true },
+  // minCycles 2->3: recalibrated 2026-07-14 against real webcam takes, same investigation and
+  // caveats as DOCTOR — see signs/medicine.py.
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 3, minDurationS: 0.6, required: true },
   orientation: { hand: NONDOMINANT, facing: PalmFacing.UP, required: false, minConfidence: 0.25},
 });
 
@@ -326,7 +333,11 @@ export const DOCTOR = createSign({
   dominant: { kind: 'open', required: true, minConfidence: 0.45 },
   nondominant: { kind: 'open', required: false },
   location: { anchor: Anchor.OTHER_HAND, actingHand: DOMINANT, useClosestApproach: true, maxDistRatio: 0.35, required: true },
-  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.5, required: true },
+  // minCycles 2->3: recalibrated 2026-07-14 against real webcam takes (correct DOCTOR vs.
+  // rapid/random hand movement near the same spot) — see signs/doctor.py for the measured
+  // separation. Reduces but does not eliminate a documented rule-based-v1 ceiling on this
+  // confusor class; the classifier gate is the actual backstop (knownSigns includes DOCTOR).
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 3, minDurationS: 0.5, required: true },
 });
 
 export const NURSE = createSign({
@@ -334,7 +345,11 @@ export const NURSE = createSign({
   dominant: { kind: 'n', required: true, minConfidence: 0.29 },
   nondominant: { kind: 'open', required: false },
   location: { anchor: Anchor.OTHER_HAND, actingHand: DOMINANT, useClosestApproach: true, maxDistRatio: 0.35, required: true },
-  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.5, required: true, minConfidence: 0.25},
+  // minConfidence 0.25->0.6: recalibrated 2026-07-14 — a real recorded rapid/random-movement
+  // confusor sustained a false PASS at the old, far-too-loose 0.25; 0.6 (matching DOCTOR/
+  // HOSPITAL/MEDICINE/BREATHE) fully closes it while correct NURSE still clears easily. See
+  // signs/nurse.py for the full investigation.
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.5, required: true, minConfidence: 0.6},
 });
 
 export const SICK = createSign({
@@ -400,7 +415,12 @@ export const WRITE = createSign({
   dominant: { kind: 'index', required: true, minConfidence: 0.25 },
   nondominant: { kind: 'open', required: true, minConfidence: 0.5 },
   location: { anchor: Anchor.OTHER_HAND, actingHand: DOMINANT, maxDistRatio: 0.5, required: true },
-  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.05, minDurationS: 0.5, required: true, minConfidence: 0.45},
+  // minConfidence 0.45->0.8: recalibrated 2026-07-14 — a real "hands present, not signing"
+  // recording sustained a false PASS at every value up to 0.7 (incidental settling read as a
+  // low-amplitude "repeated" wiggle); 0.8 kills that while correct WRITE still clears with a wide
+  // margin. See signs/write.py for the full investigation (rapid/random movement is only
+  // partially addressed by this, not fully — a smaller, documented residual).
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.05, minDurationS: 0.5, required: true, minConfidence: 0.8},
   orientation: { hand: NONDOMINANT, facing: PalmFacing.UP, required: false, minConfidence: 0.25},
 });
 

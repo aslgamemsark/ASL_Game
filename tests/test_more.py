@@ -25,17 +25,40 @@ def _load_buffer(name: str) -> RollingBuffer:
     return buf
 
 
+def _load_frames(name: str) -> list[Frame]:
+    with open(FIXTURES / f"{name}.json") as fh:
+        data = json.load(fh)
+    return [Frame.from_dict(fd) for fd in data["frames"]]
+
+
+# Live gameplay recognises MORE the moment a SLIDING 2.0s rolling buffer (matches
+# useRecognition.ts) yields a pass on any frame, not from one fixed window anchored at the
+# recorded clip's last frame — see the identical helper + comment in tests/test_hospital.py.
+def _best_over_clip(frames: list[Frame], sign, window_s: float = 2.0):
+    buf = RollingBuffer(window_seconds=window_s)
+    best = None
+    for f in frames:
+        buf.add(f)
+        result = verify(buf, sign)
+        m = result.get("movement")
+        if best is None or (m is not None and m.score > (best.get("movement").score if best.get("movement") else -1)):
+            best = result
+        if result.passed:
+            return result
+    return best
+
+
 class TestMoreCorrect:
     def test_overall_pass(self):
-        result = verify(_load_buffer("more_correct"), MORE)
+        result = _best_over_clip(_load_frames("more_correct"), MORE)
         assert result.passed, f"Correct MORE should pass; failing={result.failing_required}"
 
     def test_movement_clears(self):
-        m = verify(_load_buffer("more_correct"), MORE).get("movement")
+        m = _best_over_clip(_load_frames("more_correct"), MORE).get("movement")
         assert m.score >= m.threshold, f"movement {m.score:.2f} < {m.threshold:.2f}"
 
     def test_handshape_claw(self):
-        result = verify(_load_buffer("more_correct"), MORE)
+        result = _best_over_clip(_load_frames("more_correct"), MORE)
         for name in ("handshape_dominant", "handshape_nondominant"):
             p = result.get(name)
             assert p is not None and p.cleared, f"{name} should clear: {p.score:.2f}"

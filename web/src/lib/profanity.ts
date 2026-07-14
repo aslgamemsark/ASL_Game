@@ -1,5 +1,9 @@
 // Slurs and explicit content that must not appear in usernames.
-// Checked against the lowercased name and a leet-speak-normalised variant.
+// Checked against several normalised variants of the name — a plain substring
+// check on the raw name is not enough, since the username charset allows
+// underscores as separators (n_i_g_g_a passed the old check outright) and
+// nothing collapsed stretched-out spellings (niggga). Found live on the
+// production leaderboard; see username-policy hardening.
 const BLOCKED: readonly string[] = [
   // Racial slurs
   'nigger','nigga','chink','gook','jap','spic','kike','wetback','beaner',
@@ -12,7 +16,8 @@ const BLOCKED: readonly string[] = [
   'fuck','shit','cunt','bitch','whore','slut','asshole','dickhead','cocksucker',
   // Violence / hate
   'hitler','nazi','rape','rapist','pedophile','pedofil','pedo',
-  // Common leet variants already captured by normaliseLeet(), but keep explicit ones too
+  // Alternate spellings not reachable via leet-digit substitution or letter
+  // collapsing alone (dropped vowels/letters rather than swapped or repeated)
   'fck','fuk','sh1t','b1tch',
 ];
 
@@ -25,22 +30,40 @@ function normaliseLeet(s: string): string {
     .replace(/!/g, 'i');
 }
 
-// Collapses long stutter runs (3+ of the same char) down to one, e.g.
-// "niiiggaaa" -> "niga", "hitlerrrr" -> "hitler" — but leaves normal doubled
-// letters (e.g. "coon", "connor") alone, since collapsing those would create
-// short substrings that false-positive on innocuous words.
-function collapseRepeats(s: string): string {
-  return s.replace(/_/g, '').replace(/(.)\1{2,}/g, '$1');
+// Drops every character that isn't a-z, so separator characters used to
+// break up a slur (n_i_g_g_a, n1g2g3a's stray digits, etc.) can't defeat a
+// substring check the way they could when only two flat variants were tried.
+function stripNonLetters(s: string): string {
+  return s.replace(/[^a-z]/g, '');
 }
 
-const BLOCKED_COLLAPSED = BLOCKED.map(collapseRepeats);
+// Collapses ANY run of the same letter down to one, so a stretched-out spelling (niggga, fuuuck)
+// normalises the same way as its base word (nigga has its own doubled "gg", so stretching must
+// collapse the same way the blocklist word does, or "niggga" and "nigga" collapse to different
+// lengths and stop matching each other).
+function collapseRepeats(s: string): string {
+  return s.replace(/(.)\1+/g, '$1');
+}
+
+// A collapsed blocklist entry shorter than this is rejected from the collapsed-matching pass
+// entirely — collapsing "coon" (2 o's) produces "con", a 3-letter substring that flags ordinary
+// words and names (connor, control, iconic, economics). The uncollapsed BLOCKED list below still
+// catches "coon" typed plainly or via leet substitution; only the over-aggressive short collapsed
+// form is excluded. Verified empirically against both directions: every stretched-slur test case
+// this file's tests require (niggga, fuuuck, n_1_g_g_4) still matches at length >= 4.
+const MIN_COLLAPSED_LEN = 4;
+const BLOCKED_COLLAPSED: readonly string[] = BLOCKED.map(collapseRepeats).filter((w) => w.length >= MIN_COLLAPSED_LEN);
 
 export function isInappropriate(username: string): boolean {
-  const low  = username.toLowerCase();
-  const norm = normaliseLeet(low);
-  if (BLOCKED.some((w) => low.includes(w) || norm.includes(w))) return true;
+  const low = username.toLowerCase();
+  const stripped = new Set<string>();
+  for (const base of [low, normaliseLeet(low)]) {
+    stripped.add(stripNonLetters(base));
+  }
+  const collapsed = Array.from(stripped, collapseRepeats);
 
-  const collapsedLow  = collapseRepeats(low);
-  const collapsedNorm = collapseRepeats(norm);
-  return BLOCKED_COLLAPSED.some((w) => collapsedLow.includes(w) || collapsedNorm.includes(w));
+  return (
+    BLOCKED.some((w) => Array.from(stripped).some((v) => v.includes(w))) ||
+    BLOCKED_COLLAPSED.some((w) => collapsed.some((v) => v.includes(w)))
+  );
 }

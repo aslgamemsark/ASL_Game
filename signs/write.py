@@ -46,6 +46,15 @@ WRITE = Sign(
         min_cycles=2,
         min_amplitude_ratio=0.05,
         min_duration_s=0.5,
-        required=True, min_confidence=0.45),
+        # Recalibrated 2026-07-14: a real "hands present, not signing" recording sustained a false
+        # PASS (15 consecutive frames, past the app's 6-frame debounce) at every min_confidence up
+        # to 0.7 — incidental settling/resettling registered as a low-amplitude "repeated" wiggle.
+        # 0.8 kills that (idle streak drops to 0) while correct WRITE, which sustains the composite
+        # score much higher, still clears the debounce with a wide margin (29-frame streak). A real
+        # rapid/random-movement confusor is only partially addressed by this (streak drops from 30
+        # to 17, still above 6 — see write.py's module docstring / NURSE for the documented
+        # rule-based ceiling on that specific confusor class; the web app's classifier gate is the
+        # backstop there).
+        required=True, min_confidence=0.8),
     orientation=OrientationReq(hand=NONDOMINANT, facing=PalmFacing.UP, required=False, min_confidence=0.25),
 )

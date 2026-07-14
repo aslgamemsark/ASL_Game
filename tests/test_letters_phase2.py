@@ -163,8 +163,11 @@ def test_letter_k_sign_passes_and_rejects_v():
 
 
 def test_p_passes_downward_rejects_upright():
-    # thumb_offset=(-0.30, -0.65): after 180° rotation lands near MIDDLE_PIP (~0.25 units); upright fails
-    p = make_hand((0, 0), curls={"ring": 1.0, "pinky": 1.0}, thumb_offset=(-0.30, -0.65), rotate_deg=180, spread_mult=1.5)
+    # thumb_offset=(-0.30, -0.65): after rotation lands near MIDDLE_PIP (~0.25 units); upright fails.
+    # rotate_deg=157.71 (not a plain 180) matches core/handshape_presets.py's recalibrated P
+    # rotation — a real P recording measured the middle finger's own MCP->TIP angle at ~152deg,
+    # not a mathematically perfect straight-down 180deg (see p_confidence()'s orientation check).
+    p = make_hand((0, 0), curls={"ring": 1.0, "pinky": 1.0}, thumb_offset=(-0.30, -0.65), rotate_deg=157.71, spread_mult=1.5)
     assert handshape_confidence(p, "p") > 0.6
     k_orientation = make_hand((0, 0), curls={"ring": 1.0, "pinky": 1.0}, thumb_offset=(-0.30, -0.65), rotate_deg=0, spread_mult=1.5)
     assert handshape_confidence(k_orientation, "p") < 0.6

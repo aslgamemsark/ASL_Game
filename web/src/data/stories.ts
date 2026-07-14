@@ -1,3 +1,5 @@
+import type { ZippyExpression } from './zippy';
+
 export interface DialogueLine {
   npcText: string;
   npcMood: 'neutral' | 'happy' | 'curious' | 'surprised';
@@ -16,6 +18,10 @@ export interface StoryScript {
   npcName: string;
   npcEmoji: string;
   backgroundEmoji: string;
+  /** Dr. Reeves, Ms. Rowan, and the coffee-shop barista are still Zippy underneath — just dressed
+   *  for the part. When set, this costume art replaces npcEmoji everywhere the NPC appears
+   *  (story screens, world map node icon). Omitted for stories Zippy narrates as himself. */
+  npcCostume?: ZippyExpression;
   lines: DialogueLine[];
 }
 
@@ -76,6 +82,7 @@ export const COFFEE_SHOP_STORY: StoryScript = {
   description: 'Order a coffee from Zippy the barista',
   npcName: 'Zippy',
   npcEmoji: '🤟',
+  npcCostume: 'barista',
   backgroundEmoji: '☕',
   lines: [
     {
@@ -135,6 +142,7 @@ export const COFFEE_SHOP_RUSH_STORY: StoryScript = {
   description: "It's the morning rush — keep up with Zippy!",
   npcName: 'Zippy',
   npcEmoji: '🤟',
+  npcCostume: 'barista',
   backgroundEmoji: '⏰',
   lines: [
     {
@@ -186,16 +194,9 @@ export const HOSPITAL_STORY: StoryScript = {
   description: 'Help a patient communicate with the doctor',
   npcName: 'Dr. Reeves',
   npcEmoji: '🩺',
+  npcCostume: 'doctor',
   backgroundEmoji: '🏥',
   lines: [
-    {
-      npcText: "A patient needs help — can you sign it?",
-      npcMood: 'neutral',
-      userLine: 'They need help!',
-      requiredSignId: 'HELP',
-      hint: 'Fist on palm, lift it up!',
-      npcResponse: "Great — I can see you know ASL. Let's communicate!",
-    },
     {
       npcText: "Where is the pain?",
       npcMood: 'curious',
@@ -261,6 +262,7 @@ export const CLASSROOM_STORY: StoryScript = {
   description: 'Meet your teacher and make a new friend',
   npcName: 'Ms. Rowan',
   npcEmoji: '👩‍🏫',
+  npcCostume: 'teacher',
   backgroundEmoji: '🏫',
   lines: [
     {

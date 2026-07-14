@@ -41,7 +41,12 @@ DOCTOR = Sign(
     movement=MovementReq(
         kind=MovementKind.REPEATED,
         actor=DOMINANT,
-        min_cycles=2,                # two taps
+        # Recalibrated 2026-07-14 against real webcam takes (correct DOCTOR vs. rapid/random hand
+        # movement near the same spot): raw cycle counts over the live 1.5s window separated the
+        # two — correct reached >=3 cycles 36% of the time (up to 4.5), rapid only 5% (up to 3.5).
+        # min_cycles=2 let rapid movement sustain a false PASS streak well past the app's 6-frame
+        # debounce; 3 removes that while correct still clears it comfortably.
+        min_cycles=3,
         min_duration_s=0.5,
         required=True,
     ),

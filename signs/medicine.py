@@ -42,7 +42,11 @@ MEDICINE = Sign(
     movement=MovementReq(
         kind=MovementKind.REPEATED,
         actor=DOMINANT,
-        min_cycles=2,
+        # Recalibrated 2026-07-14 against real webcam takes: correct MEDICINE reached >=3 cycles
+        # 55% of the time over the live 1.5s window (up to 4.5); rapid/random hand movement near
+        # the same spot only 2% (up to 3.0). min_cycles=2 let rapid sustain a false PASS streak
+        # past the app's 6-frame debounce; 3 removes that while correct still clears it easily.
+        min_cycles=3,
         min_duration_s=0.6,
         required=True,
     ),

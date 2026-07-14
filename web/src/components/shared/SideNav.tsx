@@ -65,7 +65,9 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
   return (
     <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-64 flex-col py-6 px-4 bg-z-card border-r border-white/5 z-40">
       <div className="flex items-center gap-2 px-2 mb-8">
-        <span className="text-2xl">🤟</span>
+        <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
+          <img src="/pwa-192x192.png" alt="" className="w-full h-full object-cover" />
+        </div>
         <span
           className="font-bold text-lg tracking-tight"
           style={{
