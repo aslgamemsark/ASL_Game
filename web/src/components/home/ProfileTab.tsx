@@ -2,18 +2,13 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { useInsights } from '@/hooks/useInsights';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { BadgesSection } from '@/components/home/BadgesSection';
-import { Zippy } from '@/components/shared/Zippy';
-import { StruggleBarList } from '@/components/insights/StruggleBarList';
-import { AccuracySparkline } from '@/components/insights/AccuracySparkline';
 import { getBadge } from '@/data/badges';
+import { Tooltip } from '@/components/shared/Tooltip';
 import { getRankProgress } from '@/data/ranks';
 import { SHOP_ITEMS, getShopItem } from '@/data/shop';
-import { SIGNS } from '@/data/signs';
-import { LESSON_UNITS } from '@/data/lessons';
 
 const FIRE_REST  = { rotate: 0, x: 0, scale: 1, filter: 'brightness(1) drop-shadow(0 0 0px rgba(249,115,22,0))', transition: { duration: 0.3, ease: 'easeOut' as const } };
 const FIRE_HOVER = { rotate: [0, -4, 3, -3, 2, 0], x: [0, -1.5, 1, -1, 0.5, 0], scale: [1, 1.09, 1.04, 1.11, 1.05, 1], filter: ['brightness(1) drop-shadow(0 0px 0px rgba(249,115,22,0))', 'brightness(1.25) drop-shadow(0 -3px 8px rgba(249,115,22,0.7))', 'brightness(1.3) drop-shadow(0 -4px 10px rgba(249,115,22,0.8))', 'brightness(1) drop-shadow(0 0px 0px rgba(249,115,22,0))'], transition: { duration: 1.9, repeat: Infinity, ease: 'easeInOut' as const } };
@@ -54,25 +49,19 @@ function cardVariants(glowColor: string) {
   };
 }
 
-const TOTAL_LESSON_COUNT = LESSON_UNITS.reduce((sum, u) => sum + u.nodes.length, 0);
-
 export function ProfileTab() {
   const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar, equipBorder } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user, username } = useAuth();
-  const { struggleSigns, vetoStats, dailyAccuracy, overallAvgAttempts, loading: insightsLoading, error: insightsError } = useInsights();
   const [showAuth, setShowAuth] = useState(false);
   const [showSetUsername, setShowSetUsername] = useState(false);
   const [levelBurst, setLevelBurst] = useState(0);
-  const [profileSection, setProfileSection] = useState<'stats' | 'insights' | 'badges'>('stats');
+  const [profileSection, setProfileSection] = useState<'stats' | 'badges'>('stats');
   const [cosmeticTab, setCosmeticTab] = useState<'avatar' | 'border'>('avatar');
 
   const totalSigns = Object.keys(signAccuracy).length;
   const masteredSigns = Object.values(signAccuracy).filter((s) => s.successes >= 3 && s.successes / s.attempts >= 0.7).length;
   const bestSpeed = Object.entries(speedHighScores).reduce<{ tier: string; score: number } | null>((best, [tier, hs]) => (!best || hs.score > best.score) ? { tier, score: hs.score } : best, null);
-
-  const lessonCompletionPct = Math.round((completedLessons.length / TOTAL_LESSON_COUNT) * 100);
-  const signLabel = (signId: string) => SIGNS[signId]?.name?.replace(/_/g, ' ') ?? signId.replace(/_/g, ' ');
 
   return (
     <div className="px-4 pb-24">
@@ -131,7 +120,11 @@ export function ProfileTab() {
           <div className="flex justify-center gap-2 mb-2">
             {showcaseBadges.map((id) => {
               const b = getBadge(id);
-              return b ? <span key={id} className="text-lg">{b.icon}</span> : null;
+              return b ? (
+                <Tooltip key={id} title={b.title} description={b.description} placement="bottom">
+                  <span className="text-lg" tabIndex={0}>{b.icon}</span>
+                </Tooltip>
+              ) : null;
             })}
           </div>
         )}
@@ -178,9 +171,9 @@ export function ProfileTab() {
         );
       })()}
 
-      {/* Stats / Insights / Badges section toggle */}
+      {/* Stats / Badges section toggle */}
       <div className="flex bg-z-surface/50 rounded-xl p-1 mb-5">
-        {(['stats', 'insights', 'badges'] as const).map((s) => (
+        {(['stats', 'badges'] as const).map((s) => (
           <button
             key={s}
             onClick={() => setProfileSection(s)}
@@ -188,7 +181,7 @@ export function ProfileTab() {
               profileSection === s ? 'bg-z-card text-z-gray-50' : 'text-z-gray-400'
             }`}
           >
-            {s === 'stats' ? '📊 Stats' : s === 'insights' ? '🔍 Insights' : `🏅 Badges (${badges.length})`}
+            {s === 'stats' ? '📊 Stats' : `🏅 Badges (${badges.length})`}
           </button>
         ))}
       </div>
@@ -359,74 +352,6 @@ export function ProfileTab() {
           </motion.div>
 
         </>
-      )}
-
-      {profileSection === 'insights' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-          {!user ? (
-            <div className="bg-z-card border border-white/5 rounded-2xl p-5 text-center flex flex-col items-center">
-              <Zippy expression="thinking" size="md" />
-              <p className="text-z-gray-300 text-sm mb-3 mt-2">Sign in and I'll show you how your signing is improving.</p>
-              <button onClick={() => setShowAuth(true)} className="text-xs bg-z-purple text-white rounded-xl px-4 py-2 font-bold">Sign in</button>
-            </div>
-          ) : insightsLoading ? (
-            <div className="grid grid-cols-2 gap-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-20 bg-z-card rounded-2xl animate-pulse" />
-              ))}
-            </div>
-          ) : insightsError ? (
-            <p className="text-z-red text-sm text-center py-6">Couldn't load insights. Check your connection and try again.</p>
-          ) : (
-            <>
-              {/* Quick stats row */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center">
-                  <p className="text-2xl font-bold text-z-purple-light">{lessonCompletionPct}%</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Lessons complete</p>
-                </div>
-                <div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center">
-                  <p className="text-2xl font-bold text-z-yellow">
-                    {overallAvgAttempts !== null ? overallAvgAttempts.toFixed(1) : '—'}
-                  </p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Avg attempts/sign</p>
-                </div>
-              </div>
-
-              {/* Struggle signs */}
-              <div className="bg-z-card border border-white/5 rounded-2xl p-5">
-                <h3 className="font-bold text-base mb-3 tracking-wide">Toughest Signs</h3>
-                <StruggleBarList signs={struggleSigns} labelFor={signLabel} />
-              </div>
-
-              {/* Internal ML-veto stat, reframed in plain language: a raw "Double-Check Rate %"
-                  headline reads as a score a beginner would worry about, when the mechanic can
-                  only ever add extra scrutiny, never take away a pass already earned. Showing the
-                  real counts instead of an abstract rate keeps it honest without being alarming. */}
-              <div className="bg-z-card border border-white/5 rounded-2xl p-5">
-                <h3 className="font-bold text-base mb-1 tracking-wide">Extra Accuracy Checks</h3>
-                {vetoStats && vetoStats.ai_gated_attempts > 0 ? (
-                  <p className="text-z-gray-300 text-xs mt-1.5 leading-relaxed">
-                    I took a closer look at {vetoStats.ai_gated_attempts} of your attempts, and gave{' '}
-                    {vetoStats.veto_count} of them a second opinion. This can only add a careful
-                    check — it never takes away a sign you already got right.
-                  </p>
-                ) : (
-                  <p className="text-z-gray-400 text-xs">No extra checks needed yet.</p>
-                )}
-              </div>
-
-              {/* Accuracy over time */}
-              <div className="bg-z-card border border-white/5 rounded-2xl p-5">
-                <h3 className="font-bold text-base mb-3 tracking-wide">Accuracy Over Time</h3>
-                <AccuracySparkline data={dailyAccuracy} />
-              </div>
-
-              {/* "Help improve the AI" lives permanently in Settings -> Privacy now, reachable
-                  regardless of which profile tab you're on. */}
-            </>
-          )}
-        </motion.div>
       )}
 
       {profileSection === 'badges' && (

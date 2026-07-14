@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ALL_BADGES, getBadge, BADGE_RARITY_COLOR, type BadgeDef } from '@/data/badges';
 import { useUserStore } from '@/stores/useUserStore';
+import { Tooltip } from '@/components/shared/Tooltip';
 
 export function BadgesSection() {
   const { badges, activeBadge, showcaseBadges, setActiveBadge, toggleShowcaseBadge } =
@@ -20,14 +21,16 @@ export function BadgesSection() {
             const def = getBadge(id);
             if (!def) return null;
             return (
-              <motion.div
-                key={id}
-                className="w-11 h-11 rounded-xl flex items-center justify-center text-xl bg-z-card border border-white/10"
-                style={{ boxShadow: `0 0 14px ${BADGE_RARITY_COLOR[def.rarity]}55` }}
-                whileHover={{ scale: 1.1 }}
-              >
-                {def.icon}
-              </motion.div>
+              <Tooltip key={id} title={def.title} description={def.description} placement="bottom">
+                <motion.div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center text-xl bg-z-card border border-white/10"
+                  style={{ boxShadow: `0 0 14px ${BADGE_RARITY_COLOR[def.rarity]}55` }}
+                  whileHover={{ scale: 1.1 }}
+                  tabIndex={0}
+                >
+                  {def.icon}
+                </motion.div>
+              </Tooltip>
             );
           })}
           <p className="text-xs text-z-gray-400 ml-1">Showcase</p>
@@ -45,25 +48,26 @@ export function BadgesSection() {
               const isActive = activeBadge === badge.id;
               const inShowcase = showcaseBadges.includes(badge.id);
               return (
-                <motion.button
-                  key={badge.id}
-                  onClick={() => setSelected(badge)}
-                  className={`aspect-square rounded-2xl flex flex-col items-center justify-center gap-0.5 border relative ${
-                    isActive
-                      ? 'border-z-purple-light bg-z-purple/20'
-                      : 'border-white/10 bg-z-card'
-                  }`}
-                  style={{
-                    boxShadow: `0 0 16px ${BADGE_RARITY_COLOR[badge.rarity]}33`,
-                  }}
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.93 }}
-                >
-                  <span className="text-2xl">{badge.icon}</span>
-                  {inShowcase && (
-                    <div className="absolute top-1 right-1 w-2.5 h-2.5 bg-z-purple-light rounded-full" />
-                  )}
-                </motion.button>
+                <Tooltip key={badge.id} title={badge.title} description={badge.description} className="aspect-square">
+                  <motion.button
+                    onClick={() => setSelected(badge)}
+                    className={`w-full h-full rounded-2xl flex flex-col items-center justify-center gap-0.5 border relative ${
+                      isActive
+                        ? 'border-z-purple-light bg-z-purple/20'
+                        : 'border-white/10 bg-z-card'
+                    }`}
+                    style={{
+                      boxShadow: `0 0 16px ${BADGE_RARITY_COLOR[badge.rarity]}33`,
+                    }}
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.93 }}
+                  >
+                    <span className="text-2xl">{badge.icon}</span>
+                    {inShowcase && (
+                      <div className="absolute top-1 right-1 w-2.5 h-2.5 bg-z-purple-light rounded-full" />
+                    )}
+                  </motion.button>
+                </Tooltip>
               );
             })}
           </div>
@@ -78,12 +82,19 @@ export function BadgesSection() {
           </p>
           <div className="grid grid-cols-4 gap-2">
             {locked.map((badge) => (
-              <div
+              <Tooltip
                 key={badge.id}
-                className="aspect-square rounded-2xl flex items-center justify-center border border-white/5 bg-z-surface/30 opacity-40"
+                title={badge.title}
+                description={`🔒 To unlock: ${badge.description}`}
+                className="aspect-square"
               >
-                <span className="text-2xl grayscale">{badge.icon}</span>
-              </div>
+                <div
+                  tabIndex={0}
+                  className="w-full h-full rounded-2xl flex items-center justify-center border border-white/5 bg-z-surface/30 opacity-40"
+                >
+                  <span className="text-2xl grayscale">{badge.icon}</span>
+                </div>
+              </Tooltip>
             ))}
           </div>
         </>
