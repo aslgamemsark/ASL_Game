@@ -129,8 +129,11 @@ describe('LETTER_K / LETTER_P (spread + thumb-touch + orientation)', () => {
   });
 
   it('P passes downward, rejects upright (that would be K)', () => {
-    // thumb lands near MIDDLE_PIP after 180° rotation; upright fails orientation check
-    const p = makeHand([0, 0], { ring: 1.0, pinky: 1.0 }, [-0.30, -0.65], 180, 'Right', 1.5);
+    // thumb lands near MIDDLE_PIP after rotation; upright fails orientation check. 157.71deg (not
+    // a plain 180) matches the Python engine's recalibrated P — a real recording measured the
+    // middle finger's own MCP->TIP angle at ~152deg, not a mathematically perfect straight-down
+    // 180deg (see handshape.ts's pConfidence()).
+    const p = makeHand([0, 0], { ring: 1.0, pinky: 1.0 }, [-0.30, -0.65], 157.71, 'Right', 1.5);
     expect(handshapeConfidence(p, 'p')).toBeGreaterThan(0.6);
     const kOrientation = makeHand([0, 0], { ring: 1.0, pinky: 1.0 }, [-0.30, -0.65], 0, 'Right', 1.5);
     expect(handshapeConfidence(kOrientation, 'p')).toBeLessThan(0.6);

@@ -358,13 +358,30 @@ def _p_thumb_pos(hand: Hand) -> float:
 
 
 def p_confidence(hand: Hand) -> float:
-    """Letter P: K-like V-shape with both fingers pointing downward, thumb near middle-PIP."""
-    v_pattern = _match(hand, {"index": 1, "middle": 1, "ring": 0, "pinky": 0})
+    """Letter P: K-like V-shape with both fingers pointing downward, thumb near middle-PIP.
+
+    Two components needed real-recording recalibration (2026-07-14), both from the same root
+    cause as the G/H fix: pointing the hand DOWNWARD distorts the wrist-relative geometry these
+    checks were tuned against upright.
+      - middle-finger curl: _finger_curl's tip/wrist-vs-mcp/wrist RATIO reads a genuinely extended
+        middle finger as only ~0.25 "extended" (0.75 "curled") when the hand points down, vs
+        index's normal ~0.73 — the ratio assumes an upright reference. A real P recording measured
+        this consistently (median 0.25, idle/rapid confusors measured ~0.0-0.01), so rather than
+        touching the shared `extensions()`/`_finger_curl` used by every other letter, P uses its
+        own low floor for the middle finger specifically: it only asks for >=0.20, and confusors
+        stay ~15x below that.
+      - orientation: target_deg was 180 (straight down); a real P's own MCP->TIP angle measured
+        152 (median, tight IQR 150-153), not 180 — recentered to match.
+    """
+    ext = extensions(hand)
+    index_score = ext["index"]
+    middle_score = float(np.clip(ext["middle"] / 0.20, 0.0, 1.0))
+    rest_curled = float(min(1.0 - ext["ring"], 1.0 - ext["pinky"]))
     spread = _finger_spread(hand, INDEX_TIP, MIDDLE_TIP)
     spread_score = float(np.clip((spread - 0.15) / (0.40 - 0.15), 0.0, 1.0))
     thumb_touch = _p_thumb_pos(hand)
-    orient = _orientation_score(hand, MIDDLE_TIP, MIDDLE_MCP, target_deg=180.0)
-    return float(min(v_pattern, spread_score, thumb_touch, orient))
+    orient = _orientation_score(hand, MIDDLE_TIP, MIDDLE_MCP, target_deg=152.0)
+    return float(min(index_score, middle_score, rest_curled, spread_score, thumb_touch, orient))
 
 
 def r_confidence(hand: Hand) -> float:

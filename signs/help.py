@@ -52,8 +52,19 @@ HELP = Sign(
         direction=(0.0, -1.0),           # image-space up (y decreases upward)
         min_displacement_ratio=0.15,     # a DELIBERATE lift (~0.15 shoulder-widths), not a drift
         min_duration_s=0.4,
-        # real hand-lifts are never perfectly straight, so linear_confidence caps ~0.55-0.75; 0.5
-        # accepts a clear lift while a frozen/jittering hand still scores 0 (hard floor in movement.py).
+        # Investigated 2026-07-14 against a real webcam rapid/random-movement confusor. At the
+        # Python hospital_shop scenario's own short 1.5s window, min_confidence=0.98 looked like a
+        # clean fix (correct streak 10, rapid streak 3) — but the web app's useRecognition.ts uses
+        # a uniform 2.0s window for every sign, not 1.5s, and at 2.0s that same 0.98 breaks correct
+        # HELP outright (its own lift signal dilutes over the longer window — the exact effect the
+        # web engine's HELP definition already works around by dropping the direction requirement
+        # entirely, see web/src/engine/signs/index.ts). No single min_confidence keeps correct's
+        # live streak above the app's 6-frame debounce while dropping rapid's below it at 2.0s
+        # (rapid's net displacement was frequently AS BIG as a real lift's — magnitude alone can't
+        # separate them). Reverted to the original 0.25. Real rapid movement near the palm remains
+        # an unresolved false positive here — same rule-based-v1 ceiling as HOSPITAL/DOCTOR/
+        # MEDICINE/BREATHE/MORE. The web app's trained classifier gate (knownSigns includes HELP)
+        # is the actual backstop until this check has more than position/displacement to work with.
         min_confidence=0.25,
         required=True,
     ),

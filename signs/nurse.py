@@ -40,5 +40,15 @@ NURSE = Sign(
         actor=DOMINANT,
         min_cycles=2,
         min_duration_s=0.5,
-        required=True, min_confidence=0.25),
+        # Recalibrated 2026-07-14: min_confidence=0.25 was far looser than needed — correct NURSE
+        # sustains the composite score at 1.0 for long streaks, so 0.25 bought nothing but easy
+        # false positives. Raised to 0.6 (matching DOCTOR/HOSPITAL/MEDICINE/BREATHE) as a real, if
+        # partial, tightening: a real recorded rapid/random-movement confusor still sustained a
+        # false PASS at every threshold up to 1.0 in this engine (raw cycle-count and amplitude
+        # both overlapped correct's own real-take range — a known rule-based-v1 ceiling, same class
+        # as the DOCTOR/NURSE/BREATHE handshape ceiling noted in scenarios/hospital_shop/main.py).
+        # The web app's trained classifier gate (knownSigns includes NURSE, not GATE_EXCLUDED_SIGNS)
+        # is the actual backstop against this specific confusor class until this schema check can
+        # incorporate more than position/cycle-count (e.g. a kinematic-regularity feature).
+        required=True, min_confidence=0.6),
 )

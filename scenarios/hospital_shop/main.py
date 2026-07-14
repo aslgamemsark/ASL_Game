@@ -16,23 +16,17 @@ from __future__ import annotations
 
 import argparse
 import time
-from collections import deque
 
 import cv2
 
 from core.capture import Capture
 from core.landmarks import HandStabilizer, RollingBuffer
+from core.lesson import PassDebouncer
 from core.verifier import movement_debug, verify
 from scenarios.hospital_shop.scene import HospitalScene
 from signs import HELP, PAIN, MEDICINE, EMERGENCY, FEVER, WATER, HOSPITAL, DIZZY
 
 SUCCESS_SECONDS = 2.0
-# Flicker-tolerant debounce: success fires when the sign verifies as passed on at least
-# PASS_MIN_FRAMES frames within the last PASS_WINDOW seconds. This blocks single-frame flukes AND
-# survives the brief handshape dropouts that happen mid-motion, without letting non-performance
-# through (an idle/incidental hand never clears the movement gate, so it scores zero passing frames).
-PASS_WINDOW = 0.6
-PASS_MIN_FRAMES = 4
 
 # The patient queue: (sign, banner title, how-to instruction). Cycles forever.
 # v1 ships the 8 signs that recognise reliably (calibrated to real recordings). DOCTOR, NURSE,
@@ -62,7 +56,7 @@ def main(camera_index: int = 0, debug: bool = False) -> None:
     score = 0
     state = "playing"          # "playing" | "success"
     success_start = 0.0
-    pass_window = deque()      # recent (timestamp, passed?) within PASS_WINDOW, for the debounce
+    debouncer = PassDebouncer()  # shared with classroom/coffee_shop — see core/lesson.py
     t0 = time.monotonic()
     last_log = 0.0             # throttled debug transcript so results can be reviewed
 
@@ -74,7 +68,7 @@ def main(camera_index: int = 0, debug: bool = False) -> None:
         nonlocal idx, state
         idx = (idx + 1) % len(PATIENTS)
         state = "playing"
-        pass_window.clear()
+        debouncer.reset()
         buffer.clear()
 
     with Capture() as capture:
@@ -97,21 +91,12 @@ def main(camera_index: int = 0, debug: bool = False) -> None:
                 print(f"[{t:6.1f}s] {sign.name:9s} {'PASS' if result.passed else 'fail':4s}  {bits}", flush=True)
                 last_log = t
 
-            # Flicker-tolerant debounce: fire only when the sign verified as passed on enough frames
-            # within the recent window. A single fluke (or a frozen/idle hand that never clears the
-            # movement gate) can't reach the count; a real sign whose handshape briefly drops out
-            # mid-motion still does.
-            if state == "playing":
-                pass_window.append((now, result.passed))
-                while pass_window and now - pass_window[0][0] > PASS_WINDOW:
-                    pass_window.popleft()
-                if sum(1 for _, p in pass_window if p) >= PASS_MIN_FRAMES:
-                    state = "success"
-                    success_start = now
-                    score += 1
-                    print(f"[{t:6.1f}s] *** {sign.name} TREATED (score={score}) ***", flush=True)
-                    buffer.clear()          # avoid immediately re-triggering on the same motion
-                    pass_window.clear()
+            if state == "playing" and debouncer.record(now, result.passed):
+                state = "success"
+                success_start = now
+                score += 1
+                print(f"[{t:6.1f}s] *** {sign.name} TREATED (score={score}) ***", flush=True)
+                buffer.clear()          # avoid immediately re-triggering on the same motion
 
             progress = 0.0
             if state == "success":

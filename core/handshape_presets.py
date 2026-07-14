@@ -128,7 +128,10 @@ SHAPE_SPECS: dict[str, tuple[tuple[float, float, float, float], bool]] = {
 # defining feature is hand ORIENTATION rather than finger extension (G/H point sideways, P/Q
 # point downward — see local_hand()'s corresponding predicate for why 2D extension alone can't
 # capture this).
-_ROTATION_DEG = {"g": 110.225, "letter_h": 90.0, "p": 185.71, "q": 200.225}
+# p: 157.71 (not a plain 180 straight-down rotation) — recalibrated 2026-07-14 to match a real P
+# recording's measured middle-finger MCP->TIP angle (~152deg, not a mathematically perfect
+# straight-down 180deg; see p_confidence()'s orientation check in core/handshape.py).
+_ROTATION_DEG = {"g": 110.225, "letter_h": 90.0, "p": 157.71, "q": 200.225}
 
 
 def supported_shapes() -> list[str]:

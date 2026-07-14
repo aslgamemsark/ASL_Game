@@ -16,7 +16,7 @@ import cv2
 
 from core.capture import Capture
 from core.landmarks import HandStabilizer, RollingBuffer
-from core.lesson import GameSession, Level, Prompt
+from core.lesson import GameSession, Level, PassDebouncer, Prompt
 from core.verifier import movement_debug, verify
 from scenarios.classroom.scene import ClassroomScene
 from signs import (
@@ -60,6 +60,7 @@ def main(camera_index: int = 0, debug: bool = False) -> None:
     buffer = RollingBuffer(window_seconds=2.0)
     stabilizer = HandStabilizer(hold_seconds=0.3)
     session = GameSession(build_levels())
+    debouncer = PassDebouncer()
     t0 = time.monotonic()
 
     win = "ASL Classroom"
@@ -82,7 +83,7 @@ def main(camera_index: int = 0, debug: bool = False) -> None:
             if session.state == "playing":
                 sign = session.prompt.sign
                 result = verify(buffer, sign)
-                if result.passed:
+                if debouncer.record(now, result.passed):
                     session.on_pass(now)
                     buffer.clear()
                     stabilizer.reset()
@@ -98,7 +99,7 @@ def main(camera_index: int = 0, debug: bool = False) -> None:
                 break
             if key == ord("r") and session.state == "finished":
                 session = GameSession(build_levels())     # replay
-                buffer.clear(); stabilizer.reset()
+                buffer.clear(); stabilizer.reset(); debouncer.reset()
 
     cap.release()
     cv2.destroyAllWindows()

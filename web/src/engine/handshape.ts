@@ -303,13 +303,25 @@ function pThumbPos(hand: Hand): number {
 }
 
 // Letter P: K-like V-shape with both fingers pointing downward, thumb near middle-PIP.
+//
+// Recalibrated 2026-07-14 to match the Python engine (core/handshape.py's p_confidence) after a
+// real webcam recording found two components miscalibrated, both from pointing the hand DOWNWARD
+// distorting geometry these checks were tuned against upright (same root cause as the G/H fix):
+//   - middle-finger curl: fingerCurl's tip/wrist-vs-mcp/wrist RATIO reads a genuinely extended
+//     middle finger as only ~0.25 "extended" when the hand points down (vs index's normal ~0.73)
+//     — a real P recording measured this consistently, so P uses its own low floor (>=0.20) for
+//     the middle finger instead of the shared matchPattern gate.
+//   - orientation: target was 180 (straight down); a real P's own MCP->TIP angle measured 152.
 function pConfidence(hand: Hand): number {
-  const vPattern = matchPattern(hand, { index: 1, middle: 1, ring: 0, pinky: 0 });
+  const ext = extensions(hand);
+  const indexScore = ext.index;
+  const middleScore = clip(ext.middle / 0.20, 0, 1);
+  const restCurled = Math.min(1.0 - ext.ring, 1.0 - ext.pinky);
   const spread = fingerSpread(hand, INDEX_TIP, MIDDLE_TIP);
   const spreadScore = clip((spread - 0.15) / (0.40 - 0.15), 0, 1);
   const thumbTouch = pThumbPos(hand);
-  const orient = orientationScore(hand, MIDDLE_TIP, MIDDLE_MCP, 180);
-  return Math.min(vPattern, spreadScore, thumbTouch, orient);
+  const orient = orientationScore(hand, MIDDLE_TIP, MIDDLE_MCP, 152);
+  return Math.min(indexScore, middleScore, restCurled, spreadScore, thumbTouch, orient);
 }
 
 // Letter R: index and middle extended and CROSSED (their left-right order at the tip is swapped

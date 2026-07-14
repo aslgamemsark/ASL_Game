@@ -20,6 +20,17 @@ from core.capture import Capture
 from core.landmarks import Frame
 
 
+def _put_text(bgr, text, org, scale=0.8, color=(0, 255, 255), thickness=2) -> None:
+    """High-contrast text: solid black backing box so it reads against any background/lighting/
+    skin tone — a plain cv2.putText in white/yellow washed out and became unreadable during a
+    live session, so every overlay line here gets a filled backing rect first."""
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    (tw, th), baseline = cv2.getTextSize(text, font, scale, thickness)
+    x, y = org
+    cv2.rectangle(bgr, (x - 6, y - th - 6), (x + tw + 6, y + baseline + 6), (0, 0, 0), -1)
+    cv2.putText(bgr, text, (x, y), font, scale, color, thickness, cv2.LINE_AA)
+
+
 def _draw_hands(bgr, frame) -> None:
     for hand in frame.hands:
         for px, py, _z in hand.points:
@@ -36,8 +47,14 @@ def record(
     seconds: float = 3.0,
     camera_index: int = 0,
     sign_name: str = "",
+    instruction: str = "",
 ) -> list[Frame]:
-    """Preview → (press SPACE) → record `seconds` of landmarks → write JSON. Returns frames."""
+    """Preview → (press SPACE) → record `seconds` of landmarks → write JSON. Returns frames.
+
+    `instruction` (optional) renders on the video overlay itself — e.g. "move hands FAST and
+    randomly — NOT the sign" — so a caller doing multiple differently-instructed takes of the same
+    sign (see tools/recalibrate_words.py) doesn't rely on the user reading a separate console.
+    """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     label = sign_name or output_path.stem
@@ -67,12 +84,11 @@ def record(
 
             nh = len(frame.hands)
             col = (0, 200, 0) if nh >= 2 else (0, 165, 255) if nh == 1 else (0, 0, 255)
-            cv2.putText(bgr, f"hands detected: {nh}", (15, 40),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, col, 2, cv2.LINE_AA)
-            cv2.putText(bgr, "position hands, press SPACE to record", (15, 72),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
-            cv2.putText(bgr, f"Sign: {label}    (q = cancel)", (15, 100),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1, cv2.LINE_AA)
+            _put_text(bgr, f"hands detected: {nh}", (15, 40), 0.8, col, 2)
+            _put_text(bgr, "position hands, press SPACE to record", (15, 78), 0.65, (0, 255, 255), 2)
+            _put_text(bgr, f"Sign: {label}    (q = cancel)", (15, 112), 0.6, (255, 255, 255), 1)
+            if instruction:
+                _put_text(bgr, instruction, (15, 148), 0.65, (0, 165, 255), 2)
             cv2.imshow(win, bgr)
 
             key = cv2.waitKey(1) & 0xFF
@@ -101,10 +117,10 @@ def record(
             left = countdown_end - time.monotonic()
             if left <= 0:
                 break
-            cv2.putText(bgr, f"GET READY: {int(left) + 1}", (15, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 255, 255), 3, cv2.LINE_AA)
-            cv2.putText(bgr, f"hands: {len(frame.hands)}", (15, 90),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
+            _put_text(bgr, f"GET READY: {int(left) + 1}", (15, 60), 1.4, (0, 255, 255), 3)
+            _put_text(bgr, f"hands: {len(frame.hands)}", (15, 100), 0.6, (255, 255, 255), 2)
+            if instruction:
+                _put_text(bgr, instruction, (15, 136), 0.65, (0, 165, 255), 2)
             cv2.imshow(win, bgr)
             cv2.waitKey(1)
 
@@ -124,10 +140,10 @@ def record(
             frames.append(frame)
 
             _draw_hands(bgr, frame)
-            cv2.putText(bgr, f"RECORDING  {remaining:.1f}s", (15, 40),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2, cv2.LINE_AA)
-            cv2.putText(bgr, f"hands: {len(frame.hands)}", (15, 75),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
+            _put_text(bgr, f"RECORDING  {remaining:.1f}s", (15, 50), 1.0, (0, 60, 255), 2)
+            _put_text(bgr, f"hands: {len(frame.hands)}", (15, 86), 0.6, (255, 255, 255), 2)
+            if instruction:
+                _put_text(bgr, instruction, (15, 122), 0.65, (0, 165, 255), 2)
             cv2.imshow(win, bgr)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break

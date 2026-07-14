@@ -46,6 +46,16 @@ HOSPITAL = Sign(
         # "show 2 fingers near the shoulder" alone can't pass.
         min_displacement_ratio=0.25,
         min_duration_s=0.5,
+        # Investigated 2026-07-14 against a real webcam rapid/random-movement confusor: direction is
+        # None here (the cross has no fixed direction), so linear_confidence is magnitude-only —
+        # and rapid random hand movement's net displacement near the shoulder measured LARGER than
+        # the real cross-stroke's (rapid median 0.266 shoulder-widths vs. correct's 0.129). No
+        # min_confidence in [0,1] separates them: every value that keeps correct's live-window PASS
+        # streak above the app's 6-frame debounce still leaves rapid's streak above it too (rapid
+        # sustains a false PASS from 0.5 up through 1.0). A magnitude-only check structurally cannot
+        # reject "moved a lot, fast" for a sign with no fixed direction. The web app's trained
+        # classifier gate (knownSigns includes HOSPITAL) is the real backstop for this confusor
+        # class until this check has more than position/displacement to work with.
         min_confidence=0.6,
         required=True,
     ),

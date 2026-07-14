@@ -48,6 +48,28 @@ function loadBuffer(fixture: { frames: unknown[] }, windowS = 2.0): RollingBuffe
   return buf;
 }
 
+// Live gameplay recognises a sign the moment a SLIDING rolling buffer yields a pass on any
+// frame, not from one fixed window anchored at a recorded clip's last frame (loadBuffer above).
+// A real take often has a second or two of "settling" after the actual sign motion before the
+// clip ends, which a last-frame-only check can misread as a failure even though the sign was
+// clearly recognised mid-clip. Used for the "must pass" checks below — see the identical helper
+// + comment in the Python engine's tests/test_hospital.py.
+function bestOverClip(fixture: { frames: unknown[] }, sign: Sign, windowS = 2.0) {
+  const buf = new RollingBuffer(windowS);
+  let best: ReturnType<typeof verify> | null = null;
+  for (const fd of fixture.frames) {
+    buf.add(frameFromDict(fd as Parameters<typeof frameFromDict>[0]));
+    const result = verify(buf, sign);
+    const m = resultGet(result, 'movement');
+    const bestM = best ? resultGet(best, 'movement') : null;
+    if (!best || (m && (!bestM || m.score > bestM.score))) {
+      best = result;
+    }
+    if (resultPassed(result)) return result;
+  }
+  return best!;
+}
+
 interface SignTest {
   name: string;
   correct: { frames: unknown[] };
@@ -79,8 +101,7 @@ for (const st of SIGN_TESTS) {
   const sign = SIGNS[st.name];
 
   describe(`${st.name} correct`, () => {
-    const buffer = loadBuffer(st.correct);
-    const result = verify(buffer, sign);
+    const result = bestOverClip(st.correct, sign);
 
     it('passes overall', () => {
       expect(resultPassed(result)).toBe(true);
