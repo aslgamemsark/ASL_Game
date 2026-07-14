@@ -28,14 +28,20 @@ all-required-pass streak at `minConfidence: 0.44`.
 **Fix**: raised `movement.minConfidence` 0.44 → 0.7. Confusor streak drops to 0; real
 correct-performance streak stays 130 frames. Commit `899fefe`.
 
-## 2026-07-14 — THANK_YOU: no bug found, no fix made
+## 2026-07-14 — THANK_YOU movement threshold too low
 
-**Log**: `THANK_YOU_2026-07-14T18-22...csv` (x2, duplicate download of the same take) + note
-"movement threshold too low, hand on chin instantly passes".
+**First log**: `THANK_YOU_2026-07-14T18-22...csv` (x2, duplicate download of the same take) + note
+"movement threshold too low, hand on chin instantly passes". Data contradicted the note at the
+time — confusor phase never sustained a pass streak (0 frames) in that particular take.
 
-**Finding**: data contradicts the note. Confusor phase never sustains a pass streak (0 frames).
-Correct-phase movement param only clears its threshold 20% of the time (most of the recording is
-resting between reps, correctly reading as not-yet-passed) — the opposite of an instant-pass bug.
+**Follow-up log**: `THANK_YOU_2026-07-14T18-32...csv` + note "still same problem, movement goes to
+0.5 and passes". This take reproduced it: confusor (chin touch/tap without a full downward push)
+sustained a 36-consecutive-frame all-required-pass streak at `minConfidence: 0.25` (confusor
+movement median 0.50) — well past the app's 6-frame accept debounce, a genuine false accept.
 
-**Status**: left unfixed — no threshold changed. Pending clarification on whether the described
-behavior happened inside `/calibrate` or elsewhere (a real lesson uses a different code path).
+**Fix**: raised `movement.minConfidence` 0.25 → 0.85. Confusor streak drops to 0; real
+correct-performance streak stays 14 frames. Commit `<pending>`.
+
+**Note**: RED and WANT share the same generic LINEAR-downward movement block (same thresholds,
+copy-pasted) but are untested — flagged in a code comment, not fixed, since there's no log
+evidence either way for them yet.

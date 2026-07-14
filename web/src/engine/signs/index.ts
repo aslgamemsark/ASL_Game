@@ -39,7 +39,15 @@ export const THANK_YOU = createSign({
   name: 'THANK_YOU', twoHanded: false,
   dominant: { kind: 'open', required: true },
   location: { anchor: Anchor.CHIN, actingHand: DOMINANT, maxDistRatio: 0.5, required: true },
-  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, 1], minDisplacementRatio: 0.2, minDurationS: 0.4, required: true, minConfidence: 0.25},
+  // minConfidence raised 0.25->0.85 (2026-07-14): real calibration log (THANK_YOU_2026-07-14T18-32)
+  // showed a chin-touch confusor (tapping/resting near the chin without a full downward push)
+  // sustained a 36-consecutive-frame all-required-pass streak at 0.25 (confusor movement median
+  // 0.50) — well past the app's 6-frame accept debounce, a genuine false accept, matching the
+  // tester's own observation ("movement goes to 0.5 and passes"). At 0.85 that same confusor's
+  // longest run drops to 0, while the correct take's longest run stays 14 frames (need only 6).
+  // See docs/CALIBRATION_LOG.md. Note: RED and WANT share this same generic LINEAR-down movement
+  // block below but are untested — don't assume this same fix applies there without their own logs.
+  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, 1], minDisplacementRatio: 0.2, minDurationS: 0.4, required: true, minConfidence: 0.85},
   orientation: { hand: DOMINANT, facing: PalmFacing.UP, required: false, minConfidence: 0.25},
 });
 
