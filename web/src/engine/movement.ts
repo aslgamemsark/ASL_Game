@@ -106,7 +106,34 @@ export function linearConfidence(actorTraj: Traj, shoulderWidth: number, req: Mo
     }
   }
 
-  return magScore * dirScore;
+  // Monotonicity: project every point onto the net-displacement axis and check that progress
+  // along THAT axis is roughly one-directional. Deliberately axis-only (not full 2D path
+  // length): the rolling buffer often includes an approach phase — the hand moving into
+  // position from an arbitrary angle before the actual directed motion — and that perpendicular
+  // drift is irrelevant to whether the motion itself is linear, so penalizing it would false-fail
+  // real signers (confirmed against help_real.json/hospital_real.json, both of which have a
+  // sideways approach baked into the 2 s window). What DOES indicate jitter/flailing rather than
+  // a clean motion is doubling back along the axis of travel itself.
+  let axisPath = 0;
+  if (mag > 1e-6) {
+    const axis = [disp[0] / mag, disp[1] / mag];
+    let prevProj = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const proj = (pts[i][0] - pts[0][0]) * axis[0] + (pts[i][1] - pts[0][1]) * axis[1];
+      axisPath += Math.abs(proj - prevProj);
+      prevProj = proj;
+    }
+  }
+  // Real recordings still lose a lot of ground here (help_real/hospital_real measured
+  // mag/axisPath ~0.17-0.37) purely from the approach phase's along-axis component — the hand
+  // doesn't travel in a perfectly dead-straight line even during a genuine deliberate motion.
+  // MONO_FREE gives that real-world slack room (mirrors RADIUS_CV_FREE's role for CIRCULAR)
+  // before axisPath starts costing score, so only motion that's mostly back-and-forth along its
+  // own direction of travel — not merely imperfect — gets penalized.
+  const MONO_FREE = 0.5;
+  const monotonicity = axisPath > 1e-6 ? clip((mag / axisPath) / MONO_FREE, 0, 1) : 0;
+
+  return magScore * dirScore * monotonicity;
 }
 
 export function repeatedConfidence(actorTraj: Traj, shoulderWidth: number, req: MovementReq): number {
@@ -134,17 +161,38 @@ export function repeatedConfidence(actorTraj: Traj, shoulderWidth: number, req: 
   const noise = 0.25 * maxAbs;
   let crossings = 0;
   let last = 0;
-  for (const v of centered) {
+  const crossingTimes: number[] = [];
+  for (let i = 0; i < centered.length; i++) {
+    const v = centered[i];
     if (Math.abs(v) < noise) continue;
     const cur = v > 0 ? 1 : -1;
-    if (last !== 0 && cur !== last) crossings++;
+    if (last !== 0 && cur !== last) {
+      crossings++;
+      crossingTimes.push(ts[i]);
+    }
     last = cur;
   }
   const cycles = crossings / 2;
 
   const cycleScore = clip(cycles / Math.max(req.minCycles, 1), 0, 1);
   const ampScore = clip(ampRatio / (ampFloor * 1.6), 0, 1);
-  return Math.min(cycleScore, ampScore);
+
+  // Regularity: true periodic motion crosses the centerline at roughly even intervals; chaotic
+  // large-swing flailing can rack up the same crossing count with wildly uneven gaps between
+  // them. Score by the coefficient of variation of inter-crossing intervals — low CV (regular)
+  // scores near 1, high CV (erratic) scores near 0. Needs at least 2 intervals (3 crossings) to
+  // mean anything; below that (e.g. minCycles: 1 signs) there's nothing to measure periodicity
+  // against, so don't penalize — the amplitude/cycle gates above already cover that case.
+  let regularityScore = 1.0;
+  if (crossingTimes.length >= 3) {
+    const intervals: number[] = [];
+    for (let i = 1; i < crossingTimes.length; i++) intervals.push(crossingTimes[i] - crossingTimes[i - 1]);
+    const meanInterval = arrMean(intervals);
+    const cv = meanInterval > 1e-6 ? arrStd(intervals) / meanInterval : 99;
+    regularityScore = clip(1.0 - cv / 0.7, 0, 1);
+  }
+
+  return Math.min(cycleScore, ampScore, regularityScore);
 }
 
 export type PointsTraj = [number, number[][]][]; // (t, all 21 landmark points)[]
