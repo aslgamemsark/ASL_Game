@@ -195,3 +195,23 @@ p {
   background: var(--rt-scrollbar-thumb);
   border-radius: 3px;
 }
+
+/* Animated cosmetic borders for shop items (web/src/data/shop.ts). These are custom classes, not
+   Tailwind utilities, so a shop item's `preview` string can name one directly and it won't be
+   purged. Applied on the video container (WebcamMirror / RemotePeerVideo), which is rounded-2xl
+   (1rem) with overflow-hidden — an inset box-shadow reads as an animated ring over the feed edge,
+   an outer glow reads as the halo. All are disabled by the prefers-reduced-motion block above. */
+@keyframes qs-pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px 1px var(--qs-glow), inset 0 0 0 2px var(--qs-glow); }
+  50%      { box-shadow: 0 0 22px 6px var(--qs-glow), inset 0 0 0 3px var(--qs-glow); }
+}
+@keyframes qs-rainbow-ring {
+  0%   { box-shadow: 0 0 16px 3px rgba(239,68,68,0.7),  inset 0 0 0 3px rgba(239,68,68,0.9); }
+  25%  { box-shadow: 0 0 16px 3px rgba(234,179,8,0.7),  inset 0 0 0 3px rgba(234,179,8,0.9); }
+  50%  { box-shadow: 0 0 16px 3px rgba(34,197,94,0.7),  inset 0 0 0 3px rgba(34,197,94,0.9); }
+  75%  { box-shadow: 0 0 16px 3px rgba(59,130,246,0.7), inset 0 0 0 3px rgba(59,130,246,0.9); }
+  100% { box-shadow: 0 0 16px 3px rgba(168,85,247,0.7), inset 0 0 0 3px rgba(168,85,247,0.9); }
+}
+.qs-border-aurora   { border-radius: 1rem; animation: qs-rainbow-ring 3.5s linear infinite; }
+.qs-border-electric { border-radius: 1rem; --qs-glow: rgba(34,211,238,0.85); animation: qs-pulse-glow 1.2s ease-in-out infinite; }
+.qs-border-inferno  { border-radius: 1rem; --qs-glow: rgba(249,115,22,0.85); animation: qs-pulse-glow 1.5s ease-in-out infinite; }

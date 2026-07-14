@@ -10,7 +10,7 @@ import { ReportUserModal } from '@/components/shared/ReportUserModal';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { Zippy } from '@/components/shared/Zippy';
 import { ZIPPY_LINES } from '@/data/zippy';
-import { countryName } from '@/lib/geolocation';
+import { countryName, detectCountryCode, COUNTRY_CODES } from '@/lib/geolocation';
 
 interface Props {
   onExit: () => void;
@@ -174,6 +174,8 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
   const [friendLoading, setFriendLoading] = useState(false);
   const [regionLoading, setRegionLoading] = useState(false);
   const [myRegion, setMyRegion] = useState<string | null | undefined>(undefined); // undefined = not checked yet
+  const [regionReloadKey, setRegionReloadKey] = useState(0); // bump to re-run the region load
+  const [regionSaving, setRegionSaving] = useState(false);
   const [relations, setRelations] = useState<Map<string, 'accepted' | 'pendingSent' | 'pendingReceived'>>(new Map());
   const [toast, setToast] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<{ id: string; username: string } | null>(null);
@@ -390,7 +392,34 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       setRegionRows(rows);
       setRegionLoading(false);
     })();
-  }, [tab, user]);
+  }, [tab, user, regionReloadKey]);
+
+  // Manual region set (the fallback when IP detection failed/was blocked) and a "retry auto-detect"
+  // path — both write profiles.region and re-run the region load. This is what un-sticks a user
+  // permanently parked on "detecting your region".
+  const saveRegion = async (code: string) => {
+    if (!user || !code) return;
+    setRegionSaving(true);
+    try {
+      const { error } = await supabase.from('profiles').update({ region: code }).eq('id', user.id);
+      if (error) { setToast(`Couldn't save region: ${error.message}`); return; }
+      setMyRegion(code);
+      setRegionReloadKey((k) => k + 1);
+    } finally {
+      setRegionSaving(false);
+    }
+  };
+
+  const retryDetectRegion = async () => {
+    setRegionSaving(true);
+    try {
+      const code = await detectCountryCode();
+      if (!code) { setToast("Couldn't auto-detect — pick your country below."); return; }
+      await saveRegion(code);
+    } finally {
+      setRegionSaving(false);
+    }
+  };
 
   const TABS: { id: BoardTab; label: string; icon: string }[] = [
     { id: 'world', label: 'World', icon: '🌍' },
@@ -446,21 +475,52 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
         )}
 
         {tab === 'region' && user && !regionLoading && myRegion === null && (
-          <div className="text-center py-20">
+          <div className="text-center py-16">
             <p className="text-5xl mb-4">📍</p>
-            <p className="text-z-gray-200 font-bold text-base">Still detecting your region</p>
+            <p className="text-z-gray-200 font-bold text-base">Pick your region</p>
             <p className="text-z-gray-500 text-sm mt-2 max-w-xs mx-auto leading-relaxed">
-              This happens automatically shortly after you sign in — check back in a minute.
+              We couldn't detect it automatically. Choose your country to see signers near you.
             </p>
+            <div className="mt-5 flex flex-col items-center gap-3">
+              <select
+                defaultValue=""
+                disabled={regionSaving}
+                onChange={(e) => void saveRegion(e.target.value)}
+                className="bg-z-card border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-z-purple disabled:opacity-50 min-w-[200px]"
+              >
+                <option value="" disabled>Select country…</option>
+                {[...COUNTRY_CODES]
+                  .map((code) => ({ code, name: countryName(code) }))
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map(({ code, name }) => (
+                    <option key={code} value={code}>{name}</option>
+                  ))}
+              </select>
+              <button
+                onClick={() => void retryDetectRegion()}
+                disabled={regionSaving}
+                className="text-xs text-z-purple-light hover:underline disabled:opacity-50"
+              >
+                {regionSaving ? 'Working…' : 'Try auto-detect again'}
+              </button>
+            </div>
           </div>
         )}
 
         {tab === 'region' && user && (regionLoading || myRegion !== null) && (
           <>
             {myRegion && (
-              <p className="text-z-gray-400 text-xs font-bold uppercase tracking-widest mb-3 text-center">
-                {countryName(myRegion)}
-              </p>
+              <div className="mb-3 text-center">
+                <p className="text-z-gray-400 text-xs font-bold uppercase tracking-widest">
+                  {countryName(myRegion)}
+                </p>
+                <button
+                  onClick={() => setMyRegion(null)}
+                  className="text-[11px] text-z-gray-500 hover:text-z-purple-light mt-0.5"
+                >
+                  Change region
+                </button>
+              </div>
             )}
             <BoardList
               rows={regionRows}

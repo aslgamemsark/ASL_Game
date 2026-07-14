@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function ShopPage({ onExit }: Props) {
-  const { gold, ownedCosmetics, equippedBorder, equippedAvatar, renameCards, purchaseCosmetic, purchaseRenameCard, equipBorder, equipAvatar } = useUserStore();
+  const { gold, ownedCosmetics, equippedBorder, equippedAvatar, renameCards, streakFreezes, purchaseCosmetic, purchaseRenameCard, purchaseStreakFreeze, equipBorder, equipAvatar } = useUserStore();
   const { purchase, wrong } = useSounds();
   const [selected, setSelected] = useState<ShopItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -28,8 +28,10 @@ export function ShopPage({ onExit }: Props) {
 
   const handleBuy = (item: ShopItem) => {
     if (item.type === 'consumable') {
-      const ok = purchaseRenameCard();
-      if (ok) { purchase(); showToast('Rename Card added! 🎟️'); }
+      const ok = item.id === 'streak_protection'
+        ? purchaseStreakFreeze(item.goldPrice)
+        : purchaseRenameCard();
+      if (ok) { purchase(); showToast(item.id === 'streak_protection' ? 'Streak Protection added! 🛡️' : 'Rename Card added! 🎟️'); }
       else     { wrong();   showToast('Not enough Gold 🪙'); }
       return;
     }
@@ -82,7 +84,9 @@ export function ShopPage({ onExit }: Props) {
                   const owned = isOwned(item);
                   const equipped = isEquipped(item);
                   const isConsumable = item.type === 'consumable';
-                  const consumableCount = isConsumable && item.id === 'rename_card' ? renameCards : 0;
+                  const consumableCount = isConsumable
+                    ? (item.id === 'streak_protection' ? streakFreezes : item.id === 'rename_card' ? renameCards : 0)
+                    : 0;
                   return (
                     <motion.button
                       key={item.id}
@@ -171,6 +175,11 @@ export function ShopPage({ onExit }: Props) {
                   {selected.id === 'rename_card' && renameCards > 0 && (
                     <p className="text-center text-xs text-z-purple-light mb-3">
                       You own {renameCards} rename card{renameCards !== 1 ? 's' : ''}
+                    </p>
+                  )}
+                  {selected.id === 'streak_protection' && streakFreezes > 0 && (
+                    <p className="text-center text-xs text-z-purple-light mb-3">
+                      You have {streakFreezes} protection card{streakFreezes !== 1 ? 's' : ''}
                     </p>
                   )}
                   <motion.button

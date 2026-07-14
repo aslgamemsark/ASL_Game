@@ -96,6 +96,7 @@ interface UserStore extends UserProgress {
   purchaseCosmetic: (itemId: string, goldPrice: number) => boolean;
   purchaseRenameCard: () => boolean;
   consumeRenameCard: () => boolean;
+  purchaseStreakFreeze: (goldPrice: number) => boolean;
   unlockWorldWithGold: (worldId: string, cost: number) => boolean;
   equipBorder: (itemId: string | null) => void;
   equipAvatar: (itemId: string | null) => void;
@@ -217,15 +218,24 @@ export const useUserStore = create<UserStore>()(
           if (s.lastPracticeDate === today) return s;
 
           // Grace period: missing 1 or 2 full days doesn't break the streak (gap of up to 3
-          // calendar days — practiced Mon, back by Thu still counts). Only a gap of 4+ days
-          // (3+ full days missed) resets it. No lastPracticeDate means this is the first-ever
-          // practice.
+          // calendar days — practiced Mon, back by Thu still counts). A gap of 4+ days (3+ full
+          // days missed) would reset it — UNLESS the user holds a streak-protection card
+          // (streakFreezes), in which case one is consumed to keep the streak alive. No
+          // lastPracticeDate means this is the first-ever practice.
           let newStreak: number;
+          let freezesLeft = s.streakFreezes;
           if (!s.lastPracticeDate) {
             newStreak = 1;
           } else {
             const gapDays = daysBetween(s.lastPracticeDate, today);
-            newStreak = gapDays <= 3 ? s.streak + 1 : 1;
+            if (gapDays <= 3) {
+              newStreak = s.streak + 1;
+            } else if (freezesLeft > 0) {
+              newStreak = s.streak + 1; // protection card saves the streak instead of resetting
+              freezesLeft -= 1;
+            } else {
+              newStreak = 1;
+            }
           }
 
           let goldBonus = 0;
@@ -238,10 +248,21 @@ export const useUserStore = create<UserStore>()(
             }
           }
 
+          // Recurring reward every 7 days of streak: a free protection card + a reward chest.
+          // Distinct from the one-time STREAK_MILESTONES gold above. The same-day guard at the top
+          // means this fires at most once per day, so it triggers exactly on each 7-day multiple.
+          let chests = s.pendingChests;
+          if (newStreak > 0 && newStreak % 7 === 0) {
+            freezesLeft += 1;
+            chests = [...chests, { id: `streak-chest-${Date.now()}`, worldId: 'coffee', readyAt: Date.now() }];
+          }
+
           return {
             streak: newStreak,
             lastPracticeDate: today,
             streakMilestonesAwarded: newMilestones,
+            streakFreezes: freezesLeft,
+            pendingChests: chests,
             gold: s.gold + goldBonus,
           };
         });
@@ -495,6 +516,15 @@ export const useUserStore = create<UserStore>()(
         const s = get();
         if (s.renameCards <= 0) return false;
         set((st) => ({ renameCards: st.renameCards - 1 }));
+        return true;
+      },
+
+      // Buy a streak-protection card. The inventory count is the existing `streakFreezes` field;
+      // checkStreak() below auto-consumes one when a miss would otherwise reset the streak.
+      purchaseStreakFreeze: (goldPrice) => {
+        const s = get();
+        if (s.gold < goldPrice) return false;
+        set((st) => ({ gold: st.gold - goldPrice, streakFreezes: st.streakFreezes + 1 }));
         return true;
       },
 

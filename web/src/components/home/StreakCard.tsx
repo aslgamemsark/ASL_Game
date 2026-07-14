@@ -5,7 +5,7 @@ import { Zippy } from '@/components/shared/Zippy';
 const MILESTONES = [7, 30, 100];
 
 export function StreakCard() {
-  const { streak, dailyGoalMinutes, dailyProgressMinutes, streakMilestonesAwarded } = useUserStore();
+  const { streak, dailyGoalMinutes, dailyProgressMinutes, streakMilestonesAwarded, streakFreezes } = useUserStore();
   const progress = Math.min(1, dailyProgressMinutes / dailyGoalMinutes);
 
   const nextMilestone = MILESTONES.find(m => streak < m) ?? null;
@@ -73,6 +73,15 @@ export function StreakCard() {
               {latestMilestone && (
                 <span className="text-[11px] font-bold text-z-yellow bg-z-yellow/15 px-2 py-0.5 rounded-full">
                   🏅 {latestMilestone}-day
+                </span>
+              )}
+              {/* Streak-protection cards on hand — auto-saves the streak on a missed day. */}
+              {streakFreezes > 0 && (
+                <span
+                  className="text-[11px] font-bold text-white bg-white/15 px-2 py-0.5 rounded-full"
+                  title="Streak protection — auto-saves your streak if you miss too many days"
+                >
+                  🛡️ {streakFreezes}
                 </span>
               )}
             </div>

@@ -23,6 +23,8 @@ interface RosterMember {
   peerId: string;
   username: string;
   joinOrder: number;
+  /** Equipped border id, synced so each player's cosmetic shows on their video for everyone. */
+  border?: string;
 }
 
 interface ResultData {
@@ -37,7 +39,8 @@ interface Props {
 const ALL_SIGNS = Object.keys(SIGNS);
 const MAX_PLAYERS = 4;
 const ROUNDS_PER_PLAYER = 2;
-const ROUND_TIMEOUT_MS = 15000;
+const TURN_SECONDS = 10;
+const ROUND_TIMEOUT_MS = TURN_SECONDS * 1000;
 const RESULT_HOLD_MS = 1500;
 
 function pickSigns(n: number): string[] {
@@ -67,6 +70,9 @@ export function RoomPage({ onExit }: Props) {
   const [myGuess, setMyGuess] = useState<string | null>(null);
   const [resultData, setResultData] = useState<ResultData | null>(null);
 
+  const [timeLeft, setTimeLeft] = useState(TURN_SECONDS);
+  const turnStartedAtRef = useRef<number>(0);
+  const turnIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const rosterRef = useRef<RosterMember[]>([]);
   const turnOrderRef = useRef<string[]>([]);
   const signsRef = useRef<string[]>([]);
@@ -101,10 +107,13 @@ export function RoomPage({ onExit }: Props) {
 
   // Begins a round locally — called directly by the host (whose own broadcasts never loop back
   // to itself) and via the 'round-start' message handler for everyone else.
-  const beginRound = useCallback((roundNum: number, signer: string, signId: string) => {
+  const beginRound = useCallback((roundNum: number, signer: string, signId: string, startedAt?: number) => {
     if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
     guessesThisRoundRef.current = {};
+    // Synced turn clock: everyone counts down from the same host-stamped startedAt (broadcast in
+    // round-start), so the 10s bar reads the same on every screen. Host's own local call passes now.
+    turnStartedAtRef.current = startedAt ?? Date.now();
 
     // I was signing last round and no longer am — tear down the outbound connections I opened.
     if (signingConnectionsRef.current.length > 0 && signerPeerIdRef.current !== signer) {
@@ -205,7 +214,7 @@ export function RoomPage({ onExit }: Props) {
       if (!isHostRef.current) return;
       const already = rosterRef.current.some((m) => m.peerId === fromPeerId);
       if (already || rosterRef.current.length >= MAX_PLAYERS) return;
-      const next = [...rosterRef.current, { peerId: fromPeerId, username: (payload.username as string) ?? 'Player', joinOrder: rosterRef.current.length }];
+      const next = [...rosterRef.current, { peerId: fromPeerId, username: (payload.username as string) ?? 'Player', joinOrder: rosterRef.current.length, border: (payload.border as string) ?? '' }];
       setRoster(next);
       signaling.send('roster', { members: next });
       return;
@@ -224,7 +233,7 @@ export function RoomPage({ onExit }: Props) {
       return;
     }
     if (event === 'round-start') {
-      beginRound(payload.round as number, payload.signerPeerId as string, payload.signId as string);
+      beginRound(payload.round as number, payload.signerPeerId as string, payload.signId as string, payload.startedAt as number);
       return;
     }
     if (event === 'guess') {
@@ -254,7 +263,7 @@ export function RoomPage({ onExit }: Props) {
     const code = Math.random().toString(36).slice(2, 8).toUpperCase();
     isHostRef.current = true;
     setRoomId(code);
-    const me = { peerId: user.id, username: username ?? 'Host', joinOrder: 0 };
+    const me = { peerId: user.id, username: username ?? 'Host', joinOrder: 0, border: equippedBorder ?? '' };
     setRoster([me]);
     rosterRef.current = [me];
     setStatusMsg(`Room code: ${code} — share with up to 3 friends!`);
@@ -272,7 +281,7 @@ export function RoomPage({ onExit }: Props) {
     setPhase('waitingRoom');
     await signaling.join(`mp-room-${code}`);
     await signaling.startCamera();
-    signaling.send('roster-join', { username: username ?? user.email?.split('@')[0] ?? 'Player' });
+    signaling.send('roster-join', { username: username ?? user.email?.split('@')[0] ?? 'Player', border: equippedBorder ?? '' });
     setStatusMsg('Connected! Waiting for host to start…');
   };
 
@@ -313,15 +322,32 @@ export function RoomPage({ onExit }: Props) {
     }
   });
 
+  // Visual per-turn countdown (the host's roundTimerRef is what actually ends the round; this just
+  // drives the shared 10s bar off the host-stamped turnStartedAt so every screen reads the same).
+  useEffect(() => {
+    if (phase !== 'signing' && phase !== 'guessing') {
+      if (turnIntervalRef.current) { clearInterval(turnIntervalRef.current); turnIntervalRef.current = null; }
+      return;
+    }
+    setTimeLeft(TURN_SECONDS);
+    turnIntervalRef.current = setInterval(() => {
+      const remaining = TURN_SECONDS - (Date.now() - turnStartedAtRef.current) / 1000;
+      setTimeLeft(Math.max(0, remaining));
+    }, 100);
+    return () => { if (turnIntervalRef.current) { clearInterval(turnIntervalRef.current); turnIntervalRef.current = null; } };
+  }, [phase, round]);
+
   useEffect(() => () => {
     recognition.stopLoop();
     if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
+    if (turnIntervalRef.current) clearInterval(turnIntervalRef.current);
   }, []);
 
   const exit = () => { recognition.stopLoop(); signaling.leave(); onExit(); };
 
   const scoreboardEntries = roster.map((m) => ({ label: usernameFor(m.peerId), score: scores[m.peerId] ?? 0, isYou: m.peerId === user?.id }));
+  const timerPercent = (timeLeft / TURN_SECONDS) * 100;
 
   return (
     <div className="min-h-screen bg-z-bg flex flex-col">
@@ -400,10 +426,10 @@ export function RoomPage({ onExit }: Props) {
                 <Scoreboard entries={scoreboardEntries} />
               </div>
               <div className="bg-z-card border border-z-purple/30 rounded-2xl p-4 text-center">
-                <p className="text-xs text-z-gray-400 mb-1">SIGN THIS</p>
+                <p className="text-xs text-z-gray-400 mb-1">SIGN THIS · <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span></p>
                 <p className="text-3xl font-bold text-z-purple-light">{SIGNS[currentSignId]?.name.replace(/_/g, ' ') ?? currentSignId}</p>
               </div>
-              <WebcamMirror videoRef={signaling.localVideoRef} label="You" cosmeticBorderClasses={cosmeticBorderClasses} />
+              <WebcamMirror videoRef={signaling.localVideoRef} label="You" cosmeticBorderClasses={cosmeticBorderClasses} activeTurn turnLabel="YOUR TURN" timerPercent={timerPercent} />
               <p className="text-center text-z-gray-400 text-sm">Sign it — everyone else guesses!</p>
             </motion.div>
           )}
@@ -419,6 +445,13 @@ export function RoomPage({ onExit }: Props) {
                 stream={signerPeerId ? signaling.peers[signerPeerId]?.stream ?? null : null}
                 label={`${usernameFor(signerPeerId ?? '')} — signing`}
                 connected={signerPeerId ? signaling.peers[signerPeerId]?.connectionState === 'connected' : false}
+                cosmeticBorderClasses={(() => {
+                  const b = roster.find((m) => m.peerId === signerPeerId)?.border;
+                  return b ? (getShopItem(b)?.preview ?? '') : '';
+                })()}
+                activeTurn
+                turnLabel={`${usernameFor(signerPeerId ?? '')}'s turn`}
+                timerPercent={timerPercent}
               />
               <p className="text-center font-bold">What are they signing?</p>
               <div className="grid grid-cols-2 gap-3">

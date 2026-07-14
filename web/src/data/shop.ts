@@ -12,13 +12,21 @@ export interface ShopItem {
 }
 
 export const SHOP_ITEMS: ShopItem[] = [
-  // Borders
+  // Borders — static single-color rings (data-only; the `preview` Tailwind classes render around
+  // the player's video in lessons and multiplayer).
   { id: 'border_fire',     title: 'Fire Ring',      description: 'Blazing orange frame for your avatar',     type: 'border',  icon: '🔥', goldPrice: 15,  preview: 'ring-2 ring-orange-500 shadow-orange-500/50 shadow-lg',    rarity: 'common'    },
   { id: 'border_ice',      title: 'Ice Crown',      description: 'Cool blue frost frame',                    type: 'border',  icon: '❄️', goldPrice: 20,  preview: 'ring-2 ring-blue-400 shadow-blue-400/50 shadow-lg',        rarity: 'rare'      },
   { id: 'border_gold',     title: 'Gold Frame',     description: 'Glittering gold border — premium look',    type: 'border',  icon: '✨', goldPrice: 35,  preview: 'ring-2 ring-yellow-400 shadow-yellow-400/50 shadow-lg',    rarity: 'epic'      },
-  { id: 'border_rainbow',  title: 'Rainbow Ring',   description: 'Every color at once',                      type: 'border',  icon: '🌈', goldPrice: 60,  preview: 'ring-2 ring-purple-500 shadow-purple-500/50 shadow-lg',    rarity: 'legendary' },
-  { id: 'border_neon',     title: 'Neon Pulse',     description: 'Electric green glow that pulses',          type: 'border',  icon: '💚', goldPrice: 25,  preview: 'ring-2 ring-green-400 shadow-green-400/50 shadow-lg',      rarity: 'rare'      },
   { id: 'border_rose',     title: 'Rose Gold',      description: 'Soft pink metallic sheen',                 type: 'border',  icon: '🌸', goldPrice: 30,  preview: 'ring-2 ring-pink-400 shadow-pink-400/50 shadow-lg',        rarity: 'rare'      },
+  { id: 'border_teal',     title: 'Teal Tide',      description: 'Cool teal frame',                          type: 'border',  icon: '🌊', goldPrice: 18,  preview: 'ring-2 ring-teal-400 shadow-teal-400/50 shadow-lg',        rarity: 'common'    },
+  { id: 'border_crimson',  title: 'Crimson Edge',   description: 'Bold red frame',                           type: 'border',  icon: '🍎', goldPrice: 22,  preview: 'ring-2 ring-red-500 shadow-red-500/50 shadow-lg',          rarity: 'rare'      },
+  { id: 'border_sky',      title: 'Sky Halo',       description: 'Soft sky-blue frame',                      type: 'border',  icon: '☁️', goldPrice: 18,  preview: 'ring-2 ring-sky-400 shadow-sky-400/50 shadow-lg',          rarity: 'common'    },
+  { id: 'border_amber',    title: 'Amber Glow',     description: 'Warm amber frame',                         type: 'border',  icon: '🟡', goldPrice: 24,  preview: 'ring-2 ring-amber-400 shadow-amber-400/50 shadow-lg',      rarity: 'rare'      },
+
+  // Borders — ANIMATED (custom CSS classes in index.css; these actually move, unlike the rings).
+  { id: 'border_neon',     title: 'Neon Pulse',     description: 'Electric cyan glow that really pulses',    type: 'border',  icon: '💚', goldPrice: 40,  preview: 'qs-border-electric', rarity: 'epic'      },
+  { id: 'border_inferno',  title: 'Inferno',        description: 'A living, breathing flame ring',           type: 'border',  icon: '🔥', goldPrice: 55,  preview: 'qs-border-inferno',  rarity: 'epic'      },
+  { id: 'border_rainbow',  title: 'Rainbow Ring',   description: 'Every color, cycling forever',             type: 'border',  icon: '🌈', goldPrice: 75,  preview: 'qs-border-aurora',   rarity: 'legendary' },
 
   // Avatar emojis
   { id: 'avatar_wave',     title: 'Wave',           description: 'Replace your avatar with 👋',              type: 'avatar',  icon: '👋', goldPrice: 5,   preview: '👋', rarity: 'common'    },
@@ -32,6 +40,7 @@ export const SHOP_ITEMS: ShopItem[] = [
 
   // Consumables
   { id: 'rename_card', title: 'Username Rename Card', description: 'One-time use — change your username once per card', type: 'consumable', icon: '🎟️', goldPrice: 150, preview: '', rarity: 'rare' },
+  { id: 'streak_protection', title: 'Streak Protection', description: 'Auto-saves your streak the next time you miss too many days', type: 'consumable', icon: '🛡️', goldPrice: 100, preview: '', rarity: 'rare' },
 ];
 
 export function getShopItem(id: string): ShopItem | undefined {
