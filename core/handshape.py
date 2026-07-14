@@ -503,15 +503,34 @@ _PATTERNS = {
     "1": dict(index=1, middle=0, ring=0, pinky=0),
     "l": dict(thumb=1, index=1, middle=0, ring=0, pinky=0),
     "y": dict(thumb=1, index=0, middle=0, ring=0, pinky=1),
-    # finger-count shapes for the hospital signs (every finger condition required):
-    "n": dict(index=1, middle=1, ring=0, pinky=0),      # 2 fingers — NURSE
-    "h": dict(index=1, middle=1, ring=0, pinky=0),      # H = same 2-finger shape — HOSPITAL
-    "u": dict(index=1, middle=1, ring=0, pinky=0),
     "w": dict(index=1, middle=1, ring=1, pinky=0),      # 3 fingers — WATER
     "middle": dict(index=0, middle=1, ring=0, pinky=0), # SICK
     # thumb=0 is required here (unlike y) so an actual Y-hand (thumb+pinky out) can't pass as I.
     "i": dict(thumb=0, index=0, middle=0, ring=0, pinky=1),  # pinky only — LETTER_I
 }
+
+
+def _two_finger_confidence(hand: Hand) -> float:
+    """Index + middle both extended together, ring + pinky curled — N/H/U's shared 2-finger shape.
+
+    Bug found 2026-07-14 (live user testing): a plain MIN-over-fingers pattern match (what "n"/"h"/
+    "u" used before) can't tell "both fingers genuinely extended together" from "only one finger
+    intentionally extended, the other incidentally reads partially extended" — real fingers aren't
+    independent, so a deliberate single-middle-finger tap still measured index~0.36 via the
+    wrist-ratio curl metric. Worse, that confusor's OWN middle-finger score (0.85) was HIGHER than
+    a real two-finger N's (0.47) — no threshold on the MIN alone can separate them, since the
+    confusor doesn't score lower, just unevenly.
+
+    The real distinguishing feature: genuine N/H execution has index and middle SIMILARLY
+    extended (measured gap ~0.04), while the one-finger confusor has one dominant, one weak
+    (measured gap ~0.51). Added a parity term alongside the existing per-finger floor.
+    """
+    ext = extensions(hand)
+    both_extended = float(min(ext["index"], ext["middle"]))
+    rest_curled = float(min(1.0 - ext["ring"], 1.0 - ext["pinky"]))
+    gap = abs(ext["middle"] - ext["index"])
+    parity = float(np.clip(1.0 - gap / 0.25, 0.0, 1.0))
+    return float(min(both_extended, rest_curled, parity))
 
 
 def _match(hand: Hand, pattern: dict) -> float:
@@ -537,6 +556,8 @@ _DISPATCH = {
     "t": t_confidence,
     "v": v_confidence,
     "letter_h": letter_h_confidence,
+    "n": _two_finger_confidence,   # NURSE
+    "h": _two_finger_confidence,   # HOSPITAL — same 2-finger shape as N
     "u": u_confidence,
     "k": k_confidence,
     "letter_n": letter_n_confidence,

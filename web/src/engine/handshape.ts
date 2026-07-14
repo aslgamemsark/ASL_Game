@@ -209,8 +209,6 @@ const PATTERNS: Record<string, Record<string, number>> = {
   l: { thumb: 1, index: 1, middle: 0, ring: 0, pinky: 0 },
   y: { thumb: 1, index: 0, middle: 0, ring: 0, pinky: 1 },
   // strict min-based: averaged version let open hands score 0.5+
-  n: { index: 1, middle: 1, ring: 0, pinky: 0 },
-  h: { index: 1, middle: 1, ring: 0, pinky: 0 },
   u: { index: 1, middle: 1, ring: 0, pinky: 0 },
   w: { index: 1, middle: 1, ring: 1, pinky: 0 },
   middle: { index: 0, middle: 1, ring: 0, pinky: 0 },
@@ -224,6 +222,23 @@ function matchPattern(hand: Hand, pattern: Record<string, number>): number {
     target === 1 ? ext[f] : 1.0 - ext[f]
   );
   return scores.length > 0 ? Math.min(...scores) : 0;
+}
+
+// Index + middle both extended together, ring + pinky curled — N/H's shared 2-finger shape.
+// Bug found 2026-07-14 (live user testing, ported from core/handshape.py): a plain MIN-over-
+// fingers pattern match can't tell "both fingers genuinely extended together" from "only one
+// finger intentionally extended, the other incidentally reads partially extended" — real fingers
+// aren't independent. Real N/H execution measures index/middle SIMILARLY extended (gap ~0.04); a
+// one-finger confusor measures one dominant, one weak (gap ~0.51) — its own middle-finger score
+// can even be HIGHER than a real N's, so no threshold on the MIN alone separates them. Added a
+// parity term penalizing a large index/middle gap.
+function twoFingerConfidence(hand: Hand): number {
+  const ext = extensions(hand);
+  const bothExtended = Math.min(ext.index, ext.middle);
+  const restCurled = Math.min(1.0 - ext.ring, 1.0 - ext.pinky);
+  const gap = Math.abs(ext.middle - ext.index);
+  const parity = clip(1.0 - gap / 0.25, 0, 1);
+  return Math.min(bothExtended, restCurled, parity);
 }
 
 // Letter V: index + middle extended AND held apart (spread) — a real recorded confusor found the
@@ -442,6 +457,8 @@ const DISPATCH: Record<string, (hand: Hand) => number> = {
   t: tConfidence,
   v: vConfidence,
   letter_h: letterHConfidence,
+  n: twoFingerConfidence,   // NURSE
+  h: twoFingerConfidence,   // HOSPITAL — same 2-finger shape as N
   u: uConfidence,
   k: kConfidence,
   letter_n: letterNConfidence,
