@@ -40,7 +40,7 @@ sustained a 36-consecutive-frame all-required-pass streak at `minConfidence: 0.2
 movement median 0.50) — well past the app's 6-frame accept debounce, a genuine false accept.
 
 **Fix**: raised `movement.minConfidence` 0.25 → 0.85. Confusor streak drops to 0; real
-correct-performance streak stays 14 frames. Commit `<pending>`.
+correct-performance streak stays 14 frames. Commit `b474aa3`.
 
 **Note**: RED and WANT share the same generic LINEAR-downward movement block (same thresholds,
 copy-pasted) but are untested — flagged in a code comment, not fixed, since there's no log
