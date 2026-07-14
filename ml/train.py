@@ -182,6 +182,13 @@ def main() -> None:
                          "big accuracy drop vs. the normal eval split means the model learned "
                          "dataset-specific shortcuts (framing/compression/watermarks) rather "
                          "than the sign itself")
+    ap.add_argument("--class-weight", action="store_true",
+                    help="inverse-frequency class weighting in the loss. Tested 2026-07-14: "
+                         "made things WORSE here (test acc 79.8%%->77.6%%, NO_SIGN recall "
+                         "92.5%%->80.5%%, FPR 7.5%%->19.5%%) because it downweights NO_SIGN "
+                         "(now one of the largest classes) to upweight thin real-sign classes "
+                         "like EMERGENCY, which directly fights the goal of rejecting nonsense. "
+                         "Off by default; kept as an opt-in for future experiments, not a fix.")
     args = ap.parse_args()
 
     X, y, classes, (tr, va, te), origin = load_splits(args.cache)
@@ -222,6 +229,18 @@ def main() -> None:
     ytr_oh = to_categorical(ytr, n_cls)
     yva_oh = to_categorical(y[va], n_cls) if va.sum() else None
 
+    # Balanced class weighting (opt-in, see --class-weight help text): inverse-frequency
+    # weighting fixes the RATIO between over- and under-represented classes, which augmentation
+    # volume alone can't do. Tested 2026-07-14 and found to hurt NO_SIGN rejection specifically
+    # (see --class-weight help) — off by default.
+    class_weight = None
+    if args.class_weight:
+        class_counts = np.bincount(ytr, minlength=n_cls)
+        class_weight = {
+            c: float(len(ytr) / (n_cls * count)) if count > 0 else 1.0
+            for c, count in enumerate(class_counts)
+        }
+
     model = build_model(seq_len, feat_dim, n_cls)
     model.compile(optimizer="adam",
                   loss=CategoricalCrossentropy(label_smoothing=0.1),
@@ -231,7 +250,8 @@ def main() -> None:
         cbs.append(EarlyStopping(monitor="val_loss", patience=14, restore_best_weights=True))
         cbs.append(ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=5, min_lr=1e-5))
     model.fit(Xtr, ytr_oh, validation_data=(X[va], yva_oh) if va.sum() else None,
-              epochs=args.epochs, batch_size=args.batch, callbacks=cbs, verbose=2)
+              epochs=args.epochs, batch_size=args.batch, callbacks=cbs, verbose=2,
+              class_weight=class_weight)
 
     # Evaluate — train/val accuracy re-measured against the FINAL (post-EarlyStopping-restore)
     # weights, not read from Keras's fit history, since restore_best_weights means the history's
