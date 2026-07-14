@@ -4,7 +4,9 @@ Operates on the (T, 86) feature sequences from ml/dataset.py. All transforms tou
 (x, y) coordinate channels, never the per-hand presence flags, and never invent a hand where
 one was absent.
 
-SAFE transforms (enabled): small rotation, scaling, temporal warp, coordinate jitter.
+SAFE transforms (enabled): small rotation, scaling, temporal warp, coordinate jitter, per-
+landmark keypoint dropout (partial occlusion — a hand present but with a few unreliable points,
+distinct from the existing presence flag's only other state, "hand absent entirely").
 UNSAFE (deliberately NOT here): horizontal mirroring — it swaps the dominant hand and inverts
 palm orientation, corrupting labels for two-handed / asymmetric / orientation-sensitive signs.
 Only mirror if you also swap handedness slots + flip orientation targets; left out for v1.
@@ -63,6 +65,26 @@ def jitter(seq: np.ndarray, sigma: float, rng: np.random.Generator) -> np.ndarra
     return out
 
 
+def keypoint_dropout(seq: np.ndarray, drop_prob: float, rng: np.random.Generator) -> np.ndarray:
+    """Zero a random subset of individual landmark POINTS (not the whole hand) on present hands,
+    simulating partial occlusion/motion blur — a common real webcam failure mode the presence
+    flag alone can't represent (it only distinguishes "hand absent" from "hand present"; a model
+    trained only on those two states has never seen "present but a few points are unreliable").
+    Hand-level presence flags are untouched — this is strictly finer-grained than absence.
+    """
+    out = seq.copy()
+    for slot in (0, 1):
+        coords = _coord_view(out, slot)
+        pres = _present(out, slot)
+        if not pres.any():
+            continue
+        sub = coords[pres]  # (n_present_frames, 21, 2)
+        drop = rng.random((sub.shape[0], N_LANDMARKS)) < drop_prob
+        sub[drop] = 0.0
+        coords[pres] = sub
+    return out
+
+
 def time_warp(seq: np.ndarray, factor: float) -> np.ndarray:
     """Resample to the same length along a slightly sped/slowed timeline."""
     t = seq.shape[0]
@@ -86,6 +108,7 @@ def augment_sequence(seq: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     out = scale(out, rng.uniform(0.82, 1.18))
     out = time_warp(out, rng.uniform(0.80, 1.25))
     out = jitter(out, rng.uniform(0.006, 0.028), rng)
+    out = keypoint_dropout(out, rng.uniform(0.0, 0.06), rng)
     return out
 
 
@@ -111,11 +134,20 @@ if __name__ == "__main__":
     assert np.allclose(rotate(seq, 0.0), seq, atol=1e-5), "rotate(0) must be identity"
     # Absent hand must stay all-zero coords after every transform.
     for fn in (lambda s: rotate(s, 10), lambda s: scale(s, 1.1),
-               lambda s: jitter(s, 0.01, rng), lambda s: time_warp(s, 1.1)):
+               lambda s: jitter(s, 0.01, rng), lambda s: time_warp(s, 1.1),
+               lambda s: keypoint_dropout(s, 0.3, rng)):
         out = fn(seq)
         left = _coord_view(out, 1)
         assert np.allclose(left, 0.0), "absent hand coords must remain zero"
         # presence flags preserved (0/1 only)
         flags = out[:, [PER_HAND, 2 * PER_HAND_F - 1]]
         assert set(np.unique(flags)).issubset({0.0, 1.0}), "flags must stay binary"
+
+    # keypoint_dropout is strictly finer-grained than presence: the RIGHT hand (present) must
+    # keep its presence flag at 1 even though some of its individual points get zeroed.
+    kd = keypoint_dropout(seq, 0.5, rng)
+    assert np.all(kd[:, PER_HAND] == 1.0), "present hand's presence flag must survive keypoint dropout"
+    right_coords = _coord_view(kd, 0)
+    n_zeroed = int(np.sum(np.all(right_coords == 0.0, axis=-1)))
+    assert n_zeroed > 0, "a 0.5 drop probability should zero at least some points"
     print("augment self-test: OK")
