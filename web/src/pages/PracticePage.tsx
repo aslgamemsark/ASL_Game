@@ -636,7 +636,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
           </motion.div>
         )}
       </AnimatePresence>
-      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} />
+      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} result={recognition.result} />
     </div>
   );
 }

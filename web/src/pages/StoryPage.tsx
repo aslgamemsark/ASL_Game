@@ -423,7 +423,7 @@ export function StoryPage({ story, onExit }: Props) {
 
         </AnimatePresence>
       </div>
-      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} />
+      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} result={recognition.result} />
     </div>
   );
 }

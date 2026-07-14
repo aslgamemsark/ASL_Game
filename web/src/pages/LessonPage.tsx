@@ -512,7 +512,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
-      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} />
+      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} result={recognition.result} />
     </div>
   );
 }
