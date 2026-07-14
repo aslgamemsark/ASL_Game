@@ -66,6 +66,9 @@ export function gateHint(
 ): string | null {
   if (!vote) return null;
   if (vote.topSign !== promptedSign && vote.confidence >= hintConfidence) {
+    if (vote.topSign === 'NO_SIGN') {
+      return "That didn't look like a sign at all — check the reference.";
+    }
     return `That looked more like ${vote.topSign.replace(/_/g, ' ')} — check the reference.`;
   }
   return null;
