@@ -85,3 +85,29 @@ CSV — same process as HELLO/PLEASE/THANK_YOU/YES, each fixed only after its ow
 
 \* PLEASE was at 0.44, not 0.25 — same underlying pattern (an under-tuned movement bar), different
 starting number.
+
+## 2026-07-14 — Conservative blanket bump for the remaining 0.25 defaults
+
+User asked directly: given the 9/9 hit rate above, shouldn't every sign still at the stale 0.25
+default just get bumped? Compromise taken: bump to 0.4 (the smallest value validated by any fix
+above) as a safety-net floor, THEN run the full test suite — which replays real recorded correct
+performances — as the actual validation, rather than trusting the number blind.
+
+**Bumped 0.25 → 0.4**: WANT, EMERGENCY, NAME, RED, YELLOW, WIN. All 487 tests still passed
+afterward, meaning each of these signs' real recorded fixture still clears 0.4 comfortably — no
+confusor data yet, but no evidence of harm either.
+
+**Reverted, NOT bumped**: PAIN. The blanket 0.4 broke a real fixture (`pain_real.json` — an actual
+recorded correct performance) that only reaches ~0.25-0.39 confidence in its real CONVERGE motion.
+Left at 0.25 with a comment explaining why, pending its own `/calibrate` confusor test to find a
+real safe value (can't just guess a smaller bump without data — that's exactly the mistake this
+whole log exists to avoid).
+
+**Explicitly not touched**: HELP. Its `movement.minConfidence: 0.25` is a previously investigated,
+deliberately accepted rule-based-v1 ceiling (see the comment above it and `signs/help.py`) — not
+an oversight, so it wasn't included in the blanket bump.
+
+**Caveat that still applies**: "all tests pass" only proves the bumped value doesn't break the
+*specific* fixtures that exist today. It's not the same strength of evidence as an actual confusor
+recording for each of these 6 signs — real testing is still worth doing when there's time, same as
+HELLO/PLEASE/THANK_YOU/YES got.
