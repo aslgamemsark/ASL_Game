@@ -51,6 +51,9 @@ CONFUSABLE_PAIRS = [
 def load_splits(cache: str):
     data = np.load(cache, allow_pickle=True)
     X, y, split, classes = data["X"], data["y"], data["split"], [str(c) for c in data["classes"]]
+    # Older caches predate the origin field (ml/dataset.py, 2026-07) — default to a single
+    # "unknown" origin so --holdout-origin degrades to "matches nothing" rather than crashing.
+    origin = data["origin"] if "origin" in data.files else np.array(["unknown"] * len(y))
     tr, va, te = split == "train", split == "val", split == "test"
     # If the cache has no held-out signers (e.g. single-signer smoke data), carve a
     # stratified val/test out of train so the loop still runs — with a loud warning.
@@ -65,7 +68,7 @@ def load_splits(cache: str):
         va[idx[:n_val]] = True
         te[idx[n_val:2 * n_val]] = True
         tr = tr & ~va & ~te
-    return X, y, classes, (tr, va, te)
+    return X, y, classes, (tr, va, te), origin
 
 
 # ----------------------------------------------------------------- reports
@@ -173,10 +176,28 @@ def main() -> None:
     ap.add_argument("--batch", type=int, default=32)
     ap.add_argument("--n-aug", type=int, default=14, help="augmented copies per training clip")
     ap.add_argument("--dry-run", action="store_true", help="verify data path without TF")
+    ap.add_argument("--holdout-origin", default=None,
+                    help="dataset origin (e.g. 'wlasl') to exclude ENTIRELY from train/val/test "
+                         "and evaluate separately as a cross-dataset generalization check — a "
+                         "big accuracy drop vs. the normal eval split means the model learned "
+                         "dataset-specific shortcuts (framing/compression/watermarks) rather "
+                         "than the sign itself")
     args = ap.parse_args()
 
-    X, y, classes, (tr, va, te) = load_splits(args.cache)
+    X, y, classes, (tr, va, te), origin = load_splits(args.cache)
     seq_len, feat_dim = X.shape[1], X.shape[2]
+
+    holdout_mask = None
+    if args.holdout_origin:
+        holdout_mask = origin == args.holdout_origin
+        if not holdout_mask.any():
+            print(f"WARNING: --holdout-origin={args.holdout_origin!r} matched no clips — ignoring")
+            holdout_mask = None
+        else:
+            print(f"cross-dataset holdout: excluding {int(holdout_mask.sum())} clips "
+                  f"(origin={args.holdout_origin!r}) from train/val/test entirely")
+            tr, va, te = tr & ~holdout_mask, va & ~holdout_mask, te & ~holdout_mask
+
     print(f"loaded {X.shape}  classes={len(classes)}  "
           f"train={tr.sum()} val={va.sum()} test={te.sum()}")
 
@@ -237,6 +258,17 @@ def main() -> None:
         print(f"  NO_SIGN recall={ns_metrics['no_sign_recall']:.3f}  "
               f"FPR={ns_metrics['false_positive_rate']:.3f}  FNR={ns_metrics['false_negative_rate']:.3f}")
 
+    holdout_metrics = None
+    if holdout_mask is not None:
+        yp_h = model.predict(X[holdout_mask], verbose=0).argmax(1)
+        yt_h = y[holdout_mask]
+        holdout_acc = float((yp_h == yt_h).mean())
+        holdout_metrics = {"origin": args.holdout_origin, "n_clips": int(holdout_mask.sum()),
+                            "accuracy": holdout_acc}
+        print(f"\ncross-dataset holdout ({args.holdout_origin}): accuracy={holdout_acc:.3f} "
+              f"on {int(holdout_mask.sum())} clips (vs {eval_split} accuracy {acc:.3f} — a big "
+              f"drop here means dataset-specific shortcuts, not genuine sign recognition)")
+
     # Save versioned run
     run = next_run_dir()
     run.mkdir(parents=True, exist_ok=True)
@@ -251,6 +283,7 @@ def main() -> None:
         "n_classes": len(classes),
         "minimal_pairs": mpr,
         "no_sign": ns_metrics,
+        "cross_dataset_holdout": holdout_metrics,
         "per_class": {classes[c]: {"precision": float(prec[c]), "recall": float(rec[c]),
                                     "f1": float(f1[c]), "support": int(sup[c])}
                       for c in range(len(classes))},
