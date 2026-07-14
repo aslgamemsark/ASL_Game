@@ -39,6 +39,7 @@ For the point-in-time detailed snapshot this update was based on, see
 - **NO_SIGN**: recall 94.9%, false-positive rate 5.1% (hallucinating a sign from nonsense), false-negative rate 10.4% (over-rejecting a genuine attempt — HELLO accounts for the largest single share of this, 8/31 test clips, not yet root-caused).
 - **This run required one mid-session fix**: the first attempt reported NO_SIGN recall=0.000, which turned out to be a data-pipeline bug (all 729 NO_SIGN clips had defaulted to the "train" split, leaving zero in val/test) rather than a model failure — see `docs/ml_reports/ML_INTELLIGENCE_REPORT_20260714.md` Section 7 for the full story. Fixed in commit `6a70895`; the numbers above are from the corrected re-run.
 - **NOT yet deployed** — `web/public/models/signs/` still has whichever model was live before tonight. Deploying `model_v7` is a deliberate next step, not done automatically (see Recommended next steps).
+- **Important caveat on the 78.2% test accuracy**: a cross-dataset holdout check (train on everything except MS-ASL, test only on MS-ASL) showed accuracy drops from 74.2% to **41.4%** on data the model never saw during training. The 78.2%/74.2%-style numbers measure within-distribution performance (test clips drawn from the same sources as training); real-world accuracy on genuinely novel recording conditions should be expected to be meaningfully lower than the headline number. Don't quote 78.2% as "real-world accuracy" without this caveat.
 - **Which model is actually deployed**: `web/src/config/classifier.ts`'s `MODEL_URL` points at a fixed path (`web/public/models/signs/`) — check `git log -- web/public/models/signs/` for the most recent "Deploy model_vN" commit message to know what's currently live (convention introduced 2026-07-14; not automated).
 
 ## Known issues
@@ -48,6 +49,7 @@ For the point-in-time detailed snapshot this update was based on, see
 3. **EMERGENCY has only 12 training clips** — excluded from the ML gate by existing design (`GATE_EXCLUDED_SIGNS` in `web/src/config/classifier.ts`); do not re-include until real clip count grows substantially.
 4. **6 duplicate clip groups** (14 clips total) across WLASL/MS-ASL, not deduplicated in the current cache — low practical impact at this scale, worth fixing before the next data refresh.
 5. **No explicit `class_weight`** in the training loop — imbalance is currently offset only by augmentation volume, not loss reweighting.
+6. **Real cross-dataset generalization gap found**: holding MS-ASL out entirely during training and testing on it shows a 33-percentage-point accuracy drop (74.2% → 41.4%) vs. the normal in-distribution test split. The model relies partly on dataset-specific characteristics, not purely sign-invariant features. Expect real-world accuracy on genuinely novel recording conditions to be meaningfully below the 78.2% headline test accuracy.
 
 ## Completed this session (2026-07-14)
 

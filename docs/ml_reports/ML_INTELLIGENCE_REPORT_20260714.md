@@ -257,7 +257,38 @@ Plots: `ml/runs/model_v7/confusion_matrix.png` (25×25 confusion matrix, generat
 
 ## 8. Cross-Dataset Evaluation
 
-Enabled via this session's new `--holdout-origin` flag in `ml/train.py` (verified working end-to-end against the real ASL Citizen + WLASL cache before tonight's full run — see commit `431643b`). **Not run as a separate holdout pass tonight** (this run trains on all sources together to maximize the primary NO_SIGN-inclusive model's data) — recommended as an explicit follow-up run: `python -m ml.train --cache data/cache_full.npz --holdout-origin ms_asl` (repeat per origin) to specifically measure whether the model learned dataset-specific shortcuts. Flagged in the roadmap (Section 16) rather than skipped silently.
+Ran `python -m ml.train --cache data/cache_full.npz --holdout-origin ms_asl` (a SEPARATE run,
+`ml/runs/model_v8` — not the primary deployed-candidate model — trained on ASL Citizen + WLASL +
+HMDB51 + synthetic NO_SIGN only, with MS-ASL's 666 clips excluded entirely from train/val/test).
+
+| | Value |
+|---|---|
+| Normal (in-distribution) test accuracy, this holdout run | 74.2% |
+| **Accuracy on the held-out MS-ASL clips (never seen in training)** | **41.4%** |
+| Gap | **-32.8 percentage points** |
+
+**This is a real, meaningful finding, not a rounding-error-sized effect.** A 33-point drop when
+evaluating on an entirely unseen dataset means a substantial share of what the model learned is
+tied to characteristics specific to the datasets it trained on (camera framing, compression,
+signer population, or recording-setup artifacts) rather than sign-invariant features that
+transfer across sources. This is exactly the failure mode this check exists to catch, and it
+caught something real.
+
+**What this does NOT mean**: it does NOT mean `model_v7` (the primary model, trained WITH
+MS-ASL included) is unreliable for MS-ASL-style input — `model_v7` has actually seen that
+distribution during training. What it DOES mean: if a future data source is added that the
+model has never trained on (a new dataset, or real users whose camera setup differs
+meaningfully from ASL Citizen/WLASL/MS-ASL's recording conditions), expect a real accuracy drop
+relative to the 78.2% test-set number, not the same performance. **This is the single most
+important reason not to over-trust `model_v7`'s 78.2% test accuracy as "real-world accuracy"** —
+the test split is drawn from the same sources the model trained on, so it measures
+within-distribution performance, not deployment-condition performance.
+
+**Recommended follow-up, not yet run**: repeat this holdout for `wlasl` and `asl_citizen`
+individually to see whether the gap is MS-ASL-specific (its videos are the ones with the least
+overlap in style/quality/compression with the others, per `ml/dataset.py`'s `--per-class`
+comparison) or a general property of this pipeline's ability to generalize across any single
+held-out source.
 
 ---
 
