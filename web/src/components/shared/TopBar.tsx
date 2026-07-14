@@ -64,7 +64,7 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}
-          >Segno</span>
+          >QuickSign</span>
         </div>
 
         <div className="flex items-center gap-2 ml-auto">

@@ -24,7 +24,7 @@ export function CameraOnboarding({ onContinue, onCancel }: Props) {
         <div className="text-5xl mb-4">📷</div>
         <h2 className="text-xl font-bold mb-2">Camera Access Needed</h2>
         <p className="text-sm text-z-gray-300 mb-4 leading-relaxed">
-          Segno uses your camera to watch your hand signs and give you real-time feedback.
+          QuickSign uses your camera to watch your hand signs and give you real-time feedback.
           Your video never leaves your device — recognition runs locally in your browser.
         </p>
 

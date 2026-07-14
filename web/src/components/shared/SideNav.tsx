@@ -73,7 +73,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
             WebkitTextFillColor: 'transparent',
           }}
         >
-          Segno
+          QuickSign
         </span>
       </div>
 

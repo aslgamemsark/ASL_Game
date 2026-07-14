@@ -71,7 +71,7 @@ export const GREETINGS_STORY: StoryScript = {
       userLine: 'And I — all done!',
       requiredSignId: 'LETTER_I',
       hint: 'Fist with only the pinky finger raised',
-      npcResponse: "H-I — you just spelled HI! Welcome to Segno! 🌟",
+      npcResponse: "H-I — you just spelled HI! Welcome to QuickSign! 🌟",
     },
   ],
 };

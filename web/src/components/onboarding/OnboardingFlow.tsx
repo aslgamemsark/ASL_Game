@@ -80,9 +80,10 @@ export function OnboardingFlow({ onComplete }: Props) {
 
             {/* Solid color, not gradient-clipped text: emphasis belongs to weight/color, and the
                 TopBar wordmark is the app's single deliberate gradient-text brand mark. */}
-            <h1 className="text-4xl font-bold mb-3 text-white">
-              Welcome to <span className="text-z-purple-light">Segno</span>
+            <h1 className="text-4xl font-bold mb-1 text-white">
+              Welcome to <span className="text-z-purple-light">QuickSign</span>
             </h1>
+            <p className="text-z-purple-light/80 text-sm font-semibold tracking-wide uppercase mb-4">Beyond Words</p>
             <p className="text-z-gray-300 text-lg mb-10">{ZIPPY_LINES.welcomeIntro[0]}</p>
 
             <motion.button

@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test';
 test.describe('app smoke test', () => {
   test('loads and shows the welcome screen', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByText('Welcome to Segno')).toBeVisible();
+    await expect(page.getByText('Welcome to QuickSign')).toBeVisible();
     await expect(page.getByRole('button', { name: /get started/i })).toBeVisible();
   });
 
