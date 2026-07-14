@@ -250,6 +250,7 @@ export default function App() {
               onStartSpeed={() => setScreen({ type: 'speed' })}
               onOpenShop={() => setScreen({ type: 'shop' })}
               onRequireSignIn={() => setShowAuth(true)}
+              onSettings={() => setScreen({ type: 'settings' })}
               tab={homeTab}
               onTabChange={setHomeTab}
             />

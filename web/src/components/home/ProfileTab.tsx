@@ -59,7 +59,7 @@ const TOTAL_LESSON_COUNT = LESSON_UNITS.reduce((sum, u) => sum + u.nodes.length,
 export function ProfileTab() {
   const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar, equipBorder } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
-  const { user, username, signOut } = useAuth();
+  const { user, username } = useAuth();
   const { struggleSigns, vetoStats, dailyAccuracy, overallAvgAttempts, loading: insightsLoading, error: insightsError } = useInsights();
   const [showAuth, setShowAuth] = useState(false);
   const [showSetUsername, setShowSetUsername] = useState(false);
@@ -103,7 +103,6 @@ export function ProfileTab() {
                 <p className="text-z-gray-400 text-xs">Progress syncing</p>
               </div>
             </div>
-            <button onClick={signOut} className="text-xs text-z-gray-400 hover:text-white border border-white/10 rounded-lg px-3 py-1.5 transition-colors">Sign out</button>
           </div>
         ) : (
           <div className="bg-z-card border border-white/5 rounded-2xl p-4 flex items-center justify-between">
