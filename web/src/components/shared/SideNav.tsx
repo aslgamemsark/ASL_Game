@@ -7,7 +7,7 @@ import { getShopItem } from '@/data/shop';
 import { getBadge } from '@/data/badges';
 import { LogoutConfirm } from '@/components/auth/LogoutConfirm';
 
-export type SideNavScreen = 'home' | 'review' | 'alphabet' | 'shop' | 'friends' | 'leaderboard' | 'settings' | 'profile';
+export type SideNavScreen = 'home' | 'review' | 'alphabet' | 'shop' | 'friends' | 'multiplayer' | 'leaderboard' | 'settings' | 'profile';
 
 interface Props {
   active: SideNavScreen | null;
@@ -16,6 +16,7 @@ interface Props {
   onAlphabet: () => void;
   onShop: () => void;
   onFriends: () => void;
+  onMultiplayer: () => void;
   onLeaderboard: () => void;
   onSettings: () => void;
   onProfile: () => void;
@@ -29,12 +30,13 @@ const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'home', label: 'Journey', icon: '🗺️' },
   { id: 'review', label: 'Review', icon: '🪞' },
   { id: 'alphabet', label: 'Alphabets', icon: '🔤' },
+  { id: 'multiplayer', label: 'Multiplayer', icon: '⚔️' },
   { id: 'shop', label: 'Shop', icon: '🪙' },
   { id: 'friends', label: 'Friends', icon: '🤝' },
   { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
 ];
 
-export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onLeaderboard, onSettings, onProfile, onSignIn, onNotice }: Props) {
+export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onMultiplayer, onLeaderboard, onSettings, onProfile, onSignIn, onNotice }: Props) {
   const { user, username } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
   // Always mounted on desktop widths — see TopBar's identical fix for why a selector matters here.
@@ -54,6 +56,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
     alphabet: onAlphabet,
     shop: onShop,
     friends: onFriends,
+    multiplayer: onMultiplayer,
     leaderboard: onLeaderboard,
     settings: onSettings,
     profile: onProfile,
@@ -71,7 +74,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
             WebkitTextFillColor: 'transparent',
           }}
         >
-          SignUp
+          QuickSign
         </span>
       </div>
 

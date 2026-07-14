@@ -17,12 +17,13 @@ const StoryPage = lazy(() => import('@/pages/StoryPage').then((m) => ({ default:
 const SpeedChallengePage = lazy(() => import('@/pages/SpeedChallengePage').then((m) => ({ default: m.SpeedChallengePage })));
 const ShopPage = lazy(() => import('@/pages/ShopPage').then((m) => ({ default: m.ShopPage })));
 const FriendsPage = lazy(() => import('@/pages/FriendsPage').then((m) => ({ default: m.FriendsPage })));
-const MultiplayerPage = lazy(() => import('@/pages/MultiplayerPage').then((m) => ({ default: m.MultiplayerPage })));
+const MultiplayerHubPage = lazy(() => import('@/pages/MultiplayerHubPage').then((m) => ({ default: m.MultiplayerHubPage })));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
 const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })));
 const AdminPanel = lazy(() => import('@/pages/AdminPanel').then((m) => ({ default: m.AdminPanel })));
 const AvatarLabPage = lazy(() => import('@/avatar/viewer/AvatarLabPage').then((m) => ({ default: m.AvatarLabPage })));
+const CalibrationPage = lazy(() => import('@/pages/CalibrationPage').then((m) => ({ default: m.CalibrationPage })));
 import { SideNav, type SideNavScreen } from '@/components/shared/SideNav';
 import { STORIES } from '@/data/stories';
 import { useProgressSync } from '@/hooks/useProgressSync';
@@ -45,14 +46,14 @@ type Screen =
   | { type: 'speed' }
   | { type: 'shop' }
   | { type: 'friends' }
-  | { type: 'multiplayer'; autoHostRoomId?: string; autoJoinCode?: string }
+  | { type: 'multiplayer'; mode?: 'duel' | 'room'; autoHostRoomId?: string; autoJoinCode?: string }
   | { type: 'settings' }
   | { type: 'leaderboard' }
   | { type: 'admin' }
   | { type: 'privacy' };
 
 // Focused-task screens suppress the side nav (matches hiding chrome during a lesson).
-const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboard', 'settings'];
+const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboard', 'settings', 'multiplayer'];
 
 // Shared fallback while a lazy-loaded screen's chunk downloads — same visual language as the
 // auth-restore spinner above so a route-split navigation doesn't look like a different app state.
@@ -137,7 +138,7 @@ export default function App() {
       }
     });
     // Navigate to multiplayer as the host with the pre-generated room ID
-    setScreen({ type: 'multiplayer', autoHostRoomId: roomId });
+    setScreen({ type: 'multiplayer', mode: 'duel', autoHostRoomId: roomId });
     void friendUsername; // used in the notification received on the other side
   }, [user, username]);
 
@@ -190,6 +191,16 @@ export default function App() {
     );
   }
 
+  // Dev-only sign-recognition calibration harness (browser twin of tools/demo_verify.py
+  // --calibrate) — same reasoning as /avatarlab above: a separate tool, not a game screen.
+  if (import.meta.env.DEV && window.location.pathname === '/calibrate') {
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        <CalibrationPage />
+      </Suspense>
+    );
+  }
+
   return (
     <>
       {showSideNav && (
@@ -197,7 +208,7 @@ export default function App() {
           active={
             screen.type === 'home' && homeTab !== 'learn'
               ? (homeTab as SideNavScreen)
-              : (['home', 'shop', 'friends', 'leaderboard', 'settings'].includes(screen.type)
+              : (SIDE_NAV_SCREENS.includes(screen.type as SideNavScreen)
                   ? (screen.type as SideNavScreen)
                   : null)
           }
@@ -206,6 +217,7 @@ export default function App() {
           onAlphabet={() => { goHome(); setHomeTab('alphabet'); }}
           onShop={() => setScreen({ type: 'shop' })}
           onFriends={() => setScreen({ type: 'friends' })}
+          onMultiplayer={() => setScreen({ type: 'multiplayer' })}
           onLeaderboard={() => setScreen({ type: 'leaderboard' })}
           onSettings={() => setScreen({ type: 'settings' })}
           onProfile={() => { goHome(); setHomeTab('profile'); }}
@@ -228,6 +240,7 @@ export default function App() {
               onStartStory={(id) => setScreen({ type: 'story', storyId: id })}
               onStartSpeed={() => setScreen({ type: 'speed' })}
               onOpenShop={() => setScreen({ type: 'shop' })}
+              onOpenMultiplayer={() => setScreen({ type: 'multiplayer' })}
               onRequireSignIn={() => setShowAuth(true)}
               tab={homeTab}
               onTabChange={setHomeTab}
@@ -270,13 +283,14 @@ export default function App() {
           )}
 
           {screen.type === 'friends' && (
-            <FriendsPage key="friends" onExit={goHome} onChallengeFriend={handleChallengeFriend} onStartMultiplayer={() => setScreen({ type: 'multiplayer' })} />
+            <FriendsPage key="friends" onExit={goHome} onChallengeFriend={handleChallengeFriend} onStartMultiplayer={() => setScreen({ type: 'multiplayer', mode: 'duel' })} />
           )}
 
           {screen.type === 'multiplayer' && (
-            <MultiplayerPage
+            <MultiplayerHubPage
               key="multiplayer"
               onExit={goHome}
+              mode={screen.mode}
               autoHostRoomId={screen.autoHostRoomId}
               autoJoinCode={screen.autoJoinCode}
             />
@@ -375,7 +389,7 @@ export default function App() {
                 className="text-xs px-3 py-1.5 rounded-xl font-bold bg-z-purple text-white"
                 whileTap={{ scale: 0.96 }}
                 onClick={() => {
-                  setScreen({ type: 'multiplayer', autoJoinCode: incomingChallenge.roomId });
+                  setScreen({ type: 'multiplayer', mode: 'duel', autoJoinCode: incomingChallenge.roomId });
                   setIncomingChallenge(null);
                 }}
               >

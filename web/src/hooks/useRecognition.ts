@@ -95,10 +95,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     try {
       const cap = await getSharedCapture();
       captureRef.current = cap;
-      if (import.meta.env.DEV) console.log('[SignUp] MediaPipe initialized');
+      if (import.meta.env.DEV) console.log('[QuickSign] MediaPipe initialized');
       setStatus('ready');
     } catch (e) {
-      console.error('[SignUp] MediaPipe init failed:', e);
+      console.error('[QuickSign] MediaPipe init failed:', e);
       setStatus('error');
     }
   }, []);
@@ -117,13 +117,13 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
       const cap = captureRef.current;
       if (!cap?.ready) {
-        console.warn('[SignUp] Capture not ready, cannot start loop');
+        console.warn('[QuickSign] Capture not ready, cannot start loop');
         return;
       }
 
       runningRef.current = true;
       setStatus('running');
-      if (import.meta.env.DEV) console.log('[SignUp] Loop started for', sign.name);
+      if (import.meta.env.DEV) console.log('[QuickSign] Loop started for', sign.name);
 
       // Require buffer to fill (~1.5s) before allowing a pass.
       // This prevents instant passes on static signs and gives
@@ -167,7 +167,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           if (import.meta.env.DEV && frameCountRef.current <= 3) {
             const hands = frame.hands.length;
             const sw = frame.leftShoulder && frame.rightShoulder ? 'yes' : 'no';
-            console.log(`[SignUp] Frame ${frameCountRef.current}: hands=${hands} shoulders=${sw} w=${frame.width}`);
+            console.log(`[QuickSign] Frame ${frameCountRef.current}: hands=${hands} shoulders=${sw} w=${frame.width}`);
           }
 
           // Don't allow pass until buffer has enough data
@@ -216,11 +216,11 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                         hintCallbackRef.current?.(hint);
                       }
                     })
-                    .catch((e) => console.error('[SignUp] gate error:', e))
+                    .catch((e) => console.error('[QuickSign] gate error:', e))
                     .finally(() => { gatingRef.current = false; });
                 }
               } else {
-                if (import.meta.env.DEV) console.log('[SignUp] PASS:', sign.name, vr.params.map(p => `${p.name}=${p.score.toFixed(2)}`).join(' '));
+                if (import.meta.env.DEV) console.log('[QuickSign] PASS:', sign.name, vr.params.map(p => `${p.name}=${p.score.toFixed(2)}`).join(' '));
                 verifiedCallbackRef.current?.({
                   signName: sign.name,
                   params: vr.params,
@@ -243,7 +243,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
             passFrames = 0;
           }
         } catch (e) {
-          console.error('[SignUp] Tick error:', e);
+          console.error('[QuickSign] Tick error:', e);
         }
 
         if (runningRef.current) {

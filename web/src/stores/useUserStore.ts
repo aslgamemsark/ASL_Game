@@ -48,8 +48,18 @@ function defaultProgress(): UserProgress {
   };
 }
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+// Local calendar day (YYYY-MM-DD), not UTC — using toISOString() here would
+// shift the day boundary by the user's UTC offset, causing the streak to
+// double-count or silently skip a day for anyone not near UTC+0.
+export function localDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+export function todayStr() {
+  return localDateStr(new Date());
 }
 
 interface UserStore extends UserProgress {
@@ -198,7 +208,7 @@ export const useUserStore = create<UserStore>()(
 
           const yesterday = new Date();
           yesterday.setDate(yesterday.getDate() - 1);
-          const yesterdayStr = yesterday.toISOString().slice(0, 10);
+          const yesterdayStr = localDateStr(yesterday);
 
           let newStreak = s.streak;
           if (s.lastPracticeDate === yesterdayStr) {

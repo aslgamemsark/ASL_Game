@@ -56,6 +56,7 @@ function loadOnce(): Promise<LoadResult> {
  */
 export function useClassifier(enabled: boolean = true) {
   const [state, setState] = useState<LoadResult>({ classifier: null, status: 'loading' });
+  const [lastVote, setLastVote] = useState<GateDecision | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
@@ -76,6 +77,9 @@ export function useClassifier(enabled: boolean = true) {
   // it reads the already-computed GateDecision and changes no behavior. To silence, set
   // CLASSIFIER_DEBUG = false in src/config/classifier.ts.
   const logVote = useCallback((d: GateDecision) => {
+    // Feeds the dev-only ClassifierDevPanel — gated on DEV (not CLASSIFIER_DEBUG, which only
+    // controls console verbosity) so production builds never pay for this extra re-render.
+    if (import.meta.env.DEV) setLastVote(d);
     if (!CLASSIFIER_DEBUG) return;
     const ai = d.vote;
     // The gate only runs AFTER the rule verifier passed for the prompted sign, so the rule's
@@ -107,5 +111,5 @@ export function useClassifier(enabled: boolean = true) {
     (window as unknown as { __lastVote?: GateDecision }).__lastVote = d;
   }, []);
 
-  return { classifier: state.classifier, status: state.status, logVote };
+  return { classifier: state.classifier, status: state.status, logVote, lastVote };
 }

@@ -46,8 +46,8 @@ export default defineConfig({
       devOptions: { enabled: true, type: 'module' },
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'SignUp — Learn ASL with Zippy',
-        short_name: 'SignUp',
+        name: 'QuickSign — Learn ASL with Zippy',
+        short_name: 'QuickSign',
         description: 'Learn American Sign Language through play — camera-based practice, lessons, and 1v1 challenges.',
         lang: 'en',
         theme_color: '#120B1E',

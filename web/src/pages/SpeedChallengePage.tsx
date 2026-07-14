@@ -13,6 +13,7 @@ import { logAttempt } from '@/hooks/useProgressSync';
 import { SIGNS } from '@/data/signs';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { MovementKind } from '@/engine/schema';
+import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
 import type { SpeedTier } from '@/types/user';
 
@@ -29,7 +30,8 @@ interface Props {
 }
 
 export function SpeedChallengePage({ onExit }: Props) {
-  const { addXp, addSigns, recordSign, recordSpeedResult, checkBadges } = useUserStore();
+  const { addXp, addSigns, recordSign, recordSpeedResult, checkBadges, equippedBorder } = useUserStore();
+  const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera();
   const sounds = useSounds();
@@ -413,7 +415,7 @@ export function SpeedChallengePage({ onExit }: Props) {
               </div>
 
               {/* Webcam */}
-              <WebcamMirror videoRef={videoRef} passed={justPassed} />
+              <WebcamMirror videoRef={videoRef} passed={justPassed} cosmeticBorderClasses={cosmeticBorderClasses} />
 
               {/* Skip */}
               <div className="flex justify-end mt-auto pt-1">

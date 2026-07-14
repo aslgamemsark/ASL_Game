@@ -19,11 +19,28 @@ const BLOCKED: readonly string[] = [
 function normaliseLeet(s: string): string {
   return s
     .replace(/4/g, 'a').replace(/3/g, 'e').replace(/1/g, 'i')
-    .replace(/0/g, 'o').replace(/5/g, 's').replace(/7/g, 't');
+    .replace(/0/g, 'o').replace(/5/g, 's').replace(/7/g, 't')
+    .replace(/9/g, 'g').replace(/6/g, 'g').replace(/8/g, 'b')
+    .replace(/\$/g, 's').replace(/@/g, 'a').replace(/\|/g, 'i')
+    .replace(/!/g, 'i');
 }
+
+// Collapses long stutter runs (3+ of the same char) down to one, e.g.
+// "niiiggaaa" -> "niga", "hitlerrrr" -> "hitler" — but leaves normal doubled
+// letters (e.g. "coon", "connor") alone, since collapsing those would create
+// short substrings that false-positive on innocuous words.
+function collapseRepeats(s: string): string {
+  return s.replace(/_/g, '').replace(/(.)\1{2,}/g, '$1');
+}
+
+const BLOCKED_COLLAPSED = BLOCKED.map(collapseRepeats);
 
 export function isInappropriate(username: string): boolean {
   const low  = username.toLowerCase();
   const norm = normaliseLeet(low);
-  return BLOCKED.some((w) => low.includes(w) || norm.includes(w));
+  if (BLOCKED.some((w) => low.includes(w) || norm.includes(w))) return true;
+
+  const collapsedLow  = collapseRepeats(low);
+  const collapsedNorm = collapseRepeats(norm);
+  return BLOCKED_COLLAPSED.some((w) => collapsedLow.includes(w) || collapsedNorm.includes(w));
 }

@@ -11,6 +11,13 @@ interface Props {
    *  matching the original SpeedChallengePage behavior; those other pages never had a border at
    *  all, so they must not gain one now. */
   passed?: boolean;
+  /** Caption chip, bottom-left (e.g. "You"). Omit for no label. */
+  label?: string;
+  /** Pre-resolved Tailwind classes for the caller's equipped shop border cosmetic (the caller
+   *  resolves getShopItem(equippedBorder)?.preview — this component stays ignorant of shop.ts).
+   *  Paints via ring/shadow utilities, a different layer than the `passed` border above, so both
+   *  can be present at once with no precedence conflict. */
+  cosmeticBorderClasses?: string;
 }
 
 /**
@@ -21,7 +28,7 @@ interface Props {
  * (production audit, 2026-07-12). The camera stream and recognition loop were already correctly
  * shared via hooks (useCamera/useRecognition) — only this rendering piece was duplicated.
  */
-export function WebcamMirror({ videoRef, overlayClipUrl, passed }: Props) {
+export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmeticBorderClasses }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
 
@@ -48,11 +55,12 @@ export function WebcamMirror({ videoRef, overlayClipUrl, passed }: Props) {
 
   return (
     <div
-      className={`relative rounded-2xl overflow-hidden bg-z-surface aspect-video ${
+      className={`relative rounded-2xl overflow-hidden bg-z-surface aspect-video ${cosmeticBorderClasses ?? ''} ${
         passed === undefined ? '' : `border-2 transition-colors duration-200 ${passed ? 'border-z-green' : 'border-transparent'}`
       }`}
     >
       <canvas ref={canvasRef} className="w-full h-full object-cover" />
+      {label && <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded-md">{label}</span>}
       {overlayClipUrl && (
         <div className="absolute top-2 right-2 w-28 rounded-xl overflow-hidden border-2 border-white/20 shadow-lg bg-black">
           <video
