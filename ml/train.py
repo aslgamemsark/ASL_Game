@@ -321,6 +321,15 @@ def main() -> None:
                                types.ModuleType("tensorflow_decision_forests"))
         import tensorflowjs as tfjs
         tfjs.converters.save_keras_model(model, str(run / "tfjs"))
+
+        # TF.js's LayersModel deserializer rejects the L2 weight-regularizer config this model's
+        # layers carry (kernel_regularizer=l2 above) with "Unknown regularizer: L2" — regularizers
+        # only shape the training loss, so stripping them changes the model's OUTPUTS by exactly
+        # zero. Done here, not as a separate manual step: forgetting it silently ships a model
+        # that fails to load in the browser with no error until someone actually opens dev tools
+        # (found 2026-07-14 deploying model_v9). See ml/sanitize_tfjs.py for the standalone tool.
+        from ml.sanitize_tfjs import sanitize
+        sanitize(str(run / "tfjs" / "model.json"))
         print(f"TF.js model -> {run / 'tfjs'}")
     except ImportError as e:
         print(f"tensorflowjs not available — skipped browser export ({e})")
