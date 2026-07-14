@@ -63,7 +63,12 @@ export const YES = createSign({
   name: 'YES', twoHanded: false,
   dominant: { kind: 'fist', required: true },
   location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false, minConfidence: 0.45},
-  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true, minConfidence: 0.25},
+  // minConfidence raised 0.25->0.4 (2026-07-14): real calibration log (YES_2026-07-14T18-37) showed
+  // a confusor (fist held on screen without a real repeated bounce) sustained a 21-consecutive-
+  // frame all-required-pass streak — a knife-edge cliff, present at every threshold up to 0.25 and
+  // gone entirely by 0.28. 0.4 gives real margin past that cliff; correct-take streak stays 70
+  // frames (need only 6). See docs/CALIBRATION_LOG.md.
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true, minConfidence: 0.4},
 });
 
 export const MORE = createSign({
