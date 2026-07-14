@@ -32,8 +32,11 @@ import matplotlib.pyplot as plt  # noqa: E402
 N_LANDMARKS = 21
 PER_HAND = N_LANDMARKS * 2
 PER_HAND_F = PER_HAND + 1
-HAND_SLOTS = ("Right", "Left")
-SLOT_COLOR = {"Right": "#7B2FBE", "Left": "#F59E0B"}
+# Slot 0/1 = Dominant/Nondominant (mirrors ml/dataset.py's assign_roles() re-slotting) — NOT raw
+# MediaPipe Right/Left handedness, which can land in either slot depending on which hand a given
+# signer favors.
+ROLE_SLOTS = ("Dominant", "Nondominant")
+SLOT_COLOR = {"Dominant": "#7B2FBE", "Nondominant": "#F59E0B"}
 
 # MediaPipe 21-point hand skeleton.
 HAND_CONNECTIONS = [
@@ -105,12 +108,12 @@ def render_sign(seq: np.ndarray, sign: str, out_dir: Path, n_cols: int = 8) -> N
     for ax, t in zip(axes, idxs):
         vec = seq[t]
         drew = False
-        for slot, handed in enumerate(HAND_SLOTS):
+        for slot, role in enumerate(ROLE_SLOTS):
             pts, present = _hand_from_vec(vec, slot)
             if not present:
                 continue
             drew = True
-            color = SLOT_COLOR[handed]
+            color = SLOT_COLOR[role]
             for a, b in HAND_CONNECTIONS:
                 ax.plot([pts[a, 0], pts[b, 0]], [pts[a, 1], pts[b, 1]],
                         color=color, linewidth=1.2)
