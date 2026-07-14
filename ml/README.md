@@ -125,6 +125,15 @@ Train on all-but-one origin and hold the remaining one out entirely as an extra 
 big accuracy drop there (vs. the normal held-out-signer split) means the model learned
 dataset-specific shortcuts (framing/compression/watermarks) rather than the sign itself.
 
+## Which model is actually live
+
+`web/src/config/classifier.ts`'s `MODEL_URL` always points at the same fixed path
+(`web/public/models/signs/`) — deploying a new run means overwriting those files with a
+`model_vN/tfjs/` export. There's no automated record of which `model_vN` that currently is.
+**When you deploy a run, note the version in the commit message** (e.g. "Deploy model_v8") so
+`git log -- web/public/models/signs/` answers "what's live right now" — cheap insurance against
+losing track once retraining becomes routine.
+
 ## Notes
 - **Split by signer, not by video** — `extract_dataset.py dataset` does this in the manifest.
 - **Augmentation** (`ml/augment.py`): rotation / scale / time-warp / jitter only. Horizontal
