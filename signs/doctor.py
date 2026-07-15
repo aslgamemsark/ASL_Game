@@ -49,5 +49,14 @@ DOCTOR = Sign(
         min_cycles=3,
         min_duration_s=0.5,
         required=True,
+        # Real user report (2026-07-15): "doctor passes even on clapping." Tried gating on the
+        # nondominant hand staying still (other_hand_max_motion_ratio, since clapping moves both
+        # hands while a wrist-tap should only move the dominant one) — REVERTED after the real
+        # doctor_correct.json fixture measured the "stationary" wrist hand's own path length at
+        # 0.90 shoulder-widths over the 2s window, far above any reasonable stillness floor. A
+        # held-out arm apparently drifts/resettles enough on its own that path length alone can't
+        # tell it apart from an actively clapping hand. Needs a real recorded clap confusor to
+        # find a working signal, not a guessed threshold — same rule-based-v1 ceiling as the
+        # movement-cycle investigation below; the classifier gate is the actual backstop.
     ),
 )

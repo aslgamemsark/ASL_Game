@@ -111,3 +111,64 @@ an oversight, so it wasn't included in the blanket bump.
 *specific* fixtures that exist today. It's not the same strength of evidence as an actual confusor
 recording for each of these 6 signs — real testing is still worth doing when there's time, same as
 HELLO/PLEASE/THANK_YOU/YES got.
+
+## 2026-07-15 — Seven-sign `/calibrate` session (LETTER_E, MORE, DOCTOR, FEVER, HELP, HOSPITAL, EMERGENCY)
+
+User ran the newly-landed `/calibrate` browser harness (`web/src/pages/CalibrationPage.tsx`) plus
+plain-English notes, downloaded to `D:\Sign-Calibrations`. Findings and outcomes below; the CSVs
+themselves can be deleted now that this entry is the durable record.
+
+**LETTER_E — fixed.** Note: "a simple fist shouldn't be accepted" / "letter F also being accepted
+on a simple fist." `e_confidence`'s old check (high curl + thumb not extended) can't tell E from a
+plain fist/S — both curl fully with the thumb tucked in; the confusor CSV showed a fist scoring
+E's handshape at a perfect 1.0. Real fixture measurement found the actual separator: distance from
+thumb tip to the curled index/middle fingertip midpoint. LETTER_S measures ~0.155 hand-scale units
+there, LETTER_E measures ~0.44 (real correct take, range 0.41-0.47), LETTER_M/LETTER_A measure
+~0.60/~0.82 — E sits in a distinct middle band. Fixed in `core/handshape.py` +
+`web/src/engine/handshape.ts`; the synthesis preset (`core/handshape_presets.py`) needed its own
+`_THUMB_TIP_E_UNDER` too (it had been reusing the generic tucked position, which is geometrically
+identical to S). All 443 Python + 495 TS tests pass.
+
+**FEVER, HOSPITAL — fixed (same root cause).** Notes: "fever passes just when i bring my hand
+closer to my forehead" / HOSPITAL "passes just by seeig my 2 fingers." Both have a LINEAR movement
+with `direction=None` at a location the hand must travel TO (forehead / shoulder) — the REACH
+itself is linear displacement, satisfying a magnitude-only check before the real motion (the sweep
+/ the cross-stroke) ever happens. New `MovementReq.gate_to_location` restricts displacement
+scoring to frames where the hand is already at the location, excluding the approach phase. Added
+in `core/verifier.py` + `web/src/engine/verifier.ts`, applied to both signs. This is a different
+bug class from HOSPITAL's already-documented rapid/random-movement ceiling below — it removes a
+systematic false-credit source, not a magnitude-based confusor separator.
+
+**EMERGENCY — fixed.** No user note, but the CSV showed `no_extra_hand` (TS-only param — a
+Python/TS parity gap, now closed) scoring a genuine correct performance ~0.0 median: the original
+presence-only check (any frame with a second detected hand counts against the sign) doesn't suit a
+vigorous single-arm shake, which naturally causes some counterbalance motion in the idle arm.
+Redesigned as motion-based (the OTHER hand's own path length, not mere presence) in both engines,
+plus a new per-sign `Sign.extra_hand_motion_floor` override (EMERGENCY: 0.55, looser than the
+0.30 default) since a resting-but-visible hand is normal webcam framing, not a real confusor.
+`no_extra_hand` is now also implemented in `core/verifier.py` for the first time (previously
+TS-only — signs like PLEASE/THANK_YOU had this protection in the web app but not in the Python
+engine at all).
+
+**DOCTOR — attempted, reverted.** Note: "doctor passes even on clapping." Hypothesis: a wrist-tap
+only moves the dominant hand while the nondominant "wrist" stays still, so gating REPEATED
+movement on the nondominant hand's own path length should reject clapping (which moves both).
+Added `MovementReq.other_hand_max_motion_ratio=0.20` — but the real `doctor_correct.json` fixture
+measured the nondominant hand's own path length at **0.90 shoulder-widths** over the 2s window, not
+near-zero as assumed. A held-out arm apparently drifts/resettles enough on its own that raw path
+length can't separate it from an actively clapping hand. Reverted in both engines rather than ship
+a threshold that breaks real signing. Needs an actual recorded clap confusor to find a working
+signal — flagging for a future `/calibrate` session, not closing it out as fixed.
+
+**MORE, HELP — not touched, confirmed same pre-existing ceiling.** Notes: MORE "moving the hands
+in the wrong direction also passes"; HELP "[should not] be accepted on random movement just by
+seeing my thumbs up." Both are the SAME rule-based-v1 ceiling already investigated and documented
+2026-07-14 (see MORE's and HELP's own comments in `signs/index.ts`/`signs/*.py`): magnitude/gap-
+based movement checks structurally cannot separate a deliberate sign from vigorous undirected
+motion — a real recorded rapid/random confusor's displacement measured AS LARGE OR LARGER than the
+genuine sign's own motion for both. No new threshold or signal proposed here beats that already-
+documented investigation. The ML classifier veto (`web/src/config/classifier.ts`, knownSigns
+includes both) is the intended backstop — but **it only loads under `vite build` + `vite preview`,
+not `npm run dev`** (see that file's `isClassifierDebugEnabled` comment), so this `/calibrate`
+session and any `npm run dev` practice-mode testing never exercised it. Worth re-testing these two
+specifically via a production preview build before assuming the backstop actually catches them.

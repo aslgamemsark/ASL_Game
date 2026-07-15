@@ -297,6 +297,48 @@ function scoreLocation(
   return vals.length > 0 ? median(vals) : 0;
 }
 
+// Lightweight per-frame "is the acting hand already at the sign's required location" score, for
+// the FOREHEAD/SHOULDER anchors — used only to gate LINEAR movement scoring to the post-arrival
+// portion of the trajectory (see MovementReq.gateToLocation). Deliberately duplicates a slice of
+// scoreLocation's per-anchor math rather than refactoring it, so this stays additive and can't
+// regress the existing (already-tuned) aggregate location scorer. Mirrors core/verifier.py.
+function frameAtLocation(f: Frame, sign: Sign, actingLabel: string, shoulderWidth: number): number {
+  const loc = sign.location;
+  const h = frameHand(f, actingLabel);
+  if (!h) return 0;
+  const c = handCenter(h);
+  if (loc.anchor === Anchor.FOREHEAD) {
+    if (!f.mouth) return 0;
+    const dx = Math.abs(c[0] - f.mouth[0]) / shoulderWidth;
+    const dy = (c[1] - f.mouth[1]) / shoulderWidth;
+    const v = 1 - Math.max(0, dy - FOREHEAD_DY_MAX) / FOREHEAD_DY_FALL;
+    const hscore = 1 - Math.max(0, dx - loc.maxDistRatio) / 0.4;
+    return clip(Math.min(v, hscore), 0, 1);
+  }
+  if (loc.anchor === Anchor.SHOULDER) {
+    if (!f.leftShoulder || !f.rightShoulder) return 0;
+    const dL = normalizedDistance(c, f.leftShoulder, shoulderWidth);
+    const dR = normalizedDistance(c, f.rightShoulder, shoulderWidth);
+    const d = Math.min(dL, dR);
+    return clip(1 - Math.max(0, d - loc.maxDistRatio) / SHOULDER_FALL, 0, 1);
+  }
+  return 1; // anchors without a gating implementation: no filtering
+}
+
+// The actor's trajectory restricted to frames where it already satisfies the sign's location —
+// excludes the reach/approach phase from LINEAR movement scoring. Without this, a sign whose
+// real motion happens AT a location (FEVER's brow sweep, HOSPITAL's shoulder cross) trivially
+// satisfies a magnitude-only LINEAR check just by the hand traveling there.
+function gatedTrajectory(buffer: RollingBuffer, sign: Sign, actorLabel: string, shoulderWidth: number): Traj {
+  const out: Traj = [];
+  for (const f of buffer) {
+    const h = frameHand(f, actorLabel);
+    if (!h) continue;
+    if (frameAtLocation(f, sign, actorLabel, shoulderWidth) >= 0.5) out.push([f.t, handCenter(h)]);
+  }
+  return out;
+}
+
 function scoreMovement(
   buffer: RollingBuffer,
   sign: Sign,
@@ -306,7 +348,7 @@ function scoreMovement(
   const req = sign.movement;
   if (req.kind === MovementKind.NONE) return 1;
   const actorLabel = roles[req.actor];
-  const actorTraj = trajectory(buffer, actorLabel ?? null);
+  let actorTraj = trajectory(buffer, actorLabel ?? null);
   if (!shoulderWidth || actorTraj.length === 0) return 0;
 
   if (req.kind === MovementKind.CONVERGE) {
@@ -315,7 +357,22 @@ function scoreMovement(
     const [trajA, trajB] = alignedPairPoints(buffer, actorLabel!, ndomLabel);
     return mv.convergeConfidence(trajA, trajB, shoulderWidth, req);
   }
-  return mv.movementConfidence(actorTraj, shoulderWidth, req);
+
+  if (req.kind === MovementKind.LINEAR && req.gateToLocation) {
+    actorTraj = gatedTrajectory(buffer, sign, actorLabel!, shoulderWidth);
+    if (actorTraj.length === 0) return 0;
+  }
+
+  let score = mv.movementConfidence(actorTraj, shoulderWidth, req);
+
+  if (req.otherHandMaxMotionRatio != null) {
+    const otherLabel = roles[NONDOMINANT];
+    const otherRatio = pathLength(trajectory(buffer, otherLabel ?? null)) / shoulderWidth;
+    const stillness = clip(1 - otherRatio / req.otherHandMaxMotionRatio, 0, 1);
+    score = Math.min(score, stillness);
+  }
+
+  return score;
 }
 
 function scoreOrientation(
@@ -346,17 +403,40 @@ function scoreOrientation(
 // PLEASE or THANK_YOU passed even with the other hand held up in frame doing nothing, because
 // every other scorer here only checks the hand(s) a sign's definition actually references and
 // silently ignores whatever else MediaPipe detects (production bug report, 2026-07-14).
+//
+// A hand merely VISIBLE at rest (normal webcam framing — most signers don't hide their idle hand
+// off-screen) shouldn't fail a sign; a hand that's independently GESTURING is the actual
+// confusor. A real user test on EMERGENCY (a vigorous single-arm shake, which naturally causes
+// some counterbalance motion in the idle arm) found the original presence-only version scored
+// 0 on nearly every frame of a genuine correct performance — a false-fail, not the false-pass it
+// was designed to catch. Path length of the OTHER hand's own trajectory, not mere presence, is
+// what actually distinguishes "visible but idle" from "actively signing something else."
 const EXTRA_HAND_TOLERANCE = 0.8;
+const EXTRA_HAND_MOTION_FLOOR = 0.30; // shoulder-widths of path length = "actively gesturing"
 
-function scoreNoExtraHand(buffer: RollingBuffer, roles: Record<string, string>): number {
+function scoreNoExtraHand(
+  buffer: RollingBuffer,
+  sign: Sign,
+  roles: Record<string, string>,
+  shoulderWidth: number | null
+): number {
   const domLabel = roles[DOMINANT] ?? null;
   const frames = recent(buffer, SMOOTH_SECONDS);
-  if (!domLabel || frames.length === 0) return 1; // nothing to judge yet — don't false-fail
-  let extraCount = 0;
+  if (!domLabel || frames.length === 0 || !shoulderWidth) return 1; // nothing to judge yet
+  const otherLabels = new Set<string>();
   for (const f of frames) {
-    if (f.hands.some((h) => h.handedness !== domLabel)) extraCount++;
+    for (const h of f.hands) {
+      if (h.handedness !== domLabel) otherLabels.add(h.handedness);
+    }
   }
-  return clip(1 - extraCount / frames.length, 0, 1);
+  if (otherLabels.size === 0) return 1;
+  const floor = sign.extraHandMotionFloor ?? EXTRA_HAND_MOTION_FLOOR;
+  let maxMotion = 0;
+  for (const label of otherLabels) {
+    maxMotion = Math.max(maxMotion, pathLength(trajectory(buffer, label)));
+  }
+  const motionRatio = maxMotion / shoulderWidth;
+  return clip(1 - motionRatio / floor, 0, 1);
 }
 
 function scoreNmm(buffer: RollingBuffer, sign: Sign): number {
@@ -396,7 +476,7 @@ export function verify(buffer: RollingBuffer, sign: Sign): VerifyResult {
   } else {
     params.push({
       name: 'no_extra_hand',
-      score: scoreNoExtraHand(buffer, roles),
+      score: scoreNoExtraHand(buffer, sign, roles, sw),
       threshold: EXTRA_HAND_TOLERANCE,
       required: true,
     });

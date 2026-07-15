@@ -378,17 +378,27 @@ function cConfidence(hand: Hand): number {
   return Math.min(curlScore, gapScore);
 }
 
-// Letter E: all four fingers bent at the middle knuckle toward the palm, thumb tucked under.
-// High uniform curl + thumb not extended to side. Distinct from S (S has thumb across knuckles;
-// E bends all fingers uniformly, thumb stays under not to the side).
+// All four fingers curled uniformly AND the thumb tip sits in E's characteristic band relative
+// to the curled fingertips. "Thumb not extended to the side" alone can't tell E apart from a
+// plain closed fist/S — both curl fully with the thumb tucked in; a real user test found a
+// simple fist scored E at a perfect 1.0. Distance from the thumb tip to the curled index/middle
+// fingertips does separate them, but not in the direction first assumed: real recorded fixtures
+// show LETTER_S (a genuine fist) measures ~0.155 hand-scale units here, LETTER_E measures ~0.44
+// (median across a real correct take, range 0.41-0.47), and LETTER_M/LETTER_A measure ~0.60/
+// ~0.82 — E sits in a distinct middle band. Mirrors core/handshape.py::e_confidence.
 function eConfidence(hand: Hand): number {
   const curls = allCurls(hand);
   const m = mean(curls);
   const curlScore = clip((m - 0.45) / 0.25, 0, 1);
-  const thumbIn = 1.0 - thumbExtended(hand);
   const spread = std(curls);
   const uniformity = clip(1.0 - Math.max(0, spread - 0.15) / 0.35, 0, 1);
-  return Math.min(curlScore, thumbIn) * uniformity;
+  const tipMid: [number, number] = [
+    (xy(hand, INDEX_TIP)[0] + xy(hand, MIDDLE_TIP)[0]) / 2,
+    (xy(hand, INDEX_TIP)[1] + xy(hand, MIDDLE_TIP)[1]) / 2,
+  ];
+  const d = dist2d(xy(hand, THUMB_TIP), tipMid) / handScale(hand);
+  const thumbBand = clip(1.0 - Math.abs(d - 0.44) / 0.15, 0, 1);
+  return Math.min(curlScore, thumbBand) * uniformity;
 }
 
 // Letter M: closed fist with thumb tucked under index, middle, AND ring fingers (one more than N).

@@ -18,8 +18,8 @@ import type { VerifyResult } from '@/engine/verifier';
 import type { SpeedTier } from '@/types/user';
 
 const TIER_CONFIG = {
-  warmup: { label: 'Warm Up', icon: '🌡️', timePerSign: 6,   xpMult: 1, signsMult: 1, bg: 'linear-gradient(135deg,#0F766E,#14B8A6)', glow: 'rgba(20,184,166,0.45)' },
-  sprint: { label: 'Sprint',  icon: '🏃',  timePerSign: 3,   xpMult: 2, signsMult: 2, bg: 'linear-gradient(135deg,#1E40AF,#3B82F6)', glow: 'rgba(59,130,246,0.45)' },
+  warmup: { label: 'Warm Up', icon: '🌡️', timePerSign: 15,  xpMult: 1, signsMult: 1, bg: 'linear-gradient(135deg,#0F766E,#14B8A6)', glow: 'rgba(20,184,166,0.45)' },
+  sprint: { label: 'Sprint',  icon: '🏃',  timePerSign: 10,  xpMult: 2, signsMult: 2, bg: 'linear-gradient(135deg,#1E40AF,#3B82F6)', glow: 'rgba(59,130,246,0.45)' },
   blitz:  { label: 'Blitz',   icon: '⚡',  timePerSign: 5,   xpMult: 3, signsMult: 3, bg: 'linear-gradient(135deg,#5B21B6,#A855F7)', glow: 'rgba(168,85,247,0.55)' },
 } as const;
 
@@ -213,10 +213,10 @@ export function SpeedChallengePage({ onExit }: Props) {
 
   const startGame = async (selectedTier: SpeedTier) => {
     setTier(selectedTier);
-    // Blitz's 1.5s-per-sign budget is below core/schema's own movement-verification requirement
-    // (a rolling window of ~1.5-2s to confirm circular/linear/repeated motion, per CLAUDE.md) —
-    // a movement sign drawn into Blitz is effectively unwinnable before the window can even
-    // close. Warm Up (6s) and Sprint (3s) clear that window comfortably, so only Blitz filters.
+    // Blitz's 5s-per-sign budget is tight against core/schema's own movement-verification
+    // requirement (a rolling window of ~1.5-2s to confirm circular/linear/repeated motion, per
+    // CLAUDE.md) — a movement sign drawn into Blitz leaves little margin once reaction time is
+    // subtracted. Warm Up (15s) and Sprint (10s) clear that window comfortably, so only Blitz filters.
     const allIds = Object.keys(SIGNS);
     const eligibleIds =
       selectedTier === 'blitz'

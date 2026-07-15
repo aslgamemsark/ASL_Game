@@ -28,6 +28,11 @@ from core.schema import (
 EMERGENCY = Sign(
     name="EMERGENCY",
     two_handed=False,
+    # A vigorous single-arm shake naturally causes more counterbalance motion in the idle arm
+    # than a calm one-handed sign — real calibration data (2026-07-15) showed the default
+    # no_extra_hand floor scoring a genuine correct performance ~0.0 (a false-fail). Loosened
+    # specifically for EMERGENCY rather than relaxing the shared default.
+    extra_hand_motion_floor=0.55,
     dominant=HandShapeReq(kind="claw", required=True, min_confidence=0.50),
     nondominant=None,
     location=LocationReq(

@@ -427,14 +427,27 @@ def c_confidence(hand: Hand) -> float:
 
 def e_confidence(hand: Hand) -> float:
     """Letter E: all four fingers bent at the middle knuckle, tips pointing toward the palm,
-    thumb tucked underneath. High uniform curl, thumb not extended to side."""
+    thumb tucked underneath so the thumb TIP rests against the curled fingertips.
+
+    "Thumb not extended to the side" alone (the old check) can't tell E apart from a plain closed
+    fist/S: both curl the fingers fully and keep the thumb in, so a real user test found a simple
+    fist scored E's handshape at a perfect 1.0. The two shapes differ in WHERE the thumb ends up —
+    Distance from the thumb tip to the curled index/middle fingertips is the signal that
+    separates them, but NOT in the direction first assumed: real recorded fixtures show LETTER_S
+    (a genuine fist, thumb wrapped low across the front) measures ~0.155 hand-scale units at this
+    metric, LETTER_E measures ~0.44 (median across a real correct take, range 0.41-0.47), and
+    LETTER_M/LETTER_A (thumb tucked deeper / extended to the side) measure ~0.60/~0.82 — E sits in
+    a distinct middle band, not closest to the fingertips as first guessed.
+    """
     curls = _all_curls(hand)
     m = float(np.mean(curls))
     curl_score = float(np.clip((m - 0.45) / 0.25, 0.0, 1.0))
-    thumb_in = 1.0 - _thumb_extended(hand)
     spread = float(np.std(curls))
     uniformity = float(np.clip(1.0 - max(0.0, spread - 0.15) / 0.35, 0.0, 1.0))
-    return float(min(curl_score, thumb_in) * uniformity)
+    tip_mid = (_xy(hand, INDEX_TIP) + _xy(hand, MIDDLE_TIP)) / 2.0
+    d = float(np.linalg.norm(_xy(hand, THUMB_TIP) - tip_mid)) / _hand_scale(hand)
+    thumb_band = float(np.clip(1.0 - abs(d - 0.44) / 0.15, 0.0, 1.0))
+    return float(min(curl_score, thumb_band) * uniformity)
 
 
 def m_confidence(hand: Hand) -> float:
