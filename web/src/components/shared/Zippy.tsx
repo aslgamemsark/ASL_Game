@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ZIPPY_SRC, type ZippyExpression } from '@/data/zippy';
 
+// Idle "breathing" keyframes: mostly a near-imperceptible scale drift, with one slightly bigger
+// pulse near the end of the cycle (Zippy "noticing something") so the loop doesn't feel like a
+// metronome. Kept tiny on purpose — this plays on every Zippy everywhere, so it must recede into
+// the background rather than draw the eye.
+const IDLE_SCALE = [1, 1.008, 1, 1.006, 1, 1.022, 1.006, 1];
+const IDLE_TIMES = [0, 0.16, 0.32, 0.48, 0.64, 0.82, 0.92, 1];
+
 const SIZE_PX: Record<'xs' | 'sm' | 'md' | 'lg', number> = { xs: 56, sm: 72, md: 128, lg: 200 };
 
 interface Props {
@@ -34,6 +41,10 @@ interface Props {
 export function Zippy({ expression, size = 'md', className = '', alt, float = false, priority = false, fit = 'contain' }: Props) {
   const reduce = useReducedMotion();
   const [failed, setFailed] = useState(false);
+  // Randomize the idle loop's duration once per mount (not per render) so multiple Zippys visible
+  // at once (e.g. two Story Mode NPC avatars side by side) drift out of phase with each other
+  // instead of breathing in perfect, robotic lockstep.
+  const [idleDuration] = useState(() => 8 + Math.random() * 3);
   const px = SIZE_PX[size];
   const decorative = !alt;
 
@@ -63,16 +74,26 @@ export function Zippy({ expression, size = 'md', className = '', alt, float = fa
           ? { opacity: 1 }
           : float
             ? { opacity: 1, scale: 1, y: [0, -6, 0] }
-            : { opacity: 1, scale: 1 }
+            : { opacity: 1, scale: IDLE_SCALE }
       }
       transition={
-        float && !reduce
-          ? {
-              opacity: { duration: 0.4 },
-              scale: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] },
-              y: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
-            }
-          : { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }
+        reduce
+          ? { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }
+          : float
+            ? {
+                opacity: { duration: 0.4 },
+                scale: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] },
+                y: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
+              }
+            : {
+                opacity: { duration: 0.4 },
+                scale: {
+                  duration: idleDuration,
+                  repeat: Infinity,
+                  ease: [0.25, 0.46, 0.45, 0.94],
+                  times: IDLE_TIMES,
+                },
+              }
       }
     />
   );

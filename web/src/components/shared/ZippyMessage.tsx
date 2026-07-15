@@ -53,6 +53,9 @@ export function ZippyMessage({
         className="rounded-2xl bg-z-purple overflow-hidden shrink-0"
         style={{ width: avatarPx, height: avatarPx }}
       >
+        {/* No `float` here — the row avatar is a small cropped face (44-88px), and the 6px hero
+            bob would read as jittery at that scale. It still gets Zippy's default subtle idle
+            breathing (see Zippy.tsx), just not the pronounced hero-moment bob. */}
         <Zippy expression={expression} fit="cover" />
       </div>
       <motion.div

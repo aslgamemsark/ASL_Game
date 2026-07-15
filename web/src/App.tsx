@@ -26,6 +26,7 @@ const AdminPanel = lazy(() => import('@/pages/AdminPanel').then((m) => ({ defaul
 const AvatarLabPage = lazy(() => import('@/avatar/viewer/AvatarLabPage').then((m) => ({ default: m.AvatarLabPage })));
 const CalibrationPage = lazy(() => import('@/pages/CalibrationPage').then((m) => ({ default: m.CalibrationPage })));
 import { SideNav, type SideNavScreen } from '@/components/shared/SideNav';
+import { ScreenTransition } from '@/components/shared/ScreenTransition';
 import { STORIES } from '@/data/stories';
 import { SIGNS } from '@/data/signs';
 import { useProgressSync } from '@/hooks/useProgressSync';
@@ -250,99 +251,115 @@ export default function App() {
         <Suspense fallback={<ScreenFallback />}>
         <AnimatePresence mode="wait">
           {screen.type === 'onboarding' && (
-            <OnboardingFlow key="onboarding" onComplete={goHome} />
+            <ScreenTransition key="onboarding">
+              <OnboardingFlow onComplete={goHome} />
+            </ScreenTransition>
           )}
 
           {screen.type === 'home' && (
-            <HomePage
-              key="home"
-              onStartLesson={(id) => setScreen({ type: 'lesson', lessonId: id })}
-              onStartPractice={(opts) => setScreen({ type: 'practice', ...opts })}
-              onStartStory={(id) => setScreen({ type: 'story', storyId: id })}
-              onStartSpeed={() => setScreen({ type: 'speed' })}
-              onOpenShop={() => setScreen({ type: 'shop' })}
-              onOpenMultiplayer={() => setScreen({ type: 'multiplayer' })}
-              onRequireSignIn={() => setShowAuth(true)}
-              onSettings={() => setScreen({ type: 'settings' })}
-              tab={homeTab}
-              onTabChange={setHomeTab}
-            />
+            <ScreenTransition key="home">
+              <HomePage
+                onStartLesson={(id) => setScreen({ type: 'lesson', lessonId: id })}
+                onStartPractice={(opts) => setScreen({ type: 'practice', ...opts })}
+                onStartStory={(id) => setScreen({ type: 'story', storyId: id })}
+                onStartSpeed={() => setScreen({ type: 'speed' })}
+                onOpenShop={() => setScreen({ type: 'shop' })}
+                onOpenMultiplayer={() => setScreen({ type: 'multiplayer' })}
+                onRequireSignIn={() => setShowAuth(true)}
+                onSettings={() => setScreen({ type: 'settings' })}
+                tab={homeTab}
+                onTabChange={setHomeTab}
+              />
+            </ScreenTransition>
           )}
 
           {screen.type === 'lesson' && (
-            <LessonPage
-              key={`lesson-${screen.lessonId}`}
-              lessonId={screen.lessonId}
-              onExit={goHome}
-            />
+            <ScreenTransition key={`lesson-${screen.lessonId}`}>
+              <LessonPage lessonId={screen.lessonId} onExit={goHome} />
+            </ScreenTransition>
           )}
 
           {screen.type === 'practice' && (
-            <PracticePage
-              key="practice"
-              onExit={goHome}
-              filterSignIds={screen.filterSignIds}
-              autoStartExpressive={screen.autoStart}
-              autoStartMixed={screen.mixedQuiz}
-              bonusGoldOnPerfect={screen.bonusGoldOnPerfect}
-              heading={screen.heading}
-              hideReferenceClip={screen.hideReferenceClip}
-            />
+            <ScreenTransition key="practice">
+              <PracticePage
+                onExit={goHome}
+                filterSignIds={screen.filterSignIds}
+                autoStartExpressive={screen.autoStart}
+                autoStartMixed={screen.mixedQuiz}
+                bonusGoldOnPerfect={screen.bonusGoldOnPerfect}
+                heading={screen.heading}
+                hideReferenceClip={screen.hideReferenceClip}
+              />
+            </ScreenTransition>
           )}
 
           {screen.type === 'story' && (() => {
             const story = STORIES.find((s) => s.id === screen.storyId);
             if (!story) return null;
-            return <StoryPage key={`story-${screen.storyId}`} story={story} onExit={goHome} />;
+            return (
+              <ScreenTransition key={`story-${screen.storyId}`}>
+                <StoryPage story={story} onExit={goHome} />
+              </ScreenTransition>
+            );
           })()}
 
           {screen.type === 'speed' && (
-            <SpeedChallengePage key="speed" onExit={goHome} />
+            <ScreenTransition key="speed">
+              <SpeedChallengePage onExit={goHome} />
+            </ScreenTransition>
           )}
 
           {screen.type === 'shop' && (
-            <ShopPage key="shop" onExit={goHome} />
+            <ScreenTransition key="shop">
+              <ShopPage onExit={goHome} />
+            </ScreenTransition>
           )}
 
           {screen.type === 'friends' && (
-            <FriendsPage
-              key="friends"
-              onExit={goHome}
-              onChallengeFriend={handleChallengeFriend}
-              onStartMultiplayer={() => setScreen({ type: 'multiplayer', mode: 'duel' })}
-              onViewProfile={(id) => setScreen({ type: 'user-profile', userId: id })}
-            />
+            <ScreenTransition key="friends">
+              <FriendsPage
+                onExit={goHome}
+                onChallengeFriend={handleChallengeFriend}
+                onStartMultiplayer={() => setScreen({ type: 'multiplayer', mode: 'duel' })}
+                onViewProfile={(id) => setScreen({ type: 'user-profile', userId: id })}
+              />
+            </ScreenTransition>
           )}
 
           {screen.type === 'multiplayer' && (
-            <MultiplayerHubPage
-              key="multiplayer"
-              onExit={goHome}
-              mode={screen.mode}
-              autoHostRoomId={screen.autoHostRoomId}
-              autoJoinCode={screen.autoJoinCode}
-            />
+            <ScreenTransition key="multiplayer">
+              <MultiplayerHubPage
+                onExit={goHome}
+                mode={screen.mode}
+                autoHostRoomId={screen.autoHostRoomId}
+                autoJoinCode={screen.autoJoinCode}
+              />
+            </ScreenTransition>
           )}
 
           {screen.type === 'settings' && (
-            <SettingsPage
-              key="settings"
-              onExit={goHome}
-              onOpenAdmin={isAdmin ? () => setScreen({ type: 'admin' }) : undefined}
-              onOpenPrivacy={() => setScreen({ type: 'privacy' })}
-            />
+            <ScreenTransition key="settings">
+              <SettingsPage
+                onExit={goHome}
+                onOpenAdmin={isAdmin ? () => setScreen({ type: 'admin' }) : undefined}
+                onOpenPrivacy={() => setScreen({ type: 'privacy' })}
+              />
+            </ScreenTransition>
           )}
 
           {screen.type === 'privacy' && (
-            <PrivacyPage key="privacy" onExit={() => setScreen({ type: 'settings' })} />
+            <ScreenTransition key="privacy">
+              <PrivacyPage onExit={() => setScreen({ type: 'settings' })} />
+            </ScreenTransition>
           )}
 
           {screen.type === 'leaderboard' && (
-            <LeaderboardPage
-              key="leaderboard"
-              onExit={goHome}
-              onViewProfile={(id) => setScreen({ type: 'user-profile', userId: id })}
-            />
+            <ScreenTransition key="leaderboard">
+              <LeaderboardPage
+                onExit={goHome}
+                onViewProfile={(id) => setScreen({ type: 'user-profile', userId: id })}
+              />
+            </ScreenTransition>
           )}
 
           {screen.type === 'user-profile' && (
@@ -350,7 +367,9 @@ export default function App() {
             // "exit always goes home" convention rather than tracking an origin screen, since
             // that pattern isn't established anywhere else (the one exception, Privacy -> Settings,
             // is a single fixed parent, not a multi-origin case like this one).
-            <UserProfilePage key="user-profile" userId={screen.userId} onExit={goHome} />
+            <ScreenTransition key="user-profile">
+              <UserProfilePage userId={screen.userId} onExit={goHome} />
+            </ScreenTransition>
           )}
 
           {/* Reachable only via the Settings entry point, which itself only renders for admins —
@@ -358,7 +377,9 @@ export default function App() {
               re-checking is_admin server-side: a hidden UI path is not the real security boundary,
               but there's no reason to render the page shell for a non-admin who somehow gets here. */}
           {screen.type === 'admin' && isAdmin && (
-            <AdminPanel key="admin" onExit={goHome} />
+            <ScreenTransition key="admin">
+              <AdminPanel onExit={goHome} />
+            </ScreenTransition>
           )}
         </AnimatePresence>
         </Suspense>
