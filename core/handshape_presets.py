@@ -80,11 +80,11 @@ _THUMB_TIP_C = np.array([-0.55, -0.85])
 # (core.handshape's m_confidence wants thumb-tip-to-3-knuckle-midpoint distance ~0.42 units).
 _THUMB_TIP_M_UNDER = np.array([-0.10, -0.55])
 # E-specific: reusing the generic TUCKED position made E geometrically identical to a plain
-# fist/S (both land ~0.155 hand-scale units from the curled index/middle fingertip midpoint) — a
-# real user test found a fist scored E's predicate at a perfect 1.0. core.handshape's
-# e_confidence wants thumb-tip-to-fingertip-midpoint distance ~0.44 units (measured from a real
-# recorded correct take), well below the curled fingertips rather than crossing near them.
-_THUMB_TIP_E_UNDER = np.array([-0.17, -0.28])
+# fist/S — a real user test found a fist scored E's predicate at a perfect 1.0. core.handshape's
+# e_confidence wants thumb-tip-to-fingertip-midpoint distance ~0.355 units — recalibrated
+# 2026-07-15 against a dedicated correct-vs-fist confusor recording after an initial 0.44 target
+# (from an older, differently-posed recording) still accepted a real fist live.
+_THUMB_TIP_E_UNDER = np.array([-0.17, -0.37])
 
 # (index, middle, ring, pinky) extension, thumb_extended. Aliases share one spec so a sign asking for
 # "s" and one asking for "fist" animate identically — the same reuse the recognition dispatch relies on.

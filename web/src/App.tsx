@@ -32,6 +32,7 @@ import { useProgressSync } from '@/hooks/useProgressSync';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
+import { generateRoomCode } from '@/lib/multiplayerRooms';
 import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
@@ -127,7 +128,16 @@ export default function App() {
   // Called from FriendsPage: create a room, notify the friend, navigate to multiplayer as host
   const handleChallengeFriend = useCallback(async (friendId: string, friendUsername: string) => {
     if (!user || !supabaseReady) return;
-    const roomId = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const roomId = generateRoomCode();
+    // Register the room BEFORE notifying the friend — otherwise their client could receive the
+    // challenge broadcast and try to join_multiplayer_room() before this row exists, since that's
+    // a separate round trip than DuelPage's own createRoom() (which also upserts this same row;
+    // ignoreDuplicates makes running both harmless). Challenge rooms are always private — the
+    // friend joins via the direct notification, never via search.
+    await supabase.from('multiplayer_rooms').upsert(
+      { code: roomId, mode: 'duel', visibility: 'private', host_id: user.id, max_participants: 2 },
+      { onConflict: 'code', ignoreDuplicates: true }
+    );
     // Broadcast challenge to friend's personal channel
     const ch = supabase.channel(`challenge_${friendId}`);
     ch.subscribe((status) => {
@@ -321,6 +331,7 @@ export default function App() {
               mode={screen.mode}
               autoHostRoomId={screen.autoHostRoomId}
               autoJoinCode={screen.autoJoinCode}
+              onRequireSignIn={() => setShowAuth(true)}
             />
           )}
 

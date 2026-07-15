@@ -6,6 +6,8 @@ import { useConfetti } from '@/hooks/useConfetti';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMultiplayerSignaling } from '@/hooks/useMultiplayerSignaling';
+import { supabase } from '@/lib/supabase';
+import { generateRoomCode, joinErrorMessage } from '@/lib/multiplayerRooms';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
@@ -18,6 +20,7 @@ import { RoundProgressDots } from '@/components/multiplayer/RoundProgressDots';
 import { RoundResultCard } from '@/components/multiplayer/RoundResultCard';
 
 type Phase = 'lobby' | 'waitingRoom' | 'signing' | 'guessing' | 'roundResult' | 'finalResults';
+type Visibility = 'public' | 'private';
 
 interface RosterMember {
   peerId: string;
@@ -39,9 +42,13 @@ interface Props {
 const ALL_SIGNS = Object.keys(SIGNS);
 const MAX_PLAYERS = 4;
 const ROUNDS_PER_PLAYER = 2;
-const TURN_SECONDS = 10;
+const TURN_SECONDS = 15;
 const ROUND_TIMEOUT_MS = TURN_SECONDS * 1000;
 const RESULT_HOLD_MS = 1500;
+// Safety net: if not every guesser confirms they can see the signer's video within this long
+// (dropped message, a camera that never loads), start the round timer anyway rather than
+// stalling the whole room on one stuck connection.
+const TURN_ARM_FALLBACK_MS = 5000;
 
 function pickSigns(n: number): string[] {
   const shuffled = [...ALL_SIGNS].sort(() => Math.random() - 0.5);
@@ -58,9 +65,13 @@ export function RoomPage({ onExit }: Props) {
 
   const [phase, setPhase] = useState<Phase>('lobby');
   const [joinCode, setJoinCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [visibility, setVisibility] = useState<Visibility>('private');
+  const [searching, setSearching] = useState(false);
   const [roomId, setRoomId] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
   const [roster, setRoster] = useState<RosterMember[]>([]);
+  const [disconnectedPeerIds, setDisconnectedPeerIds] = useState<string[]>([]);
   const [round, setRound] = useState(0);
   const [totalRounds, setTotalRounds] = useState(0);
   const [signerPeerId, setSignerPeerId] = useState<string | null>(null);
@@ -71,7 +82,12 @@ export function RoomPage({ onExit }: Props) {
   const [resultData, setResultData] = useState<ResultData | null>(null);
 
   const [timeLeft, setTimeLeft] = useState(TURN_SECONDS);
+  const [turnArmed, setTurnArmed] = useState(false);
   const turnStartedAtRef = useRef<number>(0);
+  const turnArmedThisRoundRef = useRef(false);
+  const videoReadySentRef = useRef(false);
+  const roundReadyRef = useRef<Set<string>>(new Set());
+  const turnArmFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const turnIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const rosterRef = useRef<RosterMember[]>([]);
   const turnOrderRef = useRef<string[]>([]);
@@ -87,9 +103,13 @@ export function RoomPage({ onExit }: Props) {
   const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const signingConnectionsRef = useRef<string[]>([]);
   const loopRef = useRef<string | null>(null);
+  const disconnectedPeerIdsRef = useRef<string[]>([]);
+  const wasPresentRef = useRef<Set<string>>(new Set());
+  const armTurnTimerRef = useRef<(startedAt?: number) => void>(() => {});
 
   useEffect(() => { rosterRef.current = roster; }, [roster]);
   useEffect(() => { scoresRef.current = scores; }, [scores]);
+  useEffect(() => { disconnectedPeerIdsRef.current = disconnectedPeerIds; }, [disconnectedPeerIds]);
 
   useEffect(() => {
     recognition.init();
@@ -106,14 +126,19 @@ export function RoomPage({ onExit }: Props) {
   }, [user?.id]);
 
   // Begins a round locally — called directly by the host (whose own broadcasts never loop back
-  // to itself) and via the 'round-start' message handler for everyone else.
-  const beginRound = useCallback((roundNum: number, signer: string, signId: string, startedAt?: number) => {
+  // to itself) and via the 'round-start' message handler for everyone else. Does NOT start the
+  // turn clock itself — that's armed separately (see armTurnTimer below) once enough guessers
+  // have confirmed they can actually SEE the signer's video, not merely that a round exists.
+  const beginRound = useCallback((roundNum: number, signer: string, signId: string) => {
     if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
+    if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
     guessesThisRoundRef.current = {};
-    // Synced turn clock: everyone counts down from the same host-stamped startedAt (broadcast in
-    // round-start), so the 10s bar reads the same on every screen. Host's own local call passes now.
-    turnStartedAtRef.current = startedAt ?? Date.now();
+    roundReadyRef.current = new Set();
+    turnArmedThisRoundRef.current = false;
+    videoReadySentRef.current = false;
+    setTurnArmed(false);
+    setTimeLeft(TURN_SECONDS);
 
     // I was signing last round and no longer am — tear down the outbound connections I opened.
     if (signingConnectionsRef.current.length > 0 && signerPeerIdRef.current !== signer) {
@@ -140,8 +165,10 @@ export function RoomPage({ onExit }: Props) {
       buildGuessOptions(signId);
     }
 
+    // Safety net: if not every guesser's 'video-ready' arrives (dropped message, denied camera),
+    // the host arms anyway after TURN_ARM_FALLBACK_MS rather than stalling the round forever.
     if (isHostRef.current) {
-      roundTimerRef.current = setTimeout(() => endRound(), ROUND_TIMEOUT_MS);
+      turnArmFallbackRef.current = setTimeout(() => armTurnTimerRef.current(), TURN_ARM_FALLBACK_MS);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildGuessOptions, user?.id]);
@@ -171,7 +198,7 @@ export function RoomPage({ onExit }: Props) {
         const order = turnOrderRef.current;
         const nextSigner = order[(nextRound - 1) % order.length];
         const nextSignId = signsRef.current[nextRound - 1];
-        signaling.send('round-start', { round: nextRound, signerPeerId: nextSigner, signId: nextSignId, startedAt: Date.now() });
+        signaling.send('round-start', { round: nextRound, signerPeerId: nextSigner, signId: nextSignId });
         beginRound(nextRound, nextSigner, nextSignId);
       }, RESULT_HOLD_MS);
     }
@@ -203,6 +230,34 @@ export function RoomPage({ onExit }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applyRoundEnd]);
 
+  // Arms the shared turn clock — called once every guesser has confirmed they can actually see
+  // the signer's video ('video-ready' -> host counts readiness -> broadcasts 'round-timer-start'
+  // with a synced instant), or by the fallback timeout if that handshake doesn't fully complete.
+  // Idempotent per round via turnArmedThisRoundRef.
+  const armTurnTimer = useCallback((startedAt?: number) => {
+    if (turnArmedThisRoundRef.current) return;
+    turnArmedThisRoundRef.current = true;
+    if (turnArmFallbackRef.current) { clearTimeout(turnArmFallbackRef.current); turnArmFallbackRef.current = null; }
+    const at = startedAt ?? Date.now();
+    turnStartedAtRef.current = at;
+    setTurnArmed(true);
+    if (isHostRef.current) {
+      signaling.send('round-timer-start', { round: roundRef.current, startedAt: at });
+      roundTimerRef.current = setTimeout(() => endRound(), ROUND_TIMEOUT_MS);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endRound]);
+  useEffect(() => { armTurnTimerRef.current = armTurnTimer; }, [armTurnTimer]);
+
+  // Guesser side: fires once this player's view of the signer's video actually shows a frame —
+  // the real "I can see them" signal, not just WebRTC reaching 'connected'. Sent once per round.
+  const handleVideoReady = useCallback(() => {
+    if (videoReadySentRef.current || phase !== 'guessing') return;
+    videoReadySentRef.current = true;
+    signaling.send('video-ready', { round: roundRef.current });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   function handleSignCorrect(_r: VerifyResult) {
     // Signing correctly doesn't auto-score in Room mode (guessers earn the points) — it's purely
     // the cue that recognition is working; scoring is entirely guess-driven, tallied by the host.
@@ -233,7 +288,20 @@ export function RoomPage({ onExit }: Props) {
       return;
     }
     if (event === 'round-start') {
-      beginRound(payload.round as number, payload.signerPeerId as string, payload.signId as string, payload.startedAt as number);
+      beginRound(payload.round as number, payload.signerPeerId as string, payload.signId as string);
+      return;
+    }
+    if (event === 'video-ready') {
+      // Only the host tracks readiness and decides when to arm the shared clock. Disconnected
+      // players are excluded — they'll never send this, and would otherwise stall every round.
+      if (!isHostRef.current || payload.round !== roundRef.current) return;
+      roundReadyRef.current.add(fromPeerId);
+      const activeGuessers = rosterRef.current.filter((m) => m.peerId !== signerPeerIdRef.current && !disconnectedPeerIdsRef.current.includes(m.peerId));
+      if (roundReadyRef.current.size >= activeGuessers.length) armTurnTimerRef.current();
+      return;
+    }
+    if (event === 'round-timer-start') {
+      if (payload.round === roundRef.current) armTurnTimerRef.current(payload.startedAt as number);
       return;
     }
     if (event === 'guess') {
@@ -241,8 +309,8 @@ export function RoomPage({ onExit }: Props) {
       if (payload.round !== roundRef.current) return;
       if (guessesThisRoundRef.current[fromPeerId]) return;
       guessesThisRoundRef.current[fromPeerId] = payload.signId as string;
-      const nonSignerCount = rosterRef.current.length - 1;
-      if (Object.keys(guessesThisRoundRef.current).length >= nonSignerCount) endRound();
+      const activeGuesserCount = rosterRef.current.filter((m) => m.peerId !== signerPeerIdRef.current && !disconnectedPeerIdsRef.current.includes(m.peerId)).length;
+      if (Object.keys(guessesThisRoundRef.current).length >= activeGuesserCount) endRound();
       return;
     }
     if (event === 'round-end') {
@@ -258,9 +326,39 @@ export function RoomPage({ onExit }: Props) {
 
   const signaling = useMultiplayerSignaling({ selfPeerId: user?.id ?? '', onMessage: handleMessage });
 
+  // Presence-based disconnect detection: a WebRTC connectionState drop isn't reliable here since
+  // not every pair of players has a live peer connection (only the current signer connects to
+  // each guesser) — presence tracks channel MEMBERSHIP instead, which every player has regardless
+  // of who's currently signing. On a drop: mark them disconnected (excluded from round-ending
+  // guess counts above, so the round doesn't stall waiting for a guess that'll never come) and
+  // show a passive notice — nobody else's phase or timer changes. On their return: clear the flag
+  // and re-attempt the WebRTC link if the current signer needs one to them.
+  useEffect(() => {
+    const present = new Set(signaling.presentPeerIds);
+    const known = rosterRef.current.map((m) => m.peerId);
+    const nowDisconnected = known.filter((id) => id !== user?.id && !present.has(id));
+    setDisconnectedPeerIds((prev) => {
+      const changed = prev.length !== nowDisconnected.length || prev.some((id) => !nowDisconnected.includes(id));
+      return changed ? nowDisconnected : prev;
+    });
+    for (const id of known) {
+      if (present.has(id) && !wasPresentRef.current.has(id) && signerPeerIdRef.current === user?.id && id !== user?.id) {
+        // A guesser we're signing to came back — re-offer so their video resumes.
+        void signaling.connectToPeer(id);
+      }
+    }
+    wasPresentRef.current = present;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signaling.presentPeerIds, roster]);
+
   const createRoom = async () => {
     if (!user) return;
-    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    setCodeError('');
+    const code = generateRoomCode();
+    const { error } = await supabase.from('multiplayer_rooms').insert({
+      code, mode: 'room', visibility, host_id: user.id, max_participants: MAX_PLAYERS,
+    });
+    if (error) { setCodeError('Could not create a room — please try again.'); return; }
     isHostRef.current = true;
     setRoomId(code);
     const me = { peerId: user.id, username: username ?? 'Host', joinOrder: 0, border: equippedBorder ?? '' };
@@ -272,9 +370,13 @@ export function RoomPage({ onExit }: Props) {
     await signaling.startCamera();
   };
 
-  const joinRoom = async () => {
-    if (!user || !joinCode.trim()) return;
-    const code = joinCode.trim().toUpperCase();
+  const joinRoom = async (overrideCode?: string) => {
+    if (!user) return;
+    const code = (overrideCode ?? joinCode).trim().toUpperCase();
+    if (!code) return;
+    setCodeError('');
+    const { error } = await supabase.rpc('join_multiplayer_room', { p_code: code });
+    if (error) { setCodeError(joinErrorMessage(error.message)); return; }
     isHostRef.current = false;
     setRoomId(code);
     setStatusMsg('Joining room…');
@@ -285,6 +387,16 @@ export function RoomPage({ onExit }: Props) {
     setStatusMsg('Connected! Waiting for host to start…');
   };
 
+  const searchForMatch = async () => {
+    if (!user || searching) return;
+    setCodeError('');
+    setSearching(true);
+    const { data, error } = await supabase.rpc('find_public_room', { p_mode: 'room' });
+    setSearching(false);
+    if (error || !data) { setCodeError('No open rooms right now — try creating one!'); return; }
+    await joinRoom((data as { code: string }).code);
+  };
+
   const startGame = () => {
     const order = rosterRef.current.map((m) => m.peerId);
     const signs = pickSigns(order.length * ROUNDS_PER_PLAYER);
@@ -292,8 +404,9 @@ export function RoomPage({ onExit }: Props) {
     signsRef.current = signs;
     totalRoundsRef.current = signs.length;
     setTotalRounds(signs.length);
+    if (roomId) void supabase.from('multiplayer_rooms').update({ status: 'in_progress' }).eq('code', roomId);
     signaling.send('game-start', { signs, turnOrder: order });
-    signaling.send('round-start', { round: 1, signerPeerId: order[0], signId: signs[0], startedAt: Date.now() });
+    signaling.send('round-start', { round: 1, signerPeerId: order[0], signId: signs[0] });
     beginRound(1, order[0], signs[0]);
   };
 
@@ -303,8 +416,8 @@ export function RoomPage({ onExit }: Props) {
     if (signId === currentSignId) sounds.correct(); else sounds.wrong();
     if (isHostRef.current) {
       guessesThisRoundRef.current[user?.id ?? ''] = signId;
-      const nonSignerCount = rosterRef.current.length - 1;
-      if (Object.keys(guessesThisRoundRef.current).length >= nonSignerCount) endRound();
+      const activeGuesserCount = rosterRef.current.filter((m) => m.peerId !== signerPeerIdRef.current && !disconnectedPeerIdsRef.current.includes(m.peerId)).length;
+      if (Object.keys(guessesThisRoundRef.current).length >= activeGuesserCount) endRound();
     } else {
       signaling.send('guess', { round, signId });
     }
@@ -323,14 +436,15 @@ export function RoomPage({ onExit }: Props) {
   });
 
   // Visual per-turn countdown (the host's roundTimerRef is what actually ends the round; this just
-  // drives the shared 10s bar off the host-stamped turnStartedAt so every screen reads the same).
+  // drives the shared 15s bar off the synced turnStartedAt — set once armTurnTimer fires, not the
+  // instant the round begins — so every screen reads the same, and only once video is visible).
   useEffect(() => {
     if (phase !== 'signing' && phase !== 'guessing') {
       if (turnIntervalRef.current) { clearInterval(turnIntervalRef.current); turnIntervalRef.current = null; }
       return;
     }
-    setTimeLeft(TURN_SECONDS);
     turnIntervalRef.current = setInterval(() => {
+      if (!turnArmedThisRoundRef.current) return;
       const remaining = TURN_SECONDS - (Date.now() - turnStartedAtRef.current) / 1000;
       setTimeLeft(Math.max(0, remaining));
     }, 100);
@@ -342,12 +456,24 @@ export function RoomPage({ onExit }: Props) {
     if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
     if (turnIntervalRef.current) clearInterval(turnIntervalRef.current);
+    if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
   }, []);
 
-  const exit = () => { recognition.stopLoop(); signaling.leave(); onExit(); };
+  const exit = () => {
+    recognition.stopLoop();
+    if (roomId) {
+      if (isHostRef.current) void supabase.from('multiplayer_rooms').update({ status: 'closed' }).eq('code', roomId);
+      else void supabase.rpc('leave_multiplayer_room', { p_code: roomId });
+    }
+    signaling.leave();
+    onExit();
+  };
 
-  const scoreboardEntries = roster.map((m) => ({ label: usernameFor(m.peerId), score: scores[m.peerId] ?? 0, isYou: m.peerId === user?.id }));
-  const timerPercent = (timeLeft / TURN_SECONDS) * 100;
+  const scoreboardEntries = roster.map((m) => ({
+    label: usernameFor(m.peerId) + (disconnectedPeerIds.includes(m.peerId) ? ' (disconnected)' : ''),
+    score: scores[m.peerId] ?? 0, isYou: m.peerId === user?.id,
+  }));
+  const timerPercent = turnArmed ? (timeLeft / TURN_SECONDS) * 100 : 100;
 
   return (
     <div className="min-h-screen bg-z-bg flex flex-col">
@@ -369,15 +495,34 @@ export function RoomPage({ onExit }: Props) {
                 <h2 className="text-2xl font-bold">Group Sign & Guess</h2>
                 <p className="text-z-gray-300 text-sm mt-1">Up to 4 players — one signs, everyone else guesses.</p>
               </div>
-              <motion.button onClick={() => void createRoom()}
-                className="w-full max-w-xs py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                Create Room
+              <div className="w-full max-w-xs flex flex-col gap-2">
+                <div className="flex bg-z-card border border-white/10 rounded-2xl p-1">
+                  <button onClick={() => setVisibility('private')}
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'private' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
+                    🔒 Private
+                  </button>
+                  <button onClick={() => setVisibility('public')}
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'public' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
+                    🌐 Public
+                  </button>
+                </div>
+                <motion.button onClick={() => void createRoom()}
+                  className="w-full py-3 rounded-2xl font-bold text-white bg-gradient-primary"
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                  Create Room
+                </motion.button>
+              </div>
+
+              <motion.button onClick={() => void searchForMatch()} disabled={searching}
+                className="w-full max-w-xs py-3 rounded-2xl font-bold text-sm bg-z-card border border-white/10 hover:border-z-purple/40 disabled:opacity-50"
+                whileTap={{ scale: 0.97 }}>
+                {searching ? 'Searching…' : '🔍 Search for a Room'}
               </motion.button>
+
               <div className="w-full max-w-xs">
                 <p className="text-center text-z-gray-400 text-sm mb-2">— or join with a code —</p>
                 <div className="flex gap-2">
-                  <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  <input value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setCodeError(''); }}
                     placeholder="XXXXXX"
                     className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:outline-none focus:border-z-purple/60" />
                   <motion.button onClick={() => void joinRoom()} disabled={!joinCode.trim()}
@@ -386,6 +531,7 @@ export function RoomPage({ onExit }: Props) {
                     Join
                   </motion.button>
                 </div>
+                {codeError && <p className="text-center text-z-red text-xs mt-2">{codeError}</p>}
               </div>
             </motion.div>
           )}
@@ -404,7 +550,10 @@ export function RoomPage({ onExit }: Props) {
                 <p className="text-xs text-z-gray-400 uppercase tracking-widest mb-2">Players ({roster.length}/{MAX_PLAYERS})</p>
                 <div className="flex flex-col gap-1.5">
                   {roster.map((m) => (
-                    <p key={m.peerId} className="text-sm font-semibold">{m.peerId === user?.id ? 'You' : m.username}</p>
+                    <p key={m.peerId} className="text-sm font-semibold flex items-center gap-1.5">
+                      {m.peerId === user?.id ? 'You' : m.username}
+                      {disconnectedPeerIds.includes(m.peerId) && <span className="text-xs font-normal text-z-red">disconnected</span>}
+                    </p>
                   ))}
                 </div>
               </div>
@@ -426,7 +575,9 @@ export function RoomPage({ onExit }: Props) {
                 <Scoreboard entries={scoreboardEntries} />
               </div>
               <div className="bg-z-card border border-z-purple/30 rounded-2xl p-4 text-center">
-                <p className="text-xs text-z-gray-400 mb-1">SIGN THIS · <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span></p>
+                <p className="text-xs text-z-gray-400 mb-1">
+                  SIGN THIS · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-500">waiting for everyone's camera…</span>}
+                </p>
                 <p className="text-3xl font-bold text-z-purple-light">{SIGNS[currentSignId]?.name.replace(/_/g, ' ') ?? currentSignId}</p>
               </div>
               <WebcamMirror videoRef={signaling.localVideoRef} label="You" cosmeticBorderClasses={cosmeticBorderClasses} activeTurn turnLabel="YOUR TURN" timerPercent={timerPercent} />
@@ -452,8 +603,11 @@ export function RoomPage({ onExit }: Props) {
                 activeTurn
                 turnLabel={`${usernameFor(signerPeerId ?? '')}'s turn`}
                 timerPercent={timerPercent}
+                onVideoReady={handleVideoReady}
               />
-              <p className="text-center font-bold">What are they signing?</p>
+              <p className="text-center font-bold">
+                {turnArmed ? 'What are they signing?' : <span className="text-z-gray-500 font-normal text-sm">connecting…</span>}
+              </p>
               <div className="grid grid-cols-2 gap-3">
                 {guessOptions.map((s) => (
                   <motion.button key={s} onClick={() => handleGuess(s)}

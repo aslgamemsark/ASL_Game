@@ -433,11 +433,14 @@ def e_confidence(hand: Hand) -> float:
     fist/S: both curl the fingers fully and keep the thumb in, so a real user test found a simple
     fist scored E's handshape at a perfect 1.0. The two shapes differ in WHERE the thumb ends up —
     Distance from the thumb tip to the curled index/middle fingertips is the signal that
-    separates them, but NOT in the direction first assumed: real recorded fixtures show LETTER_S
-    (a genuine fist, thumb wrapped low across the front) measures ~0.155 hand-scale units at this
-    metric, LETTER_E measures ~0.44 (median across a real correct take, range 0.41-0.47), and
-    LETTER_M/LETTER_A (thumb tucked deeper / extended to the side) measure ~0.60/~0.82 — E sits in
-    a distinct middle band, not closest to the fingertips as first guessed.
+    separates them, but the margin is much tighter than first assumed. A first pass used
+    LETTER_S's fixture (~0.155) as a stand-in for "fist" and picked target=0.44 from an older
+    LETTER_E recording — still accepted a real fist live (real user report, 2026-07-15). A
+    dedicated correct-vs-fist confusor recording (tools/recalibrate_letter_e.py) found the ACTUAL
+    live margin for this user/camera setup: genuine E measures ~0.33-0.39 (median 0.361), a plain
+    fist measures ~0.26-0.30 (median 0.292) — barely 0.02 apart at the closest edges, both far
+    below the earlier 0.44 target. target=0.355/tolerance=0.05 cleanly separates them (E's
+    median-smoothed score ~0.80, fist's ~0.0) with real margin on both sides.
     """
     curls = _all_curls(hand)
     m = float(np.mean(curls))
@@ -446,7 +449,7 @@ def e_confidence(hand: Hand) -> float:
     uniformity = float(np.clip(1.0 - max(0.0, spread - 0.15) / 0.35, 0.0, 1.0))
     tip_mid = (_xy(hand, INDEX_TIP) + _xy(hand, MIDDLE_TIP)) / 2.0
     d = float(np.linalg.norm(_xy(hand, THUMB_TIP) - tip_mid)) / _hand_scale(hand)
-    thumb_band = float(np.clip(1.0 - abs(d - 0.44) / 0.15, 0.0, 1.0))
+    thumb_band = float(np.clip(1.0 - abs(d - 0.355) / 0.05, 0.0, 1.0))
     return float(min(curl_score, thumb_band) * uniformity)
 
 

@@ -380,12 +380,13 @@ function cConfidence(hand: Hand): number {
 
 // All four fingers curled uniformly AND the thumb tip sits in E's characteristic band relative
 // to the curled fingertips. "Thumb not extended to the side" alone can't tell E apart from a
-// plain closed fist/S — both curl fully with the thumb tucked in; a real user test found a
-// simple fist scored E at a perfect 1.0. Distance from the thumb tip to the curled index/middle
-// fingertips does separate them, but not in the direction first assumed: real recorded fixtures
-// show LETTER_S (a genuine fist) measures ~0.155 hand-scale units here, LETTER_E measures ~0.44
-// (median across a real correct take, range 0.41-0.47), and LETTER_M/LETTER_A measure ~0.60/
-// ~0.82 — E sits in a distinct middle band. Mirrors core/handshape.py::e_confidence.
+// plain closed fist/S — both curl fully with the thumb tucked in. Distance from the thumb tip to
+// the curled index/middle fingertips does separate them, but the margin is much tighter than
+// first assumed — a first pass (target=0.44) used LETTER_S's fixture as a fist stand-in and
+// still accepted a real fist live (real user report, 2026-07-15). A dedicated correct-vs-fist
+// confusor recording found the ACTUAL live margin: genuine E measures ~0.33-0.39 (median 0.361),
+// a plain fist measures ~0.26-0.30 (median 0.292) — barely 0.02 apart at the closest edges.
+// target=0.355/tolerance=0.05 cleanly separates them. Mirrors core/handshape.py::e_confidence.
 function eConfidence(hand: Hand): number {
   const curls = allCurls(hand);
   const m = mean(curls);
@@ -397,7 +398,7 @@ function eConfidence(hand: Hand): number {
     (xy(hand, INDEX_TIP)[1] + xy(hand, MIDDLE_TIP)[1]) / 2,
   ];
   const d = dist2d(xy(hand, THUMB_TIP), tipMid) / handScale(hand);
-  const thumbBand = clip(1.0 - Math.abs(d - 0.44) / 0.15, 0, 1);
+  const thumbBand = clip(1.0 - Math.abs(d - 0.355) / 0.05, 0, 1);
   return Math.min(curlScore, thumbBand) * uniformity;
 }
 

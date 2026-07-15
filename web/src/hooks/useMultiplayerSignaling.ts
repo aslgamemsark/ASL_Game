@@ -21,6 +21,13 @@ export interface SignalingPeer {
   stream: MediaStream | null;
 }
 
+/** Health of THIS client's own signaling channel — distinct from any peer's WebRTC
+ *  connectionState. A dropped WebRTC link is symmetric (both sides observe it identically), so it
+ *  can't tell you WHICH side actually lost connectivity. channelStatus can: if it's 'subscribed',
+ *  my own connection is fine and a peer's dropped link means THEY disconnected; if it isn't, I'm
+ *  the one who dropped. */
+export type ChannelStatus = 'connecting' | 'subscribed' | 'disconnected';
+
 export interface UseMultiplayerSignalingOpts {
   selfPeerId: string;
   /** Every broadcast event this hook doesn't own (roster/round-start/guess/etc.) — webrtc-offer/
@@ -32,6 +39,13 @@ export interface MultiplayerSignaling {
   camStatus: CameraStatus;
   localVideoRef: React.RefObject<HTMLVideoElement | null>;
   peers: Record<string, SignalingPeer>;
+  /** This client's own signaling channel health — see ChannelStatus above. */
+  channelStatus: ChannelStatus;
+  /** peerIds currently present on the signaling channel (Supabase Realtime Presence), i.e. whose
+   *  tab/app is actually still connected — independent of any WebRTC peer-connection state. The
+   *  reliable signal for "did peer X disconnect" in Room mode, where not every pair of players has
+   *  a live WebRTC link (only the active signer connects to each guesser). */
+  presentPeerIds: string[];
   /** Creates + subscribes the Supabase realtime channel, e.g. `mp-room-${roomId}` — same naming
    *  scheme for Duel and Room. The room id isn't known until the caller creates/joins a room, so
    *  this takes the channel name directly rather than fixing it at hook-call time. */
@@ -53,6 +67,8 @@ export interface MultiplayerSignaling {
 export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplayerSignalingOpts): MultiplayerSignaling {
   const { videoRef: localVideoRef, status: camStatus, start: startCamera, stop: stopCamera, getStream } = useCamera();
   const [peers, setPeers] = useState<Record<string, SignalingPeer>>({});
+  const [channelStatus, setChannelStatus] = useState<ChannelStatus>('connecting');
+  const [presentPeerIds, setPresentPeerIds] = useState<string[]>([]);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pcsRef = useRef<Record<string, RTCPeerConnection>>({});
   const pendingCandidatesRef = useRef<Record<string, RTCIceCandidateInit[]>>({});
@@ -139,8 +155,16 @@ export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplaye
   }, [closePeerConnection]);
 
   const join = useCallback(async (channelName: string) => {
-    const ch = supabase.channel(channelName);
+    const ch = supabase.channel(channelName, { config: { presence: { key: selfPeerId } } });
     channelRef.current = ch;
+
+    // Presence tracks channel MEMBERSHIP (whose tab/socket is actually connected), independent of
+    // any WebRTC peer-connection state — a symmetric WebRTC drop can't tell you which side
+    // actually disconnected, but presence 'leave' names the exact peerId whose channel dropped.
+    ch.on('presence', { event: 'sync' }, () => {
+      const state = ch.presenceState<{ peerId: string }>();
+      setPresentPeerIds(Object.keys(state));
+    });
 
     ch.on('broadcast', { event: 'webrtc-offer' }, async ({ payload }) => {
       const fromId = payload.from as string;
@@ -171,12 +195,26 @@ export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplaye
       onMessageRef.current?.(event, payload, payload.from as string);
     });
 
-    await new Promise<void>((resolve) => ch.subscribe((status) => { if (status === 'SUBSCRIBED') resolve(); }));
+    await new Promise<void>((resolve) => {
+      ch.subscribe((status) => {
+        // Re-track on every re-subscribe (Supabase's client auto-reconnects the underlying
+        // websocket after a drop, but presence needs an explicit re-track to reappear for peers).
+        if (status === 'SUBSCRIBED') {
+          setChannelStatus('subscribed');
+          void ch.track({ peerId: selfPeerId });
+          resolve();
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setChannelStatus('disconnected');
+        }
+      });
+    });
   }, [createPeerConnection, flushPendingCandidates, handleIceCandidate, selfPeerId, send]);
 
   const leave = useCallback(() => {
     Object.keys(pcsRef.current).forEach(closePeerConnection);
     setPeers({});
+    setPresentPeerIds([]);
+    setChannelStatus('connecting');
     stopCamera();
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
@@ -186,5 +224,5 @@ export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplaye
 
   useEffect(() => () => leave(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { camStatus, localVideoRef, peers, join, startCamera, connectToPeer, disconnectFromPeer, send, leave };
+  return { camStatus, localVideoRef, peers, channelStatus, presentPeerIds, join, startCamera, connectToPeer, disconnectFromPeer, send, leave };
 }

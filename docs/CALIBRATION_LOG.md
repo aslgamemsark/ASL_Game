@@ -118,16 +118,31 @@ User ran the newly-landed `/calibrate` browser harness (`web/src/pages/Calibrati
 plain-English notes, downloaded to `D:\Sign-Calibrations`. Findings and outcomes below; the CSVs
 themselves can be deleted now that this entry is the durable record.
 
-**LETTER_E — fixed.** Note: "a simple fist shouldn't be accepted" / "letter F also being accepted
-on a simple fist." `e_confidence`'s old check (high curl + thumb not extended) can't tell E from a
-plain fist/S — both curl fully with the thumb tucked in; the confusor CSV showed a fist scoring
-E's handshape at a perfect 1.0. Real fixture measurement found the actual separator: distance from
-thumb tip to the curled index/middle fingertip midpoint. LETTER_S measures ~0.155 hand-scale units
-there, LETTER_E measures ~0.44 (real correct take, range 0.41-0.47), LETTER_M/LETTER_A measure
-~0.60/~0.82 — E sits in a distinct middle band. Fixed in `core/handshape.py` +
-`web/src/engine/handshape.ts`; the synthesis preset (`core/handshape_presets.py`) needed its own
-`_THUMB_TIP_E_UNDER` too (it had been reusing the generic tucked position, which is geometrically
-identical to S). All 443 Python + 495 TS tests pass.
+**LETTER_E — fixed, in two passes.** Note: "a simple fist shouldn't be accepted" / "letter F also
+being accepted on a simple fist." `e_confidence`'s old check (high curl + thumb not extended)
+can't tell E from a plain fist/S — both curl fully with the thumb tucked in; the confusor CSV
+showed a fist scoring E's handshape at a perfect 1.0.
+
+*First pass* used LETTER_S's fixture (~0.155 hand-scale units, thumb-tip-to-fingertip-midpoint
+distance) as a stand-in for "fist" and an older LETTER_E recording (~0.44) as the target, with a
+±0.15 tolerance band. All fixture-based tests passed — but the user reported it **still accepted
+a real fist live**. The stand-in was the problem: LETTER_S isn't actually a good proxy for a
+relaxed fist, and the tolerance was far wider than the real margin.
+
+*Second pass*: recorded a DEDICATED correct-vs-fist confusor take
+(`tools/recalibrate_letter_e.py`, same SPACE-to-record flow as the other `recalibrate_*` tools,
+correct + confusor in one run) instead of reusing an unrelated fixture. Real numbers: genuine E
+measures ~0.33-0.39 (median 0.361), a plain fist measures ~0.26-0.30 (median 0.292) — barely 0.02
+apart at the closest edges, and BOTH well below the earlier 0.44 target. Retuned to
+target=0.355/tolerance=0.05, which cleanly separates them (E's median-smoothed score ~0.80,
+fist's ~0.0). Fixed in `core/handshape.py` + `web/src/engine/handshape.ts`; the synthesis preset
+(`core/handshape_presets.py`) needed its own `_THUMB_TIP_E_UNDER`, recalibrated to match. Added a
+permanent regression test (`TestLetterEFist` in `tests/test_specific_confusors.py` +
+`web/tests/specific-confusors.test.ts`) using the new fixtures so this can't silently regress
+again. All 445 Python + 498 TS tests pass.
+
+**Lesson**: don't substitute a differently-purposed fixture (LETTER_S) for a confusor a sign
+doesn't have real data for — record the actual confusor, the way every other fix in this log did.
 
 **FEVER, HOSPITAL — fixed (same root cause).** Notes: "fever passes just when i bring my hand
 closer to my forehead" / HOSPITAL "passes just by seeig my 2 fingers." Both have a LINEAR movement
