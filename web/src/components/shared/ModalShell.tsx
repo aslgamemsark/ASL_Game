@@ -77,7 +77,7 @@ export function ModalShell({ children, ariaLabel, onClose }: Props) {
           aria-modal="true"
           aria-label={ariaLabel}
           tabIndex={-1}
-          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl outline-none"
+          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light"
           initial={{ y: 40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 40, opacity: 0 }}

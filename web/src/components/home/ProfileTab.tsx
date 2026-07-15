@@ -159,8 +159,7 @@ export function ProfileTab() {
             </div>
             <div className="h-2 bg-z-surface rounded-full overflow-hidden">
               <motion.div
-                className="h-full rounded-full"
-                style={{ background: 'linear-gradient(90deg, #7B2FBE, #A855F7)' }}
+                className="h-full rounded-full bg-gradient-primary"
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.round(progress * 100)}%` }}
                 transition={{ duration: 0.8, ease: 'easeOut' }}

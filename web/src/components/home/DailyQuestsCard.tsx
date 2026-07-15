@@ -110,12 +110,8 @@ export function DailyQuestsCard() {
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-1.5 bg-z-gray-500/40 rounded-full overflow-hidden">
                   <motion.div
-                    className="h-full rounded-full"
-                    style={{
-                      background: quest.claimed
-                        ? '#34D399'
-                        : 'linear-gradient(90deg, #7C3AED, #A78BFA)',
-                    }}
+                    className={`h-full rounded-full ${quest.claimed ? '' : 'bg-gradient-primary'}`}
+                    style={quest.claimed ? { background: '#34D399' } : undefined}
                     initial={{ width: 0 }}
                     animate={{ width: `${pct * 100}%` }}
                     transition={{ duration: 0.65, ease: 'easeOut', delay: 0.2 + i * 0.07 }}

@@ -85,8 +85,11 @@ that scrim technique rather than lightening text.
 ## Motion
 
 framer-motion throughout. Entrances: small `opacity/y` fades with per-item stagger delays
-(0.05–0.1s). Celebrations: scale + rotate bursts. Ambient loops exist only on streak-fire and
-"today" pulse. **`prefers-reduced-motion` is handled globally**: `<MotionConfig reducedMotion="user">`
+(0.05–0.1s). Celebrations: scale + rotate bursts. Ambient (`repeat: Infinity`) loops have grown
+past the original streak-fire/"today"-pulse pair to ~22 as features shipped (Zippy idle-breathing,
+hover-gated CTAs, etc.) — most are hover-gated and harmless, but keep new always-mounted ambient
+loops rare and intentional; they're the kind of thing that quietly adds up (impeccable audit,
+2026-07-15). **`prefers-reduced-motion` is handled globally**: `<MotionConfig reducedMotion="user">`
 in `main.tsx` covers all framer-motion animations app-wide, and a matching `@media` block in
 `index.css` covers the remaining plain-CSS transitions — new framer-motion usage doesn't need its
 own reduced-motion handling, it's automatic. (This doc previously listed it as a known gap; that
