@@ -37,11 +37,13 @@ function getMedal(i: number) {
 }
 
 function BoardList({
-  rows, userId, loading, relations, onAddFriend, onReport, onViewProfile,
+  rows, userId, loading, error, onRetry, relations, onAddFriend, onReport, onViewProfile,
 }: {
   rows: BoardRow[];
   userId?: string;
   loading: boolean;
+  error?: boolean;
+  onRetry?: () => void;
   relations?: Map<string, 'accepted' | 'pendingSent' | 'pendingReceived'>;
   onAddFriend?: (id: string, username: string) => void;
   onReport?: (id: string, username: string) => void;
@@ -53,6 +55,20 @@ function BoardList({
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="h-14 bg-z-card rounded-2xl animate-pulse" />
         ))}
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="text-center py-16 flex flex-col items-center">
+        <p className="text-4xl mb-3">⚠️</p>
+        <p className="text-z-gray-300 font-semibold text-sm">Couldn't load the leaderboard</p>
+        <p className="text-z-gray-500 text-xs mt-1">Check your connection and try again.</p>
+        {onRetry && (
+          <button onClick={onRetry} className="text-z-purple-light text-xs mt-3 font-semibold hover:underline">
+            Retry
+          </button>
+        )}
       </div>
     );
   }
@@ -173,6 +189,11 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
   const [worldLoading, setWorldLoading] = useState(false);
   const [friendLoading, setFriendLoading] = useState(false);
   const [regionLoading, setRegionLoading] = useState(false);
+  const [worldError, setWorldError] = useState(false);
+  const [friendError, setFriendError] = useState(false);
+  const [regionError, setRegionError] = useState(false);
+  const [worldReloadKey, setWorldReloadKey] = useState(0);
+  const [friendReloadKey, setFriendReloadKey] = useState(0);
   const [myRegion, setMyRegion] = useState<string | null | undefined>(undefined); // undefined = not checked yet
   const [regionReloadKey, setRegionReloadKey] = useState(0); // bump to re-run the region load
   const [regionSaving, setRegionSaving] = useState(false);
@@ -216,11 +237,13 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
   useEffect(() => {
     if (!supabaseReady) return;
     setWorldLoading(true);
+    setWorldError(false);
     (async () => {
       // The equipped_* / active_badge columns require a migration that may not have
       // run yet on this project — fall back to the base columns if that select 400s,
       // so the board still renders (just without avatars) instead of going empty.
       let data: unknown[] | null;
+      let failed = false;
       const first = await supabase
         .from('weekly_leaderboard')
         .select('id, username, total_xp, streak, equipped_avatar, equipped_border, active_badge')
@@ -233,8 +256,15 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
           .order('total_xp', { ascending: false })
           .limit(50);
         data = fallback.data;
+        failed = !!fallback.error;
       } else {
         data = first.data;
+      }
+      if (failed) {
+        setWorldError(true);
+        setWorldRows([]);
+        setWorldLoading(false);
+        return;
       }
       const rows = (data as unknown as BoardRow[]) ?? [];
       // My own row: fall back to local store cosmetics if the remote value is missing
@@ -254,19 +284,27 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       setWorldRows(rows);
       setWorldLoading(false);
     })();
-  }, [user]);
+  }, [user, worldReloadKey]);
 
   // Load friends leaderboard
   useEffect(() => {
     if (!user || !supabaseReady || tab !== 'friends') return;
     setFriendLoading(true);
+    setFriendError(false);
     (async () => {
       // Get accepted friend IDs
-      const { data: friendships } = await supabase
+      const { data: friendships, error: friendshipsError } = await supabase
         .from('friendships')
         .select('requester_id, addressee_id, status')
         .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
         .eq('status', 'accepted');
+
+      if (friendshipsError) {
+        setFriendError(true);
+        setFriendRows([]);
+        setFriendLoading(false);
+        return;
+      }
 
       const friendIds: string[] = (friendships ?? []).map((r: { requester_id: string; addressee_id: string }) =>
         r.requester_id === user.id ? r.addressee_id : r.requester_id
@@ -337,19 +375,26 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       setFriendRows(rows);
       setFriendLoading(false);
     })();
-  }, [tab, user, xp, streak]);
+  }, [tab, user, xp, streak, friendReloadKey]);
 
   // Load region leaderboard: same view as world, filtered to players who share the
   // current user's detected region (see useProgressSync's one-time geolocation lookup).
   useEffect(() => {
     if (!user || !supabaseReady || tab !== 'region') return;
     setRegionLoading(true);
+    setRegionError(false);
     (async () => {
-      const { data: myProfile } = await supabase
+      const { data: myProfile, error: profileError } = await supabase
         .from('profiles')
         .select('region')
         .eq('id', user.id)
         .single();
+      if (profileError) {
+        setRegionError(true);
+        setRegionRows([]);
+        setRegionLoading(false);
+        return;
+      }
       const region = (myProfile as { region?: string | null } | null)?.region ?? null;
       setMyRegion(region);
 
@@ -360,6 +405,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       }
 
       let data: unknown[] | null;
+      let failed = false;
       const first = await supabase
         .from('weekly_leaderboard')
         .select('id, username, total_xp, streak, equipped_avatar, equipped_border, active_badge')
@@ -374,8 +420,15 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
           .order('total_xp', { ascending: false })
           .limit(50);
         data = fallback.data;
+        failed = !!fallback.error;
       } else {
         data = first.data;
+      }
+      if (failed) {
+        setRegionError(true);
+        setRegionRows([]);
+        setRegionLoading(false);
+        return;
       }
 
       const rows = (data as unknown as BoardRow[]) ?? [];
@@ -459,6 +512,8 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
             rows={worldRows}
             userId={user?.id}
             loading={worldLoading}
+            error={worldError}
+            onRetry={() => setWorldReloadKey((k) => k + 1)}
             relations={relations}
             onAddFriend={user ? sendFriendRequest : undefined}
             onReport={user ? (id, username) => setReportTarget({ id, username }) : undefined}
@@ -526,6 +581,8 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
               rows={regionRows}
               userId={user.id}
               loading={regionLoading}
+              error={regionError}
+              onRetry={() => setRegionReloadKey((k) => k + 1)}
               relations={relations}
               onAddFriend={sendFriendRequest}
               onReport={(id, username) => setReportTarget({ id, username })}
@@ -548,6 +605,17 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="h-14 bg-z-card rounded-2xl animate-pulse" />
               ))}
+            </div>
+          ) : friendError ? (
+            <div className="text-center py-16 flex flex-col items-center">
+              <p className="text-4xl mb-3">⚠️</p>
+              <p className="text-z-gray-300 font-semibold text-sm">Couldn't load your friends board</p>
+              <button
+                onClick={() => setFriendReloadKey((k) => k + 1)}
+                className="text-z-purple-light text-xs mt-3 font-semibold hover:underline"
+              >
+                Retry
+              </button>
             </div>
           ) : friendRows.length <= 1 ? (
             <div className="text-center py-20 flex flex-col items-center">

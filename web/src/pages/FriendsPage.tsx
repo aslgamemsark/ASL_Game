@@ -46,8 +46,29 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
   const [searching, setSearching] = useState(false);
   const [relationships, setRelationships] = useState<RelEntry[]>([]);
   const [loadingRels, setLoadingRels] = useState(true);
+  const [relError, setRelError] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<{ id: string; username: string } | null>(null);
+  // Ids currently mid-mutation (send/accept/decline/cancel/remove) — guards each relationship
+  // button independently so a fast double-click can't fire the same friendship insert/update/
+  // delete twice before the first response lands, mirroring AdminPanel's actionBusy pattern.
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+
+  const withBusy = async (id: string, fn: () => Promise<void>) => {
+    if (busyIds.has(id)) return;
+    setBusyIds((prev) => new Set(prev).add(id));
+    try {
+      await fn();
+    } finally {
+      setBusyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -59,12 +80,14 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
   const loadRelationships = useCallback(async () => {
     if (!user) return;
     setLoadingRels(true);
+    setRelError(false);
     try {
-      const { data: rows } = await supabase
+      const { data: rows, error } = await supabase
         .from('friendships')
         .select('requester_id, addressee_id, status')
-        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`) as { data: FriendshipRow[] | null };
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`) as { data: FriendshipRow[] | null; error: { message: string } | null };
 
+      if (error) { setRelError(true); setRelationships([]); return; }
       if (!rows || rows.length === 0) { setRelationships([]); return; }
 
       // Collect the IDs of the other people
@@ -107,6 +130,9 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
         .filter((e): e is RelEntry => e !== null);
 
       setRelationships(entries);
+    } catch {
+      setRelError(true);
+      setRelationships([]);
     } finally {
       setLoadingRels(false);
     }
@@ -117,16 +143,19 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
   // ── Search ─────────────────────────────────────────────────────────────────
 
   const handleSearch = async () => {
-    if (!query.trim() || !user) return;
+    if (!query.trim() || !user || searching) return;
     setSearching(true);
+    setSearchError(false);
+    setHasSearched(true);
     try {
-      const { data: profiles } = await supabase
+      const { data: profiles, error } = await supabase
         .from('profiles')
         .select('id, username')
         .ilike('username', `%${query.trim()}%`)
         .neq('id', user.id)
-        .limit(10) as { data: { id: string; username: string }[] | null };
+        .limit(10) as { data: { id: string; username: string }[] | null; error: { message: string } | null };
 
+      if (error) { setSearchError(true); setSearchResults([]); return; }
       if (!profiles || profiles.length === 0) { setSearchResults([]); return; }
 
       const { data: progresses } = await supabase
@@ -143,6 +172,9 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
           streak: progressMap[p.id]?.streak ?? 0,
         }))
       );
+    } catch {
+      setSearchError(true);
+      setSearchResults([]);
     } finally {
       setSearching(false);
     }
@@ -150,7 +182,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
 
   // ── Send friend request ─────────────────────────────────────────────────────
 
-  const handleSendRequest = async (profile: UserProfile) => {
+  const handleSendRequest = (profile: UserProfile) => withBusy(profile.id, async () => {
     if (!user) return;
     // Check not already related
     const already = relationships.find((r) => r.other.id === profile.id);
@@ -166,11 +198,11 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
     // Optimistically add to local state
     setRelationships((prev) => [...prev, { other: profile, status: 'pendingSent', iAmRequester: true }]);
     setSearchResults((prev) => prev.filter((p) => p.id !== profile.id));
-  };
+  });
 
   // ── Accept / decline request ────────────────────────────────────────────────
 
-  const handleAccept = async (entry: RelEntry) => {
+  const handleAccept = (entry: RelEntry) => withBusy(entry.other.id, async () => {
     if (!user) return;
     const { error } = await supabase
       .from('friendships')
@@ -183,37 +215,39 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
     setRelationships((prev) =>
       prev.map((r) => r.other.id === entry.other.id ? { ...r, status: 'accepted' } : r)
     );
-  };
+  });
 
-  const handleDecline = async (entry: RelEntry) => {
+  const handleDecline = (entry: RelEntry) => withBusy(entry.other.id, async () => {
     if (!user) return;
-    await supabase
+    const { error } = await supabase
       .from('friendships')
       .delete()
       .eq('requester_id', entry.other.id)
       .eq('addressee_id', user.id);
 
+    if (error) { showToast(`Could not decline: ${error.message}`); return; }
     setRelationships((prev) => prev.filter((r) => r.other.id !== entry.other.id));
     showToast('Request declined');
-  };
+  });
 
   // ── Cancel sent request ─────────────────────────────────────────────────────
 
-  const handleCancelRequest = async (entry: RelEntry) => {
+  const handleCancelRequest = (entry: RelEntry) => withBusy(entry.other.id, async () => {
     if (!user) return;
-    await supabase
+    const { error } = await supabase
       .from('friendships')
       .delete()
       .eq('requester_id', user.id)
       .eq('addressee_id', entry.other.id);
 
+    if (error) { showToast(`Could not cancel: ${error.message}`); return; }
     setRelationships((prev) => prev.filter((r) => r.other.id !== entry.other.id));
     showToast('Request cancelled');
-  };
+  });
 
   // ── Remove friend ───────────────────────────────────────────────────────────
 
-  const handleRemove = async (entry: RelEntry) => {
+  const handleRemove = (entry: RelEntry) => withBusy(entry.other.id, async () => {
     if (!user) return;
     // Try both orderings; RLS allows either participant to delete
     const { error: e1 } = await supabase
@@ -223,16 +257,17 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
       .eq('addressee_id', entry.other.id);
 
     if (e1) {
-      await supabase
+      const { error: e2 } = await supabase
         .from('friendships')
         .delete()
         .eq('requester_id', entry.other.id)
         .eq('addressee_id', user.id);
+      if (e2) { showToast(`Could not remove friend: ${e2.message}`); return; }
     }
 
     setRelationships((prev) => prev.filter((r) => r.other.id !== entry.other.id));
     showToast('Friend removed');
-  };
+  });
 
   // ── Challenge ───────────────────────────────────────────────────────────────
 
@@ -280,6 +315,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="Search by username…"
+              maxLength={20}
               className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:border-z-purple/60 placeholder:text-z-gray-500"
             />
             <motion.button
@@ -293,6 +329,23 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
           </div>
 
           <AnimatePresence>
+            {searchError && (
+              <motion.div
+                className="mt-3 text-center py-4 bg-z-card border border-z-red/20 rounded-2xl"
+                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+              >
+                <p className="text-z-red text-sm font-semibold">Search failed</p>
+                <p className="text-z-gray-500 text-xs mt-1">Check your connection and try again.</p>
+              </motion.div>
+            )}
+            {!searchError && !searching && hasSearched && searchResults.length === 0 && (
+              <motion.div
+                className="mt-3 text-center py-4"
+                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+              >
+                <p className="text-z-gray-400 text-sm">No players found matching "{query.trim()}"</p>
+              </motion.div>
+            )}
             {searchResults.length > 0 && (
               <motion.div className="mt-3 space-y-2" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
                 {searchResults.map((p) => {
@@ -313,10 +366,11 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                       ) : (
                         <motion.button
                           onClick={() => handleSendRequest(p)}
-                          className="text-xs px-3 py-1.5 rounded-xl font-bold bg-z-purple text-white"
+                          disabled={busyIds.has(p.id)}
+                          className="text-xs px-3 py-1.5 rounded-xl font-bold bg-z-purple text-white disabled:opacity-50 disabled:cursor-not-allowed"
                           whileTap={{ scale: 0.96 }}
                         >
-                          + Add
+                          {busyIds.has(p.id) ? '…' : '+ Add'}
                         </motion.button>
                       )}
                       <button onClick={() => setReportTarget({ id: p.id, username: p.username })}
@@ -355,12 +409,14 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                   </button>
                   <div className="flex gap-2">
                     <motion.button onClick={() => handleAccept(entry)}
-                      className="text-xs px-3 py-1.5 rounded-xl font-bold bg-z-purple text-white"
+                      disabled={busyIds.has(entry.other.id)}
+                      className="text-xs px-3 py-1.5 rounded-xl font-bold bg-z-purple text-white disabled:opacity-50 disabled:cursor-not-allowed"
                       whileTap={{ scale: 0.96 }}>
-                      Accept
+                      {busyIds.has(entry.other.id) ? '…' : 'Accept'}
                     </motion.button>
                     <motion.button onClick={() => handleDecline(entry)}
-                      className="text-xs px-3 py-1.5 rounded-xl font-bold border border-white/15 text-z-gray-300"
+                      disabled={busyIds.has(entry.other.id)}
+                      className="text-xs px-3 py-1.5 rounded-xl font-bold border border-white/15 text-z-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                       whileTap={{ scale: 0.96 }}>
                       Decline
                     </motion.button>
@@ -387,6 +443,17 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                   </div>
                 </div>
               ))}
+            </div>
+          ) : relError ? (
+            <div className="text-center py-10">
+              <p className="text-4xl mb-3">⚠️</p>
+              <p className="text-z-gray-300 text-sm">Couldn't load your friends</p>
+              <button
+                onClick={() => void loadRelationships()}
+                className="text-z-purple-light text-xs mt-1 font-semibold hover:underline"
+              >
+                Try again
+              </button>
             </div>
           ) : friends.length === 0 ? (
             <div className="text-center py-10">
@@ -428,7 +495,8 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                       </svg>
                     </button>
                     <button onClick={() => handleRemove(entry)}
-                      className="w-11 h-11 -ml-1 -mr-2 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors">
+                      disabled={busyIds.has(entry.other.id)}
+                      className="w-11 h-11 -ml-1 -mr-2 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M18 6L6 18M6 6l12 12" />
                       </svg>
@@ -457,7 +525,8 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                     </div>
                   </button>
                   <motion.button onClick={() => handleCancelRequest(entry)}
-                    className="text-xs px-3 py-1.5 rounded-xl font-bold border border-white/15 text-z-gray-400"
+                    disabled={busyIds.has(entry.other.id)}
+                    className="text-xs px-3 py-1.5 rounded-xl font-bold border border-white/15 text-z-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
                     whileTap={{ scale: 0.96 }}>
                     Cancel
                   </motion.button>

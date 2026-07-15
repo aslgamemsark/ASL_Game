@@ -144,21 +144,28 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
   const [metrics, setMetrics] = useState<BetaMetrics | null>(null);
   const [feedback, setFeedback] = useState<FeedbackRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [metricsRes, feedbackRes] = await Promise.all([
-      supabase.rpc('admin_beta_metrics'),
-      supabase
-        .from('feedback')
-        .select('id, category, message, anonymous, page, user_agent, status, created_at')
-        .order('created_at', { ascending: false })
-        .limit(100),
-    ]);
-    if (metricsRes.error) showToast(`Error: ${metricsRes.error.message}`);
-    else setMetrics(metricsRes.data as BetaMetrics);
-    setFeedback((feedbackRes.data as FeedbackRow[] | null) ?? []);
-    setLoading(false);
+    setLoadError(false);
+    try {
+      const [metricsRes, feedbackRes] = await Promise.all([
+        supabase.rpc('admin_beta_metrics'),
+        supabase
+          .from('feedback')
+          .select('id, category, message, anonymous, page, user_agent, status, created_at')
+          .order('created_at', { ascending: false })
+          .limit(100),
+      ]);
+      if (metricsRes.error) showToast(`Error: ${metricsRes.error.message}`);
+      else setMetrics(metricsRes.data as BetaMetrics);
+      setFeedback((feedbackRes.data as FeedbackRow[] | null) ?? []);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [showToast]);
 
   useEffect(() => { void load(); }, [load]);
@@ -170,6 +177,16 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
   };
 
   if (loading) return <p className="text-sm text-z-gray-400">Loading…</p>;
+  if (loadError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-z-gray-300 text-sm">Couldn't load beta metrics</p>
+        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   const r = metrics?.recognition;
 
@@ -293,6 +310,7 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [selected, setSelected] = useState<UserSearchResult | null>(null);
   const [detail, setDetail] = useState<UserDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -307,15 +325,20 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
   const [actionBusy, setActionBusy] = useState(false);
 
   const handleSearch = async () => {
-    if (!query.trim()) return;
+    if (!query.trim() || searching) return;
     setSearching(true);
+    setHasSearched(true);
     try {
-      const { data } = (await supabase
+      const { data, error } = (await supabase
         .from('profiles')
         .select('id, username')
         .ilike('username', `%${query.trim()}%`)
-        .limit(10)) as { data: UserSearchResult[] | null };
+        .limit(10)) as { data: UserSearchResult[] | null; error: { message: string } | null };
+      if (error) { showToast(`Search failed: ${error.message}`); setResults([]); return; }
       setResults(data ?? []);
+    } catch {
+      showToast('Search failed — check your connection and try again.');
+      setResults([]);
     } finally {
       setSearching(false);
     }
@@ -449,15 +472,19 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
         </button>
       </div>
 
+      {!selected && hasSearched && !searching && results.length === 0 && (
+        <p className="text-sm text-z-gray-400 text-center py-4">No users found matching "{query.trim()}"</p>
+      )}
+
       {results.length > 0 && !selected && (
         <div className="space-y-2">
           {results.map((r) => (
             <button
               key={r.id}
               onClick={() => void loadDetail(r)}
-              className="w-full text-left bg-z-card border border-white/5 rounded-xl px-4 py-3 hover:border-z-purple/40 transition-colors"
+              className="w-full text-left bg-z-card border border-white/5 rounded-xl px-4 py-3 hover:border-z-purple/40 transition-colors flex items-center min-w-0"
             >
-              <span className="font-semibold text-sm">@{r.username}</span>
+              <span className="font-semibold text-sm truncate min-w-0">@{r.username}</span>
             </button>
           ))}
         </div>
@@ -606,16 +633,25 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
 function WorldsTab({ showToast }: { showToast: (m: string) => void }) {
   const [flags, setFlags] = useState<Record<string, WorldFlagRow>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = (await supabase.from('world_flags').select('world_id, enabled, coming_soon')) as {
-      data: WorldFlagRow[] | null;
-    };
-    const map: Record<string, WorldFlagRow> = {};
-    for (const row of data ?? []) map[row.world_id] = row;
-    setFlags(map);
-    setLoading(false);
+    setLoadError(false);
+    try {
+      const { data, error } = (await supabase.from('world_flags').select('world_id, enabled, coming_soon')) as {
+        data: WorldFlagRow[] | null;
+        error: { message: string } | null;
+      };
+      if (error) { setLoadError(true); return; }
+      const map: Record<string, WorldFlagRow> = {};
+      for (const row of data ?? []) map[row.world_id] = row;
+      setFlags(map);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -633,6 +669,17 @@ function WorldsTab({ showToast }: { showToast: (m: string) => void }) {
   };
 
   if (loading) return <p className="text-sm text-z-gray-400">Loading…</p>;
+
+  if (loadError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-z-gray-300 text-sm">Couldn't load world settings</p>
+        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -664,14 +711,18 @@ function WorldsTab({ showToast }: { showToast: (m: string) => void }) {
 function AuditTab() {
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = (await supabase
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const { data, error } = (await supabase
         .from('admin_audit_log')
         .select('id, admin_id, action, target_user_id, payload, created_at')
         .order('created_at', { ascending: false })
-        .limit(50)) as { data: AuditRow[] | null };
+        .limit(50)) as { data: AuditRow[] | null; error: { message: string } | null };
+      if (error) { setLoadError(true); return; }
       const entries = data ?? [];
       const ids = Array.from(
         new Set(entries.flatMap((r) => [r.admin_id, r.target_user_id]).filter((x): x is string => !!x))
@@ -687,18 +738,33 @@ function AuditTab() {
           target_username: r.target_user_id ? nameMap[r.target_user_id] : undefined,
         }))
       );
+    } catch {
+      setLoadError(true);
+    } finally {
       setLoading(false);
-    })();
+    }
   }, []);
 
+  useEffect(() => { void load(); }, [load]);
+
   if (loading) return <p className="text-sm text-z-gray-400">Loading…</p>;
+  if (loadError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-z-gray-300 text-sm">Couldn't load the audit log</p>
+        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+          Try again
+        </button>
+      </div>
+    );
+  }
   if (rows.length === 0) return <p className="text-sm text-z-gray-400">No admin actions yet.</p>;
 
   return (
     <div className="space-y-2">
       {rows.map((r) => (
         <div key={r.id} className="bg-z-card border border-white/5 rounded-xl p-3 text-xs">
-          <p>
+          <p className="min-w-0 break-words">
             <span className="font-bold text-z-purple-light">@{r.admin_username ?? '?'}</span>{' '}
             <span className="text-z-gray-300">{r.action}</span>
             {r.target_username && (

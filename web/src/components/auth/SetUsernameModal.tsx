@@ -38,7 +38,7 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
   }, [value, user?.id]);
 
   const handleSave = async () => {
-    if (status !== 'ok') return;
+    if (status !== 'ok' || saving) return;
     if (isRename && renameCards <= 0) {
       setSaveError('You need a Rename Card from the Shop (🪙 150) to change your username.');
       return;

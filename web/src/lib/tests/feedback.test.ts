@@ -39,6 +39,16 @@ describe('buildFeedbackPayload', () => {
     expect(row!.message.length).toBe(MAX_FEEDBACK_LEN);
   });
 
+  it('truncates without splitting a surrogate pair (e.g. an emoji) in half', () => {
+    // Build a message whose emoji lands exactly across the truncation boundary.
+    const filler = 'x'.repeat(MAX_FEEDBACK_LEN - 1);
+    const row = buildFeedbackPayload({ ...base, message: filler + '😀😀' });
+    expect(row!.message.length).toBeLessThanOrEqual(MAX_FEEDBACK_LEN);
+    // No lone surrogate at the end — the last code unit must not be an unpaired high surrogate.
+    const lastCode = row!.message.charCodeAt(row!.message.length - 1);
+    expect(lastCode >= 0xd800 && lastCode <= 0xdbff).toBe(false);
+  });
+
   it('passes category and auto-captured context through unchanged', () => {
     const row = buildFeedbackPayload({
       ...base,

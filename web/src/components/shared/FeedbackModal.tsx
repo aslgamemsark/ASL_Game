@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { buildFeedbackPayload, MAX_FEEDBACK_LEN, type FeedbackCategory } from '@/lib/feedback';
+import { safeTruncate } from '@/lib/text';
 
 const CATEGORIES: { id: FeedbackCategory; label: string; icon: string; hint: string }[] = [
   { id: 'bug', label: 'Report a bug', icon: '🐞', hint: "Something broke or didn't work" },
@@ -31,7 +32,7 @@ export function FeedbackModal({ page, onClose }: Props) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const submit = async () => {
-    if (!category) return;
+    if (!category || status === 'submitting') return;
     const payload = buildFeedbackPayload({
       category,
       message,
@@ -119,7 +120,7 @@ export function FeedbackModal({ page, onClose }: Props) {
               <textarea
                 id="feedback-message"
                 value={message}
-                onChange={(e) => setMessage(e.target.value.slice(0, MAX_FEEDBACK_LEN))}
+                onChange={(e) => setMessage(safeTruncate(e.target.value, MAX_FEEDBACK_LEN))}
                 placeholder={
                   category === 'bug'
                     ? 'What happened? What did you expect instead?'

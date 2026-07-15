@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
@@ -31,58 +31,80 @@ export function UserProfilePage({ userId, onExit }: Props) {
   const [row, setRow] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  // Distinct from notFound: the fetch itself failed (network down, timeout) rather than the
+  // player genuinely not existing. Conflating the two used to show "they may have deleted their
+  // account" for a plain connectivity blip — misleading and not actionable via retry.
+  const [fetchError, setFetchError] = useState(false);
   const [position, setPosition] = useState<number | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
 
-  useEffect(() => {
-    if (!supabaseReady) return;
+  const load = useCallback(() => {
+    if (!supabaseReady) return () => {};
     let active = true;
     setLoading(true);
     setNotFound(false);
+    setFetchError(false);
     setRow(null);
     setPosition(null);
 
     (async () => {
-      // Same resilience pattern as LeaderboardPage's region tab: try the full column list first,
-      // and fall back to one without showcase_badges if that column's migration hasn't been run
-      // against this database yet — so this page works today, not just after that migration lands.
-      const full = await supabase
-        .from('weekly_leaderboard')
-        .select('id, username, total_xp, streak, equipped_avatar, equipped_border, active_badge, showcase_badges')
-        .eq('id', userId)
-        .single();
-
-      let data: Record<string, unknown> | null = full.data;
-      if (full.error) {
-        const fallback = await supabase
+      try {
+        // Same resilience pattern as LeaderboardPage's region tab: try the full column list first,
+        // and fall back to one without showcase_badges if that column's migration hasn't been run
+        // against this database yet — so this page works today, not just after that migration lands.
+        const full = await supabase
           .from('weekly_leaderboard')
-          .select('id, username, total_xp, streak, equipped_avatar, equipped_border, active_badge')
+          .select('id, username, total_xp, streak, equipped_avatar, equipped_border, active_badge, showcase_badges')
           .eq('id', userId)
           .single();
-        data = fallback.data;
-      }
 
-      if (!active) return;
-      if (!data) {
-        setNotFound(true);
+        let data: Record<string, unknown> | null = full.data;
+        // PGRST116 = "no rows" from .single() — a genuine not-found, not a fetch failure. Any
+        // other error code on the fallback too means the request itself couldn't complete.
+        let hardError = false;
+        if (full.error) {
+          const fallback = await supabase
+            .from('weekly_leaderboard')
+            .select('id, username, total_xp, streak, equipped_avatar, equipped_border, active_badge')
+            .eq('id', userId)
+            .single();
+          data = fallback.data;
+          if (fallback.error && fallback.error.code !== 'PGRST116') hardError = true;
+        }
+
+        if (!active) return;
+        if (hardError) {
+          setFetchError(true);
+          setLoading(false);
+          return;
+        }
+        if (!data) {
+          setNotFound(true);
+          setLoading(false);
+          return;
+        }
+        const profile = { showcase_badges: [], ...data } as unknown as ProfileRow;
+        setRow(profile);
         setLoading(false);
-        return;
-      }
-      const profile = { showcase_badges: [], ...data } as unknown as ProfileRow;
-      setRow(profile);
-      setLoading(false);
 
-      // A real global position (not just "index within whatever 50 rows happened to load"):
-      // how many players have strictly more XP, +1. Cheap head-only count, no rows transferred.
-      const { count } = await supabase
-        .from('weekly_leaderboard')
-        .select('id', { count: 'exact', head: true })
-        .gt('total_xp', profile.total_xp);
-      if (active && typeof count === 'number') setPosition(count + 1);
+        // A real global position (not just "index within whatever 50 rows happened to load"):
+        // how many players have strictly more XP, +1. Cheap head-only count, no rows transferred.
+        const { count } = await supabase
+          .from('weekly_leaderboard')
+          .select('id', { count: 'exact', head: true })
+          .gt('total_xp', profile.total_xp);
+        if (active && typeof count === 'number') setPosition(count + 1);
+      } catch {
+        if (!active) return;
+        setFetchError(true);
+        setLoading(false);
+      }
     })();
 
     return () => { active = false; };
   }, [userId]);
+
+  useEffect(() => load(), [load]);
 
   const isMe = user?.id === userId;
   const avatarIcon = row?.equipped_avatar
@@ -117,6 +139,18 @@ export function UserProfilePage({ userId, onExit }: Props) {
             <div className="w-24 h-24 rounded-full bg-z-card animate-pulse" />
             <div className="h-4 w-32 bg-z-card rounded animate-pulse" />
             <div className="h-3 w-20 bg-z-card rounded animate-pulse" />
+          </div>
+        ) : fetchError ? (
+          <div className="text-center py-16 flex flex-col items-center">
+            <Zippy expression="oops" size="md" alt="Zippy looking puzzled" />
+            <p className="text-z-gray-300 font-semibold text-sm mt-3">Couldn't load this profile</p>
+            <p className="text-z-gray-500 text-xs mt-1">Check your connection and try again.</p>
+            <button
+              onClick={() => load()}
+              className="text-z-purple-light text-xs mt-3 font-semibold hover:underline"
+            >
+              Try again
+            </button>
           </div>
         ) : notFound || !row ? (
           <div className="text-center py-16 flex flex-col items-center">

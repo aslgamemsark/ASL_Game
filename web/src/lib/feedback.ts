@@ -4,6 +4,8 @@
  * rendering React or mocking Supabase.
  */
 
+import { safeTruncate } from './text';
+
 export type FeedbackCategory = 'bug' | 'feature' | 'other';
 
 /** Matches the `feedback` table columns (see migration 20260715020000_feedback_table.sql). */
@@ -39,7 +41,7 @@ interface BuildArgs {
  * after trimming (nothing to submit).
  */
 export function buildFeedbackPayload(args: BuildArgs): FeedbackRow | null {
-  const message = args.message.trim().slice(0, MAX_FEEDBACK_LEN);
+  const message = safeTruncate(args.message.trim(), MAX_FEEDBACK_LEN);
   if (!message) return null;
   const anonymous = args.anonymous;
   return {
