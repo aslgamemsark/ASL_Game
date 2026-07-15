@@ -12,9 +12,17 @@ findings are in `FINAL_PRODUCTION_SIGNOFF.md`; this file is the "things a person
       consent model, documented data retention + deletion path. (legal/human — cannot be coded away)
 - [ ] **Decide the `collectTrainingData` default** for the target audience. Currently defaults **on**
       (opt-out). For a kid-facing app, opt-in may be required. Product + legal decision.
-- [ ] **Verify the production deploy succeeded** after the `main` merge this session (the multiplayer/
-      borders/streak/moderation features were merged to `main` today). Confirm `aslgame.vercel.app`
-      builds and the Multiplayer tab now appears. (Vercel dashboard)
+- [ ] **Verify the production deploy actually shipped** after the `main` merge this session.
+      Confirmed from here: `main` @ commit `93d25cf` (the merge) **is** on the remote — the push
+      landed. What could NOT be confirmed: that Vercel built and served it. Signal observed 2026-07-15:
+      minutes after the push, `aslgame.vercel.app` was still serving the same JS bundle hash
+      (`index-D_281_JS.js`) with no Multiplayer tab — but this is confounded by PWA service-worker
+      caching in the test browser, so it is NOT conclusive evidence of a failed deploy.
+      ACTION (Vercel dashboard — human): confirm a deployment exists from `main` @ `93d25cf`, it built
+      green, and it's the current production alias. Then hard-reload `aslgame.vercel.app` (clear the
+      service worker / "new version available") and confirm the Multiplayer tab appears. Note: the git
+      "repository moved" redirect (`msaad9632/ASL_Game` → `aslgamemsark/ASL_Game`) is a benign GitHub
+      rename redirect — same underlying repo — not a separate-repo problem.
 - [ ] **Confirm a data-deletion path exists** for account deletion (GDPR "right to erasure"): deleting
       the auth user should cascade/clear `profiles`, `user_progress`, `training_samples`, `sign_attempts`.
       Verify the FK `on delete` behavior actually removes personal data.
