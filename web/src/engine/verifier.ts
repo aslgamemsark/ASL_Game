@@ -341,6 +341,24 @@ function scoreOrientation(
  * current NMM requirement is `required: false`, so a 0 here (e.g. face capture wasn't enabled
  * this session) never gates `resultPassed` — it only affects a graded/coaching score.
  */
+// Signs with no nondominant handshape requirement are defined as one-handed — a fluent signer
+// doesn't hold up an idle second hand while producing them. Without this check, a sign like
+// PLEASE or THANK_YOU passed even with the other hand held up in frame doing nothing, because
+// every other scorer here only checks the hand(s) a sign's definition actually references and
+// silently ignores whatever else MediaPipe detects (production bug report, 2026-07-14).
+const EXTRA_HAND_TOLERANCE = 0.8;
+
+function scoreNoExtraHand(buffer: RollingBuffer, roles: Record<string, string>): number {
+  const domLabel = roles[DOMINANT] ?? null;
+  const frames = recent(buffer, SMOOTH_SECONDS);
+  if (!domLabel || frames.length === 0) return 1; // nothing to judge yet — don't false-fail
+  let extraCount = 0;
+  for (const f of frames) {
+    if (f.hands.some((h) => h.handedness !== domLabel)) extraCount++;
+  }
+  return clip(1 - extraCount / frames.length, 0, 1);
+}
+
 function scoreNmm(buffer: RollingBuffer, sign: Sign): number {
   const n = sign.nmm;
   if (!n) return 0;
@@ -374,6 +392,13 @@ export function verify(buffer: RollingBuffer, sign: Sign): VerifyResult {
       score: scoreHandshape(buffer, roles[NONDOMINANT] ?? null, nd.kind),
       threshold: nd.minConfidence,
       required: nd.required,
+    });
+  } else {
+    params.push({
+      name: 'no_extra_hand',
+      score: scoreNoExtraHand(buffer, roles),
+      threshold: EXTRA_HAND_TOLERANCE,
+      required: true,
     });
   }
 

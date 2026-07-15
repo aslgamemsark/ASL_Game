@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useUserStore } from '@/stores/useUserStore';
+import { useUserStore, todayStr } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
@@ -330,14 +330,14 @@ export function ProfileTab() {
                   <div key={i} className="flex flex-col items-center gap-1.5">
                     <span className="text-[10px] text-z-gray-400 font-semibold">{day}</span>
                     <div className={`relative w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
-                      isToday && lastPracticeDate === today.toISOString().slice(0, 10)
+                      isToday && lastPracticeDate === todayStr()
                         ? 'bg-z-purple text-white shadow-md shadow-z-purple/40'
                         : isToday ? 'bg-z-purple/30 text-z-purple-light border border-z-purple/40'
                         : practiced ? 'bg-z-green/20 text-z-green'
                         : isFuture ? 'bg-transparent text-z-gray-500 border border-z-gray-500/20'
                         : 'bg-z-surface/40 text-z-gray-500'
                     }`}>
-                      {practiced || (isToday && lastPracticeDate === today.toISOString().slice(0, 10)) ? '✓' : isToday ? '●' : ''}
+                      {practiced || (isToday && lastPracticeDate === todayStr()) ? '✓' : isToday ? '●' : ''}
                       {isToday && (
                         <motion.div className="absolute inset-0 rounded-xl border-2 border-z-purple-light"
                           animate={{ scale: [1, 1.6, 1], opacity: [0.8, 0, 0.8] }}

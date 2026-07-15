@@ -46,7 +46,7 @@ export class Capture {
       try {
         return await create('GPU');
       } catch (err) {
-        console.warn(`[SignUp] ${label}: GPU delegate failed, falling back to CPU`, err);
+        console.warn(`[QuickSign] ${label}: GPU delegate failed, falling back to CPU`, err);
         return await create('CPU');
       }
     };
@@ -122,7 +122,7 @@ export class Capture {
 
     if (!this._logged) {
       if (import.meta.env.DEV) {
-        console.log('[SignUp] MediaPipe first result — hands:', handRes.landmarks?.length ?? 0,
+        console.log('[QuickSign] MediaPipe first result — hands:', handRes.landmarks?.length ?? 0,
           'pose:', poseRes.landmarks?.length ?? 0, 'video:', w, 'x', h);
       }
       this._logged = true;

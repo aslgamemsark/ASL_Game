@@ -106,7 +106,34 @@ export function linearConfidence(actorTraj: Traj, shoulderWidth: number, req: Mo
     }
   }
 
-  return magScore * dirScore;
+  // Monotonicity: project every point onto the net-displacement axis and check that progress
+  // along THAT axis is roughly one-directional. Deliberately axis-only (not full 2D path
+  // length): the rolling buffer often includes an approach phase — the hand moving into
+  // position from an arbitrary angle before the actual directed motion — and that perpendicular
+  // drift is irrelevant to whether the motion itself is linear, so penalizing it would false-fail
+  // real signers (confirmed against help_real.json/hospital_real.json, both of which have a
+  // sideways approach baked into the 2 s window). What DOES indicate jitter/flailing rather than
+  // a clean motion is doubling back along the axis of travel itself.
+  let axisPath = 0;
+  if (mag > 1e-6) {
+    const axis = [disp[0] / mag, disp[1] / mag];
+    let prevProj = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const proj = (pts[i][0] - pts[0][0]) * axis[0] + (pts[i][1] - pts[0][1]) * axis[1];
+      axisPath += Math.abs(proj - prevProj);
+      prevProj = proj;
+    }
+  }
+  // Real recordings still lose a lot of ground here (help_real/hospital_real measured
+  // mag/axisPath ~0.17-0.37) purely from the approach phase's along-axis component — the hand
+  // doesn't travel in a perfectly dead-straight line even during a genuine deliberate motion.
+  // MONO_FREE gives that real-world slack room (mirrors RADIUS_CV_FREE's role for CIRCULAR)
+  // before axisPath starts costing score, so only motion that's mostly back-and-forth along its
+  // own direction of travel — not merely imperfect — gets penalized.
+  const MONO_FREE = 0.5;
+  const monotonicity = axisPath > 1e-6 ? clip((mag / axisPath) / MONO_FREE, 0, 1) : 0;
+
+  return magScore * dirScore * monotonicity;
 }
 
 export function repeatedConfidence(actorTraj: Traj, shoulderWidth: number, req: MovementReq): number {
@@ -144,6 +171,17 @@ export function repeatedConfidence(actorTraj: Traj, shoulderWidth: number, req: 
 
   const cycleScore = clip(cycles / Math.max(req.minCycles, 1), 0, 1);
   const ampScore = clip(ampRatio / (ampFloor * 1.6), 0, 1);
+
+  // An interval-regularity term (coefficient of variation of inter-crossing gaps) was tried here
+  // 2026-07-14 and reverted the same day: measured against real recordings, it did NOT separate
+  // genuine repeated signing from the rapid/random confusor fixtures it was meant to catch. Real
+  // DOCTOR/MEDICINE/NURSE tapping has inter-tap CV ~0.4-0.8 (humans don't tap like a metronome),
+  // and the rapid-motion confusors for MEDICINE/NURSE measured LOWER (more "regular") CV than the
+  // genuine correct recordings — the opposite of what the check assumed. It also pushed several
+  // real correct/real fixtures below their pass threshold. The minCycles/minConfidence tuning
+  // already in each sign's definition is what actually closes the rapid/random-motion hole;
+  // this term was redundant with that and net-harmful. Left as a documented dead end rather than
+  // silently dropped, so it isn't reintroduced without new evidence.
   return Math.min(cycleScore, ampScore);
 }
 

@@ -11,7 +11,7 @@ import { WorldMap } from '@/components/home/WorldMap';
 import { ChestCard } from '@/components/home/ChestCard';
 import { ZippyMessage } from '@/components/shared/ZippyMessage';
 import { useZippyLine } from '@/hooks/useZippyLine';
-import { useUserStore } from '@/stores/useUserStore';
+import { useUserStore, todayStr } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Session-scoped so the warm welcome-back greeting shows at most once per app open, not on every
@@ -21,7 +21,7 @@ let welcomeBackShown = false;
 function daysSince(dateStr: string | null): number {
   if (!dateStr) return 0;
   const then = new Date(`${dateStr}T00:00:00`).getTime();
-  const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00`).getTime();
+  const today = new Date(`${todayStr()}T00:00:00`).getTime();
   return Math.round((today - then) / 86_400_000);
 }
 
@@ -38,6 +38,7 @@ interface Props {
   onStartStory: (id: string) => void;
   onStartSpeed: () => void;
   onOpenShop: () => void;
+  onOpenMultiplayer: () => void;
   onRequireSignIn: () => void;
   onSettings: () => void;
   tab: Tab;
@@ -50,6 +51,7 @@ export function HomePage({
   onStartStory,
   onStartSpeed,
   onOpenShop,
+  onOpenMultiplayer,
   onRequireSignIn,
   onSettings,
   tab,
@@ -193,7 +195,7 @@ export function HomePage({
       </div>
 
       <div className="lg:hidden">
-        <BottomNav active={tab} onChange={setTab} onSettings={onSettings} />
+        <BottomNav active={tab} onChange={setTab} onMultiplayer={onOpenMultiplayer} onSettings={onSettings} />
       </div>
     </div>
   );

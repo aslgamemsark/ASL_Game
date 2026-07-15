@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { TurnOverlay } from '@/components/shared/TurnOverlay';
 
 interface Props {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -11,6 +12,21 @@ interface Props {
    *  matching the original SpeedChallengePage behavior; those other pages never had a border at
    *  all, so they must not gain one now. */
   passed?: boolean;
+  /** Caption chip, bottom-left (e.g. "You"). Omit for no label. */
+  label?: string;
+  /** Pre-resolved Tailwind classes for the caller's equipped shop border cosmetic (the caller
+   *  resolves getShopItem(equippedBorder)?.preview — this component stays ignorant of shop.ts).
+   *  Paints via ring/shadow utilities, a different layer than the `passed` border above, so both
+   *  can be present at once with no precedence conflict. */
+  cosmeticBorderClasses?: string;
+  /** Multiplayer turn indicator: when true this is the active signer's feed — draws a colored
+   *  outline (a third layer, distinct from the cosmetic ring and the `passed` border), an optional
+   *  label chip, and a depleting turn timer bar. */
+  activeTurn?: boolean;
+  /** Label chip shown top-center while activeTurn (e.g. "YOUR TURN"). */
+  turnLabel?: string;
+  /** 0-100 remaining fraction of the turn timer; drives the depleting top bar when activeTurn. */
+  timerPercent?: number;
 }
 
 /**
@@ -21,7 +37,7 @@ interface Props {
  * (production audit, 2026-07-12). The camera stream and recognition loop were already correctly
  * shared via hooks (useCamera/useRecognition) — only this rendering piece was duplicated.
  */
-export function WebcamMirror({ videoRef, overlayClipUrl, passed }: Props) {
+export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
 
@@ -48,11 +64,15 @@ export function WebcamMirror({ videoRef, overlayClipUrl, passed }: Props) {
 
   return (
     <div
-      className={`relative rounded-2xl overflow-hidden bg-z-surface aspect-video ${
+      className={`relative rounded-2xl overflow-hidden bg-z-surface aspect-video ${cosmeticBorderClasses ?? ''} ${
+        activeTurn ? 'outline outline-2 outline-z-purple-light' : ''
+      } ${
         passed === undefined ? '' : `border-2 transition-colors duration-200 ${passed ? 'border-z-green' : 'border-transparent'}`
       }`}
     >
       <canvas ref={canvasRef} className="w-full h-full object-cover" />
+      <TurnOverlay active={!!activeTurn} label={turnLabel} timerPercent={timerPercent} />
+      {label && <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded-md">{label}</span>}
       {overlayClipUrl && (
         <div className="absolute top-2 right-2 w-28 rounded-xl overflow-hidden border-2 border-white/20 shadow-lg bg-black">
           <video

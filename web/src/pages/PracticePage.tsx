@@ -9,6 +9,7 @@ import { useConfetti } from '@/hooks/useConfetti';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
+import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { ReplayCompare } from '@/components/lesson/ReplayCompare';
 import { Zippy } from '@/components/shared/Zippy';
@@ -20,6 +21,7 @@ import type { VerificationEntry } from '@/hooks/useRecognition';
 import { SIGNS } from '@/data/signs';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { getSignsDueForReview, pickReceptiveDistractors } from '@/data/spaced-repetition';
+import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
 
 type Mode = 'loading' | 'menu' | 'expressive' | 'receptive' | 'mixed' | 'done';
@@ -41,7 +43,8 @@ interface Props {
 }
 
 export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoStartMixed, bonusGoldOnPerfect, heading, hideReferenceClip }: Props) {
-  const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession } = useUserStore();
+  const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession, equippedBorder } = useUserStore();
+  const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera();
   const recorder = useAttemptRecorder();
@@ -141,7 +144,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     [user]
   );
 
-  const { classifier, logVote } = useClassifier();
+  const { classifier, status: classifierStatus, logVote, lastVote } = useClassifier();
   const recognition = useRecognition({
     onPass: handlePass,
     classifier,
@@ -465,6 +468,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                   <WebcamMirror
                     videoRef={videoRef}
                     overlayClipUrl={showClip ? currentSignData.clip : undefined}
+                    cosmeticBorderClasses={cosmeticBorderClasses}
                   />
 
                   {recognition.result && (
@@ -632,6 +636,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
           </motion.div>
         )}
       </AnimatePresence>
+      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} result={recognition.result} />
     </div>
   );
 }

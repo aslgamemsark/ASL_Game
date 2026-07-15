@@ -16,3 +16,9 @@ matplotlib>=3.8
 tensorflow>=2.15
 tf_keras>=2.15        # Keras 2 API the tensorflowjs converter needs
 tensorflowjs>=4.17    # browser export for the disambiguation layer (C.5)
+
+# Dataset extraction tools (tools/wlasl_extract.py, tools/msasl_extract.py,
+# tools/hmdb51_extract.py) — video/metadata fetching, not needed for training itself.
+requests>=2.31
+yt-dlp>=2024.1
+huggingface_hub>=0.20  # HMDB51 mirror fetch — see ml/README.md's HMDB51 section

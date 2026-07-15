@@ -8,9 +8,13 @@ the sign, not the camera:
     scaled by shoulder width -> translation- and camera-distance-invariant (the same ratio
     trick `normalized_distance` uses in core/landmarks.py). MediaPipe z is dropped: it's a
     per-hand relative depth, not in shoulder-width units, and noisy.
-  * Hands are slotted by handedness (Right -> slot 0, Left -> slot 1) so the channel order is
-    stable across clips. A missing hand is zeros + a presence flag so the model can tell
-    "hand at origin" from "hand absent".
+  * Hands are slotted by ROLE (Dominant -> slot 0, Nondominant -> slot 1), not raw MediaPipe
+    handedness — assign_roles() below picks dominant-by-motion per clip, the same heuristic
+    core/verifier.py and web/src/engine/verifier.ts already use. Slotting by raw Right/Left
+    handedness instead would put a left-handed signer's dominant hand in a different feature
+    slot than a right-handed signer's, on already-thin per-class data — a real bug found while
+    auditing this file, fixed here. A missing hand is zeros + a presence flag so the model can
+    tell "hand at origin" from "hand absent".
   * Normalization constants (shoulder midpoint + width) are taken once per clip (median over
     frames with pose) so the normalization itself doesn't jitter, and missing-pose frames
     still get sane features. Fallback to hand-based scale if a clip never sees shoulders.
@@ -35,10 +39,48 @@ N_LANDMARKS = 21
 PER_HAND = N_LANDMARKS * 2          # x, y only
 PER_HAND_F = PER_HAND + 1           # + presence flag
 FEAT_DIM = PER_HAND_F * 2           # two hands -> 86
-HAND_SLOTS = ("Right", "Left")
+ROLE_SLOTS = ("Dominant", "Nondominant")
 
-# Hand landmark indices (mirror core/landmarks.py) for the fallback scale.
+# Hand landmark indices (mirror core/landmarks.py) for the fallback scale + role assignment.
 WRIST, MIDDLE_MCP = 0, 9
+INDEX_MCP, RING_MCP, PINKY_MCP = 5, 13, 17
+PALM_POINTS = (WRIST, INDEX_MCP, MIDDLE_MCP, RING_MCP, PINKY_MCP)
+
+
+def _hand_center(points) -> np.ndarray:
+    """Palm-center proxy: mean of wrist + finger MCPs. Mirrors core/landmarks.py's Hand.center."""
+    pts = np.asarray(points, float)
+    return pts[list(PALM_POINTS), :2].mean(axis=0)
+
+
+def _path_length(centers: list) -> float:
+    if len(centers) < 2:
+        return 0.0
+    pts = np.stack(centers)
+    return float(np.sum(np.linalg.norm(np.diff(pts, axis=0), axis=1)))
+
+
+def assign_roles(frames: list[dict]) -> dict[str, str]:
+    """Map Dominant/Nondominant to detected MediaPipe handedness labels by relative motion —
+    same heuristic as core/verifier.py's assign_roles() and web/src/engine/verifier.ts's
+    assignRoles() (whichever hand's palm-center travels farther across the clip is dominant)."""
+    labels: list[str] = []
+    for fr in frames:
+        for h in fr["hands"]:
+            if h["handedness"] not in labels:
+                labels.append(h["handedness"])
+    if not labels:
+        return {}
+    if len(labels) == 1:
+        return {"Dominant": labels[0]}
+
+    centers_by_label: dict[str, list] = {label: [] for label in labels}
+    for fr in frames:
+        for h in fr["hands"]:
+            centers_by_label[h["handedness"]].append(_hand_center(h["points"]))
+
+    labels.sort(key=lambda label: _path_length(centers_by_label[label]), reverse=True)
+    return {"Dominant": labels[0], "Nondominant": labels[1]}
 
 
 # ----------------------------------------------------------------- per-clip normalization
@@ -70,13 +112,14 @@ def _clip_norm(frames: list[dict]) -> tuple[np.ndarray, float]:
     return np.zeros(2), 1.0
 
 
-def _frame_features(fr: dict, mid: np.ndarray, scale: float) -> np.ndarray:
-    """86-dim feature for one frame: [Right 42 + flag, Left 42 + flag]."""
+def _frame_features(fr: dict, mid: np.ndarray, scale: float, roles: dict[str, str]) -> np.ndarray:
+    """86-dim feature for one frame: [Dominant 42 + flag, Nondominant 42 + flag]."""
     out = np.zeros(FEAT_DIM, dtype=np.float32)
     by_hand = {h["handedness"]: h for h in fr["hands"]}
-    for slot, handed in enumerate(HAND_SLOTS):
+    for slot, role in enumerate(ROLE_SLOTS):
         base = slot * PER_HAND_F
-        h = by_hand.get(handed)
+        label = roles.get(role)
+        h = by_hand.get(label) if label else None
         if h is not None:
             pts = np.asarray(h["points"], float)[:, :2]
             norm = ((pts - mid) / scale).reshape(-1)
@@ -100,7 +143,8 @@ def clip_to_sequence(payload: dict, seq_len: int = SEQ_LEN) -> Optional[np.ndarr
         return None
     frames = frames[hand_idx[0]: hand_idx[-1] + 1]
     mid, scale = _clip_norm(frames)
-    feats = np.stack([_frame_features(fr, mid, scale) for fr in frames])  # (N, F)
+    roles = assign_roles(frames)
+    feats = np.stack([_frame_features(fr, mid, scale, roles) for fr in frames])  # (N, F)
     return _resample_time(feats, seq_len)
 
 
@@ -140,9 +184,16 @@ def build(landmarks_dir, manifest, out: str, seq_len: int = SEQ_LEN) -> None:
     for mp in man_paths:
         split_map.update(_read_manifest(Path(mp)))
 
-    X, y, splits, raw_labels = [], [], [], []
+    X, y, splits, raw_labels, origins = [], [], [], [], []
     skipped = 0
     for root in roots:
+        # Origin = the dataset root's own parent folder name (data/asl_citizen/landmarks ->
+        # "asl_citizen", data/ms_asl/landmarks -> "ms_asl", ...) — reuses the directory
+        # convention every source already follows instead of adding a separate config knob.
+        # Enables cross-dataset validation: train on N-1 origins, hold one out entirely, to
+        # catch a model learning dataset-specific shortcuts (framing/compression/watermarks)
+        # rather than the sign itself.
+        origin = root.parent.name
         for jp in sorted(root.rglob("*.json")):
             payload = json.loads(jp.read_text(encoding="utf-8"))
             seq = clip_to_sequence(payload, seq_len)
@@ -154,6 +205,7 @@ def build(landmarks_dir, manifest, out: str, seq_len: int = SEQ_LEN) -> None:
             X.append(seq)
             raw_labels.append(sign)
             splits.append(split_map.get(clip_id, "train"))
+            origins.append(origin)
 
     if not X:
         print("no usable clips found — nothing to cache")
@@ -164,15 +216,18 @@ def build(landmarks_dir, manifest, out: str, seq_len: int = SEQ_LEN) -> None:
     y = np.array([cls_idx[s] for s in raw_labels], dtype=np.int64)
     X = np.stack(X).astype(np.float32)
     splits = np.array(splits)
+    origins = np.array(origins)
 
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(out_path, X=X, y=y, split=splits, classes=np.array(classes))
+    np.savez_compressed(out_path, X=X, y=y, split=splits, classes=np.array(classes), origin=origins)
 
     print(f"cache -> {out_path}")
     print(f"  X={X.shape}  y={y.shape}  classes={len(classes)}  skipped={skipped}")
     for split in ("train", "val", "test"):
         print(f"  {split}: {(splits == split).sum()} clips")
+    for o in sorted(set(origins.tolist())):
+        print(f"  origin={o}: {(origins == o).sum()} clips")
 
 
 def main() -> None:

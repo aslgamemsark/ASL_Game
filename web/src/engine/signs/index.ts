@@ -14,14 +14,24 @@ export const HELLO = createSign({
   name: 'HELLO', twoHanded: false,
   dominant: { kind: 'open', required: true },
   location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false, minConfidence: 0.45},
-  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true, minConfidence: 0.25},
+  // minConfidence raised 0.25->0.6 (2026-07-14): real calibration log (HELLO_2026-07-14T18-01-57)
+  // showed a tiny hand vibration sustained a 29-frame all-required-pass streak at 0.25 — well past
+  // the app's 6-frame accept debounce, a genuine false accept. At 0.6 that same confusor's longest
+  // run drops to 0, while the correct take's longest run stays a comfortable 88 frames (need only
+  // 6). See docs/vault or the downloaded CSV for the full per-threshold sweep.
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true, minConfidence: 0.6},
 });
 
 export const PLEASE = createSign({
   name: 'PLEASE', twoHanded: false,
   dominant: { kind: 'open', required: true },
   location: { anchor: Anchor.CHEST, actingHand: DOMINANT, maxDistRatio: 0.45, required: true },
-  movement: { kind: MovementKind.CIRCULAR, actor: DOMINANT, minTotalRotationDeg: 300, radiusToleranceRatio: 1.0, minDurationS: 0.6, required: true, minConfidence: 0.44},
+  // minConfidence raised 0.44->0.7 (2026-07-14): real calibration log (PLEASE_2026-07-14T18-19-02)
+  // showed a loose/partial circular confusor motion sustained a 13-frame all-required-pass streak
+  // at 0.44 — well past the app's 6-frame accept debounce, a genuine false accept. At 0.7 that same
+  // confusor's longest run drops to 0, while the correct take's longest run stays a comfortable 130
+  // frames (need only 6).
+  movement: { kind: MovementKind.CIRCULAR, actor: DOMINANT, minTotalRotationDeg: 300, radiusToleranceRatio: 1.0, minDurationS: 0.6, required: true, minConfidence: 0.7},
   orientation: { hand: DOMINANT, facing: PalmFacing.IN, required: false, minConfidence: 0.25},
 });
 
@@ -29,7 +39,15 @@ export const THANK_YOU = createSign({
   name: 'THANK_YOU', twoHanded: false,
   dominant: { kind: 'open', required: true },
   location: { anchor: Anchor.CHIN, actingHand: DOMINANT, maxDistRatio: 0.5, required: true },
-  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, 1], minDisplacementRatio: 0.2, minDurationS: 0.4, required: true, minConfidence: 0.25},
+  // minConfidence raised 0.25->0.85 (2026-07-14): real calibration log (THANK_YOU_2026-07-14T18-32)
+  // showed a chin-touch confusor (tapping/resting near the chin without a full downward push)
+  // sustained a 36-consecutive-frame all-required-pass streak at 0.25 (confusor movement median
+  // 0.50) — well past the app's 6-frame accept debounce, a genuine false accept, matching the
+  // tester's own observation ("movement goes to 0.5 and passes"). At 0.85 that same confusor's
+  // longest run drops to 0, while the correct take's longest run stays 14 frames (need only 6).
+  // See docs/CALIBRATION_LOG.md. Note: RED and WANT share this same generic LINEAR-down movement
+  // block below but are untested — don't assume this same fix applies there without their own logs.
+  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, 1], minDisplacementRatio: 0.2, minDurationS: 0.4, required: true, minConfidence: 0.85},
   orientation: { hand: DOMINANT, facing: PalmFacing.UP, required: false, minConfidence: 0.25},
 });
 
@@ -38,14 +56,23 @@ export const WANT = createSign({
   dominant: { kind: 'open', required: true },
   nondominant: { kind: 'open', required: true },
   location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false },
-  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, 1], minDisplacementRatio: 0.2, minDurationS: 0.4, required: true, minConfidence: 0.25},
+  // minConfidence raised 0.25->0.4 (2026-07-14): conservative blanket bump, NOT its own confusor
+  // log — see the "0.25 uncalibrated default" pattern note in docs/CALIBRATION_LOG.md. Every sign
+  // tested so far at this exact default has failed its confusor; 0.4 is the smallest value that
+  // held up across all of them. Re-tune with real data if this sign gets its own /calibrate run.
+  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, 1], minDisplacementRatio: 0.2, minDurationS: 0.4, required: true, minConfidence: 0.4},
 });
 
 export const YES = createSign({
   name: 'YES', twoHanded: false,
   dominant: { kind: 'fist', required: true },
   location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false, minConfidence: 0.45},
-  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true, minConfidence: 0.25},
+  // minConfidence raised 0.25->0.4 (2026-07-14): real calibration log (YES_2026-07-14T18-37) showed
+  // a confusor (fist held on screen without a real repeated bounce) sustained a 21-consecutive-
+  // frame all-required-pass streak — a knife-edge cliff, present at every threshold up to 0.25 and
+  // gone entirely by 0.28. 0.4 gives real margin past that cliff; correct-take streak stays 70
+  // frames (need only 6). See docs/CALIBRATION_LOG.md.
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true, minConfidence: 0.4},
 });
 
 export const MORE = createSign({
@@ -298,6 +325,10 @@ export const PAIN = createSign({
   dominant: { kind: 'index', required: true, minConfidence: 0.25 },
   nondominant: { kind: 'index', required: true, minConfidence: 0.25 },
   location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 1.5, required: false },
+  // Tried the same 0.25->0.4 blanket bump applied to other stale-default signs (2026-07-14, see
+  // docs/CALIBRATION_LOG.md) but reverted: it broke the real pain_real.json fixture (a genuine
+  // recorded correct performance) — this sign's real CONVERGE motion doesn't reach 0.4 confidence.
+  // Needs its own /calibrate confusor test to find a real safe value, not a guess.
   movement: { kind: MovementKind.CONVERGE, actor: DOMINANT, minApproachRatio: 0.15, minDurationS: 0.4, required: true, minConfidence: 0.25},
 });
 
@@ -316,9 +347,20 @@ export const EMERGENCY = createSign({
   name: 'EMERGENCY', twoHanded: false,
   dominant: { kind: 'claw', required: true, minConfidence: 0.50 },
   location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 1.5, required: false },
-  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 3, minDurationS: 0.5, required: true, minConfidence: 0.25},
+  // minConfidence raised 0.25->0.4 (2026-07-14): conservative blanket bump, not its own confusor
+  // log — see docs/CALIBRATION_LOG.md's "0.25 uncalibrated default" pattern note.
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 3, minDurationS: 0.5, required: true, minConfidence: 0.4},
 });
 
+// DOCTOR/NURSE/SICK/HOSPITAL below all leave nondominant handshape unrequired — audited (2026-07)
+// rather than changed. In real ASL these four are single-active-hand signs where the "other hand"
+// is the resting forearm being tapped/pointed at, with no defined handshape of its own (unlike
+// e.g. WRITE/READ/NAME/FRIEND, genuinely two-active-hand signs, which DO require nondominant
+// shape). Absence of the second hand entirely is still blocked: the required OTHER_HAND location
+// scores 0 with no second hand in frame at all (see scoreLocation), so this isn't "no second-hand
+// check" — it's specifically "no shape check on a hand that ASL doesn't define a shape for." No
+// fixture proves this is exploitable by an active/wrong-shaped second hand; left as-is rather than
+// guessing, since tightening it risks a false-fail with no evidence it closes a real hole.
 export const DOCTOR = createSign({
   name: 'DOCTOR', twoHanded: true,
   dominant: { kind: 'open', required: true, minConfidence: 0.45 },
@@ -438,7 +480,10 @@ export const NAME = createSign({
   // pass without touching. A real recorded tap measured closest-approach down to ~0.01-0.06; 0.15
   // still clears genuine contact with margin while rejecting a near-miss hover.
   location: { anchor: Anchor.OTHER_HAND, actingHand: DOMINANT, useClosestApproach: true, maxDistRatio: 0.15, required: true },
-  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.04, minDurationS: 0.4, required: true, minConfidence: 0.25},
+  // minConfidence raised 0.25->0.4 (2026-07-14): conservative blanket bump, not its own confusor
+  // log — see docs/CALIBRATION_LOG.md's "0.25 uncalibrated default" pattern note. Worth a closer
+  // look given the low 0.04 amplitude floor here (same shape of issue as WRITE's fix).
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.04, minDurationS: 0.4, required: true, minConfidence: 0.4},
 });
 
 export const FRIEND = createSign({
@@ -459,14 +504,19 @@ export const RED = createSign({
   name: 'RED', twoHanded: false,
   dominant: { kind: 'index', required: true },
   location: { anchor: Anchor.CHIN, actingHand: DOMINANT, maxDistRatio: 0.5, required: true },
-  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, 1], minDisplacementRatio: 0.2, minDurationS: 0.4, required: true, minConfidence: 0.25},
+  // minConfidence raised 0.25->0.4 (2026-07-14): conservative blanket bump, not its own confusor
+  // log — see docs/CALIBRATION_LOG.md's "0.25 uncalibrated default" pattern note. Shares THANK_YOU's
+  // exact movement block, which needed 0.85 once actually tested — treat this as a floor, not final.
+  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, 1], minDisplacementRatio: 0.2, minDurationS: 0.4, required: true, minConfidence: 0.4},
 });
 
 export const YELLOW = createSign({
   name: 'YELLOW', twoHanded: false,
   dominant: { kind: 'y', required: true },
   location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 3.0, required: false, minConfidence: 0.45},
-  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true, minConfidence: 0.25},
+  // minConfidence raised 0.25->0.4 (2026-07-14): conservative blanket bump, not its own confusor
+  // log — see docs/CALIBRATION_LOG.md's "0.25 uncalibrated default" pattern note.
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minDurationS: 0.6, required: true, minConfidence: 0.4},
 });
 
 export const WIN = createSign({
@@ -474,7 +524,9 @@ export const WIN = createSign({
   dominant: { kind: 'fist', required: true, minConfidence: 0.5 },
   nondominant: { kind: 'fist', required: true, minConfidence: 0.5 },
   location: { anchor: Anchor.OTHER_HAND, actingHand: DOMINANT, maxDistRatio: 0.9, vertical: 'above', required: true },
-  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, -1], minDisplacementRatio: 0.2, minDurationS: 0.4, required: true, minConfidence: 0.25},
+  // minConfidence raised 0.25->0.4 (2026-07-14): conservative blanket bump, not its own confusor
+  // log — see docs/CALIBRATION_LOG.md's "0.25 uncalibrated default" pattern note.
+  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, direction: [0, -1], minDisplacementRatio: 0.2, minDurationS: 0.4, required: true, minConfidence: 0.4},
 });
 
 export const TEAM = createSign({

@@ -24,7 +24,10 @@ const BLOCKED: readonly string[] = [
 function normaliseLeet(s: string): string {
   return s
     .replace(/4/g, 'a').replace(/3/g, 'e').replace(/1/g, 'i')
-    .replace(/0/g, 'o').replace(/5/g, 's').replace(/7/g, 't');
+    .replace(/0/g, 'o').replace(/5/g, 's').replace(/7/g, 't')
+    .replace(/9/g, 'g').replace(/6/g, 'g').replace(/8/g, 'b')
+    .replace(/\$/g, 's').replace(/@/g, 'a').replace(/\|/g, 'i')
+    .replace(/!/g, 'i');
 }
 
 // Drops every character that isn't a-z, so separator characters used to
@@ -34,16 +37,22 @@ function stripNonLetters(s: string): string {
   return s.replace(/[^a-z]/g, '');
 }
 
-// Collapses runs of the same letter down to one, so a stretched-out spelling
-// (niggga, fuuuck) normalises the same way as its base word. Must be applied
-// to the blocklist words too (nigger -> niger, bitch has no doubles so it's
-// unchanged) — otherwise a legitimately double-lettered word like "nigga"
-// would stop matching its own collapsed candidate form.
+// Collapses ANY run of the same letter down to one, so a stretched-out spelling (niggga, fuuuck)
+// normalises the same way as its base word (nigga has its own doubled "gg", so stretching must
+// collapse the same way the blocklist word does, or "niggga" and "nigga" collapse to different
+// lengths and stop matching each other).
 function collapseRepeats(s: string): string {
   return s.replace(/(.)\1+/g, '$1');
 }
 
-const BLOCKED_COLLAPSED: readonly string[] = BLOCKED.map(collapseRepeats);
+// A collapsed blocklist entry shorter than this is rejected from the collapsed-matching pass
+// entirely — collapsing "coon" (2 o's) produces "con", a 3-letter substring that flags ordinary
+// words and names (connor, control, iconic, economics). The uncollapsed BLOCKED list below still
+// catches "coon" typed plainly or via leet substitution; only the over-aggressive short collapsed
+// form is excluded. Verified empirically against both directions: every stretched-slur test case
+// this file's tests require (niggga, fuuuck, n_1_g_g_4) still matches at length >= 4.
+const MIN_COLLAPSED_LEN = 4;
+const BLOCKED_COLLAPSED: readonly string[] = BLOCKED.map(collapseRepeats).filter((w) => w.length >= MIN_COLLAPSED_LEN);
 
 export function isInappropriate(username: string): boolean {
   const low = username.toLowerCase();

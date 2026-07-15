@@ -32,8 +32,11 @@ import matplotlib.pyplot as plt  # noqa: E402
 N_LANDMARKS = 21
 PER_HAND = N_LANDMARKS * 2
 PER_HAND_F = PER_HAND + 1
-HAND_SLOTS = ("Right", "Left")
-SLOT_COLOR = {"Right": "#7B2FBE", "Left": "#F59E0B"}
+# Slot 0/1 = Dominant/Nondominant (mirrors ml/dataset.py's assign_roles() re-slotting) — NOT raw
+# MediaPipe Right/Left handedness, which can land in either slot depending on which hand a given
+# signer favors.
+ROLE_SLOTS = ("Dominant", "Nondominant")
+SLOT_COLOR = {"Dominant": "#7B2FBE", "Nondominant": "#F59E0B"}
 
 # MediaPipe 21-point hand skeleton.
 HAND_CONNECTIONS = [
@@ -105,12 +108,12 @@ def render_sign(seq: np.ndarray, sign: str, out_dir: Path, n_cols: int = 8) -> N
     for ax, t in zip(axes, idxs):
         vec = seq[t]
         drew = False
-        for slot, handed in enumerate(HAND_SLOTS):
+        for slot, role in enumerate(ROLE_SLOTS):
             pts, present = _hand_from_vec(vec, slot)
             if not present:
                 continue
             drew = True
-            color = SLOT_COLOR[handed]
+            color = SLOT_COLOR[role]
             for a, b in HAND_CONNECTIONS:
                 ax.plot([pts[a, 0], pts[b, 0]], [pts[a, 1], pts[b, 1]],
                         color=color, linewidth=1.2)
@@ -124,7 +127,7 @@ def render_sign(seq: np.ndarray, sign: str, out_dir: Path, n_cols: int = 8) -> N
         if not drew:
             ax.text(0, 0, "no hands", ha="center", va="center", fontsize=7, color="red")
 
-    fig.suptitle(f"{sign}   (purple=Right  amber=Left)", fontsize=10)
+    fig.suptitle(f"{sign}   (purple=Dominant  amber=Nondominant)", fontsize=10)
     fig.tight_layout()
     out = out_dir / f"{sign}.png"
     fig.savefig(out, dpi=90)
@@ -144,7 +147,7 @@ def visual_gate(cache: Path, out_dir: Path, per_class: int = 1) -> None:
             render_sign(X[idx], name, out_dir)
     print(f"rendered {len(classes)} sign(s). Open the PNGs and confirm each reads correctly:")
     print("  - hands UPRIGHT (not upside down)")
-    print("  - correct handedness colors (purple=Right, amber=Left)")
+    print("  - correct role colors (purple=Dominant, amber=Nondominant)")
     print("  - hands present through the motion (no 'no hands' frames mid-sign)")
 
 

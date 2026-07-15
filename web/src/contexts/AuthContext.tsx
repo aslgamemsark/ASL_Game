@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { validateUsername } from '@/lib/username';
+import { isInappropriate } from '@/lib/profanity';
 import { isAlreadyRegisteredError } from '@/lib/authErrors';
 import { useUserStore } from '@/stores/useUserStore';
 
@@ -131,7 +132,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // profiles.username CHECK constraint (3-20 chars) regardless of email length — an
         // uncapped prefix from a long email local-part could otherwise produce a >20-char
         // username the database would now reject.
-        const emailPrefix = ((u.email ?? 'user').split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') || 'user').slice(0, 16);
+        let emailPrefix = ((u.email ?? 'user').split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') || 'user').slice(0, 16);
+        // Don't let an email local-part seed a slur into the leaderboard: the interactive
+        // signup/rename paths run validateUsername, but this auto-derived path never did. Fall
+        // back to a neutral prefix if the derived name trips the profanity filter.
+        if (isInappropriate(emailPrefix)) emailPrefix = 'player';
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const generated = `${emailPrefix}${suffix}`;
         await supabase.from('profiles').upsert({ id: userId, username: generated } as Record<string, unknown>);

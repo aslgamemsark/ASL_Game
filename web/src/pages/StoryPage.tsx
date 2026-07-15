@@ -8,6 +8,7 @@ import { useConfetti } from '@/hooks/useConfetti';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
+import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
 import { Zippy } from '@/components/shared/Zippy';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { pickZippyLine, type ZippyExpression } from '@/data/zippy';
@@ -16,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { logAttempt } from '@/hooks/useProgressSync';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
+import { getShopItem } from '@/data/shop';
 import type { StoryScript } from '@/data/stories';
 import type { VerifyResult } from '@/engine/verifier';
 
@@ -44,7 +46,8 @@ const MOOD_ZIPPY: Record<string, ZippyExpression> = {
 };
 
 export function StoryPage({ story, onExit }: Props) {
-  const { addXp, addSigns, addGold, addDailyMinutes, recordSign, completeLesson, checkBadges, awardBadge } = useUserStore();
+  const { addXp, addSigns, addGold, addDailyMinutes, recordSign, completeLesson, checkBadges, awardBadge, equippedBorder } = useUserStore();
+  const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera();
   const sounds = useSounds();
@@ -125,7 +128,7 @@ export function StoryPage({ story, onExit }: Props) {
     [user]
   );
 
-  const { classifier, logVote } = useClassifier();
+  const { classifier, status: classifierStatus, logVote, lastVote } = useClassifier();
   const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote, onAttempt: handleAttempt });
 
   useEffect(() => { recognition.init(); }, [recognition.init]);
@@ -301,7 +304,7 @@ export function StoryPage({ story, onExit }: Props) {
               </div>
 
               {/* Webcam */}
-              <WebcamMirror videoRef={videoRef} />
+              <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} />
 
               {recognition.result && (
                 <ParameterChecklist params={recognition.result.params} sign={currentEngineSign} />
@@ -420,6 +423,7 @@ export function StoryPage({ story, onExit }: Props) {
 
         </AnimatePresence>
       </div>
+      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} result={recognition.result} />
     </div>
   );
 }

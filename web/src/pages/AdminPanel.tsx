@@ -111,6 +111,7 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
   const [goldAmount, setGoldAmount] = useState('');
   const [goldReason, setGoldReason] = useState('');
   const [banReason, setBanReason] = useState('');
+  const [newName, setNewName] = useState('');
   // Shared busy flag for the mutating admin actions below (grant gold, set cosmetic, grant all
   // cosmetics, ban/unban) — they're sequential edits to the same user, never meant to run
   // concurrently, and none of the buttons disabled themselves while their RPC was in flight, so a
@@ -196,6 +197,28 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
       if (error) { showToast(`Error: ${error.message}`); return; }
       showToast('Granted all cosmetics');
       void loadDetail(selected);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleRename = async () => {
+    if (!selected || actionBusy) return;
+    const trimmed = newName.trim();
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(trimmed)) {
+      showToast('3-20 chars, letters/numbers/underscore only');
+      return;
+    }
+    setActionBusy(true);
+    try {
+      const { error } = await supabase.rpc('admin_set_username', {
+        target_user_id: selected.id,
+        new_name: trimmed,
+      });
+      if (error) { showToast(`Error: ${error.message}`); return; }
+      showToast(`Renamed to @${trimmed}`);
+      setNewName('');
+      setSelected({ ...selected, username: trimmed });
     } finally {
       setActionBusy(false);
     }
@@ -344,6 +367,24 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
                 >
                   Grant all cosmetics
                 </button>
+              </div>
+
+              <div>
+                <p className="text-xs font-bold text-z-gray-300 uppercase mb-2">Rename</p>
+                <p className="text-[11px] text-z-gray-500 mb-2">
+                  Clears an offensive username (banning alone leaves it visible on leaderboards).
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="New username"
+                    className="flex-1 bg-z-surface border border-white/10 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-z-purple"
+                  />
+                  <button onClick={handleRename} disabled={actionBusy} className="px-4 py-1.5 rounded-lg bg-z-purple/15 text-z-purple-light font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                    Rename
+                  </button>
+                </div>
               </div>
 
               <div>

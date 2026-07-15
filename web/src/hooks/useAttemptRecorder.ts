@@ -66,7 +66,7 @@ export function useAttemptRecorder() {
       const mimeType = pickMimeType();
       recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
     } catch (e) {
-      console.warn('[SignUp] MediaRecorder unavailable, replay disabled:', e);
+      console.warn('[QuickSign] MediaRecorder unavailable, replay disabled:', e);
       return;
     }
     chunksRef.current = [];

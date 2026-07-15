@@ -1,0 +1,450 @@
+{
+  "generated_at_utc": "2026-07-14T04:05:27.603372+00:00",
+  "cache_path": "data/cache_full.npz",
+  "run_path": "ml/runs/model_v7",
+  "datasets": {
+    "asl_citizen": {
+      "total_files": 616,
+      "usable_clips": 616,
+      "skipped_corrupt_or_empty": 0,
+      "extraction_success_rate": 1.0,
+      "classes": 17,
+      "clips_per_class": {
+        "HOSPITAL": 63,
+        "WANT": 62,
+        "DOCTOR": 61,
+        "HELLO": 32,
+        "PAIN": 32,
+        "HELP": 31,
+        "MEDICINE": 31,
+        "PLEASE": 31,
+        "SICK": 31,
+        "THANK_YOU": 31,
+        "YOU": 31,
+        "BREATHE": 30,
+        "COFFEE": 30,
+        "DIZZY": 30,
+        "NURSE": 30,
+        "WATER": 30,
+        "YES": 30
+      },
+      "avg_clips_per_class": 36.24,
+      "min_clips_per_class": 30,
+      "max_clips_per_class": 63,
+      "avg_sequence_length_frames": 82.4,
+      "avg_hand_coverage": 0.4551,
+      "left_hand_observations": 13001,
+      "right_hand_observations": 18377,
+      "handedness_balance": 0.707,
+      "duplicate_clip_groups": 0,
+      "duplicate_clip_total": 0,
+      "distinct_signers_in_manifest": 45
+    },
+    "wlasl": {
+      "total_files": 186,
+      "usable_clips": 186,
+      "skipped_corrupt_or_empty": 0,
+      "extraction_success_rate": 1.0,
+      "classes": 24,
+      "clips_per_class": {
+        "YES": 13,
+        "WRITE": 11,
+        "YOU": 11,
+        "WANT": 10,
+        "WATER": 10,
+        "DOCTOR": 9,
+        "MORE": 9,
+        "NAME": 9,
+        "READ": 9,
+        "SICK": 9,
+        "TEACHER": 9,
+        "COFFEE": 8,
+        "FRIEND": 8,
+        "HOSPITAL": 7,
+        "MEDICINE": 7,
+        "PLEASE": 7,
+        "HELLO": 6,
+        "HELP": 6,
+        "NURSE": 6,
+        "THANK_YOU": 6,
+        "EMERGENCY": 5,
+        "DIZZY": 4,
+        "PAIN": 4,
+        "BREATHE": 3
+      },
+      "avg_clips_per_class": 7.75,
+      "min_clips_per_class": 3,
+      "max_clips_per_class": 13,
+      "avg_sequence_length_frames": 78.7,
+      "avg_hand_coverage": 0.6348,
+      "left_hand_observations": 5146,
+      "right_hand_observations": 8824,
+      "handedness_balance": 0.583,
+      "duplicate_clip_groups": 2,
+      "duplicate_clip_total": 4,
+      "distinct_signers_in_manifest": 38
+    },
+    "ms_asl": {
+      "total_files": 666,
+      "usable_clips": 666,
+      "skipped_corrupt_or_empty": 0,
+      "extraction_success_rate": 1.0,
+      "classes": 22,
+      "clips_per_class": {
+        "TEACHER": 47,
+        "YES": 44,
+        "WATER": 41,
+        "FRIEND": 39,
+        "HELLO": 38,
+        "WANT": 38,
+        "HELP": 37,
+        "YOU": 36,
+        "SICK": 35,
+        "PLEASE": 34,
+        "DOCTOR": 32,
+        "WRITE": 32,
+        "READ": 31,
+        "COFFEE": 28,
+        "NAME": 28,
+        "NURSE": 28,
+        "THANK_YOU": 24,
+        "MORE": 23,
+        "MEDICINE": 18,
+        "HOSPITAL": 16,
+        "DIZZY": 10,
+        "EMERGENCY": 7
+      },
+      "avg_clips_per_class": 30.27,
+      "min_clips_per_class": 7,
+      "max_clips_per_class": 47,
+      "avg_sequence_length_frames": 88.6,
+      "avg_hand_coverage": 0.847,
+      "left_hand_observations": 31522,
+      "right_hand_observations": 47424,
+      "handedness_balance": 0.665,
+      "duplicate_clip_groups": 5,
+      "duplicate_clip_total": 10,
+      "distinct_signers_in_manifest": 79
+    },
+    "hmdb51": {
+      "total_files": 329,
+      "usable_clips": 329,
+      "skipped_corrupt_or_empty": 0,
+      "extraction_success_rate": 1.0,
+      "classes": 1,
+      "clips_per_class": {
+        "NO_SIGN": 329
+      },
+      "avg_clips_per_class": 329.0,
+      "min_clips_per_class": 329,
+      "max_clips_per_class": 329,
+      "avg_sequence_length_frames": 126.2,
+      "avg_hand_coverage": 0.5196,
+      "left_hand_observations": 12607,
+      "right_hand_observations": 13873,
+      "handedness_balance": 0.909,
+      "duplicate_clip_groups": 0,
+      "duplicate_clip_total": 0,
+      "distinct_signers_in_manifest": 9
+    },
+    "synth_no_sign": {
+      "total_files": 400,
+      "usable_clips": 400,
+      "skipped_corrupt_or_empty": 0,
+      "extraction_success_rate": 1.0,
+      "classes": 1,
+      "clips_per_class": {
+        "NO_SIGN": 400
+      },
+      "avg_clips_per_class": 400.0,
+      "min_clips_per_class": 400,
+      "max_clips_per_class": 400,
+      "avg_sequence_length_frames": 60.1,
+      "avg_hand_coverage": 1.0,
+      "left_hand_observations": 11866,
+      "right_hand_observations": 24051,
+      "handedness_balance": 0.493,
+      "duplicate_clip_groups": 0,
+      "duplicate_clip_total": 0,
+      "distinct_signers_in_manifest": null
+    }
+  },
+  "cache": {
+    "total_clips": 2197,
+    "seq_len": 48,
+    "feat_dim": 86,
+    "n_classes": 25,
+    "classes": [
+      "BREATHE",
+      "COFFEE",
+      "DIZZY",
+      "DOCTOR",
+      "EMERGENCY",
+      "FRIEND",
+      "HELLO",
+      "HELP",
+      "HOSPITAL",
+      "MEDICINE",
+      "MORE",
+      "NAME",
+      "NO_SIGN",
+      "NURSE",
+      "PAIN",
+      "PLEASE",
+      "READ",
+      "SICK",
+      "TEACHER",
+      "THANK_YOU",
+      "WANT",
+      "WATER",
+      "WRITE",
+      "YES",
+      "YOU"
+    ],
+    "train_clips": 1417,
+    "val_clips": 316,
+    "test_clips": 464,
+    "clips_per_class": {
+      "NO_SIGN": 729,
+      "WANT": 110,
+      "DOCTOR": 102,
+      "YES": 87,
+      "HOSPITAL": 86,
+      "WATER": 81,
+      "YOU": 78,
+      "HELLO": 76,
+      "SICK": 75,
+      "HELP": 74,
+      "PLEASE": 72,
+      "COFFEE": 66,
+      "NURSE": 64,
+      "THANK_YOU": 61,
+      "MEDICINE": 56,
+      "TEACHER": 56,
+      "FRIEND": 47,
+      "DIZZY": 44,
+      "WRITE": 43,
+      "READ": 40,
+      "NAME": 37,
+      "PAIN": 36,
+      "BREATHE": 33,
+      "MORE": 32,
+      "EMERGENCY": 12
+    },
+    "origin_breakdown": {
+      "asl_citizen": 616,
+      "hmdb51": 329,
+      "ms_asl": 666,
+      "synth_no_sign": 400,
+      "wlasl": 186
+    }
+  },
+  "datasets_not_used": {
+    "NTU_RGB+D": {
+      "status": "NOT USED",
+      "reason": "Requires registering an account and manual approval from ROSE Lab staff (turnaround measured in days, needs project owner's identity/institution). Not automatable; correctly deferred rather than skipped."
+    },
+    "Jester": {
+      "status": "NOT USED",
+      "reason": "Gated behind a Qualcomm developer-portal registration page (free for research, commercial license on request). Identified during this session's research as a BETTER-matched NO_SIGN source than HMDB51 (webcam hand-gesture domain with a dedicated 'doing other things' class) but requires the project owner to register \u2014 not automatable."
+    }
+  },
+  "training_metrics": {
+    "train_accuracy": 0.9998075366020203,
+    "val_accuracy": 0.8481012582778931,
+    "test_accuracy": 0.7823275862068966,
+    "n_classes": 25,
+    "minimal_pairs": [
+      {
+        "pair": "DOCTOR<->NURSE",
+        "a_as_b": 1,
+        "b_as_a": 1,
+        "a_total": 30,
+        "b_total": 17
+      },
+      {
+        "pair": "COFFEE<->YES",
+        "a_as_b": 0,
+        "b_as_a": 0,
+        "a_total": 15,
+        "b_total": 14
+      },
+      {
+        "pair": "MEDICINE<->DOCTOR",
+        "a_as_b": 0,
+        "b_as_a": 3,
+        "a_total": 16,
+        "b_total": 30
+      }
+    ],
+    "no_sign": {
+      "false_positive_rate": 0.05102040816326531,
+      "false_negative_rate": 0.10382513661202186,
+      "no_sign_recall": 0.9489795918367347,
+      "no_sign_support": 98
+    },
+    "cross_dataset_holdout": null,
+    "per_class": {
+      "BREATHE": {
+        "precision": 1.0,
+        "recall": 0.6923076923076923,
+        "f1": 0.8181818181818181,
+        "support": 13
+      },
+      "COFFEE": {
+        "precision": 0.9090909090909091,
+        "recall": 0.6666666666666666,
+        "f1": 0.7692307692307692,
+        "support": 15
+      },
+      "DIZZY": {
+        "precision": 0.7777777777777778,
+        "recall": 0.5384615384615384,
+        "f1": 0.6363636363636364,
+        "support": 13
+      },
+      "DOCTOR": {
+        "precision": 0.9333333333333333,
+        "recall": 0.4666666666666667,
+        "f1": 0.6222222222222223,
+        "support": 30
+      },
+      "EMERGENCY": {
+        "precision": 0.3333333333333333,
+        "recall": 0.3333333333333333,
+        "f1": 0.3333333333333333,
+        "support": 3
+      },
+      "FRIEND": {
+        "precision": 0.25,
+        "recall": 0.3333333333333333,
+        "f1": 0.28571428571428575,
+        "support": 3
+      },
+      "HELLO": {
+        "precision": 0.8214285714285714,
+        "recall": 0.7419354838709677,
+        "f1": 0.7796610169491526,
+        "support": 31
+      },
+      "HELP": {
+        "precision": 0.7222222222222222,
+        "recall": 0.7647058823529411,
+        "f1": 0.7428571428571428,
+        "support": 17
+      },
+      "HOSPITAL": {
+        "precision": 0.8928571428571429,
+        "recall": 0.8064516129032258,
+        "f1": 0.8474576271186439,
+        "support": 31
+      },
+      "MEDICINE": {
+        "precision": 0.6875,
+        "recall": 0.6875,
+        "f1": 0.6875,
+        "support": 16
+      },
+      "MORE": {
+        "precision": 0.4,
+        "recall": 1.0,
+        "f1": 0.5714285714285715,
+        "support": 2
+      },
+      "NAME": {
+        "precision": 0.6666666666666666,
+        "recall": 1.0,
+        "f1": 0.8,
+        "support": 4
+      },
+      "NO_SIGN": {
+        "precision": 0.7099236641221374,
+        "recall": 0.9489795918367347,
+        "f1": 0.8122270742358079,
+        "support": 98
+      },
+      "NURSE": {
+        "precision": 0.75,
+        "recall": 0.35294117647058826,
+        "f1": 0.48,
+        "support": 17
+      },
+      "PAIN": {
+        "precision": 0.6923076923076923,
+        "recall": 0.6,
+        "f1": 0.6428571428571429,
+        "support": 15
+      },
+      "PLEASE": {
+        "precision": 0.75,
+        "recall": 0.9473684210526315,
+        "f1": 0.8372093023255814,
+        "support": 19
+      },
+      "READ": {
+        "precision": 0.8333333333333334,
+        "recall": 0.625,
+        "f1": 0.7142857142857143,
+        "support": 8
+      },
+      "SICK": {
+        "precision": 0.7777777777777778,
+        "recall": 0.7368421052631579,
+        "f1": 0.7567567567567567,
+        "support": 19
+      },
+      "TEACHER": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 11
+      },
+      "THANK_YOU": {
+        "precision": 1.0,
+        "recall": 0.8,
+        "f1": 0.888888888888889,
+        "support": 15
+      },
+      "WANT": {
+        "precision": 0.9666666666666667,
+        "recall": 0.9354838709677419,
+        "f1": 0.9508196721311476,
+        "support": 31
+      },
+      "WATER": {
+        "precision": 0.8333333333333334,
+        "recall": 0.9375,
+        "f1": 0.8823529411764706,
+        "support": 16
+      },
+      "WRITE": {
+        "precision": 0.5384615384615384,
+        "recall": 1.0,
+        "f1": 0.7000000000000001,
+        "support": 7
+      },
+      "YES": {
+        "precision": 0.9090909090909091,
+        "recall": 0.7142857142857143,
+        "f1": 0.8,
+        "support": 14
+      },
+      "YOU": {
+        "precision": 0.8235294117647058,
+        "recall": 0.875,
+        "f1": 0.8484848484848485,
+        "support": 16
+      }
+    },
+    "macro_f1": 0.7283133105816774,
+    "weighted_f1": 0.7766947576889842
+  },
+  "training_config": {
+    "cache": "data/cache_full.npz",
+    "epochs": 80,
+    "batch": 32,
+    "n_aug": 10,
+    "dry_run": false,
+    "holdout_origin": null
+  }
+}

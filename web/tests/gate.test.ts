@@ -52,4 +52,11 @@ describe('gateHint', () => {
     const h = gateHint(vote({ THANK_YOU: 0.8, COFFEE: 0.1 }), 'COFFEE');
     expect(h).toContain('THANK YOU');
   });
+
+  it('uses natural-language wording for NO_SIGN instead of the raw class name', () => {
+    const h = gateHint(vote({ NO_SIGN: 0.8, COFFEE: 0.1 }), 'COFFEE');
+    expect(h).not.toContain('NO SIGN');
+    expect(h).not.toContain('NO_SIGN');
+    expect(h).toContain("didn't look like a sign");
+  });
 });

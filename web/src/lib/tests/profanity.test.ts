@@ -28,4 +28,14 @@ describe('isInappropriate', () => {
     expect(isInappropriate('player_one')).toBe(false);
     expect(isInappropriate('committee')).toBe(false);
   });
+
+  it('does not false-positive on names/words that collapse to a short common substring', () => {
+    // A naive "collapse any doubled letter" pass turns "coon" (2 o's) into "con", which then
+    // substring-matches all of these — a real bug found while merging this filter, not
+    // hypothetical: verify it stays fixed.
+    expect(isInappropriate('connor')).toBe(false);
+    expect(isInappropriate('control')).toBe(false);
+    expect(isInappropriate('iconic')).toBe(false);
+    expect(isInappropriate('economics')).toBe(false);
+  });
 });

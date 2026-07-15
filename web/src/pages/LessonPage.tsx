@@ -8,6 +8,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { CameraOnboarding } from '@/components/shared/CameraOnboarding';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
+import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
 import { Zippy } from '@/components/shared/Zippy';
 import { pickZippyLine } from '@/data/zippy';
 import { LessonHeader } from '@/components/lesson/LessonHeader';
@@ -21,6 +22,7 @@ import type { VerificationEntry } from '@/hooks/useRecognition';
 import { SIGNS } from '@/data/signs';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { getLessonById } from '@/data/lessons';
+import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
 
 type Phase = 'intro' | 'signing' | 'success' | 'replay' | 'complete';
@@ -32,7 +34,8 @@ interface Props {
 
 export function LessonPage({ lessonId, onExit }: Props) {
   const lesson = getLessonById(lessonId);
-  const { addXp, addDailyMinutes, completeLesson, recordSign } = useUserStore();
+  const { addXp, addDailyMinutes, completeLesson, recordSign, equippedBorder } = useUserStore();
+  const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera();
   const recorder = useAttemptRecorder();
@@ -141,7 +144,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
     [user]
   );
 
-  const { classifier, logVote } = useClassifier();
+  const { classifier, status: classifierStatus, logVote, lastVote } = useClassifier();
   const recognition = useRecognition({
     onPass: handlePass,
     classifier,
@@ -174,7 +177,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
         recognition.stopLoop();
         recognition.startLoop(videoRef.current, currentEngineSign);
         loopStartedForSign.current = currentEngineSign.name;
-        if (import.meta.env.DEV) console.log('[SignUp] Recognition loop started for', currentEngineSign.name);
+        if (import.meta.env.DEV) console.log('[QuickSign] Recognition loop started for', currentEngineSign.name);
         setPassResult(null);
         if (replayEnabled) {
           const stream = getStream();
@@ -379,7 +382,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
               ) : (
                 <>
                   {/* Visible webcam mirror — reads from the hidden video element */}
-                  <WebcamMirror videoRef={videoRef} />
+                  <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} />
 
                   {recognition.result && (
                     <ParameterChecklist
@@ -509,6 +512,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} result={recognition.result} />
     </div>
   );
 }

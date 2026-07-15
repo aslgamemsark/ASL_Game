@@ -314,6 +314,18 @@ def sick_clip(mode: str) -> list[Frame]:
     return out
 
 
+def you_clip(mode: str) -> list[Frame]:
+    """YOU is a static point at neutral space. No fixtures existed for it before this — its only
+       gate is dominant handshape ('point', required, minConfidence 0.25); location and movement
+       are both non-gating by design (pointing can happen anywhere, with no required motion).
+       correct    — point handshape                         (PASS)
+       wrongshape — open hand in the same spot               (FAIL on handshape)
+       fistshape  — fist in the same spot                    (FAIL on handshape)
+    """
+    shape = {"correct": "point", "wrongshape": "open", "fistshape": "fist"}[mode]
+    return [_frame(t, [make_hand("Right", [CX, Y_CHEST], shape)]) for t in _ts()]
+
+
 BUILDERS = {
     "help": ("HELP", help_clip),
     "pain": ("PAIN", pain_clip),
@@ -341,6 +353,9 @@ def main() -> None:
     _write("water_correct", "WATER", water_clip("correct"))
     _write("water_wrongshape", "WATER", water_clip("wrongshape"))
     _write("water_offchin", "WATER", water_clip("offchin"))
+    _write("you_correct", "YOU", you_clip("correct"))
+    _write("you_wrongshape", "YOU", you_clip("wrongshape"))
+    _write("you_fistshape", "YOU", you_clip("fistshape"))
 
 
 if __name__ == "__main__":
