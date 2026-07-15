@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { LogoutConfirm } from '@/components/auth/LogoutConfirm';
+import { FeedbackModal } from '@/components/shared/FeedbackModal';
 
 interface Props {
   onExit: () => void;
@@ -19,6 +20,7 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
   const { vibrationEnabled, toggleVibration, soundEnabled, toggleSound } = useSettingsStore();
   const { addGold, addSigns, collectTrainingData, setCollectTrainingData } = useUserStore();
   const [showLogout, setShowLogout] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const giveTestCredits = () => {
     addGold(10000);
@@ -152,12 +154,12 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
         <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">Support</h2>
           <div className="space-y-2">
-            <a
-              href="mailto:msaad9632@gmail.com?subject=QuickSign%20bug%20report&body=What%20happened%3A%0A%0ASteps%20to%20reproduce%3A%0A"
-              className="block w-full py-2.5 rounded-xl bg-z-purple/15 text-z-purple-light font-bold text-sm text-center"
+            <button
+              onClick={() => setShowFeedback(true)}
+              className="w-full py-2.5 rounded-xl bg-z-purple/15 text-z-purple-light font-bold text-sm"
             >
-              🐛 Report a bug
-            </a>
+              💬 Send feedback / report a problem
+            </button>
             {onOpenPrivacy && (
               <button
                 onClick={onOpenPrivacy}
@@ -195,6 +197,7 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
       </div>
 
       <LogoutConfirm open={showLogout} onClose={() => setShowLogout(false)} />
+      {showFeedback && <FeedbackModal page="settings" onClose={() => setShowFeedback(false)} />}
     </div>
   );
 }
