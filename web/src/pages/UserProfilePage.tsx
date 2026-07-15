@@ -8,6 +8,7 @@ import { getBadge } from '@/data/badges';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { Zippy } from '@/components/shared/Zippy';
 import { ReportUserModal } from '@/components/shared/ReportUserModal';
+import { Tooltip } from '@/components/shared/Tooltip';
 
 interface Props {
   userId: string;
@@ -177,14 +178,15 @@ export function UserProfilePage({ userId, onExit }: Props) {
               {showcase.length > 0 ? (
                 <div className="grid grid-cols-4 gap-2">
                   {showcase.map((badge) => (
-                    <div
-                      key={badge!.id}
-                      className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 border border-white/10 bg-z-card"
-                      title={badge!.title}
-                    >
-                      <span className="text-2xl">{badge!.icon}</span>
-                      <span className="text-[9px] text-z-gray-400 text-center px-1 truncate w-full">{badge!.title}</span>
-                    </div>
+                    <Tooltip key={badge!.id} title={badge!.title} description={badge!.description} className="aspect-square">
+                      <div
+                        tabIndex={0}
+                        className="w-full h-full rounded-2xl flex flex-col items-center justify-center gap-1 border border-white/10 bg-z-card"
+                      >
+                        <span className="text-2xl">{badge!.icon}</span>
+                        <span className="text-[9px] text-z-gray-400 text-center px-1 truncate w-full">{badge!.title}</span>
+                      </div>
+                    </Tooltip>
                   ))}
                 </div>
               ) : (
