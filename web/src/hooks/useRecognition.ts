@@ -117,7 +117,9 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
       const cap = captureRef.current;
       if (!cap?.ready) {
-        console.warn('[QuickSign] Capture not ready, cannot start loop');
+        // DEV-gated to match the other diagnostics in this file (lines below) — this is an
+        // expected transient state during camera warm-up, not a production-worthy console warning.
+        if (import.meta.env.DEV) console.warn('[QuickSign] Capture not ready, cannot start loop');
         return;
       }
 
