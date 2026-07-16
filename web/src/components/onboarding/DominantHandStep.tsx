@@ -72,7 +72,9 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
         const v = videoRef.current;
         if (!v || v.videoWidth === 0 || !cap.ready) return;
         let frame;
-        try { frame = cap.process(v, performance.now()); } catch { return; }
+        // skipPose: this screen only ever reads frame.hands — pose inference is a real, separate
+        // per-frame model cost that has no payoff here (see capture.ts's process() doc).
+        try { frame = cap.process(v, performance.now(), { skipPose: true }); } catch { return; }
 
         if (frame.hands.length === 0) { voteRef.current = { side: null, count: 0 }; setZone('none'); return; }
         if (frame.hands.length > 1) { voteRef.current = { side: null, count: 0 }; setZone('multi'); return; }
