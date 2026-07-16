@@ -97,6 +97,10 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
         )}
       </motion.div>
 
+      {compact && !showPlaceholder && (
+        <p className="text-center text-z-gray-300 text-xs mt-1">Too small to see? Tap to enlarge ⤢</p>
+      )}
+
       {typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
           {expanded && !showPlaceholder && (

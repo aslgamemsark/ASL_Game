@@ -348,6 +348,10 @@
     border-radius: 36px;
     overflow: hidden;
     background: var(--bg);
+    /* Screenshots are full-bleed captures with no safe-area gap baked in — pad the top so real
+       app content never sits behind the Dynamic Island cutout above it. */
+    padding-top: 40px;
+    box-sizing: border-box;
   }
   .phone-screen img {
     width: 100%;
@@ -407,12 +411,26 @@
     transform: none;
   }
   .reveal.js-armed {
-    transform: translateY(16px);
-    transition: transform 0.5s ease-out;
+    transform: translateY(20px) scale(0.98);
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .reveal.js-armed.in-view {
     transform: none;
   }
+
+  /* Staggered variant: direct children cascade in one after another instead of moving as one
+     block. Delay only affects the transition timing, so children stay visible immediately even
+     without JS/observer support. */
+  .reveal-stagger.js-armed > * {
+    transform: translateY(20px) scale(0.98);
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal-stagger.js-armed.in-view > * { transform: none; }
+  .reveal-stagger.js-armed > *:nth-child(1) { transition-delay: 0ms; }
+  .reveal-stagger.js-armed > *:nth-child(2) { transition-delay: 80ms; }
+  .reveal-stagger.js-armed > *:nth-child(3) { transition-delay: 160ms; }
+  .reveal-stagger.js-armed > *:nth-child(4) { transition-delay: 240ms; }
+  .reveal-stagger.js-armed > *:nth-child(5) { transition-delay: 320ms; }
 
   /* ---------- Trust strip ---------- */
   .trust-strip {
@@ -479,12 +497,87 @@
     color: var(--muted);
   }
   .diff-shot {
+    display: block;
+    position: relative;
     border-radius: 32px;
     overflow: hidden;
     box-shadow: 0 30px 70px rgba(0,0,0,0.45);
     border: 1px solid rgba(255,255,255,0.08);
     max-width: 340px;
     margin: 0 auto;
+    background: none;
+    padding: 0;
+    font: inherit;
+  }
+  .diff-shot.enlargeable {
+    cursor: zoom-in;
+    transition: transform 0.15s ease-out;
+  }
+  .diff-shot.enlargeable:hover { transform: scale(1.015); }
+  .enlarge-hint {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.5);
+    color: rgba(255,255,255,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    pointer-events: none;
+  }
+  .enlarge-caption {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 12px;
+  }
+  .enlarge-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: rgba(5, 3, 20, 0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease-out;
+  }
+  .enlarge-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .enlarge-overlay img {
+    max-width: min(90vw, 480px);
+    max-height: 85vh;
+    width: auto;
+    border-radius: 24px;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.6);
+    transform: scale(0.96);
+    transition: transform 0.2s ease-out;
+  }
+  .enlarge-overlay.open img { transform: scale(1); }
+  .enlarge-close {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--ink);
+    font-size: 18px;
+    cursor: pointer;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .diff-shot.enlargeable:hover { transform: none; }
+    .enlarge-overlay, .enlarge-overlay img { transition: none; }
   }
   .diff-shot img {
     width: 100%;
@@ -551,7 +644,7 @@
     border: 1px solid rgba(255,255,255,0.08);
     max-width: 320px;
   }
-  .story-shot img { width: 100%; aspect-ratio: 390/620; object-fit: cover; object-position: top; }
+  .story-shot img { width: 100%; aspect-ratio: 390/400; object-fit: cover; object-position: center 58%; }
 
   /* ---------- Multiplayer / gamification ---------- */
   .mp-grid {
@@ -587,7 +680,7 @@
     max-width: 300px;
     margin: 0 auto;
   }
-  .mp-shot img { width: 100%; aspect-ratio: 390/480; object-fit: cover; object-position: center 46%; }
+  .mp-shot img { width: 100%; aspect-ratio: 390/300; object-fit: cover; object-position: center 56%; }
 
   /* ---------- Privacy ---------- */
   .privacy-grid {
@@ -794,7 +887,7 @@
 
   <!-- TRUST STRIP -->
   <div class="trust-strip">
-    <div class="container trust-grid">
+    <div class="container trust-grid reveal reveal-stagger">
       <div class="trust-item"><span class="dot"></span>On-device &amp; private</div>
       <div class="trust-item"><span class="dot"></span>Free, no signup</div>
       <div class="trust-item"><span class="dot"></span>Works fully muted</div>
@@ -809,7 +902,7 @@
       <div>
         <h2>Most apps only tell you whether a sign is right or wrong.<br><span class="accent">QuickSign shows you why.</span></h2>
         <p style="color: var(--muted); font-size: 17px; margin-top: 14px;">Every sign is scored on four parameters independently, so when you miss, you know exactly what to fix.</p>
-        <ul class="param-list">
+        <ul class="param-list reveal reveal-stagger">
           <li><span class="check">✓</span>Handshape</li>
           <li><span class="check">✓</span>Palm orientation</li>
           <li><span class="check">✓</span>Location</li>
@@ -817,8 +910,12 @@
         </ul>
         <p class="diff-note">Movement is checked over a ~2 second window, so you can't fake it by holding still.</p>
       </div>
-      <div class="diff-shot">
-        <img src="/shots/signcoach.png" alt="QuickSign's Sign Coach checklist showing per-parameter feedback: hand shape, hand presence, position, and movement" loading="lazy" width="390" height="844">
+      <div>
+        <button type="button" class="diff-shot enlargeable" data-enlarge-caption="Sign Coach checklist">
+          <img src="/shots/signcoach.png" alt="QuickSign's Sign Coach checklist showing per-parameter feedback: hand shape, hand presence, position, and movement" loading="lazy" width="390" height="844">
+          <span class="enlarge-hint" aria-hidden="true">⤢</span>
+        </button>
+        <p class="enlarge-caption">Tap to enlarge — just like the real demo clips in the app.</p>
       </div>
     </div>
   </section>
@@ -830,7 +927,7 @@
         <h2>How it works</h2>
         <p>Three steps, every lesson.</p>
       </div>
-      <div class="steps reveal">
+      <div class="steps reveal reveal-stagger">
         <div class="step">
           <div class="step-num">1</div>
           <h3>Pick a sign</h3>
@@ -857,7 +954,7 @@
         <h2>Scenario worlds, not flashcards</h2>
         <p>Learn vocabulary in context, through real conversations with Zippy and friends.</p>
       </div>
-      <div class="worlds-grid reveal">
+      <div class="worlds-grid reveal reveal-stagger">
         <div class="world-card">
           <div class="world-icon"><img src="/zippy/barista.webp" alt="" loading="lazy"></div>
           <h3>Coffee Shop</h3>
@@ -876,7 +973,7 @@
       </div>
       <div class="story-shot-wrap reveal">
         <div class="story-shot">
-          <img src="/shots/story.png" alt="A story scenario screen introducing an NPC role-play conversation with Zippy" loading="lazy" width="390" height="844">
+          <img src="/shots/story.png" alt="A story scenario screen introducing an NPC role-play conversation with Zippy" loading="lazy">
         </div>
       </div>
     </div>
@@ -889,7 +986,7 @@
         <h2>Play with friends</h2>
         <p style="color: var(--muted); font-size: 17px; margin-top: 14px;">Challenge a friend to a live 1v1 sign duel, or host a group room for up to four players. One signs, the others guess, against a 10-second clock.</p>
         <p style="color: var(--muted); font-size: 17px; margin-top: 14px;">Plus streaks, XP, quests, and badges that keep practice feeling like a game, not a chore.</p>
-        <div class="badge-row">
+        <div class="badge-row reveal reveal-stagger">
           <span class="badge-pill streak">🔥 Streaks</span>
           <span class="badge-pill xp">🤟 XP &amp; levels</span>
           <span class="badge-pill">🏅 Badges</span>
@@ -897,7 +994,7 @@
         </div>
       </div>
       <div class="mp-shot">
-        <img src="/shots/multiplayer.png" alt="Multiplayer hub screen showing 1v1 Duel and Group Room modes" loading="lazy" width="390" height="844">
+        <img src="/shots/multiplayer.png" alt="Multiplayer hub screen showing 1v1 Duel and Group Room modes" loading="lazy">
       </div>
     </div>
   </section>
@@ -906,7 +1003,7 @@
   <section id="privacy">
     <div class="container privacy-grid reveal">
       <div class="privacy-shot">
-        <img src="/shots/privacy.png" alt="Camera permission screen explaining that video is never uploaded and recognition runs locally" loading="lazy" width="390" height="844">
+        <img src="/shots/privacy.png" alt="Camera permission screen explaining that video is never uploaded and recognition runs locally" loading="lazy">
       </div>
       <div>
         <h2>Private by design, accessible by default</h2>
@@ -983,6 +1080,11 @@
   </div>
 </footer>
 
+<div class="enlarge-overlay" id="enlargeOverlay" role="dialog" aria-modal="true" aria-label="Enlarged screenshot">
+  <button type="button" class="enlarge-close" id="enlargeClose" aria-label="Close enlarged view">✕</button>
+  <img id="enlargeImg" src="" alt="">
+</div>
+
 <script>
   // Mobile nav toggle
   (function () {
@@ -1013,8 +1115,8 @@
     var bar = document.getElementById('scrollProgress');
     window.addEventListener('scroll', function () {
       var h = document.documentElement;
-      var pct = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
-      bar.style.width = pct + '%';
+      var pct = (h.scrollTop) / (h.scrollHeight - h.clientHeight);
+      bar.style.transform = 'scaleX(' + pct + ')';
     }, { passive: true });
   })();
 
@@ -1034,6 +1136,40 @@
       });
     }, { threshold: 0.15 });
     items.forEach(function (el) { io.observe(el); });
+  })();
+
+  // Click-to-enlarge screenshot demo — mirrors the real app's tap-to-enlarge sign demo clips.
+  (function () {
+    var overlay = document.getElementById('enlargeOverlay');
+    var overlayImg = document.getElementById('enlargeImg');
+    var closeBtn = document.getElementById('enlargeClose');
+    var triggers = document.querySelectorAll('.enlargeable');
+    var lastFocused = null;
+
+    function open(trigger) {
+      var img = trigger.querySelector('img');
+      if (!img) return;
+      lastFocused = trigger;
+      overlayImg.src = img.src;
+      overlayImg.alt = img.alt;
+      overlay.classList.add('open');
+      closeBtn.focus();
+    }
+    function close() {
+      overlay.classList.remove('open');
+      if (lastFocused) lastFocused.focus();
+    }
+
+    triggers.forEach(function (trigger) {
+      trigger.addEventListener('click', function () { open(trigger); });
+    });
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) close();
+    });
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && overlay.classList.contains('open')) close();
+    });
   })();
 </script>
 
