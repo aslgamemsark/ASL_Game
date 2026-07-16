@@ -30,27 +30,33 @@ interface Props {
   /** First-run camera-position guide: draws a face-target box + a coaching caption over the feed.
    *  Pass null/undefined to hide it. `ok` turns the box green and the caption into a success chip. */
   frameGuide?: { ok: boolean; message: string } | null;
-  /** Onboarding's dominant-hand picker: draws a left/right box pair over the feed. `active` is the
-   *  side the user's hand is currently resting in (mid-dwell, not yet confirmed) — highlights that
-   *  box. `selected` is the confirmed side — fills it green with a checkmark. Deliberately geometric
-   *  (which half of the MIRRORED display the hand is in), not based on MediaPipe's handedness label,
-   *  which flips depending on the camera/driver and was reported backwards on real hardware
-   *  (2026-07-16) — see DominantHandStep.tsx for the full reasoning. */
+  /** Onboarding's dominant-hand picker: draws a left/right box pair over the feed. `active` is
+   *  true the instant the user's hand geometrically enters that side (turns the box green right
+   *  away — no waiting on the confirmation dwell timer). `selected` is the confirmed side, once
+   *  the dwell threshold is reached — same green box, plus a checkmark badge. Deliberately
+   *  geometric (which half of the MIRRORED display the hand is in), not based on MediaPipe's
+   *  handedness label, which flips depending on the camera/driver and was reported backwards on
+   *  real hardware (2026-07-16) — see DominantHandStep.tsx for the full reasoning. */
   handZones?: { active: 'left' | 'right' | null; selected: 'left' | 'right' | null } | null;
 }
 
 // A simple stylized open-hand glyph — palm + four fanned fingers + thumb, built from primitives
-// rather than a traced path so it stays crisp at any size. `mirrored` flips it so the left-hand
-// and right-hand boxes each show a shape with the thumb on the anatomically matching side.
+// rather than a traced path so it stays crisp at any size. Solid fills (not stroked outlines): the
+// pieces intentionally overlap slightly where a finger meets the palm, and stroke-only shapes made
+// that overlap render as a criss-cross of crossing border lines instead of one clean silhouette —
+// a single fill color merges the overlap seamlessly. `mirrored` flips it so the left-hand and
+// right-hand boxes each show a shape with the thumb on the anatomically matching side.
 function HandOutlineIcon({ className, mirrored }: { className?: string; mirrored?: boolean }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} style={mirrored ? { transform: 'scaleX(-1)' } : undefined}>
-      <rect x="6.5" y="11" width="11" height="9.5" rx="3.2" stroke="currentColor" strokeWidth="1.6" />
-      <rect x="3" y="12.5" width="5.5" height="3.2" rx="1.6" stroke="currentColor" strokeWidth="1.6" transform="rotate(-18 5.75 14.1)" />
-      <rect x="7.4" y="3.2" width="2.6" height="9.2" rx="1.3" stroke="currentColor" strokeWidth="1.6" />
-      <rect x="10.7" y="2" width="2.6" height="10.4" rx="1.3" stroke="currentColor" strokeWidth="1.6" />
-      <rect x="14" y="2.4" width="2.6" height="10" rx="1.3" stroke="currentColor" strokeWidth="1.6" />
-      <rect x="17.1" y="4.4" width="2.5" height="8" rx="1.25" stroke="currentColor" strokeWidth="1.6" />
+    <svg viewBox="0 0 24 24" className={className} style={mirrored ? { transform: 'scaleX(-1)' } : undefined}>
+      <g fill="currentColor">
+        <rect x="6.5" y="12" width="11" height="8.5" rx="3.4" />
+        <rect x="2.6" y="12.8" width="5.6" height="3.4" rx="1.7" transform="rotate(-20 5.4 14.5)" />
+        <rect x="7.3" y="4.6" width="2.5" height="8.4" rx="1.25" />
+        <rect x="10.5" y="3.2" width="2.5" height="9.8" rx="1.25" />
+        <rect x="13.7" y="3.6" width="2.5" height="9.4" rx="1.25" />
+        <rect x="16.7" y="5.4" width="2.4" height="7.6" rx="1.2" />
+      </g>
     </svg>
   );
 }
@@ -114,11 +120,14 @@ export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmetic
         <div className="absolute inset-0 pointer-events-none flex">
           {(['left', 'right'] as const).map((side) => {
             const isSelected = handZones.selected === side;
-            const isActive = !isSelected && handZones.active === side;
-            const tone = isSelected ? 'border-z-green bg-z-green/10 text-z-green' : isActive ? 'border-z-purple-light bg-z-purple/15 text-z-purple-light' : 'border-white/35 text-white/60';
+            // Turns green the instant a hand geometrically enters this side — not gated on the
+            // dwell timer that decides when to lock in the final answer, so the box responds to
+            // the hand's actual position immediately instead of lagging behind it.
+            const isOccupied = isSelected || handZones.active === side;
+            const tone = isOccupied ? 'border-z-green bg-z-green/10 text-z-green' : 'border-white/35 text-white/60';
             return (
               <div key={side} className="flex-1 flex items-center justify-center p-[6%]">
-                <div className={`relative w-full h-[72%] rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-colors duration-200 ${tone}`}>
+                <div className={`relative w-full h-[72%] rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-colors duration-100 ${tone}`}>
                   <HandOutlineIcon className="w-1/2 h-1/2" mirrored={side === 'left'} />
                   <span className="text-[10px] font-bold uppercase tracking-wide">
                     {side === 'left' ? 'Left hand' : 'Right hand'}
