@@ -11,6 +11,7 @@ const FRIENDLY_NAMES: Record<string, string> = {
   movement: 'Movement',
   orientation: 'Palm direction',
   nmm: 'Facial expression',
+  no_extra_hand: 'One hand only',
 };
 
 const MOVEMENT_HINTS: Record<string, string> = {

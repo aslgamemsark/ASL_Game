@@ -62,6 +62,11 @@
       "@type": "Question",
       "name": "Is it free?",
       "acceptedAnswer": { "@type": "Answer", "text": "Yes, QuickSign is free to use." }
+    },
+    {
+      "@type": "Question",
+      "name": "Was the sign content checked by Deaf ASL signers?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Not yet — we're a small student team and this is an open beta. Sign accuracy review by Deaf and hard-of-hearing signers is a known gap we want to close. If that's you, we'd genuinely value your feedback." }
     }
   ]
 }
@@ -617,7 +622,9 @@
   .step-num {
     width: 40px; height: 40px;
     border-radius: 12px;
-    background: var(--gradient);
+    /* Solid, not the gradient: the gradient's light end under white text measured 2.48:1 (below
+       the 3:1 floor for bold text), and the gradient is reserved for the CTA + wordmark only. */
+    background: var(--purple);
     display: flex; align-items: center; justify-content: center;
     font-weight: 700;
     margin-bottom: 18px;
@@ -660,7 +667,7 @@
     border: 1px solid rgba(255,255,255,0.08);
     max-width: 320px;
   }
-  .story-shot img { width: 100%; aspect-ratio: 390/400; object-fit: cover; object-position: center 58%; }
+  .story-shot img { width: 100%; aspect-ratio: 390/844; object-fit: cover; object-position: top; }
 
   /* ---------- Multiplayer / gamification ---------- */
   .mp-grid {
@@ -849,7 +856,9 @@
       gap: 18px;
     }
     .hero-inner { grid-template-columns: 1fr; }
-    .phone-wrap { order: -1; margin-bottom: 24px; }
+    /* Text comes first on mobile: the phone mockup is tall enough that reordering it above the
+       headline pushed the H1 and CTA entirely below the fold on real phone viewports. */
+    .phone-wrap { margin-top: 32px; }
     .phone { width: 220px; height: 449px; }
     .trust-grid { grid-template-columns: repeat(2, 1fr); }
     .steps { grid-template-columns: 1fr; }
@@ -886,7 +895,7 @@
       <a href="#worlds">Worlds</a>
       <a href="#multiplayer">Multiplayer</a>
       <a href="#faq">FAQ</a>
-      <a href="https://aslgame.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Try it free</a>
+      <a href="https://aslgame.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Start learning free</a>
     </div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="navLinks">☰</button>
   </div>
@@ -1080,6 +1089,10 @@
           <summary>Is it free?</summary>
           <div class="faq-a"><p>Yes, QuickSign is free to use.</p></div>
         </details>
+        <details class="faq-item">
+          <summary>Was the sign content checked by Deaf ASL signers?</summary>
+          <div class="faq-a"><p>Not yet — we're a small student team and this is an open beta. Sign accuracy review by Deaf and hard-of-hearing signers is a known gap we want to close. If that's you, we'd genuinely value your feedback.</p></div>
+        </details>
       </div>
     </div>
   </section>
@@ -1114,7 +1127,7 @@
       <span>Privacy first</span>
     </div>
     <div class="footer-copy">
-      <a href="https://aslgame.vercel.app/" target="_blank" rel="noopener noreferrer" style="color: var(--purple-light); font-weight: 700; text-decoration: none;">Open QuickSign →</a>
+      <a href="https://aslgame.vercel.app/" target="_blank" rel="noopener noreferrer" style="color: var(--purple-light); font-weight: 700; text-decoration: none;">QuickSign ↗</a>
       &nbsp;·&nbsp; © 2026 QuickSign
     </div>
   </div>
