@@ -94,9 +94,17 @@ export default function App() {
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );
 
-  // Returning users who are already logged in skip onboarding regardless of local store state
+  // Returning users who are already logged in skip onboarding regardless of local store state —
+  // except for one deliberate escape hatch: SettingsPage's admin-only "Replay onboarding" button
+  // sets this sessionStorage flag right before reloading, specifically so a signed-in dev/admin
+  // can re-walk the flow (e.g. to re-test the dominant-hand step) without having to sign out
+  // first. Consumed once, so it can't accidentally stick past this one pass.
   useEffect(() => {
     if (!authLoading && user && screen.type === 'onboarding') {
+      if (sessionStorage.getItem('asl-force-onboarding') === '1') {
+        sessionStorage.removeItem('asl-force-onboarding');
+        return;
+      }
       setScreen({ type: 'home' });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
