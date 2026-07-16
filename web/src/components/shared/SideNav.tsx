@@ -28,11 +28,11 @@ interface Props {
 // alongside Settings/Log out (2026-07-16), not mixed in with the primary navigation items.
 const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'home', label: 'Journey', icon: '🗺️' },
-  { id: 'review', label: 'Review', icon: '🪞' },
   { id: 'alphabet', label: 'Alphabets', icon: '🔤' },
+  { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
   { id: 'multiplayer', label: 'Multiplayer', icon: '⚔️' },
   { id: 'friends', label: 'Friends', icon: '🤝' },
-  { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
+  { id: 'review', label: 'Review', icon: '🪞' },
 ];
 
 // Single source of the hover/tap feel for every row in this list — a plain tween (no spring
