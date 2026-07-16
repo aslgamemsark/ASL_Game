@@ -11,11 +11,13 @@ interface Props {
   onSkip: () => void;
 }
 
-// Consecutive single-hand frames resting in the same box before we trust it — a couple of stray
-// frames (a hand passing through on its way up) shouldn't decide it. At the ~120ms poll interval
-// below, this is roughly 350ms of holding still in one box — short enough to feel instant, still
-// enough to not fire on a hand just passing through.
-const REQUIRED_VOTES = 3;
+// This is a position check, not a shape classifier — unlike the sign-recognition confusor
+// thresholds elsewhere in this app (LETTER_E, DOCTOR, etc.), there's no ambiguous handshape here
+// to get wrong, only a transient "hand swinging past a box on its way up" risk, which is both
+// rare and one tap to correct via the switch option below. That asymmetry is why this dwell is
+// intentionally much lighter than a shape-confusor debounce — reported as still feeling slow at
+// REQUIRED_VOTES=3 (2026-07-16), so this fires on the very first frame in a box.
+const REQUIRED_VOTES = 1;
 // Fraction of the (mirrored) frame width each side's box claims, with a neutral gap between them
 // so a hand near dead-center doesn't flicker between sides.
 const ZONE_SPLIT = 0.46;
@@ -23,7 +25,11 @@ const ZONE_SPLIT = 0.46;
 // manual tap — placing the hand in a box IS the selection now, per the geometric approach above,
 // so a second confirm step just adds latency without adding safety. Still gives a moment to tap
 // the switch option below if it read wrong.
-const AUTO_CONFIRM_MS = 550;
+const AUTO_CONFIRM_MS = 300;
+// How often the detection loop samples a frame. Tightened alongside the above for a snappier
+// feel; MediaPipe's own per-frame processing time is the real floor on slower hardware, but this
+// at least stops the poll cadence itself from adding to the wait.
+const POLL_MS = 80;
 
 type Zone = 'none' | 'multi' | 'neutral' | 'left' | 'right';
 
@@ -86,7 +92,7 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
         if (vote.side === side) vote.count += 1;
         else voteRef.current = { side, count: 1 };
         if (voteRef.current.count >= REQUIRED_VOTES) setDetected(side);
-      }, 120);
+      }, POLL_MS);
     });
 
     return () => {
