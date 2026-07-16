@@ -40,27 +40,6 @@ interface Props {
   handZones?: { active: 'left' | 'right' | null; selected: 'left' | 'right' | null } | null;
 }
 
-// A simple stylized open-hand glyph — palm + four fanned fingers + thumb, built from primitives
-// rather than a traced path so it stays crisp at any size. Solid fills (not stroked outlines): the
-// pieces intentionally overlap slightly where a finger meets the palm, and stroke-only shapes made
-// that overlap render as a criss-cross of crossing border lines instead of one clean silhouette —
-// a single fill color merges the overlap seamlessly. `mirrored` flips it so the left-hand and
-// right-hand boxes each show a shape with the thumb on the anatomically matching side.
-function HandOutlineIcon({ className, mirrored }: { className?: string; mirrored?: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} style={mirrored ? { transform: 'scaleX(-1)' } : undefined}>
-      <g fill="currentColor">
-        <rect x="6.5" y="12" width="11" height="8.5" rx="3.4" />
-        <rect x="2.6" y="12.8" width="5.6" height="3.4" rx="1.7" transform="rotate(-20 5.4 14.5)" />
-        <rect x="7.3" y="4.6" width="2.5" height="8.4" rx="1.25" />
-        <rect x="10.5" y="3.2" width="2.5" height="9.8" rx="1.25" />
-        <rect x="13.7" y="3.6" width="2.5" height="9.4" rx="1.25" />
-        <rect x="16.7" y="5.4" width="2.4" height="7.6" rx="1.2" />
-      </g>
-    </svg>
-  );
-}
-
 /**
  * Mirrors the raw webcam feed onto a canvas (flipped horizontally, matching how a mirror/most
  * video-call UIs present your own camera). Was copy-pasted near-identically into LessonPage,
@@ -128,7 +107,7 @@ export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmetic
             return (
               <div key={side} className="flex-1 flex items-center justify-center p-[6%]">
                 <div className={`relative w-full h-[72%] rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-colors duration-100 ${tone}`}>
-                  <HandOutlineIcon className="w-1/2 h-1/2" mirrored={side === 'left'} />
+                  <span className="text-4xl leading-none" role="img" aria-hidden>✋</span>
                   <span className="text-[10px] font-bold uppercase tracking-wide">
                     {side === 'left' ? 'Left hand' : 'Right hand'}
                   </span>

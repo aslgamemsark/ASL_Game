@@ -13,11 +13,17 @@ interface Props {
 
 // Consecutive single-hand frames resting in the same box before we trust it — a couple of stray
 // frames (a hand passing through on its way up) shouldn't decide it. At the ~120ms poll interval
-// below, this is roughly 700ms of genuinely holding still in one box.
-const REQUIRED_VOTES = 6;
+// below, this is roughly 350ms of holding still in one box — short enough to feel instant, still
+// enough to not fire on a hand just passing through.
+const REQUIRED_VOTES = 3;
 // Fraction of the (mirrored) frame width each side's box claims, with a neutral gap between them
 // so a hand near dead-center doesn't flicker between sides.
 const ZONE_SPLIT = 0.46;
+// Once a side is settled, auto-confirm after this brief "Got it" flash instead of waiting for a
+// manual tap — placing the hand in a box IS the selection now, per the geometric approach above,
+// so a second confirm step just adds latency without adding safety. Still gives a moment to tap
+// the switch option below if it read wrong.
+const AUTO_CONFIRM_MS = 550;
 
 type Zone = 'none' | 'multi' | 'neutral' | 'left' | 'right';
 
@@ -89,6 +95,15 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
     };
   }, [status, detected, videoRef]);
 
+  // Auto-confirm shortly after a side settles — see AUTO_CONFIRM_MS above. Cleared on unmount, so
+  // tapping the manual "switch" option below (which itself calls onConfirm and moves the parent
+  // on) can't also fire this and double-confirm.
+  useEffect(() => {
+    if (!detected) return;
+    const t = setTimeout(() => onConfirm(detected), AUTO_CONFIRM_MS);
+    return () => clearTimeout(t);
+  }, [detected, onConfirm]);
+
   const cameraFailed = status === 'denied' || status === 'error';
   const other = (h: 'left' | 'right') => (h === 'left' ? 'right' : 'left');
   const cap = (h: string) => h.charAt(0).toUpperCase() + h.slice(1);
@@ -120,7 +135,7 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
         {cameraFailed
           ? 'No camera — just pick your signing hand.'
           : detected
-            ? 'Great — is this right?'
+            ? "Locking that in — tap below if it's wrong."
             : 'Place it in the matching box below.'}
       </p>
 
@@ -146,17 +161,9 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
               <span aria-hidden>✅</span> Got it — {cap(detected)}-handed!
             </motion.p>
           )}
-          {detected && !cameraFailed && (
-            <motion.button
-              onClick={() => onConfirm(detected)}
-              className="w-full py-3.5 rounded-2xl font-bold text-white bg-gradient-primary"
-              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-            >
-              Yes — I'm {cap(detected)}-handed ✋
-            </motion.button>
-          )}
-          {/* Manual choice: both buttons when the camera failed, or the "switch" option after a
-              detection so a mis-read is one tap to fix. */}
+          {/* Manual choice: both buttons when the camera failed, or the "switch" option during the
+              brief auto-confirm window after a detection, so a mis-read is one tap to fix before
+              it locks in. */}
           <div className="flex gap-3">
             <motion.button
               onClick={() => onConfirm(detected ? other(detected) : 'right')}
