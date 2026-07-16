@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useUserStore } from '@/stores/useUserStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getShopItem } from '@/data/shop';
@@ -37,11 +38,35 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
   );
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
 
+  // The gold pill's width varies with its digit count, so a fixed CSS offset can't keep the cart
+  // button centered under it — measure the pill's actual center relative to the header and
+  // position the button there. Re-measures whenever the pill's size changes (digit count,
+  // viewport width, font load), not just once on mount.
+  const goldRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [cartCenter, setCartCenter] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const goldEl = goldRef.current;
+    const headerEl = headerRef.current;
+    if (!goldEl || !headerEl) return;
+    const measure = () => {
+      const goldRect = goldEl.getBoundingClientRect();
+      const headerRect = headerEl.getBoundingClientRect();
+      setCartCenter(goldRect.left - headerRect.left + goldRect.width / 2);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(goldEl);
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, []);
+
   return (
     <div className="sticky top-0 z-50 bg-z-bg/90 backdrop-blur-md border-b border-z-purple-deep/50">
       {/* `relative` anchors the cart button below — it's placed at top-full, i.e. right past this
           header's own bottom border (the divider), under the gold pill's column. */}
-      <div className="relative max-w-lg mx-auto lg:max-w-none">
+      <div ref={headerRef} className="relative max-w-lg mx-auto lg:max-w-none">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <motion.button
@@ -95,7 +120,7 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
 
             {/* Gold 🪙 — plain display; the shop entry point is the cart button below (see the
                 absolutely-positioned button after this row), not the pill itself. */}
-            <div className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default">
+            <div ref={goldRef} className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default">
               <span className="text-sm">🪙</span>
               <span className="font-bold text-xs text-z-yellow">{gold}</span>
             </div>
@@ -103,14 +128,23 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
         </div>
 
         {/* Shop entry point — a cart icon anchored just below the header's divider (its bottom
-            border), under the gold pill's column, per design direction 2026-07-16. `top-full`
-            places it right past that border; `translate-y-2` gives it a little breathing room
-            below the line instead of touching it. */}
+            border), horizontally centered under the gold pill via the measured `cartCenter`
+            (a fixed right-N offset can't do this since the pill's width changes with its digit
+            count). `top-full` places it right past that border. Centering/offset use framer's
+            own x/y motion props (not a raw `transform` string) so they compose correctly with
+            whileHover's `scale` instead of one clobbering the other. Hidden (opacity 0) until
+            the first measurement lands, to avoid a flash in the wrong spot. */}
         <motion.button
           aria-label="Open shop"
           title="Shop"
           onClick={onOpenShop}
-          className="absolute top-full right-4 translate-y-2 w-8 h-8 rounded-full bg-z-surface border border-z-yellow/30 shadow-lg flex items-center justify-center text-z-yellow"
+          style={{
+            left: cartCenter ?? 0,
+            x: '-50%',
+            y: 8,
+            opacity: cartCenter === null ? 0 : 1,
+          }}
+          className="absolute top-full w-8 h-8 rounded-full bg-z-surface border border-z-yellow/30 shadow-lg flex items-center justify-center text-z-yellow"
           whileHover={{ scale: 1.12, backgroundColor: 'rgba(250, 204, 21, 0.16)', transition: { duration: 0.15 } }}
           whileTap={{ scale: 0.9 }}
         >

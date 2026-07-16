@@ -99,10 +99,19 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
       {!cameraFailed && (
         <div className="mb-5">
           <WebcamMirror videoRef={videoRef} />
-          {!detected && (
+          {!detected ? (
             <p className="text-xs text-z-gray-500 mt-2 h-4">
               {status === 'requesting' ? 'Starting camera…' : twoHands ? 'Just one hand, please 🙌' : 'Looking for your hand…'}
             </p>
+          ) : (
+            <motion.p
+              className="flex items-center justify-center gap-1.5 text-z-green text-sm font-bold mt-2"
+              initial={{ opacity: 0, y: -4, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: 'spring', damping: 18, stiffness: 320 }}
+            >
+              <span aria-hidden>✅</span> Got it — {cap(detected)}-handed!
+            </motion.p>
           )}
         </div>
       )}
