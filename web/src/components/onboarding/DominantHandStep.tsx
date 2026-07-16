@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useCamera } from '@/hooks/useCamera';
 import { getSharedCapture } from '@/engine/capture';
+import { handCenter } from '@/engine/landmarks';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { Zippy } from '@/components/shared/Zippy';
 
@@ -10,28 +11,44 @@ interface Props {
   onSkip: () => void;
 }
 
-// Consecutive single-hand frames of the same label before we trust the detection — a couple of
-// stray frames (a hand entering the frame, a momentary two-hand overlap) shouldn't decide it.
+// Consecutive single-hand frames resting in the same box before we trust it — a couple of stray
+// frames (a hand passing through on its way up) shouldn't decide it. At the ~120ms poll interval
+// below, this is roughly 700ms of genuinely holding still in one box.
 const REQUIRED_VOTES = 6;
+// Fraction of the (mirrored) frame width each side's box claims, with a neutral gap between them
+// so a hand near dead-center doesn't flicker between sides.
+const ZONE_SPLIT = 0.46;
+
+type Zone = 'none' | 'multi' | 'neutral' | 'left' | 'right';
 
 /**
- * Onboarding step: ask the user to raise the hand they sign with and read which hand it is off the
- * live camera. The recognition engine is handedness-agnostic, so this is purely to personalize the
- * app — and because the auto-detection has a known subtlety (see the mirror note below), the final
- * value is always confirmed by the user, so it can't silently be wrong.
+ * Onboarding step: ask the user to place the hand they sign with into an on-screen box (a left box
+ * and a right box, drawn over the mirrored camera feed) and read off which one they used.
+ *
+ * This is deliberately geometric — WHICH HALF OF THE MIRRORED DISPLAY the hand is in — rather than
+ * reading MediaPipe's `handedness` label. That label assumes the input image is mirrored before
+ * being fed to the model (a selfie-camera assumption); getUserMedia hands us the raw, un-flipped
+ * frame, so in theory the label should always be inverted from the physical hand. In practice this
+ * is NOT a stable assumption to hardcode: some webcam drivers already mirror the stream themselves
+ * before it reaches the browser, so "invert the label" is only sometimes correct — confirmed on
+ * real hardware (2026-07-16), where raising the physical right hand read as "left-handed". The
+ * box-placement approach sidesteps the whole question: WebcamMirror always mirrors for display
+ * (`ctx.scale(-1,1)`), so a box drawn on the right side of that mirrored view is exactly where a
+ * user's real right hand lands when they look at their own reflection and raise it — true
+ * regardless of whatever the camera/driver did upstream.
  */
 export function DominantHandStep({ onConfirm, onSkip }: Props) {
   const { videoRef, status, start, stop } = useCamera();
   const [detected, setDetected] = useState<'left' | 'right' | null>(null);
-  const [twoHands, setTwoHands] = useState(false);
-  const voteRef = useRef<{ label: 'left' | 'right' | null; count: number }>({ label: null, count: 0 });
+  const [zone, setZone] = useState<Zone>('none');
+  const voteRef = useRef<{ side: 'left' | 'right' | null; count: number }>({ side: null, count: 0 });
 
   useEffect(() => {
     void start();
     return () => stop();
   }, [start, stop]);
 
-  // Detection loop — runs only until a hand is confidently detected, then stops.
+  // Detection loop — runs only until a side is confidently settled, then stops.
   useEffect(() => {
     if (status !== 'active' || detected) return;
     let cancelled = false;
@@ -45,20 +62,24 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
         let frame;
         try { frame = cap.process(v, performance.now()); } catch { return; }
 
-        if (frame.hands.length === 0) { voteRef.current = { label: null, count: 0 }; setTwoHands(false); return; }
-        if (frame.hands.length > 1) { setTwoHands(true); voteRef.current = { label: null, count: 0 }; return; }
-        setTwoHands(false);
+        if (frame.hands.length === 0) { voteRef.current = { side: null, count: 0 }; setZone('none'); return; }
+        if (frame.hands.length > 1) { voteRef.current = { side: null, count: 0 }; setZone('multi'); return; }
 
-        // MediaPipe reports handedness assuming a MIRRORED (selfie-flipped) image, but getUserMedia
-        // hands us the raw un-flipped frame — so its 'Left'/'Right' is the OPPOSITE of the user's
-        // physical hand. Invert here. (The user confirms below, so a wrong guess is still fixable.)
-        const raw = frame.hands[0].handedness;
-        const physical: 'left' | 'right' = raw === 'Right' ? 'left' : 'right';
+        // capture.ts stores landmark points in raw (un-mirrored) video pixel coords — mirror the
+        // x-coordinate here to match what the user actually sees on screen (WebcamMirror always
+        // flips for display), so "which box is my hand in" matches their own eyes.
+        const [rawX] = handCenter(frame.hands[0]);
+        const mirroredFrac = 1 - rawX / frame.width;
+        const side: 'left' | 'right' | null =
+          mirroredFrac < ZONE_SPLIT ? 'left' : mirroredFrac > 1 - ZONE_SPLIT ? 'right' : null;
 
+        setZone(side ?? 'neutral');
+
+        if (!side) { voteRef.current = { side: null, count: 0 }; return; }
         const vote = voteRef.current;
-        if (vote.label === physical) vote.count += 1;
-        else voteRef.current = { label: physical, count: 1 };
-        if (voteRef.current.count >= REQUIRED_VOTES) setDetected(physical);
+        if (vote.side === side) vote.count += 1;
+        else voteRef.current = { side, count: 1 };
+        if (voteRef.current.count >= REQUIRED_VOTES) setDetected(side);
       }, 120);
     });
 
@@ -71,6 +92,13 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
   const cameraFailed = status === 'denied' || status === 'error';
   const other = (h: 'left' | 'right') => (h === 'left' ? 'right' : 'left');
   const cap = (h: string) => h.charAt(0).toUpperCase() + h.slice(1);
+
+  const hint =
+    status === 'requesting' ? 'Starting camera…'
+    : zone === 'multi' ? 'Just one hand, please 🙌'
+    : zone === 'none' ? 'Raise the hand you sign with'
+    : zone === 'neutral' ? 'Move it into a box, left or right'
+    : 'Hold it there…';
 
   return (
     <motion.div
@@ -93,19 +121,24 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
           ? 'No camera — just pick your signing hand.'
           : detected
             ? 'Great — is this right?'
-            : 'Raise your dominant hand into the camera.'}
+            : 'Place it in the matching box below.'}
       </p>
 
       {!cameraFailed && (
         <div className="mb-5">
-          <WebcamMirror videoRef={videoRef} />
-          {!detected ? (
-            <p className="text-xs text-z-gray-500 mt-2 h-4">
-              {status === 'requesting' ? 'Starting camera…' : twoHands ? 'Just one hand, please 🙌' : 'Looking for your hand…'}
-            </p>
-          ) : (
+          <WebcamMirror
+            videoRef={videoRef}
+            handZones={{ active: zone === 'left' || zone === 'right' ? zone : null, selected: detected }}
+          />
+          {!detected && <p className="text-xs text-z-gray-500 mt-2 h-4">{hint}</p>}
+        </div>
+      )}
+
+      {cameraFailed || detected ? (
+        <div className="flex flex-col gap-3">
+          {detected && !cameraFailed && (
             <motion.p
-              className="flex items-center justify-center gap-1.5 text-z-green text-sm font-bold mt-2"
+              className="flex items-center justify-center gap-1.5 text-z-green text-sm font-bold"
               initial={{ opacity: 0, y: -4, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ type: 'spring', damping: 18, stiffness: 320 }}
@@ -113,11 +146,6 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
               <span aria-hidden>✅</span> Got it — {cap(detected)}-handed!
             </motion.p>
           )}
-        </div>
-      )}
-
-      {cameraFailed || detected ? (
-        <div className="flex flex-col gap-3">
           {detected && !cameraFailed && (
             <motion.button
               onClick={() => onConfirm(detected)}
