@@ -90,30 +90,18 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
             <span className="font-bold text-xs text-z-purple-light">{signs}</span>
           </motion.div>
 
-          {/* Gold 🪙 — plain display now; the shop entry point is the cart icon directly below it
-              (moved off the sidebar's nav list, 2026-07-16 — see SideNav.tsx). */}
-          <div className="flex flex-col items-center gap-1">
-            <div className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1">
-              <span className="text-sm">🪙</span>
-              <span className="font-bold text-xs text-z-yellow">{gold}</span>
-            </div>
-            {/* A real <button> (keyboard + screen-reader reachable), with the tap area expanded
-                past the visual circle to clear the 44px touch minimum. */}
-            <motion.button
-              aria-label="Open shop"
-              title="Shop"
-              className="relative w-6 h-6 rounded-full bg-z-yellow/15 flex items-center justify-center text-z-yellow after:absolute after:-inset-2.5 after:content-['']"
-              onClick={onOpenShop}
-              whileHover={{ scale: 1.15, backgroundColor: 'rgba(250, 204, 21, 0.28)', transition: { duration: 0.15 } }}
-              whileTap={{ scale: 0.88 }}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="9" cy="21" r="1" />
-                <circle cx="20" cy="21" r="1" />
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-              </svg>
-            </motion.button>
-          </div>
+          {/* Gold 🪙 — tapping opens shop. A real <button> (keyboard + screen-reader reachable),
+              with the tap area expanded past the visual pill to clear the 44px touch minimum. */}
+          <motion.button
+            aria-label={`Open shop — ${gold} gold`}
+            className="relative flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-pointer after:absolute after:-inset-y-2.5 after:-inset-x-1.5 after:content-['']"
+            onClick={onOpenShop}
+            whileHover={{ scale: 1.08, backgroundColor: 'rgba(250, 204, 21, 0.14)', transition: { duration: 0.2 } }}
+            whileTap={{ scale: 0.92 }}
+          >
+            <span className="text-sm">🪙</span>
+            <span className="font-bold text-xs text-z-yellow">{gold}</span>
+          </motion.button>
         </div>
       </div>
     </div>
