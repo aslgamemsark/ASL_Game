@@ -11,6 +11,7 @@ import { WorldMap } from '@/components/home/WorldMap';
 import { ChestCard } from '@/components/home/ChestCard';
 import { ZippyMessage } from '@/components/shared/ZippyMessage';
 import { useZippyLine } from '@/hooks/useZippyLine';
+import { pickZippyLine, type ZippyExpression } from '@/data/zippy';
 import { useUserStore, todayStr } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -73,6 +74,17 @@ export function HomePage({
     refreshDailyQuests();
   }, [refreshDailyQuests]);
 
+  // Tap-to-cheer: poking Zippy swaps him to a happy face and gives a fresh encouraging line, so he
+  // feels responsive instead of a static greeting. Clears back to the normal greeting after a beat.
+  const [poke, setPoke] = useState<{ line: string; expr: ZippyExpression } | null>(null);
+  const HAPPY_EXPRESSIONS: ZippyExpression[] = ['proud', 'celebrating', 'thumbsup', 'welcome', 'encouraging'];
+  const pokeZippy = () => {
+    setPoke({
+      line: pickZippyLine('homeGreeting'),
+      expr: HAPPY_EXPRESSIONS[Math.floor(Math.random() * HAPPY_EXPRESSIONS.length)],
+    });
+  };
+
   return (
     <div className="min-h-screen bg-z-bg">
       {/* Guest tapping the avatar gets the sign-in prompt; a signed-in user goes to their Me tab. */}
@@ -89,10 +101,11 @@ export function HomePage({
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
               <ZippyMessage
-                expression={showWelcomeBack ? 'sleeping' : streak > 0 ? 'proud' : 'welcome'}
-                message={showWelcomeBack ? welcomeBackLine : greeting}
+                expression={poke?.expr ?? (showWelcomeBack ? 'sleeping' : streak > 0 ? 'proud' : 'welcome')}
+                message={poke?.line ?? (showWelcomeBack ? welcomeBackLine : greeting)}
                 size="sm"
                 hideName
+                onTap={pokeZippy}
                 className="mb-3"
               />
               <StreakCard />

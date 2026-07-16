@@ -29,6 +29,7 @@ type ProgressRow = {
   streak_freezes: number;
   streak_milestones_awarded: number[];
   speed_high_scores: Record<string, SpeedHighScore>;
+  dominant_hand: 'left' | 'right' | null;
 };
 
 // Loads remote progress on sign-in and merges it with local state.
@@ -96,6 +97,7 @@ export function useProgressSync() {
           streakFreezes: row.streak_freezes,
           streakMilestonesAwarded: row.streak_milestones_awarded ?? [],
           speedHighScores: row.speed_high_scores ?? {},
+          dominantHand: row.dominant_hand ?? null,
         });
       }
       if (profileRow && typeof (profileRow as { collect_training_data?: boolean }).collect_training_data === 'boolean') {
@@ -154,6 +156,7 @@ export function useProgressSync() {
       streak_freezes: store.streakFreezes,
       streak_milestones_awarded: store.streakMilestonesAwarded,
       speed_high_scores: store.speedHighScores as unknown as Record<string, unknown>,
+      dominant_hand: store.dominantHand,
       updated_at: new Date().toISOString(),
     } as Record<string, unknown>);
 
@@ -186,6 +189,7 @@ export function useProgressSync() {
     store.gold, store.ownedCosmetics, store.equippedBorder, store.equippedAvatar, store.activeBadge,
     store.showcaseBadges, store.unlockedWorldIds, store.signs, store.renameCards, store.badges, store.pendingChests,
     store.totalCorrectSigns, store.streakFreezes, store.streakMilestonesAwarded, store.speedHighScores,
+    store.dominantHand,
   ]);
 
   // Debounced sync of the training-data opt-out flag (separate table from user_progress).

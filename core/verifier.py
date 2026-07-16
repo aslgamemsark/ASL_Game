@@ -328,6 +328,51 @@ def _score_chin_reach(buffer, acting_label, shoulder_width, loc) -> float:
     return float(np.clip(best, 0.0, 1.0))
 
 
+def _frame_at_location(f, sign: Sign, acting_label: str, shoulder_width: float) -> float:
+    """Lightweight per-frame 'is the acting hand already at the sign's required location' score,
+    for the FOREHEAD/SHOULDER anchors — used only to gate LINEAR movement scoring to the
+    post-arrival portion of the trajectory (see MovementReq.gate_to_location). Deliberately
+    duplicates a slice of _score_location's per-anchor math rather than refactoring it, so this
+    stays additive and can't regress the existing (already-tuned) aggregate location scorer.
+    """
+    loc = sign.location
+    h = f.hand(acting_label)
+    if h is None:
+        return 0.0
+    if loc.anchor == Anchor.FOREHEAD:
+        if f.mouth is None:
+            return 0.0
+        dx = abs(h.center[0] - f.mouth[0]) / shoulder_width
+        dy = (h.center[1] - f.mouth[1]) / shoulder_width
+        v = 1.0 - max(0.0, dy - FOREHEAD_DY_MAX) / FOREHEAD_DY_FALL
+        hscore = 1.0 - max(0.0, dx - loc.max_dist_ratio) / 0.4
+        return float(np.clip(min(v, hscore), 0.0, 1.0))
+    if loc.anchor == Anchor.SHOULDER:
+        if f.left_shoulder is None or f.right_shoulder is None:
+            return 0.0
+        d = min(
+            float(np.linalg.norm(h.center - f.left_shoulder)),
+            float(np.linalg.norm(h.center - f.right_shoulder)),
+        ) / shoulder_width
+        return float(np.clip(1.0 - max(0.0, d - loc.max_dist_ratio) / SHOULDER_FALL, 0.0, 1.0))
+    return 1.0  # anchors without a gating implementation: no filtering
+
+
+def _gated_trajectory(buffer, sign: Sign, actor_label: str, shoulder_width: float):
+    """The actor's trajectory restricted to frames where it already satisfies the sign's
+    location — excludes the reach/approach phase from LINEAR movement scoring. Without this, a
+    sign whose real motion happens AT a location (FEVER's brow sweep, HOSPITAL's shoulder cross)
+    trivially satisfies a magnitude-only LINEAR check just by the hand traveling there."""
+    out = []
+    for f in buffer:
+        h = f.hand(actor_label)
+        if h is None:
+            continue
+        if _frame_at_location(f, sign, actor_label, shoulder_width) >= 0.5:
+            out.append((f.t, h.center))
+    return out
+
+
 def _score_movement(buffer, sign: Sign, roles, shoulder_width) -> float:
     req = sign.movement
     if req.kind == MovementKind.NONE:
@@ -343,7 +388,21 @@ def _score_movement(buffer, sign: Sign, roles, shoulder_width) -> float:
             return 0.0
         traj_a, traj_b = _aligned_pair_points(buffer, actor_label, ndom_label)
         return mv.converge_confidence(traj_a, traj_b, shoulder_width, req)
-    return mv.movement_confidence(actor_traj, shoulder_width, req)
+
+    if req.kind == MovementKind.LINEAR and req.gate_to_location:
+        actor_traj = _gated_trajectory(buffer, sign, actor_label, shoulder_width)
+        if not actor_traj:
+            return 0.0
+
+    score = mv.movement_confidence(actor_traj, shoulder_width, req)
+
+    if req.other_hand_max_motion_ratio is not None:
+        other_label = roles.get(NONDOMINANT)
+        other_ratio = _path_length(_trajectory(buffer, other_label)) / shoulder_width
+        stillness = float(np.clip(1.0 - other_ratio / req.other_hand_max_motion_ratio, 0.0, 1.0))
+        score = min(score, stillness)
+
+    return score
 
 
 def _score_orientation(buffer, sign: Sign, roles) -> float:
@@ -357,6 +416,33 @@ def _score_orientation(buffer, sign: Sign, roles) -> float:
         if h is not None:
             vals.append(ori.facing_confidence(h, o.facing))
     return float(np.median(vals)) if vals else 0.0
+
+
+# One-handed signs only. A hand merely VISIBLE at rest (common webcam framing — most signers
+# don't hide their idle hand off-screen) shouldn't fail a sign; a hand that's independently
+# GESTURING is the real confusor this guards against (production bug report 2026-07-14: PLEASE/
+# THANK_YOU passed even with the idle hand actively signing something else in frame). Path length
+# of the other hand's own trajectory, not mere presence, is what actually distinguishes the two.
+EXTRA_HAND_TOLERANCE = 0.8
+EXTRA_HAND_MOTION_FLOOR = 0.30  # shoulder-widths of path length = "actively gesturing"
+
+
+def _score_no_extra_hand(buffer, sign: Sign, roles, shoulder_width) -> float:
+    dom_label = roles.get(DOMINANT)
+    frames = _recent(buffer, SMOOTH_SECONDS)
+    if dom_label is None or not frames or shoulder_width is None:
+        return 1.0  # nothing to judge yet — don't false-fail
+    other_labels: set[str] = set()
+    for f in frames:
+        for h in f.hands:
+            if h.handedness != dom_label:
+                other_labels.add(h.handedness)
+    if not other_labels:
+        return 1.0
+    floor = sign.extra_hand_motion_floor if sign.extra_hand_motion_floor is not None else EXTRA_HAND_MOTION_FLOOR
+    max_motion = max(_path_length(_trajectory(buffer, label)) for label in other_labels)
+    motion_ratio = max_motion / shoulder_width
+    return float(np.clip(1.0 - motion_ratio / floor, 0.0, 1.0))
 
 
 def _score_nmm(buffer, sign: Sign) -> float:
@@ -448,6 +534,12 @@ def verify(buffer: RollingBuffer, sign: Sign) -> VerifyResult:
             "handshape_nondominant",
             _score_handshape(buffer, roles.get(NONDOMINANT), nd.kind),
             nd.min_confidence, nd.required,
+        ))
+    else:
+        params.append(ParamScore(
+            "no_extra_hand",
+            _score_no_extra_hand(buffer, sign, roles, sw),
+            EXTRA_HAND_TOLERANCE, True,
         ))
 
     params.append(ParamScore(

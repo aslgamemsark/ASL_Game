@@ -43,6 +43,10 @@ export interface UserProgress {
   achievements: string[];
   onboardingComplete: boolean;
   skillLevel: SkillLevel;
+  /** Which hand the user signs with, captured at onboarding. The recognition engine is
+   *  handedness-agnostic (roles are assigned by motion), so this drives personalization/copy only,
+   *  not verification. null until chosen or skipped (copy then assumes right-handed). */
+  dominantHand: 'left' | 'right' | null;
   dailyQuests: Quest[];
   questsLastReset: string;
   streakMilestonesAwarded: number[];

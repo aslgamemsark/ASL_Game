@@ -345,6 +345,11 @@ export const MEDICINE = createSign({
 
 export const EMERGENCY = createSign({
   name: 'EMERGENCY', twoHanded: false,
+  // A vigorous single-arm shake naturally causes more counterbalance motion in the idle arm than
+  // a calm one-handed sign — real calibration data (2026-07-15) showed the default no_extra_hand
+  // floor scoring a genuine correct performance ~0.0 (a false-fail). Loosened specifically for
+  // EMERGENCY rather than relaxing the shared default. Mirrors signs/emergency.py.
+  extraHandMotionFloor: 0.55,
   dominant: { kind: 'claw', required: true, minConfidence: 0.50 },
   location: { anchor: Anchor.NEUTRAL_SPACE, actingHand: DOMINANT, maxDistRatio: 1.5, required: false },
   // minConfidence raised 0.25->0.4 (2026-07-14): conservative blanket bump, not its own confusor
@@ -370,6 +375,10 @@ export const DOCTOR = createSign({
   // rapid/random hand movement near the same spot) — see signs/doctor.py for the measured
   // separation. Reduces but does not eliminate a documented rule-based-v1 ceiling on this
   // confusor class; the classifier gate is the actual backstop (knownSigns includes DOCTOR).
+  // otherHandMaxMotionRatio tried 2026-07-15 (real user report "doctor passes even on clapping")
+  // and REVERTED: the real doctor_correct fixture measured the "stationary" wrist hand's own
+  // path length at 0.90 shoulder-widths over the 2s window — a held-out arm drifts too much for
+  // path length alone to separate it from an actively clapping hand. See signs/doctor.py.
   movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 3, minDurationS: 0.5, required: true },
 });
 
@@ -397,7 +406,11 @@ export const FEVER = createSign({
   name: 'FEVER', twoHanded: false,
   dominant: { kind: 'open', required: true, minConfidence: 0.55 },
   location: { anchor: Anchor.FOREHEAD, actingHand: DOMINANT, maxDistRatio: 0.7, required: true },
-  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, minDisplacementRatio: 0.18, minDurationS: 0.4, minConfidence: 0.5, required: true },
+  // Real user report (2026-07-15): "fever passes just when i bring my hand closer to my
+  // forehead" — the REACH toward the forehead is itself linear displacement, satisfying a
+  // magnitude-only check before any actual sweep happens. gateToLocation restricts displacement
+  // to frames already at the forehead, so only the post-arrival sweep counts. Mirrors signs/fever.py.
+  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, minDisplacementRatio: 0.18, minDurationS: 0.4, minConfidence: 0.5, required: true, gateToLocation: true },
 });
 
 export const WATER = createSign({
@@ -420,7 +433,13 @@ export const HOSPITAL = createSign({
   dominant: { kind: 'h', required: true, minConfidence: 0.25 },
   nondominant: { kind: 'open', required: false, minConfidence: 0.25},
   location: { anchor: Anchor.SHOULDER, actingHand: DOMINANT, maxDistRatio: 0.4, below: 'mouth', required: true },
-  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, minDisplacementRatio: 0.25, minDurationS: 0.5, required: true },
+  // Real user report (2026-07-15): "it passes just by seeig my 2 fingers" — bringing the hand UP
+  // to the shoulder is itself linear displacement, satisfying a magnitude-only check before any
+  // actual cross-stroke happens once there. gateToLocation restricts displacement to frames
+  // already at the shoulder. Distinct from the rapid/random-movement ceiling documented in
+  // signs/hospital.py — this removes a systematic false-credit source, not a magnitude-based
+  // confusor separator.
+  movement: { kind: MovementKind.LINEAR, actor: DOMINANT, minDisplacementRatio: 0.25, minDurationS: 0.5, required: true, gateToLocation: true },
 });
 
 export const DIZZY = createSign({

@@ -9,12 +9,17 @@ import { ZIPPY_SRC, type ZippyExpression } from '@/data/zippy';
 const IDLE_SCALE = [1, 1.008, 1, 1.006, 1, 1.022, 1.006, 1];
 const IDLE_TIMES = [0, 0.16, 0.32, 0.48, 0.64, 0.82, 0.92, 1];
 
-const SIZE_PX: Record<'xs' | 'sm' | 'md' | 'lg', number> = { xs: 56, sm: 72, md: 128, lg: 200 };
+const SIZE_PX: Record<'xs' | 'sm' | 'md' | 'lg' | 'xl', number> = { xs: 56, sm: 72, md: 128, lg: 200, xl: 280 };
 
 interface Props {
   expression: ZippyExpression;
-  size?: 'xs' | 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
+  /** Makes Zippy react to pointer input — hover tilt + tap squash, and (with onTap) clickable.
+   *  Off by default so decorative Zippys stay inert (pointer-events-none). Suppressed under
+   *  prefers-reduced-motion, like the float. */
+  interactive?: boolean;
+  onTap?: () => void;
   /**
    * Provide only when Zippy is the meaningful content (e.g. the error screen). When omitted the
    * image is decorative (aria-hidden, empty alt) because the adjacent text already conveys the
@@ -38,7 +43,7 @@ interface Props {
 // The one image primitive every Zippy appearance goes through. Swapping the static art for an
 // animated version later (Lottie / APNG / video) means changing only this file — call sites and
 // the ZIPPY_SRC map stay the same.
-export function Zippy({ expression, size = 'md', className = '', alt, float = false, priority = false, fit = 'contain' }: Props) {
+export function Zippy({ expression, size = 'md', className = '', alt, float = false, priority = false, fit = 'contain', interactive = false, onTap }: Props) {
   const reduce = useReducedMotion();
   const [failed, setFailed] = useState(false);
   // Randomize the idle loop's duration once per mount (not per render) so multiple Zippys visible
@@ -47,6 +52,7 @@ export function Zippy({ expression, size = 'md', className = '', alt, float = fa
   const [idleDuration] = useState(() => 8 + Math.random() * 3);
   const px = SIZE_PX[size];
   const decorative = !alt;
+  const canReact = interactive && !reduce;
 
   // If the asset ever fails to load, collapse to nothing rather than showing a broken-image icon
   // (matters most inside the ErrorBoundary, where the failure might BE an asset problem).
@@ -62,12 +68,15 @@ export function Zippy({ expression, size = 'md', className = '', alt, float = fa
       fetchPriority={priority ? 'high' : 'auto'}
       decoding="async"
       onError={() => setFailed(true)}
+      onClick={interactive ? onTap : undefined}
       style={fit === 'cover' ? undefined : { height: px, width: 'auto' }}
       className={
         fit === 'cover'
-          ? `select-none pointer-events-none w-full h-full object-cover object-top ${className}`
-          : `select-none pointer-events-none object-contain ${className}`
+          ? `select-none ${interactive ? 'cursor-pointer' : 'pointer-events-none'} w-full h-full object-cover object-top ${className}`
+          : `select-none ${interactive ? 'cursor-pointer' : 'pointer-events-none'} object-contain ${className}`
       }
+      whileHover={canReact ? { scale: 1.06, rotate: 3 } : undefined}
+      whileTap={canReact ? { scale: 0.92 } : undefined}
       initial={reduce ? false : { opacity: 0, scale: 0.94 }}
       animate={
         reduce

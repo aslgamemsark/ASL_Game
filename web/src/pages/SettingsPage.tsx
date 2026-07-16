@@ -27,6 +27,17 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
     addSigns(10000);
   };
 
+  // Signed-in users skip onboarding on every load (App.tsx) so a real returning user is never
+  // stuck redoing it — which also makes it impossible for a signed-in admin to re-test the flow
+  // without a full sign-out. This flips onboardingComplete back to false and sets a one-shot
+  // sessionStorage flag that App.tsx's skip-effect checks and consumes, letting this one reload
+  // through to onboarding while staying signed in.
+  const replayOnboarding = () => {
+    sessionStorage.setItem('asl-force-onboarding', '1');
+    useUserStore.setState({ onboardingComplete: false });
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen bg-z-bg">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
@@ -182,6 +193,12 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
                 className="w-full py-2.5 rounded-xl bg-z-yellow/15 text-z-yellow font-bold text-sm"
               >
                 🪙 Add 10,000 Gold &amp; 🤟 10,000 Signs (local test)
+              </button>
+              <button
+                onClick={replayOnboarding}
+                className="w-full py-2.5 rounded-xl bg-z-purple/15 text-z-purple-light font-bold text-sm"
+              >
+                🔄 Replay onboarding (dev)
               </button>
               {onOpenAdmin && (
                 <button

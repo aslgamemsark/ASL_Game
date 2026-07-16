@@ -23,6 +23,11 @@ from the generic idle/rapid-movement class in tests/test_rapid_confusor.py:
     "whichever hand moved more = dominant." A handedness-agnostic verifier structurally cannot
     reject "the other hand did the qualifying motion instead" when both hands look identical —
     left open as a documented gap (xfail).
+  LETTER_E fist — a plain closed fist passed E's handshape check (real user report, 2026-07-15).
+    Fixed via core.handshape.e_confidence's thumb-tip-to-fingertip-midpoint band, recalibrated
+    against a dedicated correct-vs-fist recording (tools/recalibrate_letter_e.py) after an
+    initial target (derived from a different fixture as a fist stand-in) still accepted a real
+    fist live — see that function's docstring for the measured margin.
 """
 from __future__ import annotations
 
@@ -33,7 +38,7 @@ import pytest
 
 from core.landmarks import Frame, RollingBuffer
 from core.verifier import verify
-from signs import NURSE, HOSPITAL, DOCTOR, MEDICINE
+from signs import NURSE, HOSPITAL, DOCTOR, MEDICINE, LETTER_E
 
 FIXTURES = Path(__file__).parent / "fixtures"
 CONSECUTIVE_REQUIRED = 6
@@ -94,6 +99,18 @@ class TestDoctorClap:
         if streak >= CONSECUTIVE_REQUIRED:
             pytest.xfail(f"known open gap — clap sustained a {streak}-frame streak; see signs/doctor.py")
         assert streak < CONSECUTIVE_REQUIRED
+
+
+class TestLetterEFist:
+    """Fixed: a plain closed fist must not pass LETTER_E's handshape check."""
+
+    def test_correct_still_triggers(self):
+        streak = _best_consecutive_pass_streak(_load_frames("letter_e_correct"), LETTER_E)
+        assert streak >= CONSECUTIVE_REQUIRED, f"LETTER_E correct should still pass; streak={streak}"
+
+    def test_fist_rejected(self):
+        streak = _best_consecutive_pass_streak(_load_frames("letter_e_fist"), LETTER_E)
+        assert streak < CONSECUTIVE_REQUIRED, f"LETTER_E must reject a plain fist; streak={streak}"
 
 
 class TestMedicineWrongHand:

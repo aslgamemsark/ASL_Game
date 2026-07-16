@@ -96,7 +96,16 @@ export class Capture {
     this._ready = true;
   }
 
-  process(video: HTMLVideoElement, timestampMs: number): Frame {
+  /**
+   * `skipPose`: PoseLandmarker inference is a real per-frame cost (a full second model run,
+   * separate from and in addition to HandLandmarker) that every caller paid unconditionally even
+   * when they never read `leftShoulder`/`rightShoulder`/`mouth` — e.g. DominantHandStep, which
+   * only ever looks at `frame.hands`. That's wasted latency on every poll tick, not just a UI
+   * debounce value to tune (found while diagnosing reported "still feels slow" on real hardware,
+   * 2026-07-16). The sign-verification path (useRecognition.ts) still needs pose for shoulder-
+   * width normalization and must NOT pass this.
+   */
+  process(video: HTMLVideoElement, timestampMs: number, opts?: { skipPose?: boolean }): Frame {
     if (!this.hand || !this.pose) {
       throw new Error('Capture not initialized — call init() first');
     }
@@ -117,13 +126,13 @@ export class Capture {
     }
 
     const handRes = this.hand.detectForVideo(video, timestampMs);
-    const poseRes = this.pose.detectForVideo(video, timestampMs);
+    const poseRes = opts?.skipPose ? null : this.pose.detectForVideo(video, timestampMs);
     const faceRes = this.face ? this.face.detectForVideo(video, timestampMs) : null;
 
     if (!this._logged) {
       if (import.meta.env.DEV) {
         console.log('[QuickSign] MediaPipe first result — hands:', handRes.landmarks?.length ?? 0,
-          'pose:', poseRes.landmarks?.length ?? 0, 'video:', w, 'x', h);
+          'pose:', poseRes?.landmarks?.length ?? 0, 'video:', w, 'x', h);
       }
       this._logged = true;
     }
@@ -148,7 +157,7 @@ export class Capture {
       }
     }
 
-    if (poseRes.landmarks && poseRes.landmarks.length > 0) {
+    if (poseRes && poseRes.landmarks && poseRes.landmarks.length > 0) {
       const pose = poseRes.landmarks[0];
       const ls = pose[POSE_LEFT_SHOULDER];
       const rs = pose[POSE_RIGHT_SHOULDER];

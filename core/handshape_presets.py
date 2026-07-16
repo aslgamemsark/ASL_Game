@@ -79,6 +79,12 @@ _THUMB_TIP_C = np.array([-0.55, -0.85])
 # shallower "under" position than N's since it sits centered under a wider knuckle span
 # (core.handshape's m_confidence wants thumb-tip-to-3-knuckle-midpoint distance ~0.42 units).
 _THUMB_TIP_M_UNDER = np.array([-0.10, -0.55])
+# E-specific: reusing the generic TUCKED position made E geometrically identical to a plain
+# fist/S — a real user test found a fist scored E's predicate at a perfect 1.0. core.handshape's
+# e_confidence wants thumb-tip-to-fingertip-midpoint distance ~0.355 units — recalibrated
+# 2026-07-15 against a dedicated correct-vs-fist confusor recording after an initial 0.44 target
+# (from an older, differently-posed recording) still accepted a real fist live.
+_THUMB_TIP_E_UNDER = np.array([-0.17, -0.37])
 
 # (index, middle, ring, pinky) extension, thumb_extended. Aliases share one spec so a sign asking for
 # "s" and one asking for "fist" animate identically — the same reuse the recognition dispatch relies on.
@@ -187,7 +193,7 @@ def _finger_chain(name: str, extension: float) -> np.ndarray:
 def _thumb_chain(extended: bool, between: bool = False, pinch: bool = False,
                  k_touch: bool = False, p_touch: bool = False, n_under: bool = False,
                  a_alongside: bool = False, c_shape: bool = False,
-                 m_under: bool = False) -> np.ndarray:
+                 m_under: bool = False, e_under: bool = False) -> np.ndarray:
     """thumb mcp, ip, tip (3 points, 2D). cmc is fixed; the rest interpolate cmc->tip."""
     if between:
         tip = _THUMB_TIP_BETWEEN
@@ -205,6 +211,8 @@ def _thumb_chain(extended: bool, between: bool = False, pinch: bool = False,
         tip = _THUMB_TIP_C
     elif m_under:
         tip = _THUMB_TIP_M_UNDER
+    elif e_under:
+        tip = _THUMB_TIP_E_UNDER
     else:
         tip = _THUMB_TIP_OUT if extended else _THUMB_TIP_TUCKED
     return np.array([_THUMB_CMC + (tip - _THUMB_CMC) * f for f in (0.40, 0.72, 1.0)])
@@ -235,6 +243,7 @@ def local_hand(kind: str, scale: float = CANON_SCALE, mirror: bool = False) -> n
         a_alongside=(key == "a"),
         c_shape=(key == "c"),
         m_under=(key == "m"),
+        e_under=(key == "e"),
     )
     pts[1, :2] = _THUMB_CMC                       # thumb cmc
     pts[2, :2], pts[3, :2], pts[4, :2] = mcp_t, ip_t, tip_t   # mcp, ip, tip

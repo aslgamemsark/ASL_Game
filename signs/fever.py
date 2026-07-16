@@ -41,5 +41,10 @@ FEVER = Sign(
         min_duration_s=0.4,
         min_confidence=0.5,
         required=True,
+        # Real user report (2026-07-15): "fever passes just when i bring my hand closer to my
+        # forehead" — the REACH toward the forehead is itself linear displacement, satisfying a
+        # magnitude-only check before any actual sweep happens. gate_to_location restricts
+        # displacement to frames already at the forehead, so only the post-arrival sweep counts.
+        gate_to_location=True,
     ),
 )

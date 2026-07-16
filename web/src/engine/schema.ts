@@ -53,6 +53,13 @@ export interface MovementReq {
   // traced (J, Z): expected direction angles per phase, degrees (0=right, 90=down, 180=left, 270=up)
   traceTemplate?: number[];
   traceToleranceDeg?: number;
+  // linear only: when true, only frames where the acting hand already satisfies the sign's
+  // location requirement count toward displacement — see MovementReq.gate_to_location in
+  // core/schema.py for the full rationale (FEVER/HOSPITAL "reach counted as the stroke" bug).
+  gateToLocation?: boolean;
+  // repeated (DOCTOR-style taps): the OTHER hand must stay relatively still (path length / SW)
+  // — distinguishes a wrist-tap from clapping. See MovementReq.other_hand_max_motion_ratio.
+  otherHandMaxMotionRatio?: number | null;
   minDurationS: number;
   required: boolean;
   minConfidence: number;
@@ -98,6 +105,9 @@ export interface Sign {
   orientation?: OrientationReq;
   nmm?: NmmReq;
   twoHanded: boolean;
+  // One-handed signs only: overrides the "no_extra_hand" motion floor. See
+  // Sign.extra_hand_motion_floor in core/schema.py.
+  extraHandMotionFloor?: number | null;
 }
 
 export function createSign(opts: {
@@ -109,6 +119,7 @@ export function createSign(opts: {
   orientation?: Partial<OrientationReq>;
   nmm?: Partial<NmmReq> & { blendshape: string };
   twoHanded?: boolean;
+  extraHandMotionFloor?: number | null;
 }): Sign {
   const movement: MovementReq = {
     kind: MovementKind.NONE,
@@ -121,6 +132,8 @@ export function createSign(opts: {
     minCycles: 2,
     minAmplitudeRatio: 0.05,
     minApproachRatio: 0.15,
+    gateToLocation: false,
+    otherHandMaxMotionRatio: null,
     minDurationS: 0.6,
     required: true,
     minConfidence: 0.6,
@@ -149,6 +162,7 @@ export function createSign(opts: {
   const sign: Sign = {
     name: opts.name,
     twoHanded,
+    extraHandMotionFloor: opts.extraHandMotionFloor ?? null,
     dominant: { required: true, minConfidence: 0.6, ...opts.dominant },
     location: {
       anchor: Anchor.OTHER_HAND,

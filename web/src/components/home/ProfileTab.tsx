@@ -9,6 +9,7 @@ import { getBadge } from '@/data/badges';
 import { Tooltip } from '@/components/shared/Tooltip';
 import { getRankProgress } from '@/data/ranks';
 import { SHOP_ITEMS, getShopItem } from '@/data/shop';
+import { AvatarGlyph } from '@/components/shared/AvatarGlyph';
 
 const FIRE_REST  = { rotate: 0, x: 0, scale: 1, filter: 'brightness(1) drop-shadow(0 0 0px rgba(249,115,22,0))', transition: { duration: 0.3, ease: 'easeOut' as const } };
 const FIRE_HOVER = { rotate: [0, -4, 3, -3, 2, 0], x: [0, -1.5, 1, -1, 0.5, 0], scale: [1, 1.09, 1.04, 1.11, 1.05, 1], filter: ['brightness(1) drop-shadow(0 0px 0px rgba(249,115,22,0))', 'brightness(1.25) drop-shadow(0 -3px 8px rgba(249,115,22,0.7))', 'brightness(1.3) drop-shadow(0 -4px 10px rgba(249,115,22,0.8))', 'brightness(1) drop-shadow(0 0px 0px rgba(249,115,22,0))'], transition: { duration: 1.9, repeat: Infinity, ease: 'easeInOut' as const } };
@@ -70,10 +71,8 @@ export function ProfileTab() {
         {user ? (
           <div className="bg-z-card border border-white/5 rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg ${borderClasses}`}>
-                {equippedAvatar
-                  ? (SHOP_ITEMS.find((i) => i.id === equippedAvatar)?.icon ?? '🤟')
-                  : activeBadge ? (getBadge(activeBadge)?.icon ?? '🤟') : '🤟'}
+              <div className={`w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg ${borderClasses}`}>
+                <AvatarGlyph avatarId={equippedAvatar} badgeId={activeBadge} />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
@@ -112,9 +111,7 @@ export function ProfileTab() {
           whileHover={{ rotate: [0, -12, 12, -8, 0], scale: 1.08, transition: { duration: 0.45 } }}
           transition={{ type: 'spring', stiffness: 320, damping: 28 }}
         >
-          {equippedAvatar
-            ? (SHOP_ITEMS.find((i) => i.id === equippedAvatar)?.icon ?? '🤟')
-            : activeBadge ? (getBadge(activeBadge)?.icon ?? '🤟') : '🤟'}
+          <AvatarGlyph avatarId={equippedAvatar} badgeId={activeBadge} />
         </motion.div>
         {showcaseBadges.length > 0 && (
           <div className="flex justify-center gap-2 mb-2">
@@ -293,6 +290,8 @@ export function ProfileTab() {
                         >
                           {cosmeticTab === 'border' ? (
                             <div className={`w-7 h-7 rounded-lg bg-gradient-to-br from-z-purple to-z-purple-deep ${item.preview}`} />
+                          ) : item.image ? (
+                            <img src={item.image} alt="" draggable={false} className="w-8 h-8 rounded-lg object-cover object-top" />
                           ) : (
                             <span className="text-2xl">{item.icon}</span>
                           )}

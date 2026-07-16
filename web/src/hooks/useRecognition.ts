@@ -9,6 +9,31 @@ import type { Sign } from '@/engine/schema';
 
 export type RecognitionStatus = 'loading' | 'ready' | 'running' | 'error';
 
+/** Live camera-framing feedback derived from the pose landmarks already computed each frame — used
+ *  by the first-run camera-position guide. `ok` means the user is well framed (face centered, a
+ *  reasonable distance, chest visible below). All thresholds are ratios of the frame, so they hold
+ *  regardless of resolution. */
+export interface FramingStatus {
+  ok: boolean;
+  message: string;
+}
+
+function computeFraming(frame: Frame): FramingStatus {
+  const { leftShoulder, rightShoulder, mouth, width, height } = frame;
+  if (!width || !height || !leftShoulder || !rightShoulder) {
+    return { ok: false, message: 'Step into view so I can see you' };
+  }
+  const shoulderWidthRatio = Math.abs(leftShoulder[0] - rightShoulder[0]) / width;
+  const midX = ((leftShoulder[0] + rightShoulder[0]) / 2) / width;
+  const centerOffset = Math.abs(midX - 0.5);
+  if (shoulderWidthRatio > 0.8) return { ok: false, message: 'Move back a little' };
+  if (shoulderWidthRatio < 0.32) return { ok: false, message: 'Come a little closer' };
+  if (centerOffset > 0.16) return { ok: false, message: 'Center yourself in the box' };
+  // Keep the face in the upper part of the frame so the chest stays visible below it.
+  if (mouth && mouth[1] / height > 0.55) return { ok: false, message: 'Raise your camera a touch' };
+  return { ok: true, message: 'Perfect — hold it there ✓' };
+}
+
 /** Decision for one verification event, for telemetry — see onVerified below. */
 export type VerificationDecision = 'pass' | 'veto' | 'no-classifier';
 
@@ -65,6 +90,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   const runningRef = useRef(false);
   const [status, setStatus] = useState<RecognitionStatus>('loading');
   const [result, setResult] = useState<VerifyResult | null>(null);
+  // Framing feedback for the camera-position guide. Deduped by message (see the tick loop) so it
+  // doesn't setState on every one of the ~28 frames/sec — only when the guidance actually changes.
+  const [framing, setFraming] = useState<FramingStatus | null>(null);
+  const framingMsgRef = useRef<string | null>(null);
   const passCallbackRef = useRef(opts?.onPass);
   passCallbackRef.current = opts?.onPass;
   const hintCallbackRef = useRef(opts?.onHint);
@@ -161,6 +190,13 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           frame = stabilizerRef.current.stabilize(frame);
           bufferRef.current.add(frame);
           frameCountRef.current++;
+
+          // Update framing guidance only when the message changes, to avoid 28 setStates/sec.
+          const f = computeFraming(frame);
+          if (f.message !== framingMsgRef.current) {
+            framingMsgRef.current = f.message;
+            setFraming(f);
+          }
 
           const vr = verify(bufferRef.current, signRef.current);
           setResult(vr);
@@ -284,5 +320,5 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     };
   }, []);
 
-  return { status, result, init, startLoop, stopLoop, setSign, getSnapshot };
+  return { status, result, framing, init, startLoop, stopLoop, setSign, getSnapshot };
 }

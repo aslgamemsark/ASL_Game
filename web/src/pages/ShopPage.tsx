@@ -110,7 +110,13 @@ export function ShopPage({ onExit }: Props) {
                         style={{ background: RARITY_COLOR[item.rarity] }}
                       />
 
-                      <div className="text-3xl mb-2">{item.icon}</div>
+                      {item.image ? (
+                        <div className="w-12 h-12 rounded-xl overflow-hidden mb-2">
+                          <img src={item.image} alt="" draggable={false} className="w-full h-full object-cover object-top" />
+                        </div>
+                      ) : (
+                        <div className="text-3xl mb-2">{item.icon}</div>
+                      )}
                       <p className="font-bold text-sm leading-tight">{item.title}</p>
                       <p className="text-[11px] text-z-gray-400 mt-0.5 leading-tight">{item.description}</p>
 
@@ -157,8 +163,10 @@ export function ShopPage({ onExit }: Props) {
             >
               <div className="w-12 h-1 bg-z-gray-500 rounded-full mx-auto mb-5" />
               <div className="flex items-center gap-4 mb-4">
-                <div className="w-16 h-16 rounded-2xl bg-z-card border border-white/10 flex items-center justify-center text-4xl">
-                  {selected.icon}
+                <div className="w-16 h-16 rounded-2xl bg-z-card border border-white/10 flex items-center justify-center overflow-hidden text-4xl">
+                  {selected.image
+                    ? <img src={selected.image} alt="" draggable={false} className="w-full h-full object-cover object-top" />
+                    : selected.icon}
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">{selected.title}</h3>

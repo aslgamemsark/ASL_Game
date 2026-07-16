@@ -378,17 +378,28 @@ function cConfidence(hand: Hand): number {
   return Math.min(curlScore, gapScore);
 }
 
-// Letter E: all four fingers bent at the middle knuckle toward the palm, thumb tucked under.
-// High uniform curl + thumb not extended to side. Distinct from S (S has thumb across knuckles;
-// E bends all fingers uniformly, thumb stays under not to the side).
+// All four fingers curled uniformly AND the thumb tip sits in E's characteristic band relative
+// to the curled fingertips. "Thumb not extended to the side" alone can't tell E apart from a
+// plain closed fist/S — both curl fully with the thumb tucked in. Distance from the thumb tip to
+// the curled index/middle fingertips does separate them, but the margin is much tighter than
+// first assumed — a first pass (target=0.44) used LETTER_S's fixture as a fist stand-in and
+// still accepted a real fist live (real user report, 2026-07-15). A dedicated correct-vs-fist
+// confusor recording found the ACTUAL live margin: genuine E measures ~0.33-0.39 (median 0.361),
+// a plain fist measures ~0.26-0.30 (median 0.292) — barely 0.02 apart at the closest edges.
+// target=0.355/tolerance=0.05 cleanly separates them. Mirrors core/handshape.py::e_confidence.
 function eConfidence(hand: Hand): number {
   const curls = allCurls(hand);
   const m = mean(curls);
   const curlScore = clip((m - 0.45) / 0.25, 0, 1);
-  const thumbIn = 1.0 - thumbExtended(hand);
   const spread = std(curls);
   const uniformity = clip(1.0 - Math.max(0, spread - 0.15) / 0.35, 0, 1);
-  return Math.min(curlScore, thumbIn) * uniformity;
+  const tipMid: [number, number] = [
+    (xy(hand, INDEX_TIP)[0] + xy(hand, MIDDLE_TIP)[0]) / 2,
+    (xy(hand, INDEX_TIP)[1] + xy(hand, MIDDLE_TIP)[1]) / 2,
+  ];
+  const d = dist2d(xy(hand, THUMB_TIP), tipMid) / handScale(hand);
+  const thumbBand = clip(1.0 - Math.abs(d - 0.355) / 0.05, 0, 1);
+  return Math.min(curlScore, thumbBand) * uniformity;
 }
 
 // Letter M: closed fist with thumb tucked under index, middle, AND ring fingers (one more than N).

@@ -10,6 +10,7 @@ import { CameraOnboarding } from '@/components/shared/CameraOnboarding';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
 import { Zippy } from '@/components/shared/Zippy';
+import { useFirstRunCameraGuide } from '@/hooks/useFirstRunCameraGuide';
 import { pickZippyLine } from '@/data/zippy';
 import { LessonHeader } from '@/components/lesson/LessonHeader';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
@@ -152,6 +153,8 @@ export function LessonPage({ lessonId, onExit }: Props) {
     onVerified: handleVerified,
     onAttempt: handleAttempt,
   });
+  // First-run only: overlay a camera-framing guide until the user is well positioned.
+  const showCamGuide = useFirstRunCameraGuide(recognition.framing?.ok);
   const loopStartedForSign = useRef<string | null>(null);
 
   useEffect(() => {
@@ -382,7 +385,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
               ) : (
                 <>
                   {/* Visible webcam mirror — reads from the hidden video element */}
-                  <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} />
+                  <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} />
 
                   {recognition.result && (
                     <ParameterChecklist

@@ -8,14 +8,18 @@ import { useRef, useState, useCallback, useEffect } from 'react';
  *
  * A real rolling buffer isn't possible with MediaRecorder — WebM chunks are only playable
  * from the first chunk (codec init segment), so dropping OLD chunks from a single long
- * recording yields an unplayable blob. Instead this restarts a brand-new short recording
- * every SEGMENT_MS: each segment is its own complete, independently-playable file, and only
- * the most recent one is kept. The recognition loop runs continuously while the learner
- * retries a sign (there's no discrete "new attempt" event to hook), so without this a single
- * recorder just keeps recording across every retry — by the time you finally pass on try #4,
- * the "replay" would be the whole multi-attempt session, not the ~3-4s that actually passed.
+ * recording yields an unplayable blob. Instead this restarts a brand-new recording every
+ * SEGMENT_MS: each segment is its own complete, independently-playable file, and only the most
+ * recent one is kept. The recognition loop runs continuously while the learner retries a sign
+ * (there's no discrete "new attempt" event to hook), so without this a single recorder would
+ * keep recording across every retry and grow without bound.
+ *
+ * SEGMENT_MS is now purely a MEMORY SAFETY CAP, not the trim mechanism: ReplayCompare only ever
+ * *plays back* the last 5s of whatever segment it's handed (seeking to duration-5), so the segment
+ * just needs to be comfortably longer than that window while staying small in memory. 30s balances
+ * "always has the full passing attempt" against "never holds minutes of a long retry streak".
  */
-const SEGMENT_MS = 4000;
+const SEGMENT_MS = 30000;
 
 function pickMimeType(): string | undefined {
   if (typeof MediaRecorder === 'undefined') return undefined;

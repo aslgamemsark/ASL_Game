@@ -17,11 +17,18 @@ interface Props {
   onContinue: () => void;
 }
 
+/** How much of the tail of the attempt recording to actually show. A retry streak can leave a
+ *  segment many seconds long; the part that matters is the passing attempt at the very end, so we
+ *  play only the last PLAYBACK_WINDOW_S seconds and loop within that window. */
+const PLAYBACK_WINDOW_S = 5;
+
 /**
  * Post-pass self-review: replay the learner's own attempt, beside the reference demo when one
  * exists. The attempt video is mirrored (scaleX(-1)) so it matches what the learner saw in the
  * live webcam mirror while signing. Slow-mo toggle drives playbackRate on both videos so the
- * comparison stays in step.
+ * comparison stays in step. The attempt is trimmed to its last PLAYBACK_WINDOW_S seconds at
+ * playback time (looping within that window) so a long multi-retry recording still shows just the
+ * successful attempt.
  */
 export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sign, onContinue }: Props) {
   const attemptRef = useRef<HTMLVideoElement>(null);
@@ -33,6 +40,54 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
     if (attemptRef.current) attemptRef.current.playbackRate = rate;
     if (referenceRef.current) referenceRef.current.playbackRate = rate;
   }, [slowMo]);
+
+  // Trim the attempt to its last PLAYBACK_WINDOW_S seconds. MediaRecorder WebM blobs frequently
+  // report duration === Infinity until forced, so if we don't get a finite duration up front we
+  // seek far past the end (a well-known workaround) to make the browser compute the real duration,
+  // then read it back in 'durationchange'. Once known, we seek to (duration - window) and re-seek
+  // there whenever playback reaches the end — the native `loop` attribute is intentionally omitted
+  // on this video so 'ended' fires and we can loop to the window start instead of to 0.
+  useEffect(() => {
+    const v = attemptRef.current;
+    if (!v) return;
+    let windowStart = 0;
+    let forcingDuration = false;
+
+    const applyWindow = (duration: number) => {
+      windowStart = Number.isFinite(duration) && duration > PLAYBACK_WINDOW_S ? duration - PLAYBACK_WINDOW_S : 0;
+      try { v.currentTime = windowStart; } catch { /* not seekable yet */ }
+      void v.play().catch(() => {});
+    };
+    const onLoaded = () => {
+      if (Number.isFinite(v.duration) && v.duration > 0) applyWindow(v.duration);
+      else { forcingDuration = true; try { v.currentTime = 1e7; } catch { /* ignore */ } }
+    };
+    const onDurationChange = () => {
+      if (forcingDuration && Number.isFinite(v.duration) && v.duration > 0) {
+        forcingDuration = false;
+        applyWindow(v.duration);
+      }
+    };
+    const onTimeUpdate = () => {
+      if (!forcingDuration && Number.isFinite(v.duration) && v.currentTime >= v.duration - 0.08) {
+        v.currentTime = windowStart;
+      }
+    };
+    const onEnded = () => { v.currentTime = windowStart; void v.play().catch(() => {}); };
+
+    v.addEventListener('loadedmetadata', onLoaded);
+    v.addEventListener('durationchange', onDurationChange);
+    v.addEventListener('timeupdate', onTimeUpdate);
+    v.addEventListener('ended', onEnded);
+    if (v.readyState >= 1) onLoaded();
+
+    return () => {
+      v.removeEventListener('loadedmetadata', onLoaded);
+      v.removeEventListener('durationchange', onDurationChange);
+      v.removeEventListener('timeupdate', onTimeUpdate);
+      v.removeEventListener('ended', onEnded);
+    };
+  }, [attemptUrl]);
 
   const sideBySide = Boolean(clipUrl);
 
@@ -49,10 +104,11 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
 
       <div className={sideBySide ? 'grid grid-cols-2 gap-3' : ''}>
         <div className="relative rounded-2xl overflow-hidden bg-z-surface aspect-[4/3]">
+          {/* No `loop` here on purpose — the effect above loops manually within the last-5s window
+              via the 'ended' handler. */}
           <video
             ref={attemptRef}
             src={attemptUrl}
-            loop
             muted
             playsInline
             autoPlay

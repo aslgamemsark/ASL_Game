@@ -27,6 +27,17 @@ interface Props {
   turnLabel?: string;
   /** 0-100 remaining fraction of the turn timer; drives the depleting top bar when activeTurn. */
   timerPercent?: number;
+  /** First-run camera-position guide: draws a face-target box + a coaching caption over the feed.
+   *  Pass null/undefined to hide it. `ok` turns the box green and the caption into a success chip. */
+  frameGuide?: { ok: boolean; message: string } | null;
+  /** Onboarding's dominant-hand picker: draws a left/right box pair over the feed. `active` is
+   *  true the instant the user's hand geometrically enters that side (turns the box green right
+   *  away — no waiting on the confirmation dwell timer). `selected` is the confirmed side, once
+   *  the dwell threshold is reached — same green box, plus a checkmark badge. Deliberately
+   *  geometric (which half of the MIRRORED display the hand is in), not based on MediaPipe's
+   *  handedness label, which flips depending on the camera/driver and was reported backwards on
+   *  real hardware (2026-07-16) — see DominantHandStep.tsx for the full reasoning. */
+  handZones?: { active: 'left' | 'right' | null; selected: 'left' | 'right' | null } | null;
 }
 
 /**
@@ -37,7 +48,7 @@ interface Props {
  * (production audit, 2026-07-12). The camera stream and recognition loop were already correctly
  * shared via hooks (useCamera/useRecognition) — only this rendering piece was duplicated.
  */
-export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent }: Props) {
+export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
 
@@ -71,6 +82,44 @@ export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmetic
       }`}
     >
       <canvas ref={canvasRef} className="w-full h-full object-cover" />
+      {frameGuide && (
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center">
+          {/* Face-target box in the upper-center — sized/positioned so the chest stays visible
+              below it, matching how signs are framed. Green once the user is well positioned. */}
+          <div
+            className={`mt-[6%] rounded-[45%] border-2 border-dashed transition-colors duration-300 ${frameGuide.ok ? 'border-z-green' : 'border-white/85'}`}
+            style={{ width: '42%', height: '58%', boxShadow: '0 0 0 9999px rgba(0,0,0,0.18)' }}
+          />
+          <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap ${frameGuide.ok ? 'bg-z-green/90 text-white' : 'bg-black/75 text-white'}`}>
+            {frameGuide.message}
+          </div>
+        </div>
+      )}
+      {handZones && (
+        <div className="absolute inset-0 pointer-events-none flex">
+          {(['left', 'right'] as const).map((side) => {
+            const isSelected = handZones.selected === side;
+            // Turns green the instant a hand geometrically enters this side — not gated on the
+            // dwell timer that decides when to lock in the final answer, so the box responds to
+            // the hand's actual position immediately instead of lagging behind it.
+            const isOccupied = isSelected || handZones.active === side;
+            const tone = isOccupied ? 'border-z-green bg-z-green/10 text-z-green' : 'border-white/35 text-white/60';
+            return (
+              <div key={side} className="flex-1 flex items-center justify-center p-[6%]">
+                <div className={`relative w-full h-[72%] rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-colors duration-100 ${tone}`}>
+                  <span className="text-4xl leading-none" role="img" aria-hidden>✋</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide">
+                    {side === 'left' ? 'Left hand' : 'Right hand'}
+                  </span>
+                  {isSelected && (
+                    <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-z-green text-white flex items-center justify-center text-xs shadow-lg">✓</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <TurnOverlay active={!!activeTurn} label={turnLabel} timerPercent={timerPercent} />
       {label && <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded-md">{label}</span>}
       {overlayClipUrl && (
