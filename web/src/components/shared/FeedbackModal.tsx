@@ -1,146 +1,168 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, supabaseReady } from '@/lib/supabase';
-import { Zippy } from '@/components/shared/Zippy';
+import { buildFeedbackPayload, MAX_FEEDBACK_LEN, type FeedbackCategory } from '@/lib/feedback';
+import { safeTruncate } from '@/lib/text';
+
+const CATEGORIES: { id: FeedbackCategory; label: string; icon: string; hint: string }[] = [
+  { id: 'bug', label: 'Report a bug', icon: '🐞', hint: "Something broke or didn't work" },
+  { id: 'feature', label: 'Suggest an idea', icon: '💡', hint: 'A feature or improvement' },
+  { id: 'other', label: 'Something else', icon: '💬', hint: 'General feedback' },
+];
 
 interface Props {
-  open: boolean;
+  /** Which screen the tester opened this from — stored to help reproduce bugs. */
+  page?: string;
   onClose: () => void;
 }
 
-type Category = 'bug' | 'idea' | 'general';
-type Status = 'idle' | 'sending' | 'sent' | 'error';
-
-const CATEGORIES: { id: Category; label: string; icon: string }[] = [
-  { id: 'bug', label: 'Bug', icon: '🐛' },
-  { id: 'idea', label: 'Idea', icon: '💡' },
-  { id: 'general', label: 'Other', icon: '💬' },
-];
-
-// In-app feedback form — writes straight to the Supabase `feedback` table (see the matching
-// migration). Replaces the old mailto: link, which handed off to an unreliable external mail
-// client / Google account chooser. Works for guests too (anonymous submission, user_id null).
-export function FeedbackModal({ open, onClose }: Props) {
+/**
+ * Beta "Report a Problem" / feedback flow: pick a category, write a message, optionally submit
+ * anonymously, done. Distinct from ReportUserModal (which reports other users). Browser + page
+ * context is auto-captured so a tester doesn't have to describe their setup. Insert follows the
+ * same supabase.from(...).insert(...) pattern as ReportUserModal; reads are admin-only via RLS.
+ */
+export function FeedbackModal({ page, onClose }: Props) {
   const { user } = useAuth();
-  const [category, setCategory] = useState<Category>('bug');
+  const [category, setCategory] = useState<FeedbackCategory | null>(null);
   const [message, setMessage] = useState('');
-  const [status, setStatus] = useState<Status>('idle');
-  const [error, setError] = useState<string | null>(null);
-
-  const reset = () => { setCategory('bug'); setMessage(''); setStatus('idle'); setError(null); };
-  const close = () => { onClose(); setTimeout(reset, 200); };
+  const [anonymous, setAnonymous] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const submit = async () => {
-    const trimmed = message.trim();
-    if (!trimmed) return;
-    if (!supabaseReady) { setError("Feedback isn't available right now — please try again later."); setStatus('error'); return; }
-    setStatus('sending');
-    setError(null);
-    const { error: insertError } = await supabase.from('feedback').insert({
-      user_id: user?.id ?? null,
+    if (!category || status === 'submitting') return;
+    const payload = buildFeedbackPayload({
       category,
-      message: trimmed,
-      user_agent: navigator.userAgent,
-    } as Record<string, unknown>);
-    if (insertError) {
-      setError('Could not send your feedback — please try again.');
+      message,
+      anonymous,
+      userId: user?.id ?? null,
+      page: page ?? (typeof window !== 'undefined' ? window.location.pathname : null),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      appVersion: import.meta.env.VITE_APP_VERSION ?? null,
+    });
+    if (!payload) return; // empty message
+    setStatus('submitting');
+    const { error } = await supabase
+      .from('feedback')
+      .insert(payload as unknown as Record<string, unknown>);
+    if (error) {
+      setErrorMsg('Could not send — check your connection and try again.');
       setStatus('error');
       return;
     }
-    setStatus('sent');
+    setStatus('done');
   };
 
   return (
     <AnimatePresence>
-      {open && (
+      <motion.div
+        className="fixed inset-0 z-[100] bg-black/60 flex items-end sm:items-center justify-center p-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      >
         <motion.div
-          className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          className="w-full max-w-sm bg-z-card border border-white/10 rounded-2xl p-5"
+          initial={{ opacity: 0, y: 20, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.97 }}
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Send feedback"
         >
-          <motion.div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={close} />
-          <motion.div
-            className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl"
-            initial={{ y: 40, opacity: 0, scale: 0.94 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 40, opacity: 0, scale: 0.94 }}
-            transition={{ type: 'spring', damping: 24, stiffness: 300 }}
-          >
-            {status === 'sent' ? (
-              <div className="text-center">
-                <Zippy expression="celebrating" size="lg" priority className="mx-auto mb-3" />
-                <h2 className="font-bold text-lg mb-1">Thank you!</h2>
-                <p className="text-z-gray-300 text-sm mb-5">Your feedback went straight to the team. We read every note.</p>
+          {status === 'done' ? (
+            <div className="text-center py-4">
+              <p className="text-3xl mb-2">🙌</p>
+              <p className="font-bold text-sm">Thanks for the feedback!</p>
+              <p className="text-z-gray-400 text-xs mt-1">
+                It really helps us improve QuickSign during the beta.
+              </p>
+              <button
+                onClick={onClose}
+                className="mt-4 w-full py-2.5 rounded-xl font-bold text-sm bg-z-purple/20 text-z-purple-light"
+              >
+                Close
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="font-bold text-base">Send feedback</p>
+              <p className="text-z-gray-400 text-xs mt-1 mb-4">
+                You're helping test QuickSign — tell us what's working, what's broken, or what you'd
+                love to see.
+              </p>
+
+              <div className="flex flex-col gap-2 mb-3">
+                {CATEGORIES.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setCategory(c.id)}
+                    className={`flex items-center gap-3 text-left px-3 py-2.5 rounded-xl border transition-colors ${
+                      category === c.id
+                        ? 'border-z-purple bg-z-purple/20 text-white'
+                        : 'border-white/10 text-z-gray-300 hover:border-white/20'
+                    }`}
+                  >
+                    <span className="text-lg" aria-hidden="true">{c.icon}</span>
+                    <span className="flex-1">
+                      <span className="block text-sm font-semibold">{c.label}</span>
+                      <span className="block text-xs text-z-gray-400">{c.hint}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <label htmlFor="feedback-message" className="sr-only">Your feedback</label>
+              <textarea
+                id="feedback-message"
+                value={message}
+                onChange={(e) => setMessage(safeTruncate(e.target.value, MAX_FEEDBACK_LEN))}
+                placeholder={
+                  category === 'bug'
+                    ? 'What happened? What did you expect instead?'
+                    : 'Tell us more…'
+                }
+                rows={4}
+                className="w-full bg-z-surface border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-z-gray-500 resize-none"
+              />
+
+              {user && (
+                <label className="flex items-center gap-2 mt-3 text-xs text-z-gray-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={anonymous}
+                    onChange={(e) => setAnonymous(e.target.checked)}
+                    className="accent-z-purple"
+                  />
+                  Send anonymously (don't attach my account)
+                </label>
+              )}
+
+              {status === 'error' && <p className="text-z-red text-xs mt-2">{errorMsg}</p>}
+
+              <div className="flex gap-2 mt-4">
                 <button
-                  onClick={close}
-                  className="w-full py-2.5 rounded-xl bg-gradient-primary text-white font-bold text-sm"
+                  onClick={onClose}
+                  className="flex-1 py-2.5 rounded-xl font-bold text-sm border border-white/10 text-z-gray-300"
                 >
-                  Done
+                  Cancel
+                </button>
+                <button
+                  onClick={submit}
+                  disabled={!category || !message.trim() || status === 'submitting'}
+                  className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-gradient-primary text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {status === 'submitting' ? 'Sending…' : 'Send feedback'}
                 </button>
               </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-3 mb-4">
-                  <Zippy expression="thinking" size="sm" />
-                  <div>
-                    <h2 className="font-bold text-lg leading-tight">Send feedback</h2>
-                    <p className="text-z-gray-400 text-xs">Found a bug or have an idea? Tell us.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 mb-3">
-                  {CATEGORIES.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setCategory(c.id)}
-                      className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-colors ${
-                        category === c.id
-                          ? 'border-z-purple-light text-z-purple-light bg-z-purple/10'
-                          : 'border-white/10 text-z-gray-300 hover:border-white/20'
-                      }`}
-                    >
-                      <span className="mr-1">{c.icon}</span>{c.label}
-                    </button>
-                  ))}
-                </div>
-
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  maxLength={4000}
-                  rows={5}
-                  placeholder={category === 'bug' ? 'What happened? What did you expect?' : 'Share your thoughts…'}
-                  className="w-full bg-z-surface border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-z-purple/60 placeholder:text-z-gray-500 resize-none"
-                />
-
-                {error && <p className="text-z-red text-xs mt-2">{error}</p>}
-
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={close}
-                    className="flex-1 py-2.5 rounded-xl border border-white/10 text-z-gray-200 font-bold text-sm hover:border-white/20 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={submit}
-                    disabled={!message.trim() || status === 'sending'}
-                    className="flex-1 py-2.5 rounded-xl bg-gradient-primary text-white font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {status === 'sending' ? 'Sending…' : 'Send'}
-                  </button>
-                </div>
-
-                <p className="text-[11px] text-z-gray-500 mt-3 text-center">
-                  Prefer email? <a href="mailto:msaad9632@gmail.com" className="underline">msaad9632@gmail.com</a>
-                </p>
-              </>
-            )}
-          </motion.div>
+            </>
+          )}
         </motion.div>
-      )}
+      </motion.div>
     </AnimatePresence>
   );
 }

@@ -167,9 +167,9 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
           <div className="space-y-2">
             <button
               onClick={() => setShowFeedback(true)}
-              className="w-full py-2.5 rounded-xl bg-z-purple/15 text-z-purple-light font-bold text-sm text-center"
+              className="w-full py-2.5 rounded-xl bg-z-purple/15 text-z-purple-light font-bold text-sm"
             >
-              🐛 Send feedback
+              💬 Send feedback / report a problem
             </button>
             {onOpenPrivacy && (
               <button
@@ -214,7 +214,7 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
       </div>
 
       <LogoutConfirm open={showLogout} onClose={() => setShowLogout(false)} />
-      <FeedbackModal open={showFeedback} onClose={() => setShowFeedback(false)} />
+      {showFeedback && <FeedbackModal page="settings" onClose={() => setShowFeedback(false)} />}
     </div>
   );
 }

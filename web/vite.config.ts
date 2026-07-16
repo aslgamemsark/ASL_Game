@@ -76,4 +76,20 @@ export default defineConfig({
   optimizeDeps: {
     include: ['@tensorflow/tfjs'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // These are the largest vendor deps and change far less often than app code — splitting
+        // them into their own chunks lets the browser cache them across app deploys instead of
+        // re-downloading them on every release.
+        manualChunks(id) {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) return 'vendor-react';
+          if (id.includes('node_modules/framer-motion')) return 'vendor-motion';
+          if (id.includes('node_modules/@supabase')) return 'vendor-supabase';
+          if (id.includes('node_modules/@tensorflow')) return 'vendor-tfjs';
+          if (id.includes('node_modules/@mediapipe')) return 'vendor-mediapipe';
+        },
+      },
+    },
+  },
 })

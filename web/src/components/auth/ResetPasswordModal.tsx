@@ -16,6 +16,7 @@ export function ResetPasswordModal() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (saving) return;
     if (password.length < 8) { setError('At least 8 characters required'); return; }
     if (password !== confirm) { setError("Passwords don't match"); return; }
     setError(null);
@@ -57,6 +58,7 @@ export function ResetPasswordModal() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   minLength={8}
+                  maxLength={128}
                   required
                   autoComplete="new-password"
                   autoFocus
@@ -68,6 +70,7 @@ export function ResetPasswordModal() {
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   minLength={8}
+                  maxLength={128}
                   required
                   autoComplete="new-password"
                 />

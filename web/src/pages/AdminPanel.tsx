@@ -9,7 +9,38 @@ interface Props {
   onExit: () => void;
 }
 
-type AdminTab = 'users' | 'worlds' | 'audit';
+type AdminTab = 'beta' | 'users' | 'worlds' | 'audit';
+
+// Shape returned by the admin_beta_metrics() RPC (migration 20260715030000). One aggregate blob so
+// the dashboard is a single round-trip; every field is computed server-side behind the is_admin gate.
+interface BetaMetrics {
+  generated_at: string;
+  users: { total: number; dau: number; wau: number };
+  recognition: {
+    attempts_total: number;
+    attempts_24h: number;
+    pass_rate: number | null;
+    rule_reject_rate: number | null;
+    rule_reject_denom: number;
+    ai_veto_rate: number | null;
+    ai_veto_denom: number;
+    avg_ai_confidence: number | null;
+    no_sign_count: number;
+  };
+  top_failed_signs: { sign_id: string; attempts: number; failures: number; fail_rate: number }[];
+  feedback: { total: number; open: number; by_category: Record<string, number> };
+}
+
+interface FeedbackRow {
+  id: number;
+  category: string;
+  message: string;
+  anonymous: boolean;
+  page: string | null;
+  user_agent: string | null;
+  status: string;
+  created_at: string;
+}
 
 interface UserSearchResult {
   id: string;
@@ -66,7 +97,7 @@ export function AdminPanel({ onExit }: Props) {
       </div>
 
       <div className="flex bg-z-surface/50 mx-4 mt-4 rounded-xl p-1 max-w-2xl lg:mx-auto lg:w-full">
-        {(['users', 'worlds', 'audit'] as const).map((t) => (
+        {(['beta', 'users', 'worlds', 'audit'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -80,6 +111,7 @@ export function AdminPanel({ onExit }: Props) {
       </div>
 
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 pt-6 pb-24">
+        {tab === 'beta' && <BetaTab showToast={showToast} />}
         {tab === 'users' && <UsersTab showToast={showToast} />}
         {tab === 'worlds' && <WorldsTab showToast={showToast} />}
         {tab === 'audit' && <AuditTab />}
@@ -101,10 +133,184 @@ export function AdminPanel({ onExit }: Props) {
   );
 }
 
+function pct(v: number | null): string {
+  return v === null ? '—' : `${(v * 100).toFixed(1)}%`;
+}
+
+// Beta dashboard: cohort recognition/engagement stats (from the admin_beta_metrics RPC, which
+// aggregates the RLS-locked sign_attempts server-side) plus the live feedback inbox (read directly
+// via the feedback_read_admin RLS policy). Read-only except for triaging a feedback row's status.
+function BetaTab({ showToast }: { showToast: (m: string) => void }) {
+  const [metrics, setMetrics] = useState<BetaMetrics | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const [metricsRes, feedbackRes] = await Promise.all([
+        supabase.rpc('admin_beta_metrics'),
+        supabase
+          .from('feedback')
+          .select('id, category, message, anonymous, page, user_agent, status, created_at')
+          .order('created_at', { ascending: false })
+          .limit(100),
+      ]);
+      if (metricsRes.error) showToast(`Error: ${metricsRes.error.message}`);
+      else setMetrics(metricsRes.data as BetaMetrics);
+      setFeedback((feedbackRes.data as FeedbackRow[] | null) ?? []);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const setStatus = async (id: number, status: string) => {
+    const { error } = await supabase.from('feedback').update({ status }).eq('id', id);
+    if (error) { showToast(`Error: ${error.message}`); return; }
+    setFeedback((rows) => rows.map((r) => (r.id === id ? { ...r, status } : r)));
+  };
+
+  if (loading) return <p className="text-sm text-z-gray-400">Loading…</p>;
+  if (loadError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-z-gray-300 text-sm">Couldn't load beta metrics</p>
+        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  const r = metrics?.recognition;
+
+  return (
+    <div className="space-y-5">
+      {/* Engagement */}
+      {metrics && (
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <Stat label="Active today" value={metrics.users.dau} />
+          <Stat label="Active this week" value={metrics.users.wau} />
+          <Stat label="Total users" value={metrics.users.total} />
+        </div>
+      )}
+
+      {/* Recognition health */}
+      {r && (
+        <div className="bg-z-card border border-white/5 rounded-2xl p-4">
+          <h3 className="font-bold text-sm mb-3 text-z-gray-300 uppercase tracking-wide">Recognition</h3>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <Row label="Attempts (total)" value={String(r.attempts_total)} />
+            <Row label="Attempts (24h)" value={String(r.attempts_24h)} />
+            <Row label="Pass rate" value={pct(r.pass_rate)} />
+            <Row label="Avg AI confidence" value={pct(r.avg_ai_confidence)} />
+            <Row label={`Rule reject (n=${r.rule_reject_denom})`} value={pct(r.rule_reject_rate)} />
+            <Row label={`AI veto (n=${r.ai_veto_denom})`} value={pct(r.ai_veto_rate)} />
+            <Row label="NO_SIGN predictions" value={String(r.no_sign_count)} />
+          </div>
+        </div>
+      )}
+
+      {/* Most-failed signs */}
+      {metrics && metrics.top_failed_signs.length > 0 && (
+        <div className="bg-z-card border border-white/5 rounded-2xl p-4">
+          <h3 className="font-bold text-sm mb-3 text-z-gray-300 uppercase tracking-wide">
+            Hardest signs
+          </h3>
+          <div className="space-y-1.5">
+            {metrics.top_failed_signs.map((s) => (
+              <div key={s.sign_id} className="flex items-center gap-2 text-sm">
+                <span className="font-mono font-semibold w-24 shrink-0">{s.sign_id}</span>
+                <div className="flex-1 h-2 bg-z-surface rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-z-red/70 rounded-full"
+                    style={{ width: `${Math.round(s.fail_rate * 100)}%` }}
+                  />
+                </div>
+                <span className="text-xs text-z-gray-400 w-28 text-right shrink-0">
+                  {Math.round(s.fail_rate * 100)}% · {s.failures}/{s.attempts}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Feedback inbox */}
+      <div className="bg-z-card border border-white/5 rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-sm text-z-gray-300 uppercase tracking-wide">Feedback</h3>
+          {metrics && (
+            <span className="text-xs text-z-gray-400">
+              {metrics.feedback.open} open · {metrics.feedback.total} total
+            </span>
+          )}
+        </div>
+        {feedback.length === 0 ? (
+          <p className="text-sm text-z-gray-400">No feedback yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {feedback.map((f) => (
+              <div key={f.id} className="bg-z-surface rounded-xl p-3 text-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-bold uppercase text-z-purple-light">{f.category}</span>
+                  {f.anonymous && <span className="text-[10px] text-z-gray-500">anon</span>}
+                  <span className="text-[10px] text-z-gray-500 ml-auto">
+                    {new Date(f.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <p className="text-z-gray-200 whitespace-pre-wrap break-words">{f.message}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  {f.page && <span className="text-[10px] text-z-gray-500">on {f.page}</span>}
+                  <select
+                    value={f.status}
+                    onChange={(e) => void setStatus(f.id, e.target.value)}
+                    className="ml-auto bg-z-card border border-white/10 rounded-lg px-2 py-1 text-xs outline-none focus:border-z-purple"
+                  >
+                    <option value="open">open</option>
+                    <option value="triaged">triaged</option>
+                    <option value="resolved">resolved</option>
+                    <option value="wontfix">wontfix</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-z-card border border-white/5 rounded-xl py-3">
+      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-[11px] text-z-gray-400 mt-0.5">{label}</p>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-z-gray-400 text-xs">{label}</span>
+      <span className="font-semibold">{value}</span>
+    </div>
+  );
+}
+
 function UsersTab({ showToast }: { showToast: (m: string) => void }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [selected, setSelected] = useState<UserSearchResult | null>(null);
   const [detail, setDetail] = useState<UserDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -119,15 +325,20 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
   const [actionBusy, setActionBusy] = useState(false);
 
   const handleSearch = async () => {
-    if (!query.trim()) return;
+    if (!query.trim() || searching) return;
     setSearching(true);
+    setHasSearched(true);
     try {
-      const { data } = (await supabase
+      const { data, error } = (await supabase
         .from('profiles')
         .select('id, username')
         .ilike('username', `%${query.trim()}%`)
-        .limit(10)) as { data: UserSearchResult[] | null };
+        .limit(10)) as { data: UserSearchResult[] | null; error: { message: string } | null };
+      if (error) { showToast(`Search failed: ${error.message}`); setResults([]); return; }
       setResults(data ?? []);
+    } catch {
+      showToast('Search failed — check your connection and try again.');
+      setResults([]);
     } finally {
       setSearching(false);
     }
@@ -261,15 +472,19 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
         </button>
       </div>
 
+      {!selected && hasSearched && !searching && results.length === 0 && (
+        <p className="text-sm text-z-gray-400 text-center py-4">No users found matching "{query.trim()}"</p>
+      )}
+
       {results.length > 0 && !selected && (
         <div className="space-y-2">
           {results.map((r) => (
             <button
               key={r.id}
               onClick={() => void loadDetail(r)}
-              className="w-full text-left bg-z-card border border-white/5 rounded-xl px-4 py-3 hover:border-z-purple/40 transition-colors"
+              className="w-full text-left bg-z-card border border-white/5 rounded-xl px-4 py-3 hover:border-z-purple/40 transition-colors flex items-center min-w-0"
             >
-              <span className="font-semibold text-sm">@{r.username}</span>
+              <span className="font-semibold text-sm truncate min-w-0">@{r.username}</span>
             </button>
           ))}
         </div>
@@ -418,16 +633,25 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
 function WorldsTab({ showToast }: { showToast: (m: string) => void }) {
   const [flags, setFlags] = useState<Record<string, WorldFlagRow>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = (await supabase.from('world_flags').select('world_id, enabled, coming_soon')) as {
-      data: WorldFlagRow[] | null;
-    };
-    const map: Record<string, WorldFlagRow> = {};
-    for (const row of data ?? []) map[row.world_id] = row;
-    setFlags(map);
-    setLoading(false);
+    setLoadError(false);
+    try {
+      const { data, error } = (await supabase.from('world_flags').select('world_id, enabled, coming_soon')) as {
+        data: WorldFlagRow[] | null;
+        error: { message: string } | null;
+      };
+      if (error) { setLoadError(true); return; }
+      const map: Record<string, WorldFlagRow> = {};
+      for (const row of data ?? []) map[row.world_id] = row;
+      setFlags(map);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -445,6 +669,17 @@ function WorldsTab({ showToast }: { showToast: (m: string) => void }) {
   };
 
   if (loading) return <p className="text-sm text-z-gray-400">Loading…</p>;
+
+  if (loadError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-z-gray-300 text-sm">Couldn't load world settings</p>
+        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -476,14 +711,18 @@ function WorldsTab({ showToast }: { showToast: (m: string) => void }) {
 function AuditTab() {
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = (await supabase
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const { data, error } = (await supabase
         .from('admin_audit_log')
         .select('id, admin_id, action, target_user_id, payload, created_at')
         .order('created_at', { ascending: false })
-        .limit(50)) as { data: AuditRow[] | null };
+        .limit(50)) as { data: AuditRow[] | null; error: { message: string } | null };
+      if (error) { setLoadError(true); return; }
       const entries = data ?? [];
       const ids = Array.from(
         new Set(entries.flatMap((r) => [r.admin_id, r.target_user_id]).filter((x): x is string => !!x))
@@ -499,18 +738,33 @@ function AuditTab() {
           target_username: r.target_user_id ? nameMap[r.target_user_id] : undefined,
         }))
       );
+    } catch {
+      setLoadError(true);
+    } finally {
       setLoading(false);
-    })();
+    }
   }, []);
 
+  useEffect(() => { void load(); }, [load]);
+
   if (loading) return <p className="text-sm text-z-gray-400">Loading…</p>;
+  if (loadError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-z-gray-300 text-sm">Couldn't load the audit log</p>
+        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+          Try again
+        </button>
+      </div>
+    );
+  }
   if (rows.length === 0) return <p className="text-sm text-z-gray-400">No admin actions yet.</p>;
 
   return (
     <div className="space-y-2">
       {rows.map((r) => (
         <div key={r.id} className="bg-z-card border border-white/5 rounded-xl p-3 text-xs">
-          <p>
+          <p className="min-w-0 break-words">
             <span className="font-bold text-z-purple-light">@{r.admin_username ?? '?'}</span>{' '}
             <span className="text-z-gray-300">{r.action}</span>
             {r.target_username && (

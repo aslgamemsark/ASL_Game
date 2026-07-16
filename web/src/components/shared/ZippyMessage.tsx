@@ -53,6 +53,9 @@ export function ZippyMessage({
   const avatarInner = <Zippy expression={expression} fit="cover" />;
   return (
     <div className={`flex items-end gap-3 ${className}`}>
+      {/* No `float` here — the row avatar is a small cropped face (44-88px), and the 6px hero
+          bob would read as jittery at that scale. It still gets Zippy's default subtle idle
+          breathing (see Zippy.tsx), just not the pronounced hero-moment bob. */}
       {onTap ? (
         <motion.button
           type="button"

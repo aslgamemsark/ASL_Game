@@ -66,6 +66,7 @@ export function AuthModal({ onClose }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     if (tab === 'signup' && usernameStatus === 'error') return;
     setError(null);
     setLoading(true);
@@ -145,6 +146,7 @@ export function AuthModal({ onClose }: Props) {
             required
             autoComplete="email"
             autoFocus
+            maxLength={254}
           />
           {error && <p className="text-z-red text-xs px-1">{error}</p>}
           <button
@@ -230,6 +232,7 @@ export function AuthModal({ onClose }: Props) {
           onChange={(e) => setEmail(e.target.value)}
           required
           autoComplete="email"
+          maxLength={254}
         />
         <input
           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
@@ -238,6 +241,7 @@ export function AuthModal({ onClose }: Props) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           minLength={8}
+          maxLength={128}
           required
           autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
         />

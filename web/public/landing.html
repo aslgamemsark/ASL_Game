@@ -1,0 +1,1290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>QuickSign — Learn ASL by Actually Signing</title>
+<meta name="description" content="Practice American Sign Language with real-time feedback that tells you exactly what to fix. Learn through stories, multiplayer duels, and an AI-powered Sign Coach. Free. No signup required.">
+<meta name="theme-color" content="#0D0A1E">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://aslgame.vercel.app/landing.html">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="QuickSign — Learn ASL by Actually Signing">
+<meta property="og:description" content="Real-time ASL feedback that tells you exactly what to fix. Free, private, no signup.">
+<meta property="og:image" content="https://aslgame.vercel.app/og-image.png">
+<meta property="og:url" content="https://aslgame.vercel.app/landing.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="QuickSign — Learn ASL by Actually Signing">
+<meta name="twitter:description" content="Real-time ASL feedback that tells you exactly what to fix. Free, private, no signup.">
+<meta name="twitter:image" content="https://aslgame.vercel.app/og-image.png">
+
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;500;600;700&display=swap">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "QuickSign",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Web",
+  "description": "Practice American Sign Language with real-time, per-parameter feedback: handshape, palm orientation, location, and movement.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Does it work on mobile?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. QuickSign runs in your mobile browser and can be installed as an app (PWA) on iOS and Android home screens." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is my camera data uploaded?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Sign recognition runs entirely on-device using MediaPipe, so your video is never uploaded, recorded, or sent to a server." }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need an account?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. You can start learning immediately as a guest. An account is only needed to sync progress across devices or use leaderboards and friends." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is it free?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, QuickSign is free to use." }
+    },
+    {
+      "@type": "Question",
+      "name": "Was the sign content checked by Deaf ASL signers?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Not yet — we're a small student team and this is an open beta. Sign accuracy review by Deaf and hard-of-hearing signers is a known gap we want to close. If that's you, we'd genuinely value your feedback." }
+    }
+  ]
+}
+</script>
+
+<!-- Analytics placeholder — nothing loads. Add a script tag here when ready.
+<!-- Plausible: <script defer data-domain="aslgame.vercel.app" src="https://plausible.io/js/script.js"></script> -->
+<!-- PostHog: init snippet here -->
+<!-- Google Analytics: gtag snippet here -->
+
+<style>
+  :root {
+    --bg: #0D0A1E;
+    --card: #18103A;
+    --surface: #221548;
+    --purple: #7C3AED;
+    --purple-light: #A78BFA;
+    --purple-glow: #C4B5FD;
+    --purple-deep: #2D1464;
+    --teal: #14B8A6;
+    --orange: #F97316;
+    --green: #34D399;
+    --ink: #F5F3FF;
+    --muted: #9C90B0;
+    --gradient: linear-gradient(135deg, var(--purple), var(--purple-light));
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 500;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  img { max-width: 100%; display: block; }
+
+  h1, h2, h3 { font-weight: 700; text-wrap: balance; margin: 0; }
+  p { text-wrap: pretty; }
+
+  a { color: inherit; }
+
+  .container {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ---------- Skip link ---------- */
+  .skip-link {
+    position: absolute;
+    top: -100px;
+    left: 16px;
+    background: var(--purple);
+    color: white;
+    padding: 10px 18px;
+    border-radius: 10px;
+    z-index: 1000;
+    font-weight: 700;
+    transition: top 0.15s ease-out;
+  }
+  .skip-link:focus-visible {
+    top: 16px;
+  }
+
+  /* ---------- Focus visibility ---------- */
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--purple-light);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  /* ---------- Scroll progress bar ---------- */
+  .scroll-progress {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    width: 100%;
+    background: var(--gradient);
+    z-index: 999;
+    transform-origin: 0 50%;
+    transform: scaleX(0);
+    transition: transform 0.1s linear;
+  }
+  @supports (animation-timeline: scroll()) {
+    .scroll-progress {
+      transition: none;
+      animation: grow-progress auto linear;
+      animation-timeline: scroll(root);
+    }
+    @keyframes grow-progress { to { transform: scaleX(1); } }
+  }
+
+  /* ---------- Nav ---------- */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(13, 10, 30, 0.82);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+  .brand img { width: 32px; height: 32px; border-radius: 9px; object-fit: cover; }
+  .brand span {
+    font-size: 20px;
+    font-weight: 700;
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .nav-links {
+    display: flex;
+    gap: 28px;
+    align-items: center;
+  }
+  .nav-links a {
+    text-decoration: none;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 15px;
+    transition: color 0.15s ease-out;
+  }
+  .nav-links a:hover { color: var(--ink); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 15px;
+    text-decoration: none;
+    border: none;
+    border-radius: 14px;
+    padding: 12px 22px;
+    cursor: pointer;
+    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, background 0.15s ease-out;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: translateY(0) scale(0.98); }
+  .btn-primary {
+    background: var(--gradient);
+    color: white;
+    box-shadow: 0 8px 24px rgba(124,58,237,0.35);
+  }
+  .btn-primary:hover { box-shadow: 0 10px 28px rgba(124,58,237,0.5); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1.5px solid rgba(255,255,255,0.14);
+  }
+  .btn-ghost:hover { border-color: var(--purple-light); }
+  .btn-lg { padding: 16px 32px; font-size: 17px; border-radius: 16px; }
+
+  .nav-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: none;
+    border: none;
+    color: var(--ink);
+    font-size: 26px;
+    cursor: pointer;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: 88px 0 100px;
+  }
+  .hero-glow {
+    position: absolute;
+    width: 780px; height: 780px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(124,58,237,0.16) 0%, rgba(124,58,237,0) 68%);
+    top: -320px; right: -220px;
+    pointer-events: none;
+  }
+  .hero-inner {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 56px;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+  }
+  .eyebrow-zippy {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(124,58,237,0.14);
+    border: 1px solid rgba(167,139,250,0.3);
+    padding: 8px 16px 8px 8px;
+    border-radius: 999px;
+    margin-bottom: 28px;
+  }
+  .eyebrow-zippy img { width: 28px; height: 28px; }
+  .eyebrow-zippy span { font-size: 14px; font-weight: 700; color: var(--purple-glow); }
+
+  .hero h1 {
+    font-size: clamp(2.2rem, 4.6vw, 3.4rem);
+    line-height: 1.12;
+    letter-spacing: -0.01em;
+    margin-bottom: 24px;
+  }
+  .hero h1 em {
+    font-style: normal;
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p.lede {
+    font-size: 19px;
+    color: var(--muted);
+    max-width: 46ch;
+    margin-bottom: 36px;
+  }
+  .hero-ctas {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+  .hero-trust {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .hero-trust strong { color: var(--purple-glow); }
+
+  /* ---------- Pure-CSS phone mockup ---------- */
+  .phone-wrap {
+    display: flex;
+    justify-content: center;
+  }
+  .phone {
+    position: relative;
+    width: 280px;
+    height: 572px;
+    background: #050318;
+    border-radius: 46px;
+    box-shadow:
+      0 0 0 2px rgba(255,255,255,0.06),
+      0 0 0 10px #0a0620,
+      0 40px 80px rgba(0,0,0,0.55);
+    padding: 10px;
+    animation: phone-float 6s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .phone { animation: none; }
+  }
+  @keyframes phone-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(8px); }
+  }
+  .phone-screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 36px;
+    overflow: hidden;
+    background: var(--bg);
+    /* Screenshots are full-bleed captures with no safe-area gap baked in — pad the top so real
+       app content never sits behind the Dynamic Island cutout above it. */
+    padding-top: 40px;
+    box-sizing: border-box;
+  }
+  .phone-screen img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+  }
+  .phone-island {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 84px;
+    height: 22px;
+    background: #000;
+    border-radius: 14px;
+    z-index: 3;
+  }
+  .phone-speaker {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+  }
+  .phone-btn {
+    position: absolute;
+    background: #0a0620;
+    border-radius: 2px;
+  }
+  .phone-btn.power { right: -2px; top: 120px; width: 3px; height: 60px; border-radius: 0 2px 2px 0; }
+  .phone-btn.vol-up { left: -2px; top: 100px; width: 3px; height: 34px; border-radius: 2px 0 0 2px; }
+  .phone-btn.vol-down { left: -2px; top: 142px; width: 3px; height: 34px; border-radius: 2px 0 0 2px; }
+
+  /* ---------- Section shells ---------- */
+  section { padding: 96px 0; }
+  .section-head {
+    text-align: center;
+    max-width: 640px;
+    margin: 0 auto 56px;
+  }
+  .section-head h2 {
+    font-size: clamp(1.7rem, 3.4vw, 2.4rem);
+    margin-bottom: 14px;
+  }
+  .section-head p {
+    color: var(--muted);
+    font-size: 17px;
+  }
+  .accent { color: var(--purple-light); }
+
+  /* Scroll-in stagger for genuine repeated lists/grids (card rows, badge rows, FAQ items) —
+     content is ALWAYS fully visible (opacity stays 1); JS only adds a per-item rise-in via
+     transform. Never gate opacity/visibility on the observer firing, since that ships a blank
+     section on headless renderers, backgrounded tabs, or slow/failed JS. Reserved for actual
+     lists: a whole-section fade-on-scroll is the generic AI-landing-page tell, not choreography,
+     so single blocks (hero, CTAs, single images) get no scroll-triggered motion at all. */
+  .reveal-stagger {
+    opacity: 1;
+  }
+  .reveal-stagger.js-armed > * {
+    transform: translateY(20px) scale(0.98);
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal-stagger.js-armed.in-view > * { transform: none; }
+  .reveal-stagger.js-armed > *:nth-child(1) { transition-delay: 0ms; }
+  .reveal-stagger.js-armed > *:nth-child(2) { transition-delay: 80ms; }
+  .reveal-stagger.js-armed > *:nth-child(3) { transition-delay: 160ms; }
+  .reveal-stagger.js-armed > *:nth-child(4) { transition-delay: 240ms; }
+  .reveal-stagger.js-armed > *:nth-child(5) { transition-delay: 320ms; }
+
+  /* The one signature entrance: hero copy cascades in on page load, pure CSS (no JS/observer
+     dependency, so it always plays). This is the single choreographed moment the rest of the
+     page deliberately doesn't repeat — a fade-on-scroll on every section reads as generic. */
+  .hero-enter > * {
+    animation: hero-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .hero-enter > *:nth-child(1) { animation-delay: 0ms; }
+  .hero-enter > *:nth-child(2) { animation-delay: 90ms; }
+  .hero-enter > *:nth-child(3) { animation-delay: 180ms; }
+  .hero-enter > *:nth-child(4) { animation-delay: 270ms; }
+  .hero-enter > *:nth-child(5) { animation-delay: 360ms; }
+  @keyframes hero-rise {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-enter > * { animation: none; opacity: 1; transform: none; }
+  }
+
+  /* ---------- Scroll-driven reveals (native view() timelines) ----------
+     The product screenshots are the page's focal beats, so each animates *with* the scroll as it
+     enters — a cinematic rise + scale linked to scroll position, not a uniform one-shot fade on
+     every block (that reflex is the AI-landing tell the stagger comment above deliberately avoids).
+     Pure CSS: runs on the compositor thread at 60fps, needs no observer, and resolves to fully
+     visible for any element already in view (nothing ships blank). Browsers without support fall
+     through @supports to the static, always-visible base state; reduced-motion opts out entirely.
+     The img inside .diff-shot is targeted (not the button) so it never fights the tap-to-enlarge
+     hover scale on the button itself. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .diff-shot img, .story-shot, .mp-shot, .privacy-shot, .final-cta img {
+        animation: shot-reveal linear both;
+        animation-timeline: view();
+        animation-range: entry 8% cover 32%;
+      }
+      @keyframes shot-reveal {
+        from { opacity: 0; transform: translateY(52px) scale(0.9); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      /* World cards deal in as a staggered wave, each keyed to its own entry, so scrolling the
+         row feels alive rather than snapping in all at once. */
+      .world-card {
+        animation: card-deal linear both;
+        animation-timeline: view();
+        animation-range: entry 0% cover 20%;
+      }
+      @keyframes card-deal {
+        from { opacity: 0; transform: translateY(40px) scale(0.96); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+    }
+  }
+
+  /* ---------- Trust strip ---------- */
+  .trust-strip {
+    padding: 40px 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .trust-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 20px;
+    text-align: center;
+  }
+  .trust-item {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .trust-item .dot {
+    display: block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--teal);
+    margin: 0 auto 10px;
+  }
+
+  /* ---------- Differentiator ---------- */
+  .diff-grid {
+    display: grid;
+    grid-template-columns: 0.95fr 1.05fr;
+    gap: 56px;
+    align-items: center;
+  }
+  .param-list {
+    list-style: none;
+    margin: 28px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .param-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 14px 18px;
+    font-weight: 600;
+  }
+  .param-list .check {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: rgba(52,211,153,0.16);
+    color: var(--green);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .diff-note {
+    margin-top: 20px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .diff-shot {
+    display: block;
+    position: relative;
+    border-radius: 32px;
+    overflow: hidden;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.45);
+    border: 1px solid rgba(255,255,255,0.08);
+    /* 280px keeps the full phone shot (390/844 ratio -> ~606px tall) inside a laptop viewport,
+       so the whole Sign Coach panel is visible at once instead of forcing a scroll. */
+    max-width: 280px;
+    margin: 0 auto;
+    background: none;
+    padding: 0;
+    font: inherit;
+  }
+  .diff-shot.enlargeable {
+    cursor: zoom-in;
+    transition: transform 0.15s ease-out;
+  }
+  .diff-shot.enlargeable:hover { transform: scale(1.015); }
+  .enlarge-hint {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.5);
+    color: rgba(255,255,255,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    pointer-events: none;
+  }
+  .enlarge-caption {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 12px;
+  }
+  .enlarge-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: rgba(5, 3, 20, 0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease-out;
+  }
+  .enlarge-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .enlarge-overlay img {
+    max-width: min(90vw, 480px);
+    max-height: 85vh;
+    width: auto;
+    border-radius: 24px;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.6);
+    transform: scale(0.96);
+    transition: transform 0.2s ease-out;
+  }
+  .enlarge-overlay.open img { transform: scale(1); }
+  .enlarge-close {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--ink);
+    font-size: 18px;
+    cursor: pointer;
+    transition: background 0.15s ease-out, transform 0.15s ease-out;
+  }
+  .enlarge-close:hover { background: var(--surface); }
+  .enlarge-close:active { transform: scale(0.92); }
+  @media (prefers-reduced-motion: reduce) {
+    .diff-shot.enlargeable:hover { transform: none; }
+    .enlarge-overlay, .enlarge-overlay img { transition: none; }
+  }
+  .diff-shot img {
+    width: 100%;
+    aspect-ratio: 390 / 844;
+    object-fit: cover;
+    object-position: top;
+  }
+
+  /* ---------- How it works ---------- */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+  .step {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 28px;
+  }
+  .step-num {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    /* Solid, not the gradient: the gradient's light end under white text measured 2.48:1 (below
+       the 3:1 floor for bold text), and the gradient is reserved for the CTA + wordmark only. */
+    background: var(--purple);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    margin-bottom: 18px;
+  }
+  .step h3 { font-size: 18px; margin-bottom: 8px; }
+  .step p { color: var(--muted); font-size: 15px; }
+
+  /* ---------- Worlds ---------- */
+  .worlds-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 56px;
+  }
+  .world-card {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 18px;
+  }
+  /* Zippy webp are tall portraits (~264x512). Cropping them into a small square hid the whole
+     character; a taller box with object-fit:contain shows the full-body pose standing beside
+     the title. object-position:bottom keeps his feet planted on the box floor. */
+  .world-icon {
+    width: 72px; height: 104px;
+    flex-shrink: 0;
+    display: flex; align-items: flex-end; justify-content: center;
+    overflow: hidden;
+    /* No background fill: Zippy's own webp already sits on the card's background color, and a
+       filled box behind a narrower-than-tall character left a slab of visible empty gradient
+       beside him — read as a rendering defect ("half purple"), not a deliberate design choice. */
+  }
+  .world-icon img { width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
+  .world-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .world-card h3 { font-size: 17px; }
+  .world-card p { color: var(--muted); font-size: 14px; }
+
+  .story-shot-wrap { display: flex; justify-content: center; }
+  .story-shot {
+    border-radius: 32px;
+    overflow: hidden;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.45);
+    border: 1px solid rgba(255,255,255,0.08);
+    max-width: 264px;
+  }
+  .story-shot img { width: 100%; aspect-ratio: 390/844; object-fit: cover; object-position: top; }
+
+  /* ---------- Multiplayer / gamification ---------- */
+  .mp-grid {
+    display: grid;
+    grid-template-columns: 1fr 0.85fr;
+    gap: 56px;
+    align-items: center;
+  }
+  .badge-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+  }
+  .badge-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .badge-pill.streak { color: var(--orange); }
+  .badge-pill.xp { color: var(--teal); }
+  .mp-shot {
+    border-radius: 32px;
+    overflow: hidden;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.45);
+    border: 1px solid rgba(255,255,255,0.08);
+    max-width: 300px;
+    margin: 0 auto;
+  }
+  .mp-shot img { width: 100%; aspect-ratio: 390/300; object-fit: cover; object-position: center 56%; }
+
+  /* ---------- Privacy ---------- */
+  .privacy-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 56px;
+    align-items: center;
+  }
+  .privacy-list {
+    list-style: none;
+    margin: 24px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .privacy-list li {
+    display: flex;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .privacy-list .check {
+    color: var(--green);
+    flex-shrink: 0;
+  }
+  .privacy-shot {
+    border-radius: 32px;
+    overflow: hidden;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.45);
+    border: 1px solid rgba(255,255,255,0.08);
+    max-width: 300px;
+    margin: 0 auto;
+  }
+  .privacy-shot img { width: 100%; aspect-ratio: 390/700; object-fit: cover; object-position: top; }
+
+  /* ---------- FAQ ---------- */
+  .faq-list {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .faq-item {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .faq-item summary {
+    padding: 20px 24px;
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary::after {
+    content: '+';
+    font-size: 22px;
+    color: var(--purple-light);
+    transition: transform 0.15s ease-out;
+  }
+  .faq-item[open] summary::after { transform: rotate(45deg); }
+  /* Smooth expand/collapse instead of the native instant snap. The UA stylesheet hides non-open
+     details content via display:none — override it so the grid-rows collapse (0fr -> 1fr) is
+     what actually controls visibility, letting the height transition play. */
+  .faq-item .faq-a {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .faq-item[open] .faq-a {
+    grid-template-rows: 1fr;
+  }
+  .faq-item .faq-a > p {
+    overflow: hidden;
+    min-height: 0;
+    margin: 0;
+    padding: 0 24px 20px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .faq-item .faq-a { transition: none; }
+  }
+
+  /* ---------- Community ---------- */
+  .community {
+    text-align: center;
+    background: var(--card);
+    border-radius: 28px;
+    padding: 56px 40px;
+    max-width: 780px;
+    margin: 0 auto;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .community h2 { font-size: 26px; margin-bottom: 14px; }
+  .community p { color: var(--muted); max-width: 52ch; margin: 0 auto; }
+  .community .btn { margin-top: 28px; }
+
+  /* ---------- Final CTA ---------- */
+  .final-cta {
+    text-align: center;
+    padding-bottom: 40px;
+  }
+  /* celebrating.webp is a 345x512 portrait; a fixed 96x96 square squashed it horizontally.
+     Fix the height and let width follow the real aspect ratio so Zippy isn't torn. */
+  .final-cta img { height: 152px; width: auto; margin: 0 auto 20px; }
+  .final-cta h2 { font-size: clamp(1.8rem, 3.6vw, 2.6rem); margin-bottom: 32px; }
+
+  /* ---------- Footer ---------- */
+  footer {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 44px 0;
+  }
+  .footer-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  .footer-tags {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .footer-copy { font-size: 13px; color: var(--muted); }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 1024px) {
+    .diff-grid, .mp-grid, .privacy-grid { grid-template-columns: 1fr; }
+    .diff-grid > *:last-child, .mp-grid > *:last-child, .privacy-grid > *:last-child { order: -1; }
+    .worlds-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .nav-toggle { display: flex; }
+    .nav.menu-open .nav-links {
+      display: flex;
+      position: absolute;
+      top: 100%; left: 0; right: 0;
+      background: var(--bg);
+      flex-direction: column;
+      padding: 20px 24px 28px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      gap: 18px;
+    }
+    .hero-inner { grid-template-columns: 1fr; }
+    /* Text comes first on mobile: the phone mockup is tall enough that reordering it above the
+       headline pushed the H1 and CTA entirely below the fold on real phone viewports. */
+    .phone-wrap { margin-top: 32px; }
+    .phone { width: 220px; height: 449px; }
+    .trust-grid { grid-template-columns: repeat(2, 1fr); }
+    .steps { grid-template-columns: 1fr; }
+    .worlds-grid { grid-template-columns: 1fr; }
+    section { padding: 64px 0; }
+    .community { padding: 40px 24px; }
+  }
+  @media (max-width: 390px) {
+    .hero { padding: 64px 0 72px; }
+    .container { padding: 0 18px; }
+  }
+</style>
+<noscript>
+  <style>
+    /* Without JS the hamburger can't toggle open, so keep nav links reachable directly. */
+    .nav-links { display: flex !important; }
+    .nav-toggle { display: none !important; }
+  </style>
+</noscript>
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to content</a>
+<div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+
+<nav class="nav" id="mainNav">
+  <div class="nav-inner">
+    <a href="#main" class="brand">
+      <img src="/pwa-192x192.png" alt="" loading="eager">
+      <span>QuickSign</span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="#how-it-works">How it works</a>
+      <a href="#worlds">Worlds</a>
+      <a href="#multiplayer">Multiplayer</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://aslgame.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Start learning free</a>
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="navLinks">☰</button>
+  </div>
+</nav>
+
+<main id="main">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="container hero-inner">
+      <div class="hero-enter">
+        <div class="eyebrow-zippy">
+          <img src="/zippy/welcome.webp" alt="" loading="eager">
+          <span>Free · Open beta · No signup</span>
+        </div>
+        <h1>Learn ASL by <em>using your hands</em>, not flashcards.</h1>
+        <p class="lede">Practice real signs with real-time feedback that tells you exactly what to fix. Powered by on-device AI: your camera never leaves your browser.</p>
+        <div class="hero-ctas">
+          <a href="https://aslgame.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg">Start learning free →</a>
+          <a href="#how-it-works" class="btn btn-ghost btn-lg">See how it works ↓</a>
+        </div>
+        <p class="hero-trust"><strong>Student-built.</strong> Designed for real practice, not just recognition.</p>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="phone-btn power"></div>
+          <div class="phone-btn vol-up"></div>
+          <div class="phone-btn vol-down"></div>
+          <div class="phone-screen">
+            <div class="phone-island" aria-hidden="true"></div>
+            <img src="/shots/home.png" alt="QuickSign home screen showing streak, daily goal, and scenario worlds" loading="eager" width="390" height="844">
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- TRUST STRIP -->
+  <div class="trust-strip">
+    <div class="container trust-grid reveal-stagger">
+      <div class="trust-item"><span class="dot"></span>On-device &amp; private</div>
+      <div class="trust-item"><span class="dot"></span>Free, no signup</div>
+      <div class="trust-item"><span class="dot"></span>Works fully muted</div>
+      <div class="trust-item"><span class="dot"></span>Installs as an app</div>
+      <div class="trust-item"><span class="dot"></span>Built with MediaPipe</div>
+    </div>
+  </div>
+
+  <!-- DIFFERENTIATOR -->
+  <section id="differentiator">
+    <div class="container diff-grid">
+      <div>
+        <h2>Most apps only tell you whether a sign is right or wrong.<br><span class="accent">QuickSign shows you why.</span></h2>
+        <p style="color: var(--muted); font-size: 17px; margin-top: 14px;">Every sign is scored on four parameters independently, so when you miss, you know exactly what to fix.</p>
+        <ul class="param-list reveal-stagger">
+          <li><span class="check">✓</span>Handshape</li>
+          <li><span class="check">✓</span>Palm orientation</li>
+          <li><span class="check">✓</span>Location</li>
+          <li><span class="check">✓</span>Movement</li>
+        </ul>
+        <p class="diff-note">Movement is checked over a ~2 second window, so you can't fake it by holding still.</p>
+      </div>
+      <div>
+        <button type="button" class="diff-shot enlargeable" data-enlarge-caption="Sign Coach checklist">
+          <img src="/shots/signcoach.png" alt="QuickSign's Sign Coach checklist showing a learner waving hello, with per-parameter feedback: hand shape, hand presence, position, and movement" loading="lazy">
+          <span class="enlarge-hint" aria-hidden="true">⤢</span>
+        </button>
+        <p class="enlarge-caption">Tap to enlarge — just like the real demo clips in the app.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how-it-works">
+    <div class="container">
+      <div class="section-head">
+        <h2>How it works</h2>
+        <p>Three steps, every lesson.</p>
+      </div>
+      <div class="steps reveal-stagger">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Pick a sign</h3>
+          <p>Choose from scenario-based lessons: greetings, ordering coffee, hospital vocabulary, and more.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>Sign to your webcam</h3>
+          <p>Perform the sign in front of your camera. Recognition runs locally, so nothing is uploaded.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>Get per-parameter feedback</h3>
+          <p>See exactly which part of the sign needs work, and try again immediately.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WORLDS -->
+  <section id="worlds">
+    <div class="container">
+      <div class="section-head">
+        <h2>Scenario worlds, not flashcards</h2>
+        <p>Learn vocabulary in context, through real conversations with Zippy and friends.</p>
+      </div>
+      <div class="worlds-grid reveal-stagger">
+        <div class="world-card">
+          <div class="world-icon"><img src="/zippy/barista.webp" alt="" loading="lazy"></div>
+          <div class="world-text">
+            <h3>Coffee Shop</h3>
+            <p>Greetings, orders, and small talk at the café.</p>
+          </div>
+        </div>
+        <div class="world-card">
+          <div class="world-icon"><img src="/zippy/doctor.webp" alt="" loading="lazy"></div>
+          <div class="world-text">
+            <h3>Hospital</h3>
+            <p>Emergencies, symptoms, and care with the medical team.</p>
+          </div>
+        </div>
+        <div class="world-card">
+          <div class="world-icon"><img src="/zippy/teacher.webp" alt="" loading="lazy"></div>
+          <div class="world-text">
+            <h3>Classroom</h3>
+            <p>Teachers, friends, and everyday school signs.</p>
+          </div>
+        </div>
+      </div>
+      <div class="story-shot-wrap">
+        <div class="story-shot">
+          <img src="/shots/story.png" alt="The Say Hello world screen, showing lesson progress and the Meet Zippy role-play unlocking next" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MULTIPLAYER -->
+  <section id="multiplayer">
+    <div class="container mp-grid">
+      <div>
+        <h2>Play with friends</h2>
+        <p style="color: var(--muted); font-size: 17px; margin-top: 14px;">Challenge a friend to a live 1v1 sign duel, or host a group room for up to four players. One signs, the others guess, against a 10-second clock.</p>
+        <p style="color: var(--muted); font-size: 17px; margin-top: 14px;">Plus streaks, XP, quests, and badges that keep practice feeling like a game, not a chore.</p>
+        <div class="badge-row reveal-stagger">
+          <span class="badge-pill streak">🔥 Streaks</span>
+          <span class="badge-pill xp">🤟 XP &amp; levels</span>
+          <span class="badge-pill">🏅 Badges</span>
+          <span class="badge-pill">⚔️ 1v1 duels</span>
+        </div>
+      </div>
+      <div class="mp-shot">
+        <img src="/shots/multiplayer.png" alt="Multiplayer hub screen showing 1v1 Duel and Group Room modes" loading="lazy">
+      </div>
+    </div>
+  </section>
+
+  <!-- PRIVACY -->
+  <section id="privacy">
+    <div class="container privacy-grid">
+      <div class="privacy-shot">
+        <img src="/shots/privacy.png" alt="Camera permission screen explaining that video is never uploaded and recognition runs locally" loading="lazy">
+      </div>
+      <div>
+        <h2>Private by design, accessible by default</h2>
+        <ul class="privacy-list">
+          <li><span class="check">✓</span>Recognition runs entirely on-device: your video is never uploaded or recorded.</li>
+          <li><span class="check">✓</span>100% usable muted, built with the Deaf and hard-of-hearing community in mind.</li>
+          <li><span class="check">✓</span>WCAG AA contrast and full keyboard navigation throughout.</li>
+          <li><span class="check">✓</span>Respects your device's reduced-motion setting.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="container">
+      <div class="section-head">
+        <h2>Frequently asked questions</h2>
+      </div>
+      <div class="faq-list reveal-stagger">
+        <details class="faq-item">
+          <summary>Does it work on mobile?</summary>
+          <div class="faq-a"><p>Yes. QuickSign runs in your mobile browser and can be installed as an app (PWA) on iOS and Android home screens.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary>Is my camera data uploaded?</summary>
+          <div class="faq-a"><p>No. Sign recognition runs entirely on-device using MediaPipe, so your video is never uploaded, recorded, or sent to a server.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary>Do I need an account?</summary>
+          <div class="faq-a"><p>No. You can start learning immediately as a guest. An account is only needed to sync progress across devices or use leaderboards and friends.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary>Is it free?</summary>
+          <div class="faq-a"><p>Yes, QuickSign is free to use.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary>Was the sign content checked by Deaf ASL signers?</summary>
+          <div class="faq-a"><p>Not yet — we're a small student team and this is an open beta. Sign accuracy review by Deaf and hard-of-hearing signers is a known gap we want to close. If that's you, we'd genuinely value your feedback.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMMUNITY -->
+  <section id="community">
+    <div class="container">
+      <div class="community">
+        <h2>Help shape QuickSign</h2>
+        <p>We're a small student team actively collecting feedback from Reddit and Discord testers. If something's broken or confusing, we want to hear about it.</p>
+        <a href="https://docs.google.com/forms/d/e/1FAIpQLScUDv9ya88W4EIQAoQwa7I7xMZdrVyUDGyI16VZyrfbM7ttDQ/viewform?usp=publish-editor" target="_blank" rel="noopener noreferrer" class="btn btn-ghost">Share feedback →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="final-cta">
+    <div class="container">
+      <img src="/zippy/celebrating.webp" alt="" loading="lazy">
+      <h2>Ready to actually learn to sign?</h2>
+      <a href="https://aslgame.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg">Start learning free →</a>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-tags">
+      <span>Built by students</span>
+      <span>Powered by MediaPipe</span>
+      <span>No signup required</span>
+      <span>Privacy first</span>
+    </div>
+    <div class="footer-copy">
+      <a href="https://aslgame.vercel.app/" target="_blank" rel="noopener noreferrer" style="color: var(--purple-light); font-weight: 700; text-decoration: none;">QuickSign ↗</a>
+      &nbsp;·&nbsp; © 2026 QuickSign
+    </div>
+  </div>
+</footer>
+
+<div class="enlarge-overlay" id="enlargeOverlay" role="dialog" aria-modal="true" aria-label="Enlarged screenshot">
+  <button type="button" class="enlarge-close" id="enlargeClose" aria-label="Close enlarged view">✕</button>
+  <img id="enlargeImg" src="" alt="">
+</div>
+
+<script>
+  // Mobile nav toggle
+  (function () {
+    var nav = document.getElementById('mainNav');
+    var toggle = document.getElementById('navToggle');
+    toggle.addEventListener('click', function () {
+      var isOpen = nav.classList.toggle('menu-open');
+      toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && nav.classList.contains('menu-open')) {
+        nav.classList.remove('menu-open');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.focus();
+      }
+    });
+    document.querySelectorAll('#navLinks a').forEach(function (a) {
+      a.addEventListener('click', function () {
+        nav.classList.remove('menu-open');
+        toggle.setAttribute('aria-expanded', 'false');
+      });
+    });
+  })();
+
+  // Scroll progress bar fallback (only needed where animation-timeline: scroll() is unsupported)
+  (function () {
+    if (CSS.supports('animation-timeline: scroll()')) return;
+    var bar = document.getElementById('scrollProgress');
+    window.addEventListener('scroll', function () {
+      var h = document.documentElement;
+      var pct = (h.scrollTop) / (h.scrollHeight - h.clientHeight);
+      bar.style.transform = 'scaleX(' + pct + ')';
+    }, { passive: true });
+  })();
+
+  // Reveal-on-scroll: enhancement only — content is visible by default (.reveal), this just
+  // arms + triggers a fade-up. Never gates visibility, so it degrades gracefully with no JS.
+  (function () {
+    var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced || !('IntersectionObserver' in window)) return;
+    var items = document.querySelectorAll('.reveal-stagger');
+    items.forEach(function (el) { el.classList.add('js-armed'); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    items.forEach(function (el) { io.observe(el); });
+  })();
+
+  // Click-to-enlarge screenshot demo — mirrors the real app's tap-to-enlarge sign demo clips.
+  (function () {
+    var overlay = document.getElementById('enlargeOverlay');
+    var overlayImg = document.getElementById('enlargeImg');
+    var closeBtn = document.getElementById('enlargeClose');
+    var triggers = document.querySelectorAll('.enlargeable');
+    var lastFocused = null;
+
+    function open(trigger) {
+      var img = trigger.querySelector('img');
+      if (!img) return;
+      lastFocused = trigger;
+      overlayImg.src = img.src;
+      overlayImg.alt = img.alt;
+      overlay.classList.add('open');
+      closeBtn.focus();
+    }
+    function close() {
+      overlay.classList.remove('open');
+      if (lastFocused) lastFocused.focus();
+    }
+
+    triggers.forEach(function (trigger) {
+      trigger.addEventListener('click', function () { open(trigger); });
+    });
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) close();
+    });
+    window.addEventListener('keydown', function (e) {
+      if (!overlay.classList.contains('open')) return;
+      if (e.key === 'Escape') close();
+      // Focus trap: the close button is the only focusable element in the modal, so keep
+      // Tab/Shift+Tab from moving focus to page content hidden behind the backdrop.
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        closeBtn.focus();
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>

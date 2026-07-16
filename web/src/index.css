@@ -33,7 +33,7 @@
   --rt-z-gray-100: #EDE9FE;
   --rt-z-gray-200: #D4CCEF;
   --rt-z-gray-300: #A89BB5;
-  --rt-z-gray-400: #7C6F8A;
+  --rt-z-gray-400: #9C90B0; /* WCAG AA 4.5:1 floor against both bg and card (was #7C6F8A at 4.17/3.83:1) */
   --rt-z-gray-500: #4C3D6B;
 
   --rt-z-bg: #0D0A1E;
@@ -77,7 +77,7 @@
   --rt-z-gray-100: #283044;
   --rt-z-gray-200: #4A4455;
   --rt-z-gray-300: #6B6478;
-  --rt-z-gray-400: #7B7487;
+  --rt-z-gray-400: #625B71; /* WCAG AA 4.5:1 floor against both bg and card (was #7B7487 at 4.25/4.06:1) */
   --rt-z-gray-500: #CCC3D8;
 
   --rt-z-bg: #FAF8FF;

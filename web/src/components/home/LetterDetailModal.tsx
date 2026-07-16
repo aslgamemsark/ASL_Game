@@ -46,8 +46,8 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
               <div
                 className="w-11 h-11 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(123,47,190,0.25), rgba(168,85,247,0.35))',
-                  border: '1px solid rgba(168,85,247,0.3)',
+                  background: 'linear-gradient(135deg, color-mix(in srgb, var(--color-z-purple) 25%, transparent), color-mix(in srgb, var(--color-z-purple-light) 35%, transparent))',
+                  border: '1px solid color-mix(in srgb, var(--color-z-purple-light) 30%, transparent)',
                 }}
               >
                 {def.letter}
@@ -92,7 +92,7 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
                 <div
                   className="text-6xl font-black mb-2"
                   style={{
-                    background: 'linear-gradient(135deg, #A78BFA, #7C3AED)',
+                    background: 'linear-gradient(135deg, var(--color-z-purple-light), var(--color-z-purple))',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                   }}

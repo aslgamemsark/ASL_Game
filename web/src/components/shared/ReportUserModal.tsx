@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import { safeTruncate } from '@/lib/text';
 
 export type ReportContext = 'leaderboard' | 'friends' | 'multiplayer' | 'profile';
+
+/** Matches the note-length assumption baked into the textarea below and the DB column. */
+const MAX_NOTE_LEN = 280;
 type ReportReason = 'offensive' | 'impersonation' | 'spam' | 'other';
 
 const REASONS: { id: ReportReason; label: string }[] = [
@@ -33,7 +37,7 @@ export function ReportUserModal({ reporterId, reportedId, reportedUsername, cont
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const submit = async () => {
-    if (!reason) return;
+    if (!reason || status === 'submitting') return;
     setStatus('submitting');
     const { error } = await supabase.from('user_reports').insert({
       reporter_id: reporterId,
@@ -107,7 +111,7 @@ export function ReportUserModal({ reporterId, reportedId, reportedUsername, cont
 
               <textarea
                 value={note}
-                onChange={(e) => setNote(e.target.value.slice(0, 280))}
+                onChange={(e) => setNote(safeTruncate(e.target.value, MAX_NOTE_LEN))}
                 placeholder="Optional details…"
                 rows={2}
                 className="w-full bg-z-surface border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-z-gray-500 resize-none"
