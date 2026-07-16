@@ -242,12 +242,15 @@
 
   .nav-toggle {
     display: none;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
     background: none;
     border: none;
     color: var(--ink);
     font-size: 26px;
     cursor: pointer;
-    padding: 4px 8px;
   }
 
   /* ---------- Hero ---------- */
@@ -403,24 +406,15 @@
   }
   .accent { color: var(--purple-light); }
 
-  /* Fade-up on scroll-in: content is ALWAYS fully visible (opacity stays 1) — JS only adds a
-     subtle rise-in via transform. Never gate opacity/visibility on the observer firing, since
-     that ships a blank section on headless renderers, backgrounded tabs, or slow/failed JS. */
-  .reveal {
+  /* Scroll-in stagger for genuine repeated lists/grids (card rows, badge rows, FAQ items) —
+     content is ALWAYS fully visible (opacity stays 1); JS only adds a per-item rise-in via
+     transform. Never gate opacity/visibility on the observer firing, since that ships a blank
+     section on headless renderers, backgrounded tabs, or slow/failed JS. Reserved for actual
+     lists: a whole-section fade-on-scroll is the generic AI-landing-page tell, not choreography,
+     so single blocks (hero, CTAs, single images) get no scroll-triggered motion at all. */
+  .reveal-stagger {
     opacity: 1;
-    transform: none;
   }
-  .reveal.js-armed {
-    transform: translateY(20px) scale(0.98);
-    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .reveal.js-armed.in-view {
-    transform: none;
-  }
-
-  /* Staggered variant: direct children cascade in one after another instead of moving as one
-     block. Delay only affects the transition timing, so children stay visible immediately even
-     without JS/observer support. */
   .reveal-stagger.js-armed > * {
     transform: translateY(20px) scale(0.98);
     transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -431,6 +425,25 @@
   .reveal-stagger.js-armed > *:nth-child(3) { transition-delay: 160ms; }
   .reveal-stagger.js-armed > *:nth-child(4) { transition-delay: 240ms; }
   .reveal-stagger.js-armed > *:nth-child(5) { transition-delay: 320ms; }
+
+  /* The one signature entrance: hero copy cascades in on page load, pure CSS (no JS/observer
+     dependency, so it always plays). This is the single choreographed moment the rest of the
+     page deliberately doesn't repeat — a fade-on-scroll on every section reads as generic. */
+  .hero-enter > * {
+    animation: hero-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .hero-enter > *:nth-child(1) { animation-delay: 0ms; }
+  .hero-enter > *:nth-child(2) { animation-delay: 90ms; }
+  .hero-enter > *:nth-child(3) { animation-delay: 180ms; }
+  .hero-enter > *:nth-child(4) { animation-delay: 270ms; }
+  .hero-enter > *:nth-child(5) { animation-delay: 360ms; }
+  @keyframes hero-rise {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-enter > * { animation: none; opacity: 1; transform: none; }
+  }
 
   /* ---------- Trust strip ---------- */
   .trust-strip {
@@ -566,15 +579,18 @@
     position: absolute;
     top: 24px;
     right: 24px;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: var(--card);
     border: 1px solid rgba(255,255,255,0.1);
     color: var(--ink);
     font-size: 18px;
     cursor: pointer;
+    transition: background 0.15s ease-out, transform 0.15s ease-out;
   }
+  .enlarge-close:hover { background: var(--surface); }
+  .enlarge-close:active { transform: scale(0.92); }
   @media (prefers-reduced-motion: reduce) {
     .diff-shot.enlargeable:hover { transform: none; }
     .enlarge-overlay, .enlarge-overlay img { transition: none; }
@@ -748,10 +764,27 @@
     transition: transform 0.15s ease-out;
   }
   .faq-item[open] summary::after { transform: rotate(45deg); }
-  .faq-item p {
+  /* Smooth expand/collapse instead of the native instant snap. The UA stylesheet hides non-open
+     details content via display:none — override it so the grid-rows collapse (0fr -> 1fr) is
+     what actually controls visibility, letting the height transition play. */
+  .faq-item .faq-a {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .faq-item[open] .faq-a {
+    grid-template-rows: 1fr;
+  }
+  .faq-item .faq-a > p {
+    overflow: hidden;
+    min-height: 0;
+    margin: 0;
     padding: 0 24px 20px;
     color: var(--muted);
     font-size: 15px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .faq-item .faq-a { transition: none; }
   }
 
   /* ---------- Community ---------- */
@@ -804,7 +837,7 @@
   }
   @media (max-width: 768px) {
     .nav-links { display: none; }
-    .nav-toggle { display: block; }
+    .nav-toggle { display: flex; }
     .nav.menu-open .nav-links {
       display: flex;
       position: absolute;
@@ -829,6 +862,13 @@
     .container { padding: 0 18px; }
   }
 </style>
+<noscript>
+  <style>
+    /* Without JS the hamburger can't toggle open, so keep nav links reachable directly. */
+    .nav-links { display: flex !important; }
+    .nav-toggle { display: none !important; }
+  </style>
+</noscript>
 </head>
 <body>
 
@@ -858,7 +898,7 @@
   <header class="hero">
     <div class="hero-glow" aria-hidden="true"></div>
     <div class="container hero-inner">
-      <div>
+      <div class="hero-enter">
         <div class="eyebrow-zippy">
           <img src="/zippy/welcome.webp" alt="" loading="eager">
           <span>Free · Open beta · No signup</span>
@@ -887,7 +927,7 @@
 
   <!-- TRUST STRIP -->
   <div class="trust-strip">
-    <div class="container trust-grid reveal reveal-stagger">
+    <div class="container trust-grid reveal-stagger">
       <div class="trust-item"><span class="dot"></span>On-device &amp; private</div>
       <div class="trust-item"><span class="dot"></span>Free, no signup</div>
       <div class="trust-item"><span class="dot"></span>Works fully muted</div>
@@ -898,11 +938,11 @@
 
   <!-- DIFFERENTIATOR -->
   <section id="differentiator">
-    <div class="container diff-grid reveal">
+    <div class="container diff-grid">
       <div>
         <h2>Most apps only tell you whether a sign is right or wrong.<br><span class="accent">QuickSign shows you why.</span></h2>
         <p style="color: var(--muted); font-size: 17px; margin-top: 14px;">Every sign is scored on four parameters independently, so when you miss, you know exactly what to fix.</p>
-        <ul class="param-list reveal reveal-stagger">
+        <ul class="param-list reveal-stagger">
           <li><span class="check">✓</span>Handshape</li>
           <li><span class="check">✓</span>Palm orientation</li>
           <li><span class="check">✓</span>Location</li>
@@ -923,11 +963,11 @@
   <!-- HOW IT WORKS -->
   <section id="how-it-works">
     <div class="container">
-      <div class="section-head reveal">
+      <div class="section-head">
         <h2>How it works</h2>
         <p>Three steps, every lesson.</p>
       </div>
-      <div class="steps reveal reveal-stagger">
+      <div class="steps reveal-stagger">
         <div class="step">
           <div class="step-num">1</div>
           <h3>Pick a sign</h3>
@@ -950,11 +990,11 @@
   <!-- WORLDS -->
   <section id="worlds">
     <div class="container">
-      <div class="section-head reveal">
+      <div class="section-head">
         <h2>Scenario worlds, not flashcards</h2>
         <p>Learn vocabulary in context, through real conversations with Zippy and friends.</p>
       </div>
-      <div class="worlds-grid reveal reveal-stagger">
+      <div class="worlds-grid reveal-stagger">
         <div class="world-card">
           <div class="world-icon"><img src="/zippy/barista.webp" alt="" loading="lazy"></div>
           <h3>Coffee Shop</h3>
@@ -971,7 +1011,7 @@
           <p>Teachers, friends, and everyday school signs.</p>
         </div>
       </div>
-      <div class="story-shot-wrap reveal">
+      <div class="story-shot-wrap">
         <div class="story-shot">
           <img src="/shots/story.png" alt="A story scenario screen introducing an NPC role-play conversation with Zippy" loading="lazy">
         </div>
@@ -981,12 +1021,12 @@
 
   <!-- MULTIPLAYER -->
   <section id="multiplayer">
-    <div class="container mp-grid reveal">
+    <div class="container mp-grid">
       <div>
         <h2>Play with friends</h2>
         <p style="color: var(--muted); font-size: 17px; margin-top: 14px;">Challenge a friend to a live 1v1 sign duel, or host a group room for up to four players. One signs, the others guess, against a 10-second clock.</p>
         <p style="color: var(--muted); font-size: 17px; margin-top: 14px;">Plus streaks, XP, quests, and badges that keep practice feeling like a game, not a chore.</p>
-        <div class="badge-row reveal reveal-stagger">
+        <div class="badge-row reveal-stagger">
           <span class="badge-pill streak">🔥 Streaks</span>
           <span class="badge-pill xp">🤟 XP &amp; levels</span>
           <span class="badge-pill">🏅 Badges</span>
@@ -1001,7 +1041,7 @@
 
   <!-- PRIVACY -->
   <section id="privacy">
-    <div class="container privacy-grid reveal">
+    <div class="container privacy-grid">
       <div class="privacy-shot">
         <img src="/shots/privacy.png" alt="Camera permission screen explaining that video is never uploaded and recognition runs locally" loading="lazy">
       </div>
@@ -1020,25 +1060,25 @@
   <!-- FAQ -->
   <section id="faq">
     <div class="container">
-      <div class="section-head reveal">
+      <div class="section-head">
         <h2>Frequently asked questions</h2>
       </div>
-      <div class="faq-list reveal">
+      <div class="faq-list reveal-stagger">
         <details class="faq-item">
           <summary>Does it work on mobile?</summary>
-          <p>Yes. QuickSign runs in your mobile browser and can be installed as an app (PWA) on iOS and Android home screens.</p>
+          <div class="faq-a"><p>Yes. QuickSign runs in your mobile browser and can be installed as an app (PWA) on iOS and Android home screens.</p></div>
         </details>
         <details class="faq-item">
           <summary>Is my camera data uploaded?</summary>
-          <p>No. Sign recognition runs entirely on-device using MediaPipe, so your video is never uploaded, recorded, or sent to a server.</p>
+          <div class="faq-a"><p>No. Sign recognition runs entirely on-device using MediaPipe, so your video is never uploaded, recorded, or sent to a server.</p></div>
         </details>
         <details class="faq-item">
           <summary>Do I need an account?</summary>
-          <p>No. You can start learning immediately as a guest. An account is only needed to sync progress across devices or use leaderboards and friends.</p>
+          <div class="faq-a"><p>No. You can start learning immediately as a guest. An account is only needed to sync progress across devices or use leaderboards and friends.</p></div>
         </details>
         <details class="faq-item">
           <summary>Is it free?</summary>
-          <p>Yes, QuickSign is free to use.</p>
+          <div class="faq-a"><p>Yes, QuickSign is free to use.</p></div>
         </details>
       </div>
     </div>
@@ -1047,7 +1087,7 @@
   <!-- COMMUNITY -->
   <section id="community">
     <div class="container">
-      <div class="community reveal">
+      <div class="community">
         <h2>Help shape QuickSign</h2>
         <p>We're a small student team actively collecting feedback from Reddit and Discord testers. If something's broken or confusing, we want to hear about it.</p>
       </div>
@@ -1056,7 +1096,7 @@
 
   <!-- FINAL CTA -->
   <section class="final-cta">
-    <div class="container reveal">
+    <div class="container">
       <img src="/zippy/celebrating.webp" alt="" loading="lazy">
       <h2>Ready to actually learn to sign?</h2>
       <a href="https://aslgame.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg">Start learning free →</a>
@@ -1125,7 +1165,7 @@
   (function () {
     var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced || !('IntersectionObserver' in window)) return;
-    var items = document.querySelectorAll('.reveal');
+    var items = document.querySelectorAll('.reveal-stagger');
     items.forEach(function (el) { el.classList.add('js-armed'); });
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
@@ -1168,7 +1208,14 @@
       if (e.target === overlay) close();
     });
     window.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && overlay.classList.contains('open')) close();
+      if (!overlay.classList.contains('open')) return;
+      if (e.key === 'Escape') close();
+      // Focus trap: the close button is the only focusable element in the modal, so keep
+      // Tab/Shift+Tab from moving focus to page content hidden behind the backdrop.
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        closeBtn.focus();
+      }
     });
   })();
 </script>
