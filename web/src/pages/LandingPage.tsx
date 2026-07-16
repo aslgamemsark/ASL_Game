@@ -205,7 +205,12 @@ export function LandingPage({ onGetStarted }: Props) {
                 hard-of-hearing community, so nothing here may depend on audio (PRODUCT.md). */}
             <Reveal>
               <figure className="m-0">
-                <div className="relative rounded-3xl overflow-hidden bg-z-card border border-white/5 aspect-video">
+                {/* The reference clips are all natively 720x720 (verified: HELLO, DOCTOR, COFFEE,
+                    LETTER_A, HOSPITAL). Boxing that square footage into a 16:9 aspect-video with
+                    object-cover cropped off the top of the frame — exactly where the hand meets
+                    the forehead for HELLO, i.e. the part of the sign this section exists to show.
+                    aspect-square matches the clip's real dimensions, so nothing is cropped. */}
+                <div className="relative rounded-3xl overflow-hidden bg-z-card border border-white/5 aspect-square max-w-md mx-auto md:max-w-none">
                   <video
                     src={hello.clip}
                     autoPlay
@@ -213,7 +218,7 @@ export function LandingPage({ onGetStarted }: Props) {
                     muted
                     playsInline
                     aria-label="A signer demonstrating the ASL sign for HELLO: an open hand at the forehead, waving side to side."
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                   <span className="absolute bottom-3 left-3 text-xs font-bold bg-black/70 text-white px-2.5 py-1 rounded-lg">
                     HELLO

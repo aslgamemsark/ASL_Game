@@ -68,6 +68,13 @@ const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboa
 // store (a returning user on a new device should still get the pitch if they never signed up).
 const SEEN_LANDING_KEY = 'asl-seen-landing';
 
+// `?landing` on any URL forces the marketing page — read once at module scope so it can't change
+// mid-session. Escape hatch for reviewing/sharing a page that is otherwise reachable only from a
+// browser with empty localStorage. NOT dev-gated (unlike /avatarlab et al): the whole point is to
+// be able to hand someone a real link to the live pitch.
+const FORCE_LANDING =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('landing');
+
 // Shared fallback while a lazy-loaded screen's chunk downloads — same visual language as the
 // auth-restore spinner above so a route-split navigation doesn't look like a different app state.
 function ScreenFallback() {
@@ -104,6 +111,10 @@ export default function App() {
   // resolved once on mount: this is "has this browser seen the pitch", not user progress —
   // matching the existing 'signup-camera-onboarded' localStorage precedent.
   const [screen, setScreen] = useState<Screen>(() => {
+    // ?landing forces the marketing page regardless of stored state. Without this the page is
+    // only reachable from a browser with empty localStorage, which means nobody — including the
+    // people building it — can look at it twice, and it can't be linked, shared or reviewed.
+    if (FORCE_LANDING) return { type: 'landing' };
     if (onboardingComplete) return { type: 'home' };
     // SettingsPage's admin "Replay onboarding" clears onboardingComplete and reloads to re-walk the
     // flow — it means onboarding specifically, so it must win over the landing page. Without this,
@@ -130,8 +141,11 @@ export default function App() {
   // yet (onboardingComplete is false until their remote progress syncs), so the initial screen
   // resolves to 'landing'. Without this they'd be stuck on the marketing pitch for a product they
   // already use. The landing flag is set here too, so it doesn't reappear on their next visit.
+  // `?landing` is excluded: a signed-in visitor reviewing the marketing page would otherwise be
+  // bounced to home the instant auth resolves, which is exactly what the escape hatch exists to
+  // prevent.
   useEffect(() => {
-    if (!authLoading && user && (screen.type === 'onboarding' || screen.type === 'landing')) {
+    if (!FORCE_LANDING && !authLoading && user && (screen.type === 'onboarding' || screen.type === 'landing')) {
       if (screen.type === 'onboarding' && sessionStorage.getItem('asl-force-onboarding') === '1') {
         sessionStorage.removeItem('asl-force-onboarding');
         return;
