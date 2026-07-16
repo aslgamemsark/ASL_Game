@@ -6,8 +6,24 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>QuickSign — Learn ASL with Zippy</title>
-    <meta name="description" content="Learn American Sign Language through play — camera-based practice, lessons, and 1v1 challenges." />
+    <meta name="description" content="Most apps ask you to recognize a sign. QuickSign watches you make it — and tells you exactly which part to fix. Free, in your browser, camera never leaves your device." />
     <meta name="theme-color" content="#120B1E" />
+
+    <!-- Link previews (Slack/Discord/iMessage/X). Without these a shared link renders as a bare
+         URL, which undercuts the landing page it points at. og:image reuses the existing PWA icon
+         rather than adding another asset to keep in sync; absolute URLs are required by spec, so
+         these hardcode the production origin. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="QuickSign" />
+    <meta property="og:title" content="QuickSign — Learn to sign. Actually sign." />
+    <meta property="og:description" content="Most apps ask you to recognize a sign. QuickSign watches you make it — and tells you exactly which part to fix." />
+    <meta property="og:url" content="https://aslgame.vercel.app/" />
+    <meta property="og:image" content="https://aslgame.vercel.app/pwa-512x512.png" />
+    <meta property="og:image:alt" content="Zippy, the QuickSign mascot, waving hello" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="QuickSign — Learn to sign. Actually sign." />
+    <meta name="twitter:description" content="Most apps ask you to recognize a sign. QuickSign watches you make it — and tells you exactly which part to fix." />
+    <meta name="twitter:image" content="https://aslgame.vercel.app/pwa-512x512.png" />
     <!-- Home-screen install (iOS Safari uses these; other browsers read the web manifest the PWA plugin injects). -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />

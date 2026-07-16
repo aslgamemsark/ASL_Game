@@ -1,2 +1,14 @@
+# Was `Disallow: /` (blocking the whole site from every crawler) — fine while there was nothing
+# public to find, but the landing page is a marketing surface that has to be discoverable.
 User-agent: *
-Disallow: /
+Allow: /
+
+# Dev-only tools and internal assets — no reason for these to appear in search results.
+# (/avatarlab, /calibrate and /test-signs are dead-code-eliminated in production builds anyway;
+# listed here so a crawler doesn't waste budget probing them.)
+Disallow: /dev/
+Disallow: /dev-coins.html
+Disallow: /avatarlab
+Disallow: /calibrate
+Disallow: /test-signs
+Disallow: /models/
