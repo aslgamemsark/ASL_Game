@@ -25,7 +25,7 @@
 import sharp from 'sharp';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { mkdirSync, existsSync, statSync } from 'node:fs';
+import { mkdirSync, existsSync, statSync, writeFileSync } from 'node:fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC_DIR = join(__dirname, '..', 'zippy-src');
@@ -198,7 +198,12 @@ async function run() {
       .webp({ lossless: true, effort: 6 })
       .toBuffer();
 
-    await sharp(buf).toFile(outPath);
+    // Write the already-lossless-encoded buffer straight to disk. Routing it through a second
+    // sharp(buf).toFile() call re-decodes and re-encodes with sharp's default LOSSY webp
+    // settings (toFile infers format from the extension but doesn't inherit .webp({lossless})
+    // from the buffer that produced it), which reintroduced the exact alpha-blocking artifacts
+    // this function exists to avoid (found via pixel inspection on doctor/barista, 2026-07-16).
+    writeFileSync(outPath, buf);
     console.log(`  ✓ ${role.padEnd(12)} ${kb(outPath).padStart(6)} KB   (${MAP[role]})`);
     cells.push({ role, buf });
   }
