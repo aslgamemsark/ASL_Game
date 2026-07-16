@@ -191,7 +191,7 @@
     gap: 10px;
     text-decoration: none;
   }
-  .brand img { width: 32px; height: 32px; }
+  .brand img { width: 32px; height: 32px; border-radius: 9px; object-fit: cover; }
   .brand span {
     font-size: 20px;
     font-weight: 700;
@@ -450,6 +450,40 @@
     .hero-enter > * { animation: none; opacity: 1; transform: none; }
   }
 
+  /* ---------- Scroll-driven reveals (native view() timelines) ----------
+     The product screenshots are the page's focal beats, so each animates *with* the scroll as it
+     enters — a cinematic rise + scale linked to scroll position, not a uniform one-shot fade on
+     every block (that reflex is the AI-landing tell the stagger comment above deliberately avoids).
+     Pure CSS: runs on the compositor thread at 60fps, needs no observer, and resolves to fully
+     visible for any element already in view (nothing ships blank). Browsers without support fall
+     through @supports to the static, always-visible base state; reduced-motion opts out entirely.
+     The img inside .diff-shot is targeted (not the button) so it never fights the tap-to-enlarge
+     hover scale on the button itself. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .diff-shot img, .story-shot, .mp-shot, .privacy-shot, .final-cta img {
+        animation: shot-reveal linear both;
+        animation-timeline: view();
+        animation-range: entry 8% cover 32%;
+      }
+      @keyframes shot-reveal {
+        from { opacity: 0; transform: translateY(52px) scale(0.9); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      /* World cards deal in as a staggered wave, each keyed to its own entry, so scrolling the
+         row feels alive rather than snapping in all at once. */
+      .world-card {
+        animation: card-deal linear both;
+        animation-timeline: view();
+        animation-range: entry 0% cover 20%;
+      }
+      @keyframes card-deal {
+        from { opacity: 0; transform: translateY(40px) scale(0.96); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+    }
+  }
+
   /* ---------- Trust strip ---------- */
   .trust-strip {
     padding: 40px 0;
@@ -521,7 +555,9 @@
     overflow: hidden;
     box-shadow: 0 30px 70px rgba(0,0,0,0.45);
     border: 1px solid rgba(255,255,255,0.08);
-    max-width: 340px;
+    /* 280px keeps the full phone shot (390/844 ratio -> ~606px tall) inside a laptop viewport,
+       so the whole Sign Coach panel is visible at once instead of forcing a scroll. */
+    max-width: 280px;
     margin: 0 auto;
     background: none;
     padding: 0;
@@ -643,19 +679,25 @@
     background: var(--card);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 20px;
-    padding: 24px;
+    padding: 20px 22px;
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    flex-direction: row;
+    align-items: center;
+    gap: 18px;
   }
+  /* Zippy webp are tall portraits (~264x512). Cropping them into a small square hid the whole
+     character; a taller box with object-fit:contain shows the full-body pose standing beside
+     the title. object-position:bottom keeps his feet planted on the box floor. */
   .world-icon {
-    width: 48px; height: 48px;
-    border-radius: 14px;
-    display: flex; align-items: center; justify-content: center;
+    width: 72px; height: 104px;
+    flex-shrink: 0;
+    border-radius: 16px;
+    display: flex; align-items: flex-end; justify-content: center;
     overflow: hidden;
-    background: var(--purple);
+    background: linear-gradient(165deg, var(--surface), var(--purple-deep));
   }
-  .world-icon img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .world-icon img { width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
+  .world-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .world-card h3 { font-size: 17px; }
   .world-card p { color: var(--muted); font-size: 14px; }
 
@@ -665,7 +707,7 @@
     overflow: hidden;
     box-shadow: 0 30px 70px rgba(0,0,0,0.45);
     border: 1px solid rgba(255,255,255,0.08);
-    max-width: 320px;
+    max-width: 264px;
   }
   .story-shot img { width: 100%; aspect-ratio: 390/844; object-fit: cover; object-position: top; }
 
@@ -812,7 +854,9 @@
     text-align: center;
     padding-bottom: 40px;
   }
-  .final-cta img { width: 96px; height: 96px; margin: 0 auto 20px; }
+  /* celebrating.webp is a 345x512 portrait; a fixed 96x96 square squashed it horizontally.
+     Fix the height and let width follow the real aspect ratio so Zippy isn't torn. */
+  .final-cta img { height: 152px; width: auto; margin: 0 auto 20px; }
   .final-cta h2 { font-size: clamp(1.8rem, 3.6vw, 2.6rem); margin-bottom: 32px; }
 
   /* ---------- Footer ---------- */
@@ -887,7 +931,7 @@
 <nav class="nav" id="mainNav">
   <div class="nav-inner">
     <a href="#main" class="brand">
-      <img src="/zippy/welcome.webp" alt="" loading="eager">
+      <img src="/pwa-192x192.png" alt="" loading="eager">
       <span>QuickSign</span>
     </a>
     <div class="nav-links" id="navLinks">
@@ -961,7 +1005,7 @@
       </div>
       <div>
         <button type="button" class="diff-shot enlargeable" data-enlarge-caption="Sign Coach checklist">
-          <img src="/shots/signcoach.png" alt="QuickSign's Sign Coach checklist showing per-parameter feedback: hand shape, hand presence, position, and movement" loading="lazy" width="390" height="844">
+          <img src="/shots/signcoach.png" alt="QuickSign's Sign Coach checklist showing a learner waving hello, with per-parameter feedback: hand shape, hand presence, position, and movement" loading="lazy">
           <span class="enlarge-hint" aria-hidden="true">⤢</span>
         </button>
         <p class="enlarge-caption">Tap to enlarge — just like the real demo clips in the app.</p>
@@ -1006,18 +1050,24 @@
       <div class="worlds-grid reveal-stagger">
         <div class="world-card">
           <div class="world-icon"><img src="/zippy/barista.webp" alt="" loading="lazy"></div>
-          <h3>Coffee Shop</h3>
-          <p>Greetings, orders, and small talk at the café.</p>
+          <div class="world-text">
+            <h3>Coffee Shop</h3>
+            <p>Greetings, orders, and small talk at the café.</p>
+          </div>
         </div>
         <div class="world-card">
           <div class="world-icon"><img src="/zippy/doctor.webp" alt="" loading="lazy"></div>
-          <h3>Hospital</h3>
-          <p>Emergencies, symptoms, and care with the medical team.</p>
+          <div class="world-text">
+            <h3>Hospital</h3>
+            <p>Emergencies, symptoms, and care with the medical team.</p>
+          </div>
         </div>
         <div class="world-card">
           <div class="world-icon"><img src="/zippy/teacher.webp" alt="" loading="lazy"></div>
-          <h3>Classroom</h3>
-          <p>Teachers, friends, and everyday school signs.</p>
+          <div class="world-text">
+            <h3>Classroom</h3>
+            <p>Teachers, friends, and everyday school signs.</p>
+          </div>
         </div>
       </div>
       <div class="story-shot-wrap">
