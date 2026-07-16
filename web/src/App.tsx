@@ -42,7 +42,7 @@ import { CelebrationHost } from '@/components/shared/CelebrationHost';
 
 type Screen =
   | { type: 'home' }
-  | { type: 'onboarding' }
+  | { type: 'onboarding'; startAt?: 'welcome' | 'auth' }
   | { type: 'lesson'; lessonId: string }
   | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; mixedQuiz?: boolean; bonusGoldOnPerfect?: number; heading?: string; hideReferenceClip?: boolean }
   | { type: 'story'; storyId: string }
@@ -101,17 +101,31 @@ export default function App() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
+
+  // Route a signed-out user to the sign-in screen. On "Log out", AuthContext.signOut() resets the
+  // progress store, flipping onboardingComplete back to false; without this the user would linger
+  // on whatever screen they were on, now silently rendered as a guest (the reported bug). Land
+  // directly on the auth step so it reads as a sign-in/sign-up page rather than replaying the
+  // welcome intro. A brand-new first-run guest is unaffected: the initial screen is already
+  // 'onboarding', so the `screen.type !== 'onboarding'` guard keeps them on 'welcome'.
+  useEffect(() => {
+    if (!authLoading && !user && !onboardingComplete && screen.type !== 'onboarding') {
+      setScreen({ type: 'onboarding', startAt: 'auth' });
+    }
+  }, [user, onboardingComplete, authLoading, screen.type]);
   const [homeTab, setHomeTab] = useState<Tab>('learn');
   const [incomingChallenge, setIncomingChallenge] = useState<{ from: string; roomId: string } | null>(null);
   const [showAuth, setShowAuth] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const showNotice = useCallback((msg: string) => {
-    setNotice(msg);
-    setTimeout(() => setNotice((cur) => (cur === msg ? null : cur)), 2500);
-  }, []);
 
   const goHome = () => setScreen({ type: 'home' });
+
+  // On finishing onboarding, drop brand-new "beginner" learners straight into the Alphabets tab
+  // (learn the letters first) rather than the default Journey/learn tab. skillLevel was just set
+  // by completeOnboarding() inside the flow, so reading it from the store here is current.
+  const handleOnboardingComplete = useCallback(() => {
+    setHomeTab(useUserStore.getState().skillLevel === 'beginner' ? 'alphabet' : 'learn');
+    setScreen({ type: 'home' });
+  }, []);
   const showSideNav = SIDE_NAV_SCREENS.includes(screen.type as SideNavScreen);
 
   // Subscribe to incoming challenge notifications while logged in
@@ -253,14 +267,13 @@ export default function App() {
           onSettings={() => setScreen({ type: 'settings' })}
           onProfile={() => { goHome(); setHomeTab('profile'); }}
           onSignIn={() => setShowAuth(true)}
-          onNotice={showNotice}
         />
       )}
       <div className={showSideNav ? 'lg:pl-64' : ''}>
         <Suspense fallback={<ScreenFallback />}>
         <AnimatePresence mode="wait">
           {screen.type === 'onboarding' && (
-            <OnboardingFlow key="onboarding" onComplete={goHome} />
+            <OnboardingFlow key="onboarding" initialStep={screen.startAt} onComplete={handleOnboardingComplete} />
           )}
 
           {screen.type === 'home' && (
@@ -321,6 +334,7 @@ export default function App() {
               onChallengeFriend={handleChallengeFriend}
               onStartMultiplayer={() => setScreen({ type: 'multiplayer', mode: 'duel' })}
               onViewProfile={(id) => setScreen({ type: 'user-profile', userId: id })}
+              onRequireSignIn={() => setShowAuth(true)}
             />
           )}
 
@@ -402,20 +416,6 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
           >
             ⚠️ Couldn't sync your progress — check your connection
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Transient notice toast (e.g. a guest tapping "Log out"). */}
-      <AnimatePresence>
-        {notice && (
-          <motion.div
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-2xl whitespace-nowrap"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
-          >
-            {notice}
           </motion.div>
         )}
       </AnimatePresence>

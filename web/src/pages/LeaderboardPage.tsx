@@ -4,8 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { useUserStore } from '@/stores/useUserStore';
 import { getRankProgress } from '@/data/ranks';
-import { SHOP_ITEMS, getShopItem } from '@/data/shop';
-import { getBadge } from '@/data/badges';
+import { getShopItem } from '@/data/shop';
+import { AvatarGlyph } from '@/components/shared/AvatarGlyph';
 import { ReportUserModal } from '@/components/shared/ReportUserModal';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { Zippy } from '@/components/shared/Zippy';
@@ -71,9 +71,6 @@ function BoardList({
         const isMe = row.id === userId;
         const medal = getMedal(i);
         const { rank } = getRankProgress(row.total_xp);
-        const avatarIcon = row.equipped_avatar
-          ? (SHOP_ITEMS.find((it) => it.id === row.equipped_avatar)?.icon ?? '🤟')
-          : row.active_badge ? (getBadge(row.active_badge)?.icon ?? '🤟') : '🤟';
         const borderClasses = row.equipped_border ? (getShopItem(row.equipped_border)?.preview ?? '') : '';
         return (
           <motion.div
@@ -105,8 +102,8 @@ function BoardList({
               className="flex items-center gap-3 flex-1 min-w-0 text-left"
             >
               {/* Avatar (equipped avatar/badge + equipped border, matching Me tab / side nav) */}
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg shrink-0 ${borderClasses}`}>
-                {avatarIcon}
+              <div className={`w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg shrink-0 ${borderClasses}`}>
+                <AvatarGlyph avatarId={row.equipped_avatar} badgeId={row.active_badge} />
               </div>
 
               {/* Name */}

@@ -1,3 +1,5 @@
+import { ZIPPY_SRC } from '@/data/zippy';
+
 export type CosmeticType = 'border' | 'avatar' | 'chest_skin' | 'consumable';
 
 export interface ShopItem {
@@ -9,6 +11,9 @@ export interface ShopItem {
   goldPrice: number;
   preview: string;
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  /** For image-based avatars (e.g. illustrated Zippy art): the picture URL. When set, avatar
+   *  render sites draw this image instead of the emoji `icon`. Undefined = emoji avatar. */
+  image?: string;
 }
 
 export const SHOP_ITEMS: ShopItem[] = [
@@ -24,9 +29,20 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'border_amber',    title: 'Amber Glow',     description: 'Warm amber frame',                         type: 'border',  icon: '🟡', goldPrice: 24,  preview: 'ring-2 ring-amber-400 shadow-amber-400/50 shadow-lg',      rarity: 'rare'      },
 
   // Borders — ANIMATED (custom CSS classes in index.css; these actually move, unlike the rings).
-  { id: 'border_neon',     title: 'Neon Pulse',     description: 'Electric cyan glow that really pulses',    type: 'border',  icon: '💚', goldPrice: 40,  preview: 'qs-border-electric', rarity: 'epic'      },
-  { id: 'border_inferno',  title: 'Inferno',        description: 'A living, breathing flame ring',           type: 'border',  icon: '🔥', goldPrice: 55,  preview: 'qs-border-inferno',  rarity: 'epic'      },
-  { id: 'border_rainbow',  title: 'Rainbow Ring',   description: 'Every color, cycling forever',             type: 'border',  icon: '🌈', goldPrice: 75,  preview: 'qs-border-aurora',   rarity: 'legendary' },
+  { id: 'border_neon',     title: 'Neon Pulse',     description: 'Electric cyan glow that really pulses',    type: 'border',  icon: '💚', goldPrice: 40,  preview: 'qs-border-electric',  rarity: 'epic'      },
+  { id: 'border_inferno',  title: 'Inferno',        description: 'A living, breathing flame ring',           type: 'border',  icon: '🔥', goldPrice: 55,  preview: 'qs-border-inferno',   rarity: 'epic'      },
+  { id: 'border_goldpulse',title: 'Golden Aura',    description: 'A pulsing halo of gold',                   type: 'border',  icon: '✨', goldPrice: 45,  preview: 'qs-border-goldpulse', rarity: 'epic'      },
+  { id: 'border_emerald',  title: 'Emerald Pulse',  description: 'A living emerald glow',                    type: 'border',  icon: '💎', goldPrice: 42,  preview: 'qs-border-emerald',   rarity: 'epic'      },
+  { id: 'border_violet',   title: 'Violet Surge',   description: 'A pulsing violet ring',                    type: 'border',  icon: '🔮', goldPrice: 42,  preview: 'qs-border-violet',    rarity: 'epic'      },
+  { id: 'border_rainbow',  title: 'Rainbow Ring',   description: 'Every color, cycling forever',             type: 'border',  icon: '🌈', goldPrice: 75,  preview: 'qs-border-aurora',    rarity: 'legendary' },
+  { id: 'border_sunset',   title: 'Sunset Cycle',   description: 'Warm colors drifting forever',             type: 'border',  icon: '🌅', goldPrice: 70,  preview: 'qs-border-sunset',    rarity: 'legendary' },
+
+  // Avatars — illustrated Zippy art (real images, not emoji). Reuses the shipped Zippy expression
+  // WebPs, so no new assets are needed.
+  { id: 'avatar_zippy_wave',  title: 'Hi Zippy',    description: 'Zippy waving hello',    type: 'avatar', icon: '👋', goldPrice: 20, preview: '', image: ZIPPY_SRC['welcome'],     rarity: 'rare'      },
+  { id: 'avatar_zippy_cool',  title: 'Cool Zippy',  description: 'Zippy giving a thumbs up', type: 'avatar', icon: '👍', goldPrice: 25, preview: '', image: ZIPPY_SRC['thumbsup'],  rarity: 'rare'      },
+  { id: 'avatar_zippy_proud', title: 'Proud Zippy', description: 'Zippy beaming with pride', type: 'avatar', icon: '🌟', goldPrice: 30, preview: '', image: ZIPPY_SRC['proud'],     rarity: 'epic'      },
+  { id: 'avatar_zippy_party', title: 'Party Zippy', description: 'Zippy mid-celebration', type: 'avatar', icon: '🎉', goldPrice: 40, preview: '', image: ZIPPY_SRC['celebrating'], rarity: 'legendary' },
 
   // Avatar emojis
   { id: 'avatar_wave',     title: 'Wave',           description: 'Replace your avatar with 👋',              type: 'avatar',  icon: '👋', goldPrice: 5,   preview: '👋', rarity: 'common'    },

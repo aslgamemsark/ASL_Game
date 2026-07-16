@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserStore } from '@/stores/useUserStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getShopItem } from '@/data/shop';
-import { getBadge } from '@/data/badges';
+import { AvatarGlyph } from '@/components/shared/AvatarGlyph';
 import { LogoutConfirm } from '@/components/auth/LogoutConfirm';
 
 export type SideNavScreen = 'home' | 'review' | 'alphabet' | 'shop' | 'friends' | 'multiplayer' | 'leaderboard' | 'settings' | 'profile';
@@ -20,23 +20,28 @@ interface Props {
   onLeaderboard: () => void;
   onSettings: () => void;
   onProfile: () => void;
-  /** Open the sign-in modal (used when a guest taps the profile chip). */
+  /** Open the sign-in modal (used when a guest taps the profile chip or the "Sign in" item). */
   onSignIn: () => void;
-  /** Show a transient toast (used when a guest taps "Log out"). */
-  onNotice: (msg: string) => void;
 }
 
+// Shop intentionally excluded — its entry point moved to the cart icon under the gold pill in
+// TopBar (2026-07-16), so it no longer needs a row here. `handlers.shop`/`onShop` stay wired
+// below regardless, since SideNavScreen still needs an exhaustive handler map.
 const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'home', label: 'Journey', icon: '🗺️' },
   { id: 'review', label: 'Review', icon: '🪞' },
   { id: 'alphabet', label: 'Alphabets', icon: '🔤' },
   { id: 'multiplayer', label: 'Multiplayer', icon: '⚔️' },
-  { id: 'shop', label: 'Shop', icon: '🪙' },
   { id: 'friends', label: 'Friends', icon: '🤝' },
   { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
 ];
 
-export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onMultiplayer, onLeaderboard, onSettings, onProfile, onSignIn, onNotice }: Props) {
+// Single source of the hover/tap feel for every row in this list — a plain tween (no spring
+// overshoot) so rapidly moving the pointer between adjacent rows can't visibly bounce/jitter
+// (reported as "stutters" when pointing between two tabs, 2026-07-16).
+const ROW_TRANSITION = { duration: 0.12, ease: 'easeOut' as const };
+
+export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onMultiplayer, onLeaderboard, onSettings, onProfile, onSignIn }: Props) {
   const { user, username } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
   // Always mounted on desktop widths — see TopBar's identical fix for why a selector matters here.
@@ -45,9 +50,6 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
       equippedAvatar: s.equippedAvatar, activeBadge: s.activeBadge, equippedBorder: s.equippedBorder,
     }))
   );
-  const avatarIcon = equippedAvatar
-    ? (getShopItem(equippedAvatar)?.icon ?? '🤟')
-    : activeBadge ? (getBadge(activeBadge)?.icon ?? '🤟') : '🤟';
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
 
   const handlers: Record<SideNavScreen, () => void> = {
@@ -86,8 +88,8 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
         className="flex items-center gap-2.5 px-2 py-2.5 mb-6 rounded-xl bg-z-surface/60 hover:bg-z-surface transition-colors text-left w-full shrink-0"
         whileTap={{ scale: 0.98 }}
       >
-        <div className={`w-9 h-9 rounded-xl bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg shrink-0 ${borderClasses}`}>
-          {avatarIcon}
+        <div className={`w-9 h-9 rounded-xl overflow-hidden bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg shrink-0 ${borderClasses}`}>
+          <AvatarGlyph avatarId={equippedAvatar} badgeId={activeBadge} />
         </div>
         <div className="min-w-0">
           <p className="font-bold text-sm truncate">{username ?? (user ? '…' : 'Guest')}</p>
@@ -99,7 +101,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
           min-height:auto would otherwise stop it from ever compressing), so it's the ONLY part
           that scrolls if content is ever taller than the viewport — the header above and the
           Settings/Log out block below stay pinned and always visible without any scrolling. */}
-      <nav className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1">
+      <nav className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
           const isActive = active === item.id;
           return (
@@ -111,6 +113,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
               }`}
               whileHover={{ x: 2 }}
               whileTap={{ scale: 0.98 }}
+              transition={ROW_TRANSITION}
             >
               <span className="text-lg">{item.icon}</span>
               {item.label}
@@ -124,8 +127,9 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
           }`}
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
+          transition={ROW_TRANSITION}
         >
-          <span className={`text-lg w-6 h-6 flex items-center justify-center rounded-md ${borderClasses}`}>{avatarIcon}</span>
+          <span className={`text-lg w-6 h-6 flex items-center justify-center overflow-hidden rounded-md ${borderClasses}`}><AvatarGlyph avatarId={equippedAvatar} badgeId={activeBadge} /></span>
           Me
         </motion.button>
       </nav>
@@ -138,18 +142,24 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
           }`}
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
+          transition={ROW_TRANSITION}
         >
           <span className="text-lg">⚙️</span>
           Settings
         </motion.button>
+        {/* A guest has no session to end — sending them to the sign-in modal (rather than the old
+            "you're already logged out" toast) is what they actually want, and their local guest
+            progress merges into the account on sign-in. A signed-in user gets the real logout
+            confirm, after which App routes them to the sign-in screen. */}
         <motion.button
-          onClick={() => (user ? setShowLogout(true) : onNotice("You're already logged out"))}
+          onClick={() => (user ? setShowLogout(true) : onSignIn())}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-z-gray-300 hover:bg-white/5 hover:text-z-red transition-colors"
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
+          transition={ROW_TRANSITION}
         >
-          <span className="text-lg">🚪</span>
-          Log out
+          <span className="text-lg">{user ? '🚪' : '🔑'}</span>
+          {user ? 'Log out' : 'Sign in'}
         </motion.button>
       </div>
 

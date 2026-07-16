@@ -225,6 +225,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut();
+    // Always wipe local progress on an explicit "Log out", even for a guest with no active
+    // session — Supabase fires no SIGNED_OUT event in that case, so the onAuthStateChange handler
+    // above never runs. Idempotent with that handler for a real session. This also flips
+    // onboardingComplete back to false (defaultProgress), which App watches to route the now
+    // signed-out user to the sign-in screen.
+    useUserStore.getState().reset();
   }
 
   async function requestPasswordReset(email: string): Promise<string | null> {

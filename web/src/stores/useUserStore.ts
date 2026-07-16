@@ -27,6 +27,7 @@ function defaultProgress(): UserProgress {
     achievements: [],
     onboardingComplete: false,
     skillLevel: 'beginner',
+    dominantHand: null,
     dailyQuests: [],
     questsLastReset: '',
     streakMilestonesAwarded: [],
@@ -84,6 +85,7 @@ interface UserStore extends UserProgress {
   reset: () => void;
   mergeProgress: (remote: Partial<UserProgress>) => void;
   completeOnboarding: (level: SkillLevel) => void;
+  setDominantHand: (hand: 'left' | 'right') => void;
   refreshDailyQuests: () => void;
   updateQuestProgress: (type: QuestType, delta?: number) => void;
   claimQuest: (questId: string) => void;
@@ -346,6 +348,9 @@ export const useUserStore = create<UserStore>()(
           if (remote.equippedAvatar) merged.equippedAvatar = remote.equippedAvatar;
           if (remote.activeBadge) merged.activeBadge = remote.activeBadge;
           if (remote.showcaseBadges) merged.showcaseBadges = remote.showcaseBadges;
+          // Same keep-local-when-remote-null rule as the equips: a fresh remote row has this null,
+          // which must not clobber a hand the user just set on this device.
+          if (remote.dominantHand) merged.dominantHand = remote.dominantHand;
           return merged;
         });
       },
@@ -540,6 +545,8 @@ export const useUserStore = create<UserStore>()(
 
       equipBorder: (itemId) => set({ equippedBorder: itemId }),
       equipAvatar: (itemId) => set({ equippedAvatar: itemId }),
+
+      setDominantHand: (hand) => set({ dominantHand: hand }),
 
       openChest: (chestId) => {
         const s = get();

@@ -7,7 +7,8 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMultiplayerSignaling } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
-import { generateRoomCode, joinErrorMessage } from '@/lib/multiplayerRooms';
+import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_ROOM_RULES, ROOM_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
+import { RoomRulesPanel } from '@/components/multiplayer/RoomRulesPanel';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
@@ -41,19 +42,15 @@ interface Props {
 
 const ALL_SIGNS = Object.keys(SIGNS);
 const MAX_PLAYERS = 4;
-const ROUNDS_PER_PLAYER = 2;
-const TURN_SECONDS = 15;
-const ROUND_TIMEOUT_MS = TURN_SECONDS * 1000;
+// Fallback turn length when a client has no synced rules yet (guessers before 'game-start'). The
+// host's chosen RoomRules override this; totalRounds is derived from the synced signs array length
+// so every client agrees regardless of the host's rounds-per-player choice.
+const TURN_SECONDS = DEFAULT_ROOM_RULES.turnSeconds;
 const RESULT_HOLD_MS = 1500;
 // Safety net: if not every guesser confirms they can see the signer's video within this long
 // (dropped message, a camera that never loads), start the round timer anyway rather than
 // stalling the whole room on one stuck connection.
 const TURN_ARM_FALLBACK_MS = 5000;
-
-function pickSigns(n: number): string[] {
-  const shuffled = [...ALL_SIGNS].sort(() => Math.random() - 0.5);
-  return Array.from({ length: n }, (_, i) => shuffled[i % shuffled.length]);
-}
 
 export function RoomPage({ onExit }: Props) {
   const { user, username } = useAuth();
@@ -68,6 +65,11 @@ export function RoomPage({ onExit }: Props) {
   const [codeError, setCodeError] = useState('');
   const [visibility, setVisibility] = useState<Visibility>('private');
   const [searching, setSearching] = useState(false);
+  // Host-chosen rules (lobby only). turnSecondsRef holds the ACTIVE per-turn length for host and
+  // guessers — set from `rules` on the host at startGame, and from the synced 'game-start' payload
+  // on everyone else — so the countdown + the host's round timeout honor the host's choice.
+  const [rules, setRules] = useState<RoomRules>(DEFAULT_ROOM_RULES);
+  const turnSecondsRef = useRef<number>(DEFAULT_ROOM_RULES.turnSeconds);
   const [roomId, setRoomId] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
   const [roster, setRoster] = useState<RosterMember[]>([]);
@@ -138,7 +140,7 @@ export function RoomPage({ onExit }: Props) {
     turnArmedThisRoundRef.current = false;
     videoReadySentRef.current = false;
     setTurnArmed(false);
-    setTimeLeft(TURN_SECONDS);
+    setTimeLeft(turnSecondsRef.current);
 
     // I was signing last round and no longer am — tear down the outbound connections I opened.
     if (signingConnectionsRef.current.length > 0 && signerPeerIdRef.current !== signer) {
@@ -243,7 +245,7 @@ export function RoomPage({ onExit }: Props) {
     setTurnArmed(true);
     if (isHostRef.current) {
       signaling.send('round-timer-start', { round: roundRef.current, startedAt: at });
-      roundTimerRef.current = setTimeout(() => endRound(), ROUND_TIMEOUT_MS);
+      roundTimerRef.current = setTimeout(() => endRound(), turnSecondsRef.current * 1000);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endRound]);
@@ -281,6 +283,7 @@ export function RoomPage({ onExit }: Props) {
     if (event === 'game-start') {
       const signs = payload.signs as string[];
       const turnOrder = payload.turnOrder as string[];
+      turnSecondsRef.current = (payload.turnSeconds as number) ?? TURN_SECONDS;
       signsRef.current = signs;
       turnOrderRef.current = turnOrder;
       totalRoundsRef.current = signs.length;
@@ -399,13 +402,14 @@ export function RoomPage({ onExit }: Props) {
 
   const startGame = () => {
     const order = rosterRef.current.map((m) => m.peerId);
-    const signs = pickSigns(order.length * ROUNDS_PER_PLAYER);
+    turnSecondsRef.current = rules.turnSeconds;
+    const signs = pickSignsFrom(filterSignPool(ALL_SIGNS, rules.signSet), order.length * rules.rounds);
     turnOrderRef.current = order;
     signsRef.current = signs;
     totalRoundsRef.current = signs.length;
     setTotalRounds(signs.length);
     if (roomId) void supabase.from('multiplayer_rooms').update({ status: 'in_progress' }).eq('code', roomId);
-    signaling.send('game-start', { signs, turnOrder: order });
+    signaling.send('game-start', { signs, turnOrder: order, turnSeconds: rules.turnSeconds });
     signaling.send('round-start', { round: 1, signerPeerId: order[0], signId: signs[0] });
     beginRound(1, order[0], signs[0]);
   };
@@ -445,7 +449,7 @@ export function RoomPage({ onExit }: Props) {
     }
     turnIntervalRef.current = setInterval(() => {
       if (!turnArmedThisRoundRef.current) return;
-      const remaining = TURN_SECONDS - (Date.now() - turnStartedAtRef.current) / 1000;
+      const remaining = turnSecondsRef.current - (Date.now() - turnStartedAtRef.current) / 1000;
       setTimeLeft(Math.max(0, remaining));
     }, 100);
     return () => { if (turnIntervalRef.current) { clearInterval(turnIntervalRef.current); turnIntervalRef.current = null; } };
@@ -473,7 +477,7 @@ export function RoomPage({ onExit }: Props) {
     label: usernameFor(m.peerId) + (disconnectedPeerIds.includes(m.peerId) ? ' (disconnected)' : ''),
     score: scores[m.peerId] ?? 0, isYou: m.peerId === user?.id,
   }));
-  const timerPercent = turnArmed ? (timeLeft / TURN_SECONDS) * 100 : 100;
+  const timerPercent = turnArmed ? (timeLeft / turnSecondsRef.current) * 100 : 100;
 
   return (
     <div className="min-h-screen bg-z-bg flex flex-col">
@@ -496,6 +500,7 @@ export function RoomPage({ onExit }: Props) {
                 <p className="text-z-gray-300 text-sm mt-1">Up to 4 players — one signs, everyone else guesses.</p>
               </div>
               <div className="w-full max-w-xs flex flex-col gap-2">
+                <RoomRulesPanel rules={rules} onChange={setRules} roundsOptions={ROOM_ROUNDS_OPTIONS} roundsLabel="Rounds each" />
                 <div className="flex bg-z-card border border-white/10 rounded-2xl p-1">
                   <button onClick={() => setVisibility('private')}
                     className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'private' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>

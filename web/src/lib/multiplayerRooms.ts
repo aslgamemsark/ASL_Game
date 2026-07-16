@@ -14,3 +14,46 @@ export function joinErrorMessage(message: string): string {
   if (message.includes('closed')) return 'That room has closed.';
   return 'Could not join that room — please try again.';
 }
+
+// ── Custom room rules ─────────────────────────────────────────────────────────
+// Host-chosen match settings. Carried to other players inside the existing game-start signaling
+// payload (NOT the DB), so no migration is required and a client that doesn't receive them falls
+// back to the defaults below — keeping the pre-existing behavior when rules aren't set.
+
+export type SignSet = 'all' | 'letters' | 'words';
+
+export interface RoomRules {
+  /** Duel: total rounds. Room: rounds per player. */
+  rounds: number;
+  /** Seconds each signer gets per turn. */
+  turnSeconds: number;
+  /** Which pool of signs to draw from. */
+  signSet: SignSet;
+}
+
+export const DEFAULT_DUEL_RULES: RoomRules = { rounds: 5, turnSeconds: 15, signSet: 'all' };
+export const DEFAULT_ROOM_RULES: RoomRules = { rounds: 2, turnSeconds: 15, signSet: 'all' };
+
+export const DUEL_ROUNDS_OPTIONS = [3, 5, 7];
+export const ROOM_ROUNDS_OPTIONS = [1, 2, 3];
+export const TURN_SECONDS_OPTIONS = [10, 15, 20];
+
+/** Filters a sign-id pool by the chosen set. Letter signs are ids prefixed `LETTER_`
+ *  (see data/alphabet.ts); everything else is a word sign. */
+export function filterSignPool(all: string[], set: SignSet): string[] {
+  if (set === 'letters') return all.filter((s) => s.startsWith('LETTER_'));
+  if (set === 'words') return all.filter((s) => !s.startsWith('LETTER_'));
+  return all;
+}
+
+/** Picks up to n distinct signs from a pool at random. Returns fewer than n only if the pool is
+ *  smaller (round count is derived from the resulting length, so that stays consistent). */
+export function pickSignsFrom(pool: string[], n: number): string[] {
+  return [...pool].sort(() => Math.random() - 0.5).slice(0, n);
+}
+
+/** Short human-readable summary of a ruleset, e.g. "5 rounds · 15s · Letters". */
+export function describeRules(rules: RoomRules, roundsWord = 'rounds'): string {
+  const set = rules.signSet === 'letters' ? 'Letters' : rules.signSet === 'words' ? 'Words' : 'All signs';
+  return `${rules.rounds} ${roundsWord} · ${rules.turnSeconds}s · ${set}`;
+}

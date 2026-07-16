@@ -16,6 +16,8 @@ interface Props {
   layout?: 'row' | 'column';
   /** Hide the small "Zippy" name label above the message (e.g. compact inline greetings). */
   hideName?: boolean;
+  /** When set, the avatar becomes a tappable "poke Zippy" button (hover tilt + tap squash). */
+  onTap?: () => void;
   className?: string;
 }
 
@@ -28,12 +30,13 @@ export function ZippyMessage({
   size = 'md',
   layout = 'row',
   hideName = false,
+  onTap,
   className = '',
 }: Props) {
   if (layout === 'column') {
     return (
       <div className={`flex flex-col items-center text-center gap-3 ${className}`}>
-        <Zippy expression={expression} size={size} float />
+        <Zippy expression={expression} size={size} float interactive={!!onTap} onTap={onTap} />
         <motion.div
           className="bg-z-card border border-white/5 rounded-2xl px-4 py-3 max-w-xs"
           initial={{ opacity: 0, y: 6 }}
@@ -47,14 +50,29 @@ export function ZippyMessage({
   }
 
   const avatarPx = ROW_AVATAR_PX[size];
+  const avatarInner = <Zippy expression={expression} fit="cover" />;
   return (
     <div className={`flex items-end gap-3 ${className}`}>
-      <div
-        className="rounded-2xl bg-z-purple overflow-hidden shrink-0"
-        style={{ width: avatarPx, height: avatarPx }}
-      >
-        <Zippy expression={expression} fit="cover" />
-      </div>
+      {onTap ? (
+        <motion.button
+          type="button"
+          onClick={onTap}
+          aria-label="Poke Zippy"
+          className="rounded-2xl bg-z-purple overflow-hidden shrink-0"
+          style={{ width: avatarPx, height: avatarPx }}
+          whileHover={{ scale: 1.06, rotate: -3 }}
+          whileTap={{ scale: 0.9, rotate: 6 }}
+        >
+          {avatarInner}
+        </motion.button>
+      ) : (
+        <div
+          className="rounded-2xl bg-z-purple overflow-hidden shrink-0"
+          style={{ width: avatarPx, height: avatarPx }}
+        >
+          {avatarInner}
+        </div>
+      )}
       <motion.div
         className="bg-z-card border border-white/5 rounded-2xl rounded-bl-md px-4 py-3 flex-1 min-w-0"
         initial={{ opacity: 0, x: -8 }}

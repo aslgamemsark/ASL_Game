@@ -185,6 +185,17 @@ p {
   }
 }
 
+/* Hides the scrollbar visually while keeping the element scrollable — used by SideNav's nav list,
+   where a native OS scrollbar toggling in/out as content height changed caused a visible
+   layout-width jump (felt like a "stutter" when hovering near the list). */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Chromium Edge */
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -212,6 +223,16 @@ p {
   75%  { box-shadow: 0 0 16px 3px rgba(59,130,246,0.7), inset 0 0 0 3px rgba(59,130,246,0.9); }
   100% { box-shadow: 0 0 16px 3px rgba(168,85,247,0.7), inset 0 0 0 3px rgba(168,85,247,0.9); }
 }
-.qs-border-aurora   { border-radius: 1rem; animation: qs-rainbow-ring 3.5s linear infinite; }
-.qs-border-electric { border-radius: 1rem; --qs-glow: rgba(34,211,238,0.85); animation: qs-pulse-glow 1.2s ease-in-out infinite; }
-.qs-border-inferno  { border-radius: 1rem; --qs-glow: rgba(249,115,22,0.85); animation: qs-pulse-glow 1.5s ease-in-out infinite; }
+@keyframes qs-sunset-ring {
+  0%   { box-shadow: 0 0 16px 3px rgba(244,114,182,0.7), inset 0 0 0 3px rgba(244,114,182,0.9); }
+  33%  { box-shadow: 0 0 16px 3px rgba(251,146,60,0.7),  inset 0 0 0 3px rgba(251,146,60,0.9); }
+  66%  { box-shadow: 0 0 16px 3px rgba(250,204,21,0.7),  inset 0 0 0 3px rgba(250,204,21,0.9); }
+  100% { box-shadow: 0 0 16px 3px rgba(244,114,182,0.7), inset 0 0 0 3px rgba(244,114,182,0.9); }
+}
+.qs-border-aurora    { border-radius: 1rem; animation: qs-rainbow-ring 3.5s linear infinite; }
+.qs-border-sunset    { border-radius: 1rem; animation: qs-sunset-ring 3s linear infinite; }
+.qs-border-electric  { border-radius: 1rem; --qs-glow: rgba(34,211,238,0.85); animation: qs-pulse-glow 1.2s ease-in-out infinite; }
+.qs-border-inferno   { border-radius: 1rem; --qs-glow: rgba(249,115,22,0.85); animation: qs-pulse-glow 1.5s ease-in-out infinite; }
+.qs-border-goldpulse { border-radius: 1rem; --qs-glow: rgba(250,204,21,0.9);  animation: qs-pulse-glow 1.8s ease-in-out infinite; }
+.qs-border-emerald   { border-radius: 1rem; --qs-glow: rgba(16,185,129,0.9);  animation: qs-pulse-glow 1.4s ease-in-out infinite; }
+.qs-border-violet    { border-radius: 1rem; --qs-glow: rgba(168,85,247,0.9);  animation: qs-pulse-glow 1.3s ease-in-out infinite; }

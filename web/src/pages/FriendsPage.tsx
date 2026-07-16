@@ -34,11 +34,13 @@ interface Props {
   onChallengeFriend?: (friendId: string, friendUsername: string) => void;
   onStartMultiplayer?: () => void;
   onViewProfile: (userId: string) => void;
+  /** Open the sign-in modal — the friend graph keys off a real user id, so a guest can't use it. */
+  onRequireSignIn?: () => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onViewProfile }: Props) {
+export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onViewProfile, onRequireSignIn }: Props) {
   const { user } = useAuth();
 
   const [query, setQuery] = useState('');
@@ -57,7 +59,10 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
   // ── Load all relationships ──────────────────────────────────────────────────
 
   const loadRelationships = useCallback(async () => {
-    if (!user) return;
+    // A guest has no relationships to load — clear the loading flag so the UI never gets stuck on
+    // the skeleton (the reported bug: guests saw a perpetual "friends loading" state because this
+    // returned early while loadingRels stayed true). The guest sign-in gate below renders instead.
+    if (!user) { setLoadingRels(false); setRelationships([]); return; }
     setLoadingRels(true);
     try {
       const { data: rows } = await supabase
@@ -250,6 +255,36 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
   const relatedIds = new Set(relationships.map((r) => r.other.id));
 
   // ── Render ──────────────────────────────────────────────────────────────────
+
+  // Guest gate — mirrors MultiplayerHubPage. The friend graph keys off a real user id, so a guest
+  // has nothing to load or show here; a clear "sign in" prompt beats an empty or perpetually
+  // loading list.
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-z-bg flex flex-col">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
+          <HeaderBackButton onClick={onExit} />
+          <h1 className="font-bold text-lg">Friends &amp; 1v1</h1>
+        </div>
+        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 flex flex-col items-center justify-center gap-4 text-center">
+          <span className="text-5xl">🤝</span>
+          <div>
+            <p className="font-bold text-lg">Sign in to add friends</p>
+            <p className="text-z-gray-400 text-sm mt-1">Create an account so you can find players, send requests, and challenge friends to 1v1.</p>
+          </div>
+          {onRequireSignIn && (
+            <motion.button
+              onClick={onRequireSignIn}
+              className="px-6 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
+              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+            >
+              Sign In
+            </motion.button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-z-bg flex flex-col">

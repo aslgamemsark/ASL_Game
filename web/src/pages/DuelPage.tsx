@@ -7,7 +7,8 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMultiplayerSignaling } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
-import { generateRoomCode, joinErrorMessage } from '@/lib/multiplayerRooms';
+import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_DUEL_RULES, DUEL_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
+import { RoomRulesPanel } from '@/components/multiplayer/RoomRulesPanel';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
@@ -51,19 +52,17 @@ interface Props {
 }
 
 const ALL_SIGNS = Object.keys(SIGNS);
-const ROUNDS = 5;
+// Fallback round count / turn length when a client has no synced rules yet (e.g. a guesser before
+// the host's 'start' arrives). The host's chosen RoomRules override these, and the actual round
+// count is derived from the synced signs array length so both clients always agree.
+const ROUNDS = DEFAULT_DUEL_RULES.rounds;
 const RESULT_HOLD_MS = 1500;
-const TURN_SECONDS = 15;
+const TURN_SECONDS = DEFAULT_DUEL_RULES.turnSeconds;
 const RECONNECT_SECONDS = 30;
 // Safety net: if the guesser's 'video-ready' (or the signer's synced 'turn-start' reply) never
 // arrives — a dropped broadcast, a camera that never loads — start the timer anyway after this
 // long, rather than letting a lost message stall a round forever.
 const TURN_ARM_FALLBACK_MS = 5000;
-
-function pickSigns(n: number): string[] {
-  const shuffled = [...ALL_SIGNS].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, n);
-}
 
 export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const { user, username } = useAuth();
@@ -79,6 +78,11 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const [codeError, setCodeError] = useState('');
   const [visibility, setVisibility] = useState<Visibility>('private');
   const [searching, setSearching] = useState(false);
+  // Host-chosen rules (lobby only). turnSecondsRef holds the ACTIVE per-turn length for both host
+  // and guesser — set from `rules` on the host at createRoom, and from the synced 'start' payload
+  // on the guesser — so the countdown honors the host's choice on both sides.
+  const [rules, setRules] = useState<RoomRules>(DEFAULT_DUEL_RULES);
+  const turnSecondsRef = useRef<number>(DEFAULT_DUEL_RULES.turnSeconds);
   const [matchState, setMatchState] = useState<MatchState | null>(null);
   const matchStateRef = useRef<MatchState | null>(null);
   const [roundSignIds, setRoundSignIds] = useState<string[]>([]);
@@ -128,8 +132,11 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     const nextRound = ms.round + 1;
     const myNewScore = ms.myScore + (iScored ? 1 : 0);
     const opNewScore = ms.opponentScore + (opponentScored ? 1 : 0);
+    // Derived from the synced signs array (both clients hold the same one), so a host who chose a
+    // non-default round count doesn't desync against the other player's ROUNDS constant.
+    const totalRounds = roundSignIdsRef.current.length || ROUNDS;
 
-    if (nextRound > ROUNDS) {
+    if (nextRound > totalRounds) {
       setMatchState((s) => s ? { ...s, myScore: myNewScore, opponentScore: opNewScore } : s);
       setPhase('done');
       if (myNewScore > opNewScore) {
@@ -190,7 +197,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       void (async () => {
         await signaling.startCamera();
         await signaling.connectToPeer(opId);
-        signaling.send('start', { signs, firstSign, hostId: user.id, border: equippedBorder ?? '' }, opId);
+        signaling.send('start', { signs, firstSign, hostId: user.id, border: equippedBorder ?? '', turnSeconds: turnSecondsRef.current }, opId);
       })();
       return;
     }
@@ -201,6 +208,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       const signs = payload.signs as string[];
       const firstSign = payload.firstSign as string;
       const hostBorder = (payload.border as string) ?? '';
+      turnSecondsRef.current = (payload.turnSeconds as number) ?? TURN_SECONDS;
       setRoundSignIds(signs);
       const amSigner = isSignerForRound(user.id, hostId, 1);
       setMatchState((s) => ({ roomId: s?.roomId ?? '', opponentId: hostId, opponentUsername: 'Host', opponentBorder: hostBorder, currentSign: firstSign, round: 1, myScore: 0, opponentScore: 0 }));
@@ -264,7 +272,8 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       { onConflict: 'code', ignoreDuplicates: true }
     );
     if (error) { setCodeError('Could not create a room — please try again.'); return; }
-    const signs = pickSigns(ROUNDS);
+    turnSecondsRef.current = rules.turnSeconds;
+    const signs = pickSignsFrom(filterSignPool(ALL_SIGNS, rules.signSet), rules.rounds);
     setRoundSignIds(signs);
     setMatchState((s) => ({ ...(s ?? { opponentId: '', opponentUsername: '', currentSign: '', round: 1, myScore: 0, opponentScore: 0 }), roomId }));
     setStatusMsg(`Room code: ${roomId} — Share with a friend!`);
@@ -376,13 +385,13 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     turnArmedThisRoundRef.current = false;
     videoReadySentRef.current = false;
     setTurnArmed(false);
-    setTimeLeft(TURN_SECONDS);
+    setTimeLeft(turnSecondsRef.current);
     // Safety net: arm anyway after TURN_ARM_FALLBACK_MS if the video-ready/turn-start handshake
     // never completes (dropped message, camera denied), so a round can't stall forever.
     turnArmFallbackRef.current = setTimeout(() => armTurnTimerRef.current(), TURN_ARM_FALLBACK_MS);
     turnIntervalRef.current = setInterval(() => {
       if (!turnArmedThisRoundRef.current) return;
-      const remaining = TURN_SECONDS - (Date.now() - turnStartedAtRef.current) / 1000;
+      const remaining = turnSecondsRef.current - (Date.now() - turnStartedAtRef.current) / 1000;
       setTimeLeft(Math.max(0, remaining));
       if (remaining <= 0 && !turnEndedRef.current) {
         turnEndedRef.current = true;
@@ -491,7 +500,8 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   }, [opponentPresent, phase]);
 
   const opponentBorderClasses = matchState?.opponentBorder ? (getShopItem(matchState.opponentBorder)?.preview ?? '') : '';
-  const timerPercent = turnArmed ? (timeLeft / TURN_SECONDS) * 100 : 100;
+  const totalRounds = roundSignIds.length || ROUNDS;
+  const timerPercent = turnArmed ? (timeLeft / turnSecondsRef.current) * 100 : 100;
 
   return (
     <div className="min-h-screen bg-z-bg flex flex-col">
@@ -515,6 +525,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
               </div>
 
               <div className="w-full max-w-xs flex flex-col gap-2">
+                <RoomRulesPanel rules={rules} onChange={setRules} roundsOptions={DUEL_ROUNDS_OPTIONS} />
                 <div className="flex bg-z-card border border-white/10 rounded-2xl p-1">
                   <button onClick={() => setVisibility('private')}
                     className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'private' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
@@ -573,7 +584,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
             <motion.div key="signer" className="flex-1 flex flex-col gap-4 pt-4"
               initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
               <div className="flex items-center justify-between">
-                <RoundProgressDots total={ROUNDS} current={matchState.round} />
+                <RoundProgressDots total={totalRounds} current={matchState.round} />
                 <Scoreboard entries={[{ label: 'You', score: matchState.myScore, isYou: true }, { label: matchState.opponentUsername, score: matchState.opponentScore, isYou: false }]} />
               </div>
               <div className="bg-z-card border border-z-purple/30 rounded-2xl p-4 text-center">
@@ -597,7 +608,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
             <motion.div key="guesser" className="flex-1 flex flex-col gap-5 pt-4"
               initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
               <div className="flex items-center justify-between">
-                <RoundProgressDots total={ROUNDS} current={matchState.round} />
+                <RoundProgressDots total={totalRounds} current={matchState.round} />
                 <Scoreboard entries={[{ label: 'You', score: matchState.myScore, isYou: true }, { label: matchState.opponentUsername, score: matchState.opponentScore, isYou: false }]} />
               </div>
               <div className="grid grid-cols-2 gap-2">

@@ -27,6 +27,9 @@ interface Props {
   turnLabel?: string;
   /** 0-100 remaining fraction of the turn timer; drives the depleting top bar when activeTurn. */
   timerPercent?: number;
+  /** First-run camera-position guide: draws a face-target box + a coaching caption over the feed.
+   *  Pass null/undefined to hide it. `ok` turns the box green and the caption into a success chip. */
+  frameGuide?: { ok: boolean; message: string } | null;
 }
 
 /**
@@ -37,7 +40,7 @@ interface Props {
  * (production audit, 2026-07-12). The camera stream and recognition loop were already correctly
  * shared via hooks (useCamera/useRecognition) — only this rendering piece was duplicated.
  */
-export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent }: Props) {
+export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
 
@@ -71,6 +74,19 @@ export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmetic
       }`}
     >
       <canvas ref={canvasRef} className="w-full h-full object-cover" />
+      {frameGuide && (
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center">
+          {/* Face-target box in the upper-center — sized/positioned so the chest stays visible
+              below it, matching how signs are framed. Green once the user is well positioned. */}
+          <div
+            className={`mt-[6%] rounded-[45%] border-2 border-dashed transition-colors duration-300 ${frameGuide.ok ? 'border-z-green' : 'border-white/85'}`}
+            style={{ width: '42%', height: '58%', boxShadow: '0 0 0 9999px rgba(0,0,0,0.18)' }}
+          />
+          <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap ${frameGuide.ok ? 'bg-z-green/90 text-white' : 'bg-black/75 text-white'}`}>
+            {frameGuide.message}
+          </div>
+        </div>
+      )}
       <TurnOverlay active={!!activeTurn} label={turnLabel} timerPercent={timerPercent} />
       {label && <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded-md">{label}</span>}
       {overlayClipUrl && (
