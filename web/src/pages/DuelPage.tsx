@@ -94,6 +94,10 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const [statusMsg, setStatusMsg] = useState('');
   const loopRef = useRef<string | null>(null);
   const startedRef = useRef(false);
+  // Whether THIS client created the room (createRoom) vs joined one (joinRoom) — used on exit to
+  // decide whether to delete the room registry row outright (host) or just decrement the
+  // participant count via leave_multiplayer_room (guest), matching RoomPage's isHostRef.
+  const isHostRef = useRef(false);
   const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [timeLeft, setTimeLeft] = useState(TURN_SECONDS);
   const [turnArmed, setTurnArmed] = useState(false);
@@ -272,6 +276,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       { onConflict: 'code', ignoreDuplicates: true }
     );
     if (error) { setCodeError('Could not create a room — please try again.'); return; }
+    isHostRef.current = true;
     turnSecondsRef.current = rules.turnSeconds;
     const signs = pickSignsFrom(filterSignPool(ALL_SIGNS, rules.signSet), rules.rounds);
     setRoundSignIds(signs);
@@ -297,6 +302,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     // slot in one round trip.
     const { error } = await supabase.rpc('join_multiplayer_room', { p_code: code });
     if (error) { setCodeError(joinErrorMessage(error.message)); return; }
+    isHostRef.current = false;
     const roomId = code;
     setPhase('waiting');
     setStatusMsg('Joining room…');
@@ -474,7 +480,13 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     recognition.stopLoop();
     clearReconnectTimers();
     const roomId = matchStateRef.current?.roomId;
-    if (roomId) void supabase.rpc('leave_multiplayer_room', { p_code: roomId });
+    if (roomId) {
+      // Host exiting ends the match for good — delete the room outright rather than just
+      // decrementing the count (previously this called leave_multiplayer_room unconditionally,
+      // even for the host, so a duel's host leaving never cleaned up the room at all).
+      if (isHostRef.current) void supabase.from('multiplayer_rooms').delete().eq('code', roomId);
+      else void supabase.rpc('leave_multiplayer_room', { p_code: roomId });
+    }
     signaling.leave();
     onExit();
   };

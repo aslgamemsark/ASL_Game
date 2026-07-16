@@ -466,7 +466,9 @@ export function RoomPage({ onExit }: Props) {
   const exit = () => {
     recognition.stopLoop();
     if (roomId) {
-      if (isHostRef.current) void supabase.from('multiplayer_rooms').update({ status: 'closed' }).eq('code', roomId);
+      // Host exiting ends the game for good — delete the room outright instead of leaving a
+      // permanent 'closed' row with no further purpose (rows were never actually cleaned up).
+      if (isHostRef.current) void supabase.from('multiplayer_rooms').delete().eq('code', roomId);
       else void supabase.rpc('leave_multiplayer_room', { p_code: roomId });
     }
     signaling.leave();
