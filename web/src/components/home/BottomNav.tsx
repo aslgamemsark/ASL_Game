@@ -1,7 +1,6 @@
 import { motion, type TargetAndTransition } from 'framer-motion';
 import { useUserStore } from '@/stores/useUserStore';
-import { getShopItem } from '@/data/shop';
-import { getBadge } from '@/data/badges';
+import { AvatarGlyph } from '@/components/shared/AvatarGlyph';
 
 export type Tab = 'learn' | 'review' | 'alphabet' | 'profile';
 
@@ -35,13 +34,12 @@ const SETTINGS_HOVER: TargetAndTransition = {
 
 export function BottomNav({ active, onChange, onMultiplayer, onSettings }: Props) {
   const { equippedAvatar, activeBadge } = useUserStore();
-  const avatarIcon = equippedAvatar
-    ? (getShopItem(equippedAvatar)?.icon ?? '🤟')
-    : (activeBadge ? (getBadge(activeBadge)?.icon ?? '🤟') : '🤟');
 
+  // Profile tab renders <AvatarGlyph> (image or emoji) instead of a plain emoji string — icon here
+  // is just a placeholder that's never shown for the profile tab (see the render below).
   const tabs = [
     ...STATIC_TABS,
-    { id: 'profile' as Tab, label: 'Me', icon: avatarIcon },
+    { id: 'profile' as Tab, label: 'Me', icon: '🤟' },
   ];
 
   return (
@@ -74,7 +72,11 @@ export function BottomNav({ active, onChange, onMultiplayer, onSettings }: Props
                   hover: ICON_HOVER[tab.id],
                 }}
               >
-                {tab.icon}
+                {tab.id === 'profile' ? (
+                  <span className="w-5 h-5 rounded-md overflow-hidden flex items-center justify-center">
+                    <AvatarGlyph avatarId={equippedAvatar} badgeId={activeBadge} />
+                  </span>
+                ) : tab.icon}
               </motion.span>
               <span className={`text-[10px] font-semibold tracking-wide ${
                 isActive ? 'text-z-purple-glow' : 'text-z-gray-400'

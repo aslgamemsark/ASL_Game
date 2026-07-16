@@ -33,6 +33,7 @@ import { useProgressSync } from '@/hooks/useProgressSync';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
+import { generateRoomCode } from '@/lib/multiplayerRooms';
 import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
@@ -42,7 +43,7 @@ import { CelebrationHost } from '@/components/shared/CelebrationHost';
 
 type Screen =
   | { type: 'home' }
-  | { type: 'onboarding' }
+  | { type: 'onboarding'; startAt?: 'welcome' | 'auth' }
   | { type: 'lesson'; lessonId: string }
   | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; mixedQuiz?: boolean; bonusGoldOnPerfect?: number; heading?: string; hideReferenceClip?: boolean }
   | { type: 'story'; storyId: string }
@@ -94,24 +95,46 @@ export default function App() {
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );
 
-  // Returning users who are already logged in skip onboarding regardless of local store state
+  // Returning users who are already logged in skip onboarding regardless of local store state —
+  // except for one deliberate escape hatch: SettingsPage's admin-only "Replay onboarding" button
+  // sets this sessionStorage flag right before reloading, specifically so a signed-in dev/admin
+  // can re-walk the flow (e.g. to re-test the dominant-hand step) without having to sign out
+  // first. Consumed once, so it can't accidentally stick past this one pass.
   useEffect(() => {
     if (!authLoading && user && screen.type === 'onboarding') {
+      if (sessionStorage.getItem('asl-force-onboarding') === '1') {
+        sessionStorage.removeItem('asl-force-onboarding');
+        return;
+      }
       setScreen({ type: 'home' });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
+
+  // Route a signed-out user to the sign-in screen. On "Log out", AuthContext.signOut() resets the
+  // progress store, flipping onboardingComplete back to false; without this the user would linger
+  // on whatever screen they were on, now silently rendered as a guest (the reported bug). Land
+  // directly on the auth step so it reads as a sign-in/sign-up page rather than replaying the
+  // welcome intro. A brand-new first-run guest is unaffected: the initial screen is already
+  // 'onboarding', so the `screen.type !== 'onboarding'` guard keeps them on 'welcome'.
+  useEffect(() => {
+    if (!authLoading && !user && !onboardingComplete && screen.type !== 'onboarding') {
+      setScreen({ type: 'onboarding', startAt: 'auth' });
+    }
+  }, [user, onboardingComplete, authLoading, screen.type]);
   const [homeTab, setHomeTab] = useState<Tab>('learn');
   const [incomingChallenge, setIncomingChallenge] = useState<{ from: string; roomId: string } | null>(null);
   const [showAuth, setShowAuth] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const showNotice = useCallback((msg: string) => {
-    setNotice(msg);
-    setTimeout(() => setNotice((cur) => (cur === msg ? null : cur)), 2500);
-  }, []);
 
   const goHome = () => setScreen({ type: 'home' });
+
+  // On finishing onboarding, drop brand-new "beginner" learners straight into the Alphabets tab
+  // (learn the letters first) rather than the default Journey/learn tab. skillLevel was just set
+  // by completeOnboarding() inside the flow, so reading it from the store here is current.
+  const handleOnboardingComplete = useCallback(() => {
+    setHomeTab(useUserStore.getState().skillLevel === 'beginner' ? 'alphabet' : 'learn');
+    setScreen({ type: 'home' });
+  }, []);
   const showSideNav = SIDE_NAV_SCREENS.includes(screen.type as SideNavScreen);
 
   // Subscribe to incoming challenge notifications while logged in
@@ -128,7 +151,16 @@ export default function App() {
   // Called from FriendsPage: create a room, notify the friend, navigate to multiplayer as host
   const handleChallengeFriend = useCallback(async (friendId: string, friendUsername: string) => {
     if (!user || !supabaseReady) return;
-    const roomId = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const roomId = generateRoomCode();
+    // Register the room BEFORE notifying the friend — otherwise their client could receive the
+    // challenge broadcast and try to join_multiplayer_room() before this row exists, since that's
+    // a separate round trip than DuelPage's own createRoom() (which also upserts this same row;
+    // ignoreDuplicates makes running both harmless). Challenge rooms are always private — the
+    // friend joins via the direct notification, never via search.
+    await supabase.from('multiplayer_rooms').upsert(
+      { code: roomId, mode: 'duel', visibility: 'private', host_id: user.id, max_participants: 2 },
+      { onConflict: 'code', ignoreDuplicates: true }
+    );
     // Broadcast challenge to friend's personal channel
     const ch = supabase.channel(`challenge_${friendId}`);
     ch.subscribe((status) => {
@@ -244,7 +276,6 @@ export default function App() {
           onSettings={() => setScreen({ type: 'settings' })}
           onProfile={() => { goHome(); setHomeTab('profile'); }}
           onSignIn={() => setShowAuth(true)}
-          onNotice={showNotice}
         />
       )}
       <div className={showSideNav ? 'lg:pl-64' : ''}>
@@ -252,7 +283,7 @@ export default function App() {
         <AnimatePresence mode="wait">
           {screen.type === 'onboarding' && (
             <ScreenTransition key="onboarding">
-              <OnboardingFlow onComplete={goHome} />
+              <OnboardingFlow initialStep={screen.startAt} onComplete={handleOnboardingComplete} />
             </ScreenTransition>
           )}
 
@@ -322,6 +353,7 @@ export default function App() {
                 onChallengeFriend={handleChallengeFriend}
                 onStartMultiplayer={() => setScreen({ type: 'multiplayer', mode: 'duel' })}
                 onViewProfile={(id) => setScreen({ type: 'user-profile', userId: id })}
+                onRequireSignIn={() => setShowAuth(true)}
               />
             </ScreenTransition>
           )}
@@ -333,6 +365,7 @@ export default function App() {
                 mode={screen.mode}
                 autoHostRoomId={screen.autoHostRoomId}
                 autoJoinCode={screen.autoJoinCode}
+                onRequireSignIn={() => setShowAuth(true)}
               />
             </ScreenTransition>
           )}
@@ -412,20 +445,6 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
           >
             ⚠️ Couldn't sync your progress — check your connection
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Transient notice toast (e.g. a guest tapping "Log out"). */}
-      <AnimatePresence>
-        {notice && (
-          <motion.div
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-2xl whitespace-nowrap"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
-          >
-            {notice}
           </motion.div>
         )}
       </AnimatePresence>

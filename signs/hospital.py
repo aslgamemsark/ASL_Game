@@ -46,6 +46,14 @@ HOSPITAL = Sign(
         # "show 2 fingers near the shoulder" alone can't pass.
         min_displacement_ratio=0.25,
         min_duration_s=0.5,
+        # Real user report (2026-07-15): "it passes just by seeig my 2 fingers" — bringing the hand
+        # UP to the shoulder is itself linear displacement, satisfying a magnitude-only check
+        # before any actual cross-stroke happens once there. gate_to_location restricts
+        # displacement to frames already at the shoulder, so only the post-arrival stroke counts.
+        # This is a distinct bug from the rapid/random-movement ceiling documented below — it
+        # doesn't try to separate real HOSPITAL from a rapid confusor by magnitude, it removes a
+        # systematic source of false credit (the reach itself) that applies regardless of confusor.
+        gate_to_location=True,
         # Investigated 2026-07-14 against a real webcam rapid/random-movement confusor: direction is
         # None here (the cross has no fixed direction), so linear_confidence is magnitude-only —
         # and rapid random hand movement's net displacement near the shoulder measured LARGER than

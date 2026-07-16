@@ -1,13 +1,14 @@
 /**
- * Regression tests for specific confusors found via live user testing on 2026-07-14. TS mirror
- * of tests/test_specific_confusors.py in the Python engine — same fixtures, same methodology.
+ * Regression tests for specific confusors found via live user testing. TS mirror of
+ * tests/test_specific_confusors.py in the Python engine — same fixtures, same methodology.
  * See that file's docstring for the full root-cause writeups (NURSE two-finger parity fix,
- * shared with HOSPITAL; DOCTOR clap and MEDICINE wrong-hand remain documented open gaps).
+ * shared with HOSPITAL; DOCTOR clap and MEDICINE wrong-hand remain documented open gaps;
+ * LETTER_E fist confusor fixed 2026-07-15).
  */
 import { describe, it, expect } from 'vitest';
 import { RollingBuffer, frameFromDict, type Frame } from '../src/engine/landmarks';
 import { verify, resultPassed } from '../src/engine/verifier';
-import { NURSE, HOSPITAL, DOCTOR, MEDICINE } from '../src/engine/signs/index';
+import { NURSE, HOSPITAL, DOCTOR, MEDICINE, LETTER_E } from '../src/engine/signs/index';
 import type { Sign } from '../src/engine/schema';
 
 import nurseCorrect from './fixtures/nurse_correct.json';
@@ -16,6 +17,8 @@ import nurseClap from './fixtures/nurse_clap.json';
 import hospitalCorrect from './fixtures/hospital_correct.json';
 import doctorClap from './fixtures/doctor_clap.json';
 import medicineWrongHand from './fixtures/medicine_wrong_hand.json';
+import letterECorrect from './fixtures/letter_e_correct.json';
+import letterEFist from './fixtures/letter_e_fist.json';
 
 const CONSECUTIVE_REQUIRED = 6;
 const LIVE_WINDOW_S = 2.0;
@@ -52,6 +55,15 @@ describe('NURSE two-finger parity fix', () => {
 describe('HOSPITAL shares the two-finger parity fix', () => {
   it('correct still triggers', () => {
     expect(bestConsecutivePassStreak(hospitalCorrect, HOSPITAL)).toBeGreaterThanOrEqual(CONSECUTIVE_REQUIRED);
+  });
+});
+
+describe('LETTER_E fist confusor fix', () => {
+  it('correct still triggers', () => {
+    expect(bestConsecutivePassStreak(letterECorrect, LETTER_E)).toBeGreaterThanOrEqual(CONSECUTIVE_REQUIRED);
+  });
+  it('rejects a plain fist', () => {
+    expect(bestConsecutivePassStreak(letterEFist, LETTER_E)).toBeLessThan(CONSECUTIVE_REQUIRED);
   });
 });
 

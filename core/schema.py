@@ -102,6 +102,23 @@ class MovementReq:
     trace_template: Tuple[float, ...] = ()
     trace_tolerance_deg: float = 60.0
 
+    # linear only: when True, only frames where the acting hand already satisfies the sign's
+    # location requirement count toward displacement — the reach/approach getting the hand INTO
+    # position is excluded. Without this, a sign whose location is "up near the face/shoulder"
+    # trivially satisfies a magnitude-only LINEAR requirement just by the hand traveling there
+    # (real user reports: FEVER "passes just when I bring my hand closer to my forehead", HOSPITAL
+    # "passes just by seeing my 2 fingers" — near the shoulder). Off by default; only meaningful
+    # for signs whose real motion happens AT the location, not the arrival itself (FEVER, HOSPITAL).
+    gate_to_location: bool = False
+
+    # repeated (DOCTOR-style taps): the OTHER (non-acting) hand must stay relatively still, as a
+    # ratio of its own path length to shoulder width over the window. Distinguishes a wrist-tap
+    # (only the dominant hand moves; the wrist/forearm stays still) from clapping (both hands move
+    # substantially) — a real user report found DOCTOR "passes even on clapping" because the
+    # nondominant handshape isn't gated and REPEATED motion doesn't otherwise care which hand
+    # moves. None disables the check.
+    other_hand_max_motion_ratio: Optional[float] = None
+
     # shared
     min_duration_s: float = 0.6
     required: bool = True
@@ -160,6 +177,14 @@ class Sign:
     orientation: Optional[OrientationReq] = None
     nmm: Optional[NmmReq] = None
     two_handed: bool = True
+
+    # One-handed signs only: overrides how much the OTHER hand is allowed to move (as a ratio of
+    # its own path length to shoulder width) before the "no_extra_hand" required param fails —
+    # i.e. the idle hand is genuinely gesturing, not just visible at rest. None uses the global
+    # default (see verifier.EXTRA_HAND_MOTION_FLOOR). EMERGENCY's vigorous single-arm shake causes
+    # more natural counterbalance motion in the idle arm than a calm sign like PLEASE, so it needs
+    # a looser floor.
+    extra_hand_motion_floor: Optional[float] = None
 
     def __post_init__(self):
         has_motion = self.movement.kind != MovementKind.NONE

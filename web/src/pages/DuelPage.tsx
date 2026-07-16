@@ -6,6 +6,9 @@ import { useConfetti } from '@/hooks/useConfetti';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMultiplayerSignaling } from '@/hooks/useMultiplayerSignaling';
+import { supabase } from '@/lib/supabase';
+import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_DUEL_RULES, DUEL_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
+import { RoomRulesPanel } from '@/components/multiplayer/RoomRulesPanel';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
@@ -20,6 +23,7 @@ import { RoundProgressDots } from '@/components/multiplayer/RoundProgressDots';
 import { RoundResultCard } from '@/components/multiplayer/RoundResultCard';
 
 type Phase = 'lobby' | 'waiting' | 'signer' | 'guesser' | 'result' | 'done' | 'waiting-reconnect';
+type Visibility = 'public' | 'private';
 
 interface MatchState {
   roomId: string;
@@ -48,15 +52,17 @@ interface Props {
 }
 
 const ALL_SIGNS = Object.keys(SIGNS);
-const ROUNDS = 5;
+// Fallback round count / turn length when a client has no synced rules yet (e.g. a guesser before
+// the host's 'start' arrives). The host's chosen RoomRules override these, and the actual round
+// count is derived from the synced signs array length so both clients always agree.
+const ROUNDS = DEFAULT_DUEL_RULES.rounds;
 const RESULT_HOLD_MS = 1500;
-const TURN_SECONDS = 10;
+const TURN_SECONDS = DEFAULT_DUEL_RULES.turnSeconds;
 const RECONNECT_SECONDS = 30;
-
-function pickSigns(n: number): string[] {
-  const shuffled = [...ALL_SIGNS].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, n);
-}
+// Safety net: if the guesser's 'video-ready' (or the signer's synced 'turn-start' reply) never
+// arrives — a dropped broadcast, a camera that never loads — start the timer anyway after this
+// long, rather than letting a lost message stall a round forever.
+const TURN_ARM_FALLBACK_MS = 5000;
 
 export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const { user, username } = useAuth();
@@ -69,6 +75,14 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const [phase, setPhase] = useState<Phase>('lobby');
   const [reportOpen, setReportOpen] = useState(false);
   const [joinCode, setJoinCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [visibility, setVisibility] = useState<Visibility>('private');
+  const [searching, setSearching] = useState(false);
+  // Host-chosen rules (lobby only). turnSecondsRef holds the ACTIVE per-turn length for both host
+  // and guesser — set from `rules` on the host at createRoom, and from the synced 'start' payload
+  // on the guesser — so the countdown honors the host's choice on both sides.
+  const [rules, setRules] = useState<RoomRules>(DEFAULT_DUEL_RULES);
+  const turnSecondsRef = useRef<number>(DEFAULT_DUEL_RULES.turnSeconds);
   const [matchState, setMatchState] = useState<MatchState | null>(null);
   const matchStateRef = useRef<MatchState | null>(null);
   const [roundSignIds, setRoundSignIds] = useState<string[]>([]);
@@ -82,6 +96,11 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const startedRef = useRef(false);
   const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [timeLeft, setTimeLeft] = useState(TURN_SECONDS);
+  const [turnArmed, setTurnArmed] = useState(false);
+  const turnStartedAtRef = useRef(0);
+  const turnArmedThisRoundRef = useRef(false);
+  const videoReadySentRef = useRef(false);
+  const turnArmFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const turnIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const turnEndedRef = useRef(false);
   const [reconnectLeft, setReconnectLeft] = useState(RECONNECT_SECONDS);
@@ -90,7 +109,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const forfeitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phaseRef = useRef<Phase>('lobby');
   const phaseBeforeDisconnectRef = useRef<Phase>('signer');
-  const wasConnectedRef = useRef(false);
+  const wasPresentRef = useRef(false);
   const handleOpponentLostRef = useRef<() => void>(() => {});
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
@@ -113,8 +132,11 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     const nextRound = ms.round + 1;
     const myNewScore = ms.myScore + (iScored ? 1 : 0);
     const opNewScore = ms.opponentScore + (opponentScored ? 1 : 0);
+    // Derived from the synced signs array (both clients hold the same one), so a host who chose a
+    // non-default round count doesn't desync against the other player's ROUNDS constant.
+    const totalRounds = roundSignIdsRef.current.length || ROUNDS;
 
-    if (nextRound > ROUNDS) {
+    if (nextRound > totalRounds) {
       setMatchState((s) => s ? { ...s, myScore: myNewScore, opponentScore: opNewScore } : s);
       setPhase('done');
       if (myNewScore > opNewScore) {
@@ -175,7 +197,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       void (async () => {
         await signaling.startCamera();
         await signaling.connectToPeer(opId);
-        signaling.send('start', { signs, firstSign, hostId: user.id, border: equippedBorder ?? '' }, opId);
+        signaling.send('start', { signs, firstSign, hostId: user.id, border: equippedBorder ?? '', turnSeconds: turnSecondsRef.current }, opId);
       })();
       return;
     }
@@ -186,6 +208,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       const signs = payload.signs as string[];
       const firstSign = payload.firstSign as string;
       const hostBorder = (payload.border as string) ?? '';
+      turnSecondsRef.current = (payload.turnSeconds as number) ?? TURN_SECONDS;
       setRoundSignIds(signs);
       const amSigner = isSignerForRound(user.id, hostId, 1);
       setMatchState((s) => ({ roomId: s?.roomId ?? '', opponentId: hostId, opponentUsername: 'Host', opponentBorder: hostBorder, currentSign: firstSign, round: 1, myScore: 0, opponentScore: 0 }));
@@ -211,6 +234,18 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       enterResult(false, false, ms.currentSign, ms.opponentUsername);
       return;
     }
+    if (event === 'video-ready') {
+      // The guesser can now actually SEE our video (not just "WebRTC connected") — only meaningful
+      // to us while we're the signer waiting to arm this round's timer.
+      if (phaseRef.current === 'signer' && !turnArmedThisRoundRef.current) armTurnTimerRef.current();
+      return;
+    }
+    if (event === 'turn-start') {
+      // The signer confirmed the guesser can see them and stamped a synced start time — both
+      // clients now count down from the identical instant instead of each guessing independently.
+      if (!turnArmedThisRoundRef.current) armTurnTimerRef.current(payload.startedAt as number);
+      return;
+    }
     if (event === 'bye') {
       handleOpponentLostRef.current();
       return;
@@ -228,20 +263,41 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
 
   const createRoom = async (overrideRoomId?: string) => {
     if (!user) return;
-    const roomId = overrideRoomId ?? Math.random().toString(36).slice(2, 8).toUpperCase();
-    const signs = pickSigns(ROUNDS);
+    setCodeError('');
+    const roomId = overrideRoomId ?? generateRoomCode();
+    // Upsert + ignoreDuplicates: the challenge-friend flow (App.tsx) already registers this exact
+    // code before DuelPage even mounts, so a plain insert would fail on the unique constraint.
+    const { error } = await supabase.from('multiplayer_rooms').upsert(
+      { code: roomId, mode: 'duel', visibility, host_id: user.id, max_participants: 2 },
+      { onConflict: 'code', ignoreDuplicates: true }
+    );
+    if (error) { setCodeError('Could not create a room — please try again.'); return; }
+    turnSecondsRef.current = rules.turnSeconds;
+    const signs = pickSignsFrom(filterSignPool(ALL_SIGNS, rules.signSet), rules.rounds);
     setRoundSignIds(signs);
     setMatchState((s) => ({ ...(s ?? { opponentId: '', opponentUsername: '', currentSign: '', round: 1, myScore: 0, opponentScore: 0 }), roomId }));
     setStatusMsg(`Room code: ${roomId} — Share with a friend!`);
     setPhase('waiting');
     await signaling.join(`mp-room-${roomId}`);
+    // Start the camera immediately, same as the joiner — previously the host only requested it
+    // once the opponent's 'join' message arrived, so getUserMedia (permission prompt + warmup)
+    // didn't even START until someone else showed up. That's the real source of "camera takes too
+    // long": there's no artificial delay, just a late request.
+    await signaling.startCamera();
   };
 
   const joinRoom = async (overrideCode?: string) => {
     if (!user) return;
-    const code = overrideCode ?? joinCode;
-    if (!code.trim()) return;
-    const roomId = code.trim().toUpperCase();
+    const code = (overrideCode ?? joinCode).trim().toUpperCase();
+    if (!code) return;
+    setCodeError('');
+    // Validate the code against the room registry BEFORE joining the realtime channel — a
+    // mistyped/nonexistent code used to subscribe to an empty channel and wait forever with no
+    // feedback. join_multiplayer_room atomically checks existence/status/capacity and claims a
+    // slot in one round trip.
+    const { error } = await supabase.rpc('join_multiplayer_room', { p_code: code });
+    if (error) { setCodeError(joinErrorMessage(error.message)); return; }
+    const roomId = code;
     setPhase('waiting');
     setStatusMsg('Joining room…');
     setMatchState((s) => ({ ...(s ?? { opponentId: '', opponentUsername: '', currentSign: '', round: 1, myScore: 0, opponentScore: 0 }), roomId }));
@@ -249,6 +305,16 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     await signaling.startCamera();
     signaling.send('join', { username: username ?? user.email?.split('@')[0] ?? 'Player', border: equippedBorder ?? '' });
     setStatusMsg('Connected! Waiting for host…');
+  };
+
+  const searchForMatch = async () => {
+    if (!user || searching) return;
+    setCodeError('');
+    setSearching(true);
+    const { data, error } = await supabase.rpc('find_public_room', { p_mode: 'duel' });
+    setSearching(false);
+    if (error || !data) { setCodeError('No open duels right now — try creating one!'); return; }
+    await joinRoom((data as { code: string }).code);
   };
 
   const handleGuess = (signId: string) => {
@@ -272,20 +338,60 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     }
   });
 
-  // Per-turn 10s countdown for both the signer and guesser. Each client counts down locally from
-  // the moment it enters the turn; the SIGNER is authoritative on expiry (it broadcasts
-  // 'turn-timeout'), so the two clocks never need per-tick syncing — a little skew is invisible at
-  // 10s, and the signer's broadcast ends the round on both sides. Re-armed every round.
+  const armTurnTimerRef = useRef<(startedAt?: number) => void>(() => {});
+
+  // Arms the shared turn clock — called once the guesser has actually confirmed they can see the
+  // signer's video ('video-ready' -> signer stamps startedAt and replies 'turn-start' -> both
+  // clients arm off that identical instant), or by the fallback timeout if that handshake never
+  // completes. Idempotent per round via turnArmedThisRoundRef.
+  const armTurnTimer = useCallback((startedAt?: number) => {
+    if (turnArmedThisRoundRef.current) return;
+    turnArmedThisRoundRef.current = true;
+    if (turnArmFallbackRef.current) { clearTimeout(turnArmFallbackRef.current); turnArmFallbackRef.current = null; }
+    const at = startedAt ?? Date.now();
+    turnStartedAtRef.current = at;
+    setTurnArmed(true);
+    // I'm the signer confirming video-ready — stamp + tell the guesser so both clocks agree.
+    if (startedAt === undefined && phaseRef.current === 'signer') {
+      const ms = matchStateRef.current;
+      if (ms) signaling.send('turn-start', { startedAt: at }, ms.opponentId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => { armTurnTimerRef.current = armTurnTimer; }, [armTurnTimer]);
+
+  const handleVideoReady = useCallback(() => {
+    // I'm the guesser and can now actually see the signer — tell them so they can arm the clock.
+    // Sent once per round (a stream reattach on remount can otherwise re-fire this).
+    if (videoReadySentRef.current || phaseRef.current !== 'guesser') return;
+    videoReadySentRef.current = true;
+    const ms = matchStateRef.current;
+    if (ms) signaling.send('video-ready', {}, ms.opponentId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Per-turn 15s countdown for both the signer and guesser, synced to a shared startedAt (armed by
+  // armTurnTimer above) rather than each client's own Date.now() at phase-entry — so the clock
+  // only starts once the guesser can actually SEE the signer's camera, not merely once WebRTC
+  // reports 'connected'. The SIGNER is authoritative on expiry (it broadcasts 'turn-timeout'), so
+  // the two clocks never need per-tick syncing beyond that shared start. Re-armed every round.
   useEffect(() => {
     if (phase !== 'signer' && phase !== 'guesser') {
       if (turnIntervalRef.current) { clearInterval(turnIntervalRef.current); turnIntervalRef.current = null; }
+      if (turnArmFallbackRef.current) { clearTimeout(turnArmFallbackRef.current); turnArmFallbackRef.current = null; }
       return;
     }
     turnEndedRef.current = false;
-    const startedAt = Date.now();
-    setTimeLeft(TURN_SECONDS);
+    turnArmedThisRoundRef.current = false;
+    videoReadySentRef.current = false;
+    setTurnArmed(false);
+    setTimeLeft(turnSecondsRef.current);
+    // Safety net: arm anyway after TURN_ARM_FALLBACK_MS if the video-ready/turn-start handshake
+    // never completes (dropped message, camera denied), so a round can't stall forever.
+    turnArmFallbackRef.current = setTimeout(() => armTurnTimerRef.current(), TURN_ARM_FALLBACK_MS);
     turnIntervalRef.current = setInterval(() => {
-      const remaining = TURN_SECONDS - (Date.now() - startedAt) / 1000;
+      if (!turnArmedThisRoundRef.current) return;
+      const remaining = turnSecondsRef.current - (Date.now() - turnStartedAtRef.current) / 1000;
       setTimeLeft(Math.max(0, remaining));
       if (remaining <= 0 && !turnEndedRef.current) {
         turnEndedRef.current = true;
@@ -301,7 +407,10 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
         }
       }
     }, 100);
-    return () => { if (turnIntervalRef.current) { clearInterval(turnIntervalRef.current); turnIntervalRef.current = null; } };
+    return () => {
+      if (turnIntervalRef.current) { clearInterval(turnIntervalRef.current); turnIntervalRef.current = null; }
+      if (turnArmFallbackRef.current) { clearTimeout(turnArmFallbackRef.current); turnArmFallbackRef.current = null; }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, matchState?.round]);
 
@@ -318,7 +427,8 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   }, [clearReconnectTimers]);
 
   // Opponent forfeits by leaving: after RECONNECT_SECONDS with no reconnection, the staying player
-  // wins outright and gets the normal win reward.
+  // wins outright and gets the normal win reward. Unchanged from before — only WHO sees which
+  // message during the wait changes, not this countdown/forfeit mechanic itself.
   const forfeitWin = useCallback(() => {
     clearReconnectTimers();
     setEndedByForfeit(true);
@@ -329,15 +439,22 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     burst();
   }, [addGold, addSigns, burst, clearReconnectTimers, sounds]);
 
-  // The opponent's connection came back within the window — resume where the match left off.
-  // (Works for a transient WebRTC drop, where both clients still hold their match state.)
+  // The opponent's presence came back within the window — resume where the match left off, and
+  // re-attempt the WebRTC handshake (presence recovering doesn't by itself repair a peer
+  // connection that failed — that needs a fresh offer/answer).
   const resumeAfterReconnect = useCallback(() => {
     clearReconnectTimers();
     setPhase(phaseBeforeDisconnectRef.current);
+    const opponentId = matchStateRef.current?.opponentId;
+    if (opponentId) void signaling.connectToPeer(opponentId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearReconnectTimers]);
 
-  // Opponent dropped mid-match (explicit 'bye' or a lost WebRTC connection). Show the waiting
-  // banner + 30s countdown; arm the forfeit timer.
+  // Opponent dropped mid-match (explicit 'bye' or their presence left the signaling channel).
+  // Show the waiting banner + 30s countdown; arm the forfeit timer. This fires identically for
+  // both players today, but the RENDER below differentiates via `channelStatus`: only the player
+  // whose OWN channel actually dropped sees a "you're disconnected" call-to-action — the other
+  // sees a passive "opponent disconnected" notice, since reconnecting is meaningless for them.
   const handleOpponentLost = useCallback(() => {
     const p = phaseRef.current;
     if (p !== 'signer' && p !== 'guesser' && p !== 'result') return; // only interrupt active play
@@ -352,35 +469,39 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
 
   const exit = () => {
     // Tell the opponent we're leaving so their client can start the reconnect/forfeit countdown
-    // immediately instead of waiting for the WebRTC connection to time out.
+    // immediately instead of waiting for presence to time out.
     if (matchStateRef.current?.opponentId) signaling.send('bye', {}, matchStateRef.current.opponentId);
     recognition.stopLoop();
     clearReconnectTimers();
+    const roomId = matchStateRef.current?.roomId;
+    if (roomId) void supabase.rpc('leave_multiplayer_room', { p_code: roomId });
     signaling.leave();
     onExit();
   };
 
   const remoteStream = matchState ? signaling.peers[matchState.opponentId]?.stream ?? null : null;
   const remoteConnected = matchState ? signaling.peers[matchState.opponentId]?.connectionState === 'connected' : false;
+  const opponentPresent = matchState ? signaling.presentPeerIds.includes(matchState.opponentId) : false;
+  // Whether it's THIS client's own signaling connection that's down — see ChannelStatus's
+  // docstring. Drives which half of the reconnect UI renders below.
+  const iAmDisconnected = signaling.channelStatus === 'disconnected';
 
-  // Watch the opponent's WebRTC connection: a drop during active play starts the reconnect wait;
-  // a recovery during the wait resumes the match. wasConnectedRef avoids firing on the initial
-  // pre-connection state (connectionState is not 'connected' before the handshake completes).
+  // Watch the opponent's PRESENCE (not raw WebRTC connectionState, which is symmetric and can't
+  // say WHO dropped): a drop during active play starts the reconnect wait; a recovery during the
+  // wait resumes the match. wasPresentRef avoids firing on the initial pre-join state.
   useEffect(() => {
-    if (remoteConnected) {
-      wasConnectedRef.current = true;
+    if (opponentPresent) {
+      wasPresentRef.current = true;
       if (phase === 'waiting-reconnect') resumeAfterReconnect();
-    } else if (wasConnectedRef.current) {
+    } else if (wasPresentRef.current) {
       handleOpponentLost();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remoteConnected, phase]);
+  }, [opponentPresent, phase]);
 
-  const tryReconnect = () => {
-    if (matchStateRef.current?.opponentId) void signaling.connectToPeer(matchStateRef.current.opponentId);
-  };
   const opponentBorderClasses = matchState?.opponentBorder ? (getShopItem(matchState.opponentBorder)?.preview ?? '') : '';
-  const timerPercent = (timeLeft / TURN_SECONDS) * 100;
+  const totalRounds = roundSignIds.length || ROUNDS;
+  const timerPercent = turnArmed ? (timeLeft / turnSecondsRef.current) * 100 : 100;
 
   return (
     <div className="min-h-screen bg-z-bg flex flex-col">
@@ -402,15 +523,36 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                 <h2 className="text-2xl font-bold">Sign & Guess</h2>
                 <p className="text-z-gray-300 text-sm mt-1">Sign it, your friend guesses it.</p>
               </div>
-              <motion.button onClick={() => createRoom()}
-                className="w-full max-w-xs py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                Create Room
+
+              <div className="w-full max-w-xs flex flex-col gap-2">
+                <RoomRulesPanel rules={rules} onChange={setRules} roundsOptions={DUEL_ROUNDS_OPTIONS} />
+                <div className="flex bg-z-card border border-white/10 rounded-2xl p-1">
+                  <button onClick={() => setVisibility('private')}
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'private' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
+                    🔒 Private
+                  </button>
+                  <button onClick={() => setVisibility('public')}
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'public' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
+                    🌐 Public
+                  </button>
+                </div>
+                <motion.button onClick={() => createRoom()}
+                  className="w-full py-3 rounded-2xl font-bold text-white bg-gradient-primary"
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                  Create Room
+                </motion.button>
+              </div>
+
+              <motion.button onClick={() => void searchForMatch()} disabled={searching}
+                className="w-full max-w-xs py-3 rounded-2xl font-bold text-sm bg-z-card border border-white/10 hover:border-z-purple/40 disabled:opacity-50"
+                whileTap={{ scale: 0.97 }}>
+                {searching ? 'Searching…' : '🔍 Search for a Match'}
               </motion.button>
+
               <div className="w-full max-w-xs">
                 <p className="text-center text-z-gray-400 text-sm mb-2">— or join with a code —</p>
                 <div className="flex gap-2">
-                  <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  <input value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setCodeError(''); }}
                     placeholder="XXXXXX"
                     className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:outline-none focus:border-z-purple/60" />
                   <motion.button onClick={() => joinRoom()} disabled={!joinCode.trim()}
@@ -419,6 +561,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                     Join
                   </motion.button>
                 </div>
+                {codeError && <p className="text-center text-z-red text-xs mt-2">{codeError}</p>}
               </div>
             </motion.div>
           )}
@@ -441,11 +584,13 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
             <motion.div key="signer" className="flex-1 flex flex-col gap-4 pt-4"
               initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
               <div className="flex items-center justify-between">
-                <RoundProgressDots total={ROUNDS} current={matchState.round} />
+                <RoundProgressDots total={totalRounds} current={matchState.round} />
                 <Scoreboard entries={[{ label: 'You', score: matchState.myScore, isYou: true }, { label: matchState.opponentUsername, score: matchState.opponentScore, isYou: false }]} />
               </div>
               <div className="bg-z-card border border-z-purple/30 rounded-2xl p-4 text-center">
-                <p className="text-xs text-z-gray-400 mb-1">SIGN THIS · <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span></p>
+                <p className="text-xs text-z-gray-400 mb-1">
+                  SIGN THIS · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-500">waiting for {matchState.opponentUsername}'s camera…</span>}
+                </p>
                 <p className="text-3xl font-bold text-z-purple-light">{SIGNS[matchState.currentSign]?.name.replace(/_/g, ' ') ?? matchState.currentSign}</p>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -463,14 +608,16 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
             <motion.div key="guesser" className="flex-1 flex flex-col gap-5 pt-4"
               initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
               <div className="flex items-center justify-between">
-                <RoundProgressDots total={ROUNDS} current={matchState.round} />
+                <RoundProgressDots total={totalRounds} current={matchState.round} />
                 <Scoreboard entries={[{ label: 'You', score: matchState.myScore, isYou: true }, { label: matchState.opponentUsername, score: matchState.opponentScore, isYou: false }]} />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <RemotePeerVideo stream={remoteStream} label={`${matchState.opponentUsername} — signing`} connected={remoteConnected} cosmeticBorderClasses={opponentBorderClasses} activeTurn turnLabel={`${matchState.opponentUsername}'s turn`} timerPercent={timerPercent} />
+                <RemotePeerVideo stream={remoteStream} label={`${matchState.opponentUsername} — signing`} connected={remoteConnected} cosmeticBorderClasses={opponentBorderClasses} activeTurn turnLabel={`${matchState.opponentUsername}'s turn`} timerPercent={timerPercent} onVideoReady={handleVideoReady} />
                 <WebcamMirror videoRef={signaling.localVideoRef} label="You" cosmeticBorderClasses={cosmeticBorderClasses} />
               </div>
-              <p className="text-center font-bold">What are they signing? · <span className={timeLeft <= 3 ? 'text-z-red' : 'text-z-gray-400'}>{Math.ceil(timeLeft)}s</span></p>
+              <p className="text-center font-bold">
+                What are they signing? · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red' : 'text-z-gray-400'}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-500 font-normal text-sm">connecting…</span>}
+              </p>
               <div className="grid grid-cols-2 gap-3">
                 {guessOptions.map((s) => (
                   <motion.button key={s} onClick={() => handleGuess(s)}
@@ -502,10 +649,21 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
             <motion.div key="waiting-reconnect" className="flex-1 flex flex-col items-center justify-center gap-4"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <motion.div className="text-5xl" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.4, repeat: Infinity }}>📡</motion.div>
-              <h2 className="text-xl font-bold text-center">{matchState.opponentUsername} disconnected</h2>
-              <p className="text-z-gray-400 text-sm text-center">Waiting for them to reconnect…</p>
-              <p className="text-4xl font-bold text-z-purple-light">{reconnectLeft}s</p>
-              <p className="text-z-gray-500 text-xs text-center">If they don't come back, you win.</p>
+              {iAmDisconnected ? (
+                <>
+                  <h2 className="text-xl font-bold text-center">You've been disconnected</h2>
+                  <p className="text-z-gray-400 text-sm text-center">Reconnecting automatically…</p>
+                  <p className="text-4xl font-bold text-z-purple-light">{reconnectLeft}s</p>
+                  <p className="text-z-gray-500 text-xs text-center">If reconnecting fails, use the button below.</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-xl font-bold text-center">{matchState.opponentUsername} disconnected</h2>
+                  <p className="text-z-gray-400 text-sm text-center">Waiting for them to reconnect — the match is still on.</p>
+                  <p className="text-4xl font-bold text-z-purple-light">{reconnectLeft}s</p>
+                  <p className="text-z-gray-500 text-xs text-center">If they don't come back, you win.</p>
+                </>
+              )}
             </motion.div>
           )}
 
@@ -554,16 +712,26 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
         </AnimatePresence>
       </div>
 
-      {/* Bottom-middle reconnect banner — the user's requested "option to reconnect (bottom middle
-          of page)" — lets the staying player re-attempt the WebRTC handshake for a transient drop
-          while the 30s forfeit countdown runs. */}
+      {/* Bottom-middle reconnect banner. Split by WHO actually disconnected (see channelStatus/
+          presence above): the player whose own connection dropped gets a manual retry (auto-
+          reconnect usually handles it, but the button covers the case where it doesn't); the
+          player who stayed just gets an informational notice — clicking "reconnect" themselves
+          wouldn't do anything, since their own link was never the problem. Once the dropped
+          player's presence actually returns, resumeAfterReconnect() re-attempts the WebRTC
+          handshake automatically from the staying player's side. */}
       {phase === 'waiting-reconnect' && matchState && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-z-card border border-z-purple/40 rounded-2xl px-5 py-3 shadow-xl flex items-center gap-4">
-          <span className="text-sm font-semibold">Opponent left — {reconnectLeft}s</span>
-          <button onClick={tryReconnect}
-            className="px-3.5 py-1.5 rounded-xl bg-z-purple text-white text-xs font-bold">
-            Reconnect
-          </button>
+          {iAmDisconnected ? (
+            <>
+              <span className="text-sm font-semibold">You're disconnected — {reconnectLeft}s</span>
+              <button onClick={() => void signaling.join(`mp-room-${matchState.roomId}`)}
+                className="px-3.5 py-1.5 rounded-xl bg-z-purple text-white text-xs font-bold">
+                Retry
+              </button>
+            </>
+          ) : (
+            <span className="text-sm font-semibold">{matchState.opponentUsername} disconnected — {reconnectLeft}s</span>
+          )}
           <button onClick={exit} className="text-xs text-z-gray-400 hover:text-white">Leave</button>
         </div>
       )}

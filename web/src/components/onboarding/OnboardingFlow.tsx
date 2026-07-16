@@ -6,10 +6,14 @@ import { AuthModal } from '@/components/auth/AuthModal';
 import { supabaseReady } from '@/lib/supabase';
 import { Zippy } from '@/components/shared/Zippy';
 import { ZIPPY_LINES } from '@/data/zippy';
+import { DominantHandStep } from '@/components/onboarding/DominantHandStep';
 import type { SkillLevel } from '@/types/user';
 
 interface Props {
   onComplete: () => void;
+  /** Where the flow opens. Defaults to 'welcome' for a genuine first run; App passes 'auth' when
+   *  routing a just-signed-out user here, so they land on the sign-in/sign-up step directly. */
+  initialStep?: 'welcome' | 'auth' | 'skill';
 }
 
 const SKILLS: {
@@ -42,11 +46,11 @@ const SKILLS: {
   },
 ];
 
-export function OnboardingFlow({ onComplete }: Props) {
-  const [step, setStep] = useState<'welcome' | 'auth' | 'skill' | 'done'>('welcome');
+export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
+  const [step, setStep] = useState<'welcome' | 'auth' | 'skill' | 'hand' | 'done'>(initialStep);
   const [selectedLevel, setSelectedLevel] = useState<SkillLevel | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const { completeOnboarding } = useUserStore();
+  const { completeOnboarding, setDominantHand } = useUserStore();
   const { user, signInWithGoogle } = useAuth();
 
   // Covers the Google OAuth redirect-and-return: the page reloads with an active session,
@@ -58,8 +62,17 @@ export function OnboardingFlow({ onComplete }: Props) {
   const handleSkillSelect = (level: SkillLevel) => {
     setSelectedLevel(level);
     completeOnboarding(level);
+    setStep('hand');
+  };
+
+  const finish = () => {
     setStep('done');
     setTimeout(onComplete, 1400);
+  };
+
+  const handleHandConfirm = (hand: 'left' | 'right') => {
+    setDominantHand(hand);
+    finish();
   };
 
   return (
@@ -75,7 +88,7 @@ export function OnboardingFlow({ onComplete }: Props) {
             transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
             <div className="mb-5 flex justify-center">
-              <Zippy expression="welcome" size="lg" float priority />
+              <Zippy expression="welcome" size="xl" float priority />
             </div>
 
             {/* Solid color, not gradient-clipped text: emphasis belongs to weight/color, and the
@@ -203,6 +216,10 @@ export function OnboardingFlow({ onComplete }: Props) {
           </motion.div>
         )}
 
+        {step === 'hand' && (
+          <DominantHandStep onConfirm={handleHandConfirm} onSkip={finish} />
+        )}
+
         {step === 'done' && (
           <motion.div
             key="done"
@@ -212,7 +229,7 @@ export function OnboardingFlow({ onComplete }: Props) {
             transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
             <div className="mb-4 flex justify-center">
-              <Zippy expression="celebrating" size="lg" />
+              <Zippy expression="celebrating" size="xl" />
             </div>
             {/* Was reusing the skill-level TITLE ("Just Starting"/"Some Experience"/
                 "Conversational") as the celebratory headline — read as a non-sequitur, restating

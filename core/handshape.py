@@ -427,14 +427,30 @@ def c_confidence(hand: Hand) -> float:
 
 def e_confidence(hand: Hand) -> float:
     """Letter E: all four fingers bent at the middle knuckle, tips pointing toward the palm,
-    thumb tucked underneath. High uniform curl, thumb not extended to side."""
+    thumb tucked underneath so the thumb TIP rests against the curled fingertips.
+
+    "Thumb not extended to the side" alone (the old check) can't tell E apart from a plain closed
+    fist/S: both curl the fingers fully and keep the thumb in, so a real user test found a simple
+    fist scored E's handshape at a perfect 1.0. The two shapes differ in WHERE the thumb ends up —
+    Distance from the thumb tip to the curled index/middle fingertips is the signal that
+    separates them, but the margin is much tighter than first assumed. A first pass used
+    LETTER_S's fixture (~0.155) as a stand-in for "fist" and picked target=0.44 from an older
+    LETTER_E recording — still accepted a real fist live (real user report, 2026-07-15). A
+    dedicated correct-vs-fist confusor recording (tools/recalibrate_letter_e.py) found the ACTUAL
+    live margin for this user/camera setup: genuine E measures ~0.33-0.39 (median 0.361), a plain
+    fist measures ~0.26-0.30 (median 0.292) — barely 0.02 apart at the closest edges, both far
+    below the earlier 0.44 target. target=0.355/tolerance=0.05 cleanly separates them (E's
+    median-smoothed score ~0.80, fist's ~0.0) with real margin on both sides.
+    """
     curls = _all_curls(hand)
     m = float(np.mean(curls))
     curl_score = float(np.clip((m - 0.45) / 0.25, 0.0, 1.0))
-    thumb_in = 1.0 - _thumb_extended(hand)
     spread = float(np.std(curls))
     uniformity = float(np.clip(1.0 - max(0.0, spread - 0.15) / 0.35, 0.0, 1.0))
-    return float(min(curl_score, thumb_in) * uniformity)
+    tip_mid = (_xy(hand, INDEX_TIP) + _xy(hand, MIDDLE_TIP)) / 2.0
+    d = float(np.linalg.norm(_xy(hand, THUMB_TIP) - tip_mid)) / _hand_scale(hand)
+    thumb_band = float(np.clip(1.0 - abs(d - 0.355) / 0.05, 0.0, 1.0))
+    return float(min(curl_score, thumb_band) * uniformity)
 
 
 def m_confidence(hand: Hand) -> float:

@@ -11,6 +11,7 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
+import { useFirstRunCameraGuide } from '@/hooks/useFirstRunCameraGuide';
 import { ReplayCompare } from '@/components/lesson/ReplayCompare';
 import { Zippy } from '@/components/shared/Zippy';
 import { pickZippyLine } from '@/data/zippy';
@@ -152,6 +153,8 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     onVerified: handleVerified,
     onAttempt: handleAttempt,
   });
+  // First-run only: overlay a camera-framing guide until the user is well positioned.
+  const showCamGuide = useFirstRunCameraGuide(recognition.framing?.ok);
 
   useEffect(() => {
     recognition.init();
@@ -469,6 +472,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                     videoRef={videoRef}
                     overlayClipUrl={showClip ? currentSignData.clip : undefined}
                     cosmeticBorderClasses={cosmeticBorderClasses}
+                    frameGuide={showCamGuide ? recognition.framing : null}
                   />
 
                   {recognition.result && (
