@@ -1,4 +1,5 @@
-import { motion, useReducedMotion } from 'framer-motion';
+import { useRef } from 'react';
+import { motion, useReducedMotion, useScroll, useTransform, useSpring } from 'framer-motion';
 import { Zippy } from '@/components/shared/Zippy';
 import { WORLDS } from '@/data/worlds';
 import { SIGNS } from '@/data/signs';
@@ -44,6 +45,28 @@ function Reveal({
     >
       {children}
     </motion.div>
+  );
+}
+
+/**
+ * A thin fixed progress bar tracking how far down the page the visitor is — the one motion
+ * element that's genuinely useful wayfinding on a long single-scroll page, not decoration.
+ * `useSpring` smooths the raw scroll fraction so it reads as a fluid fill rather than jittering
+ * with every wheel tick. Skipped entirely under reduced motion: a moving bar is exactly the kind
+ * of ambient motion that setting is meant to suppress, and it carries no information reduced-
+ * motion users need (they can still see their scrollbar position).
+ */
+function ScrollProgressBar() {
+  const reduce = useReducedMotion();
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, { stiffness: 200, damping: 40, mass: 0.1 });
+  if (reduce) return null;
+  return (
+    <motion.div
+      aria-hidden
+      className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-primary origin-left z-50"
+      style={{ scaleX }}
+    />
   );
 }
 
@@ -96,9 +119,23 @@ export function LandingPage({ onGetStarted }: Props) {
   // The one sign shown in the Sign Coach section. HELLO is the app's very first taught sign, and
   // its hint ("Like a salute that waves!") is real content from data/signs.ts.
   const hello = SIGNS.HELLO;
+  const reduce = useReducedMotion();
+
+  // Scroll-linked parallax for the Sign Coach video — the single most important section on the
+  // page (it's the product's real differentiator). A restrained ~24px drift, transform-only, is
+  // enough to read as "premium" without becoming a gimmick; everywhere else on the page uses the
+  // plain Reveal fade-up, so this section earns a treatment none of the others get.
+  const coachRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress: coachProgress } = useScroll({
+    target: coachRef,
+    offset: ['start end', 'end start'],
+  });
+  const videoY = useTransform(coachProgress, [0, 1], reduce ? [0, 0] : [24, -24]);
 
   return (
-    <main className="min-h-screen bg-z-bg overflow-x-hidden">
+    <>
+      <ScrollProgressBar />
+      <main className="min-h-screen bg-z-bg overflow-x-hidden">
       {/* ── Hero ─────────────────────────────────────────────────────────────────────── */}
       <section className="relative flex flex-col items-center justify-center text-center px-6 pt-[clamp(3rem,10vh,6rem)] pb-[clamp(3rem,8vh,5rem)]">
         {/* A single soft brand bloom behind Zippy. Purple is the committed identity (PRODUCT.md),
@@ -193,32 +230,56 @@ export function LandingPage({ onGetStarted }: Props) {
             </p>
           </Reveal>
 
-          <div className="flex flex-col md:flex-row items-center md:items-end justify-center gap-10 md:gap-14">
-            {/* Phone frame — real 390x844 capture, home.png, framed with a CSS bezel + notch. */}
-            <Reveal className="shrink-0">
-              <div className="mx-auto" style={{ width: 220 }}>
-                <div
-                  className="relative rounded-[2.25rem] border-[6px] border-z-gray-500/50 bg-black overflow-hidden shadow-2xl"
-                  style={{ aspectRatio: '390 / 844' }}
-                >
+          <div className="flex flex-col md:flex-row items-center md:items-end justify-center gap-12 md:gap-16">
+            {/* Phone frame — real 390x844 capture, home.png. No overlay sits on top of the image:
+                an earlier version had a decorative notch absolutely positioned over the screen,
+                but home.png is a raw viewport capture with no blank status-bar space reserved for
+                one, so the notch masked real content (the streak/signs/gold pills) — reported as
+                "cuts" on real hardware. Side buttons are attached to the OUTER chassis instead,
+                entirely outside the image area, so they add realism without ever touching it.
+                The screen frame's aspect-ratio is set to the image's exact native ratio (390/844)
+                and the border lives on the outer chassis (not this box), so object-cover has
+                nothing to crop — this box's content-box ratio matches the source pixel-for-pixel. */}
+            <motion.div
+              className="shrink-0"
+              initial={reduce ? false : { opacity: 0, y: 36, rotate: -4, scale: 0.94 }}
+              whileInView={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
+              viewport={{ once: true, margin: '-15%' }}
+              transition={{ duration: 0.6, ease: EASE }}
+            >
+              <div className="relative mx-auto" style={{ width: 236 }}>
+                {/* Chassis: bezel + side buttons, purely decorative, never overlapping the screen. */}
+                <div className="relative rounded-[2.75rem] bg-gradient-to-b from-z-gray-500/50 to-black p-2 shadow-2xl">
+                  <span aria-hidden className="absolute -right-px top-24 w-1 h-10 rounded-l bg-z-gray-500/60" />
+                  <span aria-hidden className="absolute -left-px top-20 w-1 h-6 rounded-r bg-z-gray-500/60" />
+                  <span aria-hidden className="absolute -left-px top-[7.5rem] w-1 h-6 rounded-r bg-z-gray-500/60" />
                   <div
-                    aria-hidden
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-4 bg-black rounded-b-2xl z-10"
-                  />
-                  <img
-                    src="/shots/home.png"
-                    alt="QuickSign's home screen on a phone: a 6-day streak, today's practice goal, and daily quests."
-                    loading="lazy"
-                    width={390}
-                    height={844}
-                    className="w-full h-full object-cover"
-                  />
+                    className="relative rounded-[2.25rem] overflow-hidden bg-black"
+                    style={{ aspectRatio: '390 / 844' }}
+                  >
+                    <img
+                      src="/shots/home.png"
+                      alt="QuickSign's home screen on a phone: a 6-day streak, today's practice goal, and daily quests."
+                      loading="lazy"
+                      width={390}
+                      height={844}
+                      className="w-full h-full object-cover block"
+                    />
+                  </div>
                 </div>
               </div>
-            </Reveal>
+            </motion.div>
 
-            {/* Desktop frame — real 1024x700 capture, desktop-home.png, framed as a browser window. */}
-            <Reveal delay={0.08} className="w-full max-w-2xl">
+            {/* Desktop frame — real 1024x700 capture, desktop-home.png, framed as a browser window.
+                The chrome bar sits in normal flow above the image (not overlaid), so it never
+                touches the screenshot either. */}
+            <motion.div
+              className="w-full max-w-2xl"
+              initial={reduce ? false : { opacity: 0, y: 28, scale: 0.97 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, margin: '-15%' }}
+              transition={{ duration: 0.6, ease: EASE, delay: 0.15 }}
+            >
               <div className="rounded-2xl border border-white/10 bg-z-card overflow-hidden shadow-2xl">
                 <div aria-hidden className="flex items-center gap-1.5 px-4 py-2.5 bg-z-surface border-b border-white/5">
                   <span className="w-2.5 h-2.5 rounded-full bg-z-red/70" />
@@ -234,7 +295,7 @@ export function LandingPage({ onGetStarted }: Props) {
                   className="w-full h-auto block"
                 />
               </div>
-            </Reveal>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -263,13 +324,19 @@ export function LandingPage({ onGetStarted }: Props) {
                 does what it says. Muted + no controls: this audience overlaps the Deaf and
                 hard-of-hearing community, so nothing here may depend on audio (PRODUCT.md). */}
             <Reveal>
-              <figure className="m-0">
+              <figure className="m-0" ref={coachRef}>
                 {/* The reference clips are all natively 720x720 (verified: HELLO, DOCTOR, COFFEE,
                     LETTER_A, HOSPITAL). Boxing that square footage into a 16:9 aspect-video with
                     object-cover cropped off the top of the frame — exactly where the hand meets
                     the forehead for HELLO, i.e. the part of the sign this section exists to show.
-                    aspect-square matches the clip's real dimensions, so nothing is cropped. */}
-                <div className="relative rounded-3xl overflow-hidden bg-z-card border border-white/5 aspect-square max-w-md mx-auto md:max-w-none">
+                    aspect-square matches the clip's real dimensions, so nothing is cropped.
+                    `videoY` (see the useScroll hook above) gives this card — and only this one,
+                    the page's real differentiator — a restrained scroll-linked drift the rest of
+                    the page doesn't get, instead of every section arriving with the same fade. */}
+                <motion.div
+                  style={{ y: videoY }}
+                  className="relative rounded-3xl overflow-hidden bg-z-card border border-white/5 aspect-square max-w-md mx-auto md:max-w-none"
+                >
                   <video
                     src={hello.clip}
                     autoPlay
@@ -282,7 +349,7 @@ export function LandingPage({ onGetStarted }: Props) {
                   <span className="absolute bottom-3 left-3 text-xs font-bold bg-black/70 text-white px-2.5 py-1 rounded-lg">
                     HELLO
                   </span>
-                </div>
+                </motion.div>
                 <figcaption className="text-z-gray-400 text-sm mt-3 italic">
                   “{hello.hint}”
                 </figcaption>
@@ -503,9 +570,14 @@ export function LandingPage({ onGetStarted }: Props) {
           </motion.button>
         </Reveal>
       </section>
+      </main>
 
       {/* ── Footer ───────────────────────────────────────────────────────────────────── */}
-      <footer className="px-6 pb-10">
+      {/* Deliberately a SIBLING of <main>, not nested inside it — a <footer> only maps to the
+          `contentinfo` ARIA landmark when it isn't nested in main/article/section (an earlier
+          version had it inside <main>, which meant the page exposed zero contentinfo landmarks —
+          flagged in a design review). */}
+      <footer className="px-6 pb-10 bg-z-bg">
         <div className="max-w-5xl mx-auto border-t border-white/5 pt-8 flex flex-col sm:flex-row items-center justify-between gap-5">
           <p className="text-z-gray-400 text-xs order-2 sm:order-1">
             QuickSign is in beta · Made with 🤟
@@ -522,6 +594,6 @@ export function LandingPage({ onGetStarted }: Props) {
           </a>
         </div>
       </footer>
-    </main>
+    </>
   );
 }
