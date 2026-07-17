@@ -180,6 +180,65 @@ export function LandingPage({ onGetStarted }: Props) {
         </div>
       </section>
 
+      {/* ── Real app, phone & desktop ────────────────────────────────────────────────── */}
+      <section className="px-6 py-[clamp(4rem,10vh,7rem)]">
+        <div className="max-w-5xl mx-auto">
+          <Reveal className="text-center mb-12">
+            <h2 className="font-bold text-white tracking-tight text-[clamp(1.75rem,4.5vw,2.75rem)] mb-4">
+              Practice on your phone. Track it anywhere.
+            </h2>
+            <p className="text-z-gray-300 text-base leading-relaxed max-w-[62ch] mx-auto">
+              QuickSign runs in the browser you already have — on your phone for a quick session,
+              or at a desk with a bigger screen. No install required.
+            </p>
+          </Reveal>
+
+          <div className="flex flex-col md:flex-row items-center md:items-end justify-center gap-10 md:gap-14">
+            {/* Phone frame — real 390x844 capture, home.png, framed with a CSS bezel + notch. */}
+            <Reveal className="shrink-0">
+              <div className="mx-auto" style={{ width: 220 }}>
+                <div
+                  className="relative rounded-[2.25rem] border-[6px] border-z-gray-500/50 bg-black overflow-hidden shadow-2xl"
+                  style={{ aspectRatio: '390 / 844' }}
+                >
+                  <div
+                    aria-hidden
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-4 bg-black rounded-b-2xl z-10"
+                  />
+                  <img
+                    src="/shots/home.png"
+                    alt="QuickSign's home screen on a phone: a 6-day streak, today's practice goal, and daily quests."
+                    loading="lazy"
+                    width={390}
+                    height={844}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+            </Reveal>
+
+            {/* Desktop frame — real 1024x700 capture, desktop-home.png, framed as a browser window. */}
+            <Reveal delay={0.08} className="w-full max-w-2xl">
+              <div className="rounded-2xl border border-white/10 bg-z-card overflow-hidden shadow-2xl">
+                <div aria-hidden className="flex items-center gap-1.5 px-4 py-2.5 bg-z-surface border-b border-white/5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-z-red/70" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-z-orange/70" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-z-green/70" />
+                </div>
+                <img
+                  src="/shots/desktop-home.png"
+                  alt="QuickSign's home screen in a desktop browser: the same streak and daily quests, alongside the full side navigation."
+                  loading="lazy"
+                  width={1024}
+                  height={700}
+                  className="w-full h-auto block"
+                />
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
       {/* ── The differentiator: the Sign Coach ───────────────────────────────────────── */}
       <section className="px-6 py-[clamp(4rem,10vh,7rem)]">
         <div className="max-w-5xl mx-auto">
