@@ -74,3 +74,6 @@ supabase/.temp/
 
 # --- impeccable's local cache (regenerable, per-machine) ---
 .impeccable/
+
+# --- Local training_samples drains (exported landmark data, kept off-DB and off-git) ---
+ml/training_exports/
