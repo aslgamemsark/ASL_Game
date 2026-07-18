@@ -159,6 +159,13 @@ export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplaye
     // (room membership via multiplayer_room_members) before allowing join or send, so a stranger
     // holding the publishable key can no longer subscribe to a room's WebRTC signaling. See
     // migration 20260718010000_realtime_authorization.sql.
+    //
+    // Belt-and-suspenders on top of the global auth listener in lib/supabase.ts: explicitly hand
+    // the Realtime socket the CURRENT access token right before subscribing, so a private join can
+    // never race a not-yet-synced token (which would fail RLS with auth.uid() = null and hang).
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) await supabase.realtime.setAuth(session.access_token);
+
     const ch = supabase.channel(channelName, { config: { presence: { key: selfPeerId }, private: true } });
     channelRef.current = ch;
 
@@ -199,16 +206,21 @@ export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplaye
       onMessageRef.current?.(event, payload, payload.from as string);
     });
 
+    // Settle the initial-join promise exactly once. Resolving on terminal states too (not just
+    // SUBSCRIBED) is what stops a denied/failed subscribe from hanging the caller forever on
+    // "Joining room…" — the app's ChannelStatus UI then reflects 'disconnected' and offers retry,
+    // instead of an infinite spinner. Later reconnect cycles re-enter this callback but `settled`
+    // keeps them from re-settling the promise; the re-track below still runs on every SUBSCRIBED.
+    let settled = false;
     await new Promise<void>((resolve) => {
       ch.subscribe((status) => {
-        // Re-track on every re-subscribe (Supabase's client auto-reconnects the underlying
-        // websocket after a drop, but presence needs an explicit re-track to reappear for peers).
         if (status === 'SUBSCRIBED') {
           setChannelStatus('subscribed');
           void ch.track({ peerId: selfPeerId });
-          resolve();
+          if (!settled) { settled = true; resolve(); }
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           setChannelStatus('disconnected');
+          if (!settled) { settled = true; resolve(); }
         }
       });
     });
