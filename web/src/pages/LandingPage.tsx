@@ -1,6 +1,7 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion, useScroll, useTransform, useSpring } from 'framer-motion';
 import { Zippy } from '@/components/shared/Zippy';
+import { ZippyMessage } from '@/components/shared/ZippyMessage';
 import { WORLDS } from '@/data/worlds';
 import { SIGNS } from '@/data/signs';
 
@@ -71,6 +72,42 @@ function ScrollProgressBar() {
 }
 
 /**
+ * The "this is you" illustrative photo in the Sign Coach demo — a real person raising a hand,
+ * standing in for what a visitor would see of themselves. Deliberately labeled "Example" rather
+ * than anything implying it's a live camera feed or that the pictured person's photo is being
+ * analyzed — that would be a false claim on the one page whose entire pitch is honesty about
+ * what the product actually does.
+ *
+ * Fails closed like Zippy.tsx's own onError handling: if the asset is missing, this collapses to
+ * a plain instructional placeholder instead of a broken-image icon.
+ */
+function DemoUserPhoto() {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="rounded-3xl bg-z-surface/40 border border-dashed border-white/10 aspect-[4/5] max-w-[220px] mx-auto md:mx-0 flex flex-col items-center justify-center gap-2 text-center p-6">
+        <span className="text-3xl" aria-hidden>🙋</span>
+        <p className="text-z-gray-400 text-xs">That's where your camera view goes</p>
+      </div>
+    );
+  }
+  return (
+    <div className="relative rounded-3xl overflow-hidden bg-z-card border border-white/5 aspect-[4/5] max-w-[220px] mx-auto md:mx-0">
+      <img
+        src="/photos/demo-hello.jpg"
+        alt="A learner raising an open hand near their forehead, signing HELLO — an example of what you'll see of yourself while practicing."
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="w-full h-full object-cover"
+      />
+      <span className="absolute bottom-2 left-2 text-[10px] font-bold bg-black/70 text-white px-2 py-1 rounded-lg">
+        Example
+      </span>
+    </div>
+  );
+}
+
+/**
  * Exactly what the live Sign Coach shows for HELLO — no more, no less.
  *
  * These are HELLO's REAL parameters: engine/verifier.ts only emits `orientation` when a sign
@@ -131,6 +168,51 @@ export function LandingPage({ onGetStarted }: Props) {
     offset: ['start end', 'end start'],
   });
   const videoY = useTransform(coachProgress, [0, 1], reduce ? [0, 0] : [24, -24]);
+
+  // The interactive Sign Coach demo: rows start in a neutral "not yet evaluated" state and reveal
+  // their REAL final verdict one at a time, mimicking what actually happens in-app as the engine
+  // scores each parameter. Under reduced motion (or if the observer below never fires — a
+  // headless renderer, a crawler, JS disabled) `revealedRows` is already at full length, so the
+  // exact same real, final content from before is what's in the DOM by default; the staggered
+  // reveal is a pure enhancement layered on top, never a gate on the real information.
+  //
+  // A plain IntersectionObserver, not framer-motion's onViewportEnter: the latter didn't fire
+  // reliably here (confirmed via direct console logging during development — the callback never
+  // ran even though the element was genuinely in the viewport), so this uses the underlying
+  // browser API directly instead of trusting the wrapper.
+  const [revealedRows, setRevealedRows] = useState(reduce ? PARAMETERS.length : 0);
+  const demoStartedRef = useRef(false);
+  const demoTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const checklistRef = useRef<HTMLDivElement>(null);
+  useEffect(() => () => demoTimers.current.forEach(clearTimeout), []);
+
+  const startDemo = () => {
+    if (reduce || demoStartedRef.current) return;
+    demoStartedRef.current = true;
+    PARAMETERS.forEach((_, i) => {
+      demoTimers.current.push(
+        setTimeout(() => setRevealedRows((n) => Math.max(n, i + 1)), 550 + i * 700)
+      );
+    });
+  };
+
+  useEffect(() => {
+    if (reduce) return;
+    const el = checklistRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          startDemo();
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '-15% 0px -15% 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reduce]);
 
   return (
     <>
@@ -300,7 +382,7 @@ export function LandingPage({ onGetStarted }: Props) {
         </div>
       </section>
 
-      {/* ── The differentiator: the Sign Coach ───────────────────────────────────────── */}
+      {/* ── The differentiator: the Sign Coach (interactive) ─────────────────────────── */}
       <section className="px-6 py-[clamp(4rem,10vh,7rem)]">
         <div className="max-w-5xl mx-auto">
           <Reveal className="text-center mb-12">
@@ -319,11 +401,23 @@ export function LandingPage({ onGetStarted }: Props) {
             </p>
           </Reveal>
 
-          <div className="grid md:grid-cols-2 gap-6 md:gap-8 items-center">
-            {/* The reference clip — real signing footage, the only asset that proves the product
-                does what it says. Muted + no controls: this audience overlaps the Deaf and
-                hard-of-hearing community, so nothing here may depend on audio (PRODUCT.md). */}
-            <Reveal>
+          <div className="grid md:grid-cols-2 gap-6 md:gap-8 items-start">
+            {/* Left: the prompt, the reference clip, and a mock "your camera" preview — walking
+                a visitor through exactly what a real attempt looks like before they've signed in. */}
+            <Reveal className="space-y-5">
+              <ZippyMessage
+                expression="teaching"
+                layout="row"
+                size="sm"
+                message="Hi there! I'm Zippy — can you say hello back?"
+              />
+
+              <div className="rounded-2xl bg-z-card border border-white/5 p-4">
+                <p className="text-z-gray-400 text-xs uppercase tracking-wide mb-1">Sign</p>
+                <p className="font-bold text-white text-xl mb-2">{hello.name}</p>
+                <p className="text-z-gray-300 text-sm">{hello.hint}</p>
+              </div>
+
               <figure className="m-0" ref={coachRef}>
                 {/* The reference clips are all natively 720x720 (verified: HELLO, DOCTOR, COFFEE,
                     LETTER_A, HOSPITAL). Boxing that square footage into a 16:9 aspect-video with
@@ -335,7 +429,7 @@ export function LandingPage({ onGetStarted }: Props) {
                     the page doesn't get, instead of every section arriving with the same fade. */}
                 <motion.div
                   style={{ y: videoY }}
-                  className="relative rounded-3xl overflow-hidden bg-z-card border border-white/5 aspect-square max-w-md mx-auto md:max-w-none"
+                  className="relative rounded-3xl overflow-hidden bg-z-card border border-white/5 aspect-square max-w-[220px] mx-auto md:mx-0"
                 >
                   <video
                     src={hello.clip}
@@ -346,62 +440,85 @@ export function LandingPage({ onGetStarted }: Props) {
                     aria-label="A signer demonstrating the ASL sign for HELLO: an open hand at the forehead, waving side to side."
                     className="w-full h-full object-contain"
                   />
-                  <span className="absolute bottom-3 left-3 text-xs font-bold bg-black/70 text-white px-2.5 py-1 rounded-lg">
-                    HELLO
+                  <span className="absolute bottom-2 left-2 text-[10px] font-bold bg-black/70 text-white px-2 py-1 rounded-lg">
+                    Reference
                   </span>
                 </motion.div>
-                <figcaption className="text-z-gray-400 text-sm mt-3 italic">
-                  “{hello.hint}”
-                </figcaption>
               </figure>
+
+              {/* The "this is you" preview — illustrative, not a live camera feed. Labeled plainly
+                  as an example so it can never read as a real-time analysis claim (PRODUCT.md:
+                  honesty over polish). Fails closed to a neutral placeholder if the asset is
+                  missing, same discipline as Zippy.tsx's own onError handling. */}
+              <DemoUserPhoto />
             </Reveal>
 
-            {/* A faithful still of the live ParameterChecklist. Deliberately shows one parameter
-                mid-fail with its real coaching hint — that IS the product, and a screenshot where
-                everything is green would sell the wrong thing (PRODUCT.md: "Coach, don't judge"). */}
+            {/* Right: the live-feeling checklist. Rows start neutral and reveal their REAL final
+                verdict one at a time once this card scrolls into view, mirroring what actually
+                happens in-app as the engine scores each parameter — see the revealedRows state
+                and startDemo above. Under reduced motion (or no JS) revealedRows is already at
+                full length, so this renders in its final, fully-correct state immediately. */}
             <Reveal delay={0.08}>
-              <div className="rounded-3xl bg-z-card border border-white/5 p-4 sm:p-5">
+              <motion.div
+                ref={checklistRef}
+                className="rounded-3xl bg-z-card border border-white/5 p-4 sm:p-5"
+              >
                 <div className="space-y-2">
-                  {PARAMETERS.map((p, i) => (
-                    <motion.div
-                      key={p.name}
-                      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border ${
-                        p.cleared
-                          ? 'bg-z-green/10 border-z-green/30'
-                          : 'bg-z-red/8 border-z-red/20'
-                      }`}
-                      initial={{ opacity: 0, x: -10 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      viewport={{ once: true, margin: '-10%' }}
-                      transition={{ delay: 0.1 + i * 0.06, ease: EASE }}
-                    >
-                      <div
-                        className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center text-xs font-bold ${
-                          p.cleared ? 'bg-z-green text-white' : 'bg-z-red/30 text-z-red'
+                  {PARAMETERS.map((p, i) => {
+                    const revealed = i < revealedRows;
+                    return (
+                      <motion.div
+                        key={p.name}
+                        animate={{ scale: revealed ? [1, 1.015, 1] : 1 }}
+                        transition={{ duration: 0.35, ease: EASE }}
+                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border transition-colors duration-300 ${
+                          !revealed
+                            ? 'bg-z-surface/30 border-white/5'
+                            : p.cleared
+                              ? 'bg-z-green/10 border-z-green/30'
+                              : 'bg-z-red/8 border-z-red/20'
                         }`}
-                        aria-hidden
                       >
-                        {p.cleared ? '✓' : '✗'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-sm font-semibold ${
-                            p.cleared ? 'text-z-green' : 'text-z-gray-100'
+                        <div
+                          className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center text-xs font-bold transition-colors duration-300 ${
+                            !revealed
+                              ? 'bg-z-gray-500/30 text-z-gray-300'
+                              : p.cleared
+                                ? 'bg-z-green text-white'
+                                : 'bg-z-red/30 text-z-red'
                           }`}
+                          aria-hidden
                         >
-                          {p.name}
-                        </p>
-                        {!p.cleared && (
-                          <p className="text-xs text-z-gray-300 mt-0.5">{p.hint}</p>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
+                          {!revealed ? '…' : p.cleared ? '✓' : '✗'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm font-semibold transition-colors duration-300 ${
+                              !revealed ? 'text-z-gray-400' : p.cleared ? 'text-z-green' : 'text-z-gray-100'
+                            }`}
+                          >
+                            {p.name}
+                          </p>
+                          {revealed && !p.cleared && (
+                            <p className="text-xs text-z-gray-300 mt-0.5">{p.hint}</p>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
-                <p className="text-z-gray-400 text-xs mt-4 leading-relaxed">
-                  The Sign Coach on HELLO — two parts right, one to fix.
-                </p>
-              </div>
+                {revealedRows === PARAMETERS.length && (
+                  <motion.p
+                    initial={reduce ? false : { opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, ease: EASE }}
+                    className="text-z-gray-400 text-xs mt-4 leading-relaxed"
+                  >
+                    The Sign Coach on HELLO — two parts right, one to fix. That's real feedback,
+                    not a mockup.
+                  </motion.p>
+                )}
+              </motion.div>
             </Reveal>
           </div>
         </div>
