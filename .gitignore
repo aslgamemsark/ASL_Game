@@ -47,6 +47,11 @@ tools/calibration_logs/
 # --- Landmark dataset deliverable for the teammate (regenerable; send directly, not via git) ---
 asl_landmarks_for_friend.zip
 
+# --- Env files (secrets) — anywhere in the repo, only the example template is tracked ---
+.env
+.env.*
+!.env.example
+
 # --- OS / editor ---
 .DS_Store
 Thumbs.db

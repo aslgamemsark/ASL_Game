@@ -2,8 +2,19 @@
  * used by DuelPage, RoomPage, and App.tsx's challenge-friend flow — kept in one place so the
  * three call sites can't drift on code generation or on how a join failure reads to the user. */
 
+/** Room codes gate entry to live-webcam sessions, so they must resist guessing:
+ * crypto.getRandomValues (not Math.random, which is predictable and could yield short codes via
+ * trailing-zero loss), fixed 8 chars from a 32-symbol alphabet (40 bits) with 0/O/1/I removed so
+ * codes are unambiguous when read aloud or retyped. */
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const CODE_LENGTH = 8;
+
 export function generateRoomCode(): string {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
+  const bytes = new Uint8Array(CODE_LENGTH);
+  crypto.getRandomValues(bytes);
+  let code = '';
+  for (const b of bytes) code += CODE_ALPHABET[b % CODE_ALPHABET.length];
+  return code;
 }
 
 /** Maps join_multiplayer_room's raised Postgres exception message to user-facing copy. */
@@ -12,6 +23,7 @@ export function joinErrorMessage(message: string): string {
   if (message.includes('full')) return 'That room is already full.';
   if (message.includes('already started')) return 'That game has already started.';
   if (message.includes('closed')) return 'That room has closed.';
+  if (message.includes('too many join attempts')) return 'Too many attempts — wait a minute and try again.';
   return 'Could not join that room — please try again.';
 }
 
