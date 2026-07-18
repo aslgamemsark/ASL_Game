@@ -155,7 +155,11 @@ export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplaye
   }, [closePeerConnection]);
 
   const join = useCallback(async (channelName: string) => {
-    const ch = supabase.channel(channelName, { config: { presence: { key: selfPeerId } } });
+    // private: true engages Realtime Authorization — the server checks RLS on realtime.messages
+    // (room membership via multiplayer_room_members) before allowing join or send, so a stranger
+    // holding the publishable key can no longer subscribe to a room's WebRTC signaling. See
+    // migration 20260718010000_realtime_authorization.sql.
+    const ch = supabase.channel(channelName, { config: { presence: { key: selfPeerId }, private: true } });
     channelRef.current = ch;
 
     // Presence tracks channel MEMBERSHIP (whose tab/socket is actually connected), independent of

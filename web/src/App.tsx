@@ -140,7 +140,10 @@ export default function App() {
   // Subscribe to incoming challenge notifications while logged in
   useEffect(() => {
     if (!user || !supabaseReady) return;
-    const ch = supabase.channel(`challenge_${user.id}`);
+    // private: true — Realtime Authorization only lets this user's own JWT subscribe to their
+    // challenge topic (see migration 20260718010000), so strangers can't read incoming
+    // challenges (which carry joinable room codes) off the wire anymore.
+    const ch = supabase.channel(`challenge_${user.id}`, { config: { private: true } });
     ch.on('broadcast', { event: 'challenge' }, ({ payload }) => {
       setIncomingChallenge({ from: payload.from as string, roomId: payload.roomId as string });
     });
@@ -161,18 +164,17 @@ export default function App() {
       { code: roomId, mode: 'duel', visibility: 'private', host_id: user.id, max_participants: 2 },
       { onConflict: 'code', ignoreDuplicates: true }
     );
-    // Broadcast challenge to friend's personal channel
-    const ch = supabase.channel(`challenge_${friendId}`);
-    ch.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        ch.send({
-          type: 'broadcast',
-          event: 'challenge',
-          payload: { from: username ?? 'Someone', roomId, fromId: user.id },
-        });
-        setTimeout(() => supabase.removeChannel(ch), 2000);
-      }
-    });
+    // Broadcast challenge to friend's personal channel — WITHOUT subscribing first. Under
+    // Realtime Authorization only the friend themselves may subscribe to (receive on) their
+    // challenge topic; senders are covered by a separate friends-only INSERT policy, which
+    // supabase-js exercises by routing send() on an un-joined channel through the REST broadcast
+    // endpoint. The old subscribe-then-send pattern would now be rejected at subscribe time.
+    const ch = supabase.channel(`challenge_${friendId}`, { config: { private: true } });
+    void ch.send({
+      type: 'broadcast',
+      event: 'challenge',
+      payload: { from: username ?? 'Someone', roomId, fromId: user.id },
+    }).finally(() => supabase.removeChannel(ch));
     // Navigate to multiplayer as the host with the pre-generated room ID
     setScreen({ type: 'multiplayer', mode: 'duel', autoHostRoomId: roomId });
     void friendUsername; // used in the notification received on the other side
