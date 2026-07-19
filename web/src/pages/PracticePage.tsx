@@ -24,6 +24,7 @@ import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { getSignsDueForReview, pickReceptiveDistractors } from '@/data/spaced-repetition';
 import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
+import { track } from '@/analytics';
 
 type Mode = 'loading' | 'menu' | 'expressive' | 'receptive' | 'mixed' | 'done';
 type CardPhase = 'prompt' | 'result' | 'replay';
@@ -43,11 +44,21 @@ interface Props {
   hideReferenceClip?: boolean;
 }
 
+// Practice covers review, the alphabet test, and true mixed quizzes — none map cleanly onto the
+// component's internal question-type ('expressive'/'receptive'), so this reads the heading/props
+// the caller already sets (see App.tsx's practice Screen variant) rather than adding a new prop.
+function practiceContentType(autoStartMixed: boolean | undefined, heading: string | undefined): 'review' | 'alphabet' | 'mixed' {
+  if (autoStartMixed) return 'mixed';
+  const h = heading?.toLowerCase() ?? '';
+  if (h.includes('alphabet') || h.includes('letter')) return 'alphabet';
+  return 'review';
+}
+
 export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoStartMixed, bonusGoldOnPerfect, heading, hideReferenceClip }: Props) {
   const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
-  const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera();
+  const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera('practice');
   const recorder = useAttemptRecorder();
   const [replayEnabled, setReplayEnabled] = useState(
     () => localStorage.getItem('signup-replay-enabled') === '1'
@@ -75,6 +86,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const loopStartedRef = useRef<string | null>(null);
   const goldAwardedRef = useRef(false);
+  const sessionCompletedTrackedRef = useRef(false);
 
   const currentSignId = queue[queueIdx];
   const currentSignData = currentSignId ? SIGNS[currentSignId] : null;
@@ -129,6 +141,19 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
 
   const handleAttempt = useCallback(
     (a: AttemptRecord) => {
+      // No single world_id — Practice deliberately mixes signs across worlds for review.
+      track('sign_attempt', {
+        sign_id: a.signId,
+        world_id: null,
+        source: 'practice',
+        rule_passed: a.rulePassed,
+        ai_vetoed: a.aiVetoed,
+        final_passed: a.finalPassed,
+        ai_prediction: a.aiPrediction,
+        ai_confidence: a.aiConfidence,
+        duration_ms: a.durationMs,
+        attempt_number: a.attemptNumber,
+      });
       if (!user) return;
       void logAttempt({
         userId: user.id,
@@ -152,6 +177,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     onVote: logVote,
     onVerified: handleVerified,
     onAttempt: handleAttempt,
+    screen: 'practice',
   });
   // First-run only: overlay a camera-framing guide until the user is well positioned.
   const showCamGuide = useFirstRunCameraGuide(recognition.framing?.ok);
@@ -221,7 +247,9 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     setSessionCorrect(0);
     setGoldAwarded(0);
     goldAwardedRef.current = false;
+    sessionCompletedTrackedRef.current = false;
     loopStartedRef.current = null;
+    track('practice_session_started', { content_type: practiceContentType(autoStartMixed, heading), question_count: pool.length });
     await startCam();
     setMode('expressive');
   };
@@ -241,7 +269,9 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     setSessionCorrect(0);
     setGoldAwarded(0);
     goldAwardedRef.current = false;
+    sessionCompletedTrackedRef.current = false;
     loopStartedRef.current = null;
+    track('practice_session_started', { content_type: 'mixed', question_count: shuffled.length });
     await startCam();
     setMode('mixed');
   };
@@ -262,6 +292,18 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
       bigCelebration();
       sounds.levelUp();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== 'done' || sessionCompletedTrackedRef.current) return;
+    sessionCompletedTrackedRef.current = true;
+    track('practice_session_completed', {
+      content_type: practiceContentType(autoStartMixed, heading),
+      correct: sessionCorrect,
+      total: queue.length,
+      xp_earned: sessionXp,
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 

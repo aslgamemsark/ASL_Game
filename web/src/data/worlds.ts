@@ -67,3 +67,15 @@ export const WORLDS: World[] = [
 export function getWorld(id: string): World | undefined {
   return WORLDS.find((w) => w.id === id);
 }
+
+/** Which world a lesson unit belongs to, for analytics labeling (lesson_started/completed,
+ *  sign_attempt's world_id — see analytics/types.ts). Returns null for a unit id that isn't in
+ *  any world (shouldn't happen with current data, but analytics must never throw over a data gap). */
+export function getWorldIdForUnit(unitId: string): string | null {
+  return WORLDS.find((w) => w.unitIds.includes(unitId))?.id ?? null;
+}
+
+/** Same purpose as getWorldIdForUnit, for StoryPage (which is keyed by storyId, not lessonId). */
+export function getWorldIdForStory(storyId: string): string | null {
+  return WORLDS.find((w) => w.storyId === storyId)?.id ?? null;
+}

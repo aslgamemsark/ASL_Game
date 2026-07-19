@@ -6,6 +6,7 @@ import { gatePass, gateHint, type GateDecision, type ClassifierVote } from '@/en
 import { topK, type SignClassifier } from '@/engine/classifier';
 import { GATE_CONFIDENCE, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
 import type { Sign } from '@/engine/schema';
+import { track, type ScreenName } from '@/analytics';
 
 export type RecognitionStatus = 'loading' | 'ready' | 'running' | 'error';
 
@@ -57,6 +58,10 @@ export interface AttemptRecord {
   aiVetoed: boolean;
   finalPassed: boolean;
   frames: Frame[];
+  /** Ms since this sign's recognition loop started — how long the user was trying this sign. */
+  durationMs: number;
+  /** 1-indexed count of attempts at this sign since the loop last (re)started for it. */
+  attemptNumber: number;
 }
 
 interface UseRecognitionOpts {
@@ -79,6 +84,10 @@ interface UseRecognitionOpts {
   onAttempt?: (attempt: AttemptRecord) => void;
   /** Min model probability for the prompted sign to allow a pass. */
   gateConfidence?: number;
+  /** Which screen mounted this loop — labels the sign_attempt/framing_check analytics events
+   *  (see analytics/types.ts). Every caller should pass its own screen name; recognition itself
+   *  stays screen-agnostic otherwise. */
+  screen?: ScreenName;
 }
 
 export function useRecognition(opts?: UseRecognitionOpts) {
@@ -114,6 +123,13 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   gateConfRef.current = opts?.gateConfidence ?? GATE_CONFIDENCE;
   const gatingRef = useRef(false);
   const frameCountRef = useRef(0);
+  const screenRef = useRef<ScreenName | undefined>(opts?.screen);
+  screenRef.current = opts?.screen;
+  // When the loop (re)started, and how many attempts have fired since — reset alongside the other
+  // per-sign state in startLoop/setSign so sign_attempt's duration_ms/attempt_number are always
+  // relative to the CURRENT sign, not a previous one in the same session.
+  const loopStartRef = useRef(0);
+  const attemptCountRef = useRef(0);
 
   const init = useCallback(async () => {
     if (captureRef.current?.ready) {
@@ -143,6 +159,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       stabilizerRef.current.reset();
       setResult(null);
       frameCountRef.current = 0;
+      loopStartRef.current = performance.now();
+      attemptCountRef.current = 0;
 
       const cap = captureRef.current;
       if (!cap?.ready) {
@@ -191,11 +209,16 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           bufferRef.current.add(frame);
           frameCountRef.current++;
 
-          // Update framing guidance only when the message changes, to avoid 28 setStates/sec.
+          // Update framing guidance only when the message changes, to avoid 28 setStates/sec. The
+          // same dedup boundary doubles as the analytics sample point — one framing_check per
+          // actual guidance change, never per frame.
           const f = computeFraming(frame);
           if (f.message !== framingMsgRef.current) {
             framingMsgRef.current = f.message;
             setFraming(f);
+            if (screenRef.current) {
+              track('framing_check', { ok: f.ok, reason: f.ok ? null : f.message, screen: screenRef.current });
+            }
           }
 
           const vr = verify(bufferRef.current, signRef.current);
@@ -238,6 +261,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                         vote,
                         decision: passed ? 'pass' : 'veto',
                       });
+                      attemptCountRef.current += 1;
                       attemptCallbackRef.current?.({
                         signId: gatedSign.name,
                         rulePassed: true,
@@ -246,6 +270,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                         aiVetoed: !passed,
                         finalPassed: passed,
                         frames: snapshot,
+                        durationMs: Math.round(performance.now() - loopStartRef.current),
+                        attemptNumber: attemptCountRef.current,
                       });
                       if (passed) {
                         passCallbackRef.current?.(vr);
@@ -265,6 +291,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                   vote: null,
                   decision: 'no-classifier',
                 });
+                attemptCountRef.current += 1;
                 attemptCallbackRef.current?.({
                   signId: sign.name,
                   rulePassed: true,
@@ -273,6 +300,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                   aiVetoed: false,
                   finalPassed: true,
                   frames: bufferRef.current.frames,
+                  durationMs: Math.round(performance.now() - loopStartRef.current),
+                  attemptNumber: attemptCountRef.current,
                 });
                 passCallbackRef.current?.(vr);
               }
@@ -308,6 +337,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     bufferRef.current.clear();
     stabilizerRef.current.reset();
     frameCountRef.current = 0;
+    loopStartRef.current = performance.now();
+    attemptCountRef.current = 0;
     setResult(null);
   }, []);
 

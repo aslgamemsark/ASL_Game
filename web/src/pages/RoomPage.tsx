@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRecognition } from '@/hooks/useRecognition';
+import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { useUserStore } from '@/stores/useUserStore';
@@ -19,6 +19,7 @@ import { RemotePeerVideo } from '@/components/shared/RemotePeerVideo';
 import { Scoreboard } from '@/components/multiplayer/Scoreboard';
 import { RoundProgressDots } from '@/components/multiplayer/RoundProgressDots';
 import { RoundResultCard } from '@/components/multiplayer/RoundResultCard';
+import { track } from '@/analytics';
 
 type Phase = 'lobby' | 'waitingRoom' | 'signing' | 'guessing' | 'roundResult' | 'finalResults';
 type Visibility = 'public' | 'private';
@@ -58,7 +59,7 @@ export function RoomPage({ onExit }: Props) {
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const sounds = useSounds();
   const { burst } = useConfetti();
-  const recognition = useRecognition({ onPass: handleSignCorrect });
+  const recognition = useRecognition({ onPass: handleSignCorrect, onAttempt: handleRoomAttempt, screen: 'multiplayer' });
 
   const [phase, setPhase] = useState<Phase>('lobby');
   const [joinCode, setJoinCode] = useState('');
@@ -107,6 +108,7 @@ export function RoomPage({ onExit }: Props) {
   const loopRef = useRef<string | null>(null);
   const disconnectedPeerIdsRef = useRef<string[]>([]);
   const wasPresentRef = useRef<Set<string>>(new Set());
+  const matchStartedAtRef = useRef(0);
   const armTurnTimerRef = useRef<(startedAt?: number) => void>(() => {});
 
   useEffect(() => { rosterRef.current = roster; }, [roster]);
@@ -211,6 +213,15 @@ export function RoomPage({ onExit }: Props) {
     setPhase('finalResults');
     const myScore = scoresRef.current[user?.id ?? ''] ?? 0;
     const best = Math.max(0, ...Object.values(scoresRef.current));
+    const won = myScore > 0 && myScore >= best;
+    track('multiplayer_match_finished', {
+      mode: 'room',
+      room_id: roomId,
+      player_count: rosterRef.current.length,
+      duration_ms: Date.now() - matchStartedAtRef.current,
+      won,
+      forfeited: false,
+    });
     if (myScore > 0 && myScore >= best) {
       addSigns(150);
       addGold(8);
@@ -259,6 +270,22 @@ export function RoomPage({ onExit }: Props) {
     signaling.send('video-ready', { round: roundRef.current });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
+
+  // Analytics-only, same scope limit and reasoning as DuelPage's equivalent handler.
+  function handleRoomAttempt(a: AttemptRecord) {
+    track('sign_attempt', {
+      sign_id: a.signId,
+      world_id: null,
+      source: 'room',
+      rule_passed: a.rulePassed,
+      ai_vetoed: a.aiVetoed,
+      final_passed: a.finalPassed,
+      ai_prediction: a.aiPrediction,
+      ai_confidence: a.aiConfidence,
+      duration_ms: a.durationMs,
+      attempt_number: a.attemptNumber,
+    });
+  }
 
   function handleSignCorrect(_r: VerifyResult) {
     // Signing correctly doesn't auto-score in Room mode (guessers earn the points) — it's purely
@@ -369,11 +396,12 @@ export function RoomPage({ onExit }: Props) {
     rosterRef.current = [me];
     setStatusMsg(`Room code: ${code} — share with up to 3 friends!`);
     setPhase('waitingRoom');
+    track('multiplayer_room_created', { mode: 'room', room_id: code, visibility, rounds: rules.rounds, turn_seconds: rules.turnSeconds });
     await signaling.join(`mp-room-${code}`);
     await signaling.startCamera();
   };
 
-  const joinRoom = async (overrideCode?: string) => {
+  const joinRoom = async (overrideCode?: string, via: 'code' | 'search' = 'code') => {
     if (!user) return;
     const code = (overrideCode ?? joinCode).trim().toUpperCase();
     if (!code) return;
@@ -384,6 +412,7 @@ export function RoomPage({ onExit }: Props) {
     setRoomId(code);
     setStatusMsg('Joining room…');
     setPhase('waitingRoom');
+    track('multiplayer_room_joined', { mode: 'room', room_id: code, via });
     await signaling.join(`mp-room-${code}`);
     await signaling.startCamera();
     signaling.send('roster-join', { username: username ?? user.email?.split('@')[0] ?? 'Player', border: equippedBorder ?? '' });
@@ -397,7 +426,7 @@ export function RoomPage({ onExit }: Props) {
     const { data, error } = await supabase.rpc('find_public_room', { p_mode: 'room' });
     setSearching(false);
     if (error || !data) { setCodeError('No open rooms right now — try creating one!'); return; }
-    await joinRoom((data as { code: string }).code);
+    await joinRoom((data as { code: string }).code, 'search');
   };
 
   const startGame = () => {
@@ -408,6 +437,8 @@ export function RoomPage({ onExit }: Props) {
     signsRef.current = signs;
     totalRoundsRef.current = signs.length;
     setTotalRounds(signs.length);
+    matchStartedAtRef.current = Date.now();
+    track('multiplayer_match_started', { mode: 'room', room_id: roomId, player_count: order.length });
     if (roomId) void supabase.from('multiplayer_rooms').update({ status: 'in_progress' }).eq('code', roomId);
     signaling.send('game-start', { signs, turnOrder: order, turnSeconds: rules.turnSeconds });
     signaling.send('round-start', { round: 1, signerPeerId: order[0], signId: signs[0] });
@@ -465,6 +496,12 @@ export function RoomPage({ onExit }: Props) {
 
   const exit = () => {
     recognition.stopLoop();
+    const activePhases: Phase[] = ['signing', 'guessing', 'roundResult'];
+    if (activePhases.includes(phase)) {
+      track('multiplayer_match_abandoned', { mode: 'room', room_id: roomId, at_round: round });
+    } else if (roomId) {
+      track('multiplayer_room_left', { mode: 'room', room_id: roomId });
+    }
     if (roomId) {
       // Host exiting ends the game for good — delete the room outright instead of leaving a
       // permanent 'closed' row with no further purpose (rows were never actually cleaned up).

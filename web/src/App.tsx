@@ -40,6 +40,7 @@ import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
 import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal';
 import { Zippy } from '@/components/shared/Zippy';
 import { CelebrationHost } from '@/components/shared/CelebrationHost';
+import { useScreenView } from '@/analytics';
 
 type Screen =
   | { type: 'home' }
@@ -94,6 +95,10 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>(
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );
+  // One screen_viewed per navigation — every Screen union member is a valid ScreenName (kept in
+  // sync deliberately; a new Screen variant that isn't in analytics/types.ts's ScreenName is a
+  // type error here, not a silently-untracked screen).
+  useScreenView(screen.type);
 
   // Returning users who are already logged in skip onboarding regardless of local store state —
   // except for one deliberate escape hatch: SettingsPage's admin-only "Replay onboarding" button

@@ -63,4 +63,15 @@ test.describe('runtime health', () => {
     const text = (await page.locator('body').innerText()).trim();
     expect(text.length, 'unknown route rendered a blank page').toBeGreaterThan(4);
   });
+
+  // Analytics privacy guard: this test env has no VITE_POSTHOG_KEY set (see analytics/client.ts's
+  // gating), so zero requests to PostHog should ever fire — a regression here would mean either
+  // the gate broke, or something started capturing before consent/config were ready.
+  test('no PostHog network activity when analytics is unconfigured', async ({ page }) => {
+    const posthogRequests: string[] = [];
+    page.on('request', (r) => { if (r.url().includes('.i.posthog.com')) posthogRequests.push(r.url()); });
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: /get started/i }).click().catch(() => {});
+    expect(posthogRequests, 'PostHog request fired without a configured key').toEqual([]);
+  });
 });

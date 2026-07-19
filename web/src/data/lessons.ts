@@ -240,3 +240,12 @@ export function getLessonById(id: string) {
   }
   return null;
 }
+
+/** Which unit a lesson belongs to — analytics uses this + data/worlds.ts's getWorldIdForUnit to
+ *  label lesson/sign-attempt events with a world_id without every caller re-walking LESSON_UNITS. */
+export function getUnitIdForLesson(lessonId: string): string | null {
+  for (const unit of LESSON_UNITS) {
+    if (unit.nodes.some((node) => node.id === lessonId)) return unit.id;
+  }
+  return null;
+}

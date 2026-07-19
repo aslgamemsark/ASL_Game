@@ -44,6 +44,16 @@ export function PrivacyPage({ onExit }: Props) {
         </section>
 
         <section>
+          <h2 className="font-bold text-white mb-2">Anonymous usage analytics</h2>
+          <p>
+            We use PostHog to see which screens and features get used, at an anonymous,
+            aggregate level — never video, never sign/landmark data, and we don't record or replay
+            your screen. Events aren't tied to your identity until you sign in. Turn this off
+            anytime in Settings → Privacy.
+          </p>
+        </section>
+
+        <section>
           <h2 className="font-bold text-white mb-2">Who can see what</h2>
           <p>
             Your practice data is private to your account. Usernames and leaderboard stats are

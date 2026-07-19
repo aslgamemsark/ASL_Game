@@ -65,7 +65,7 @@ export interface MultiplayerSignaling {
  * not this hook.
  */
 export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplayerSignalingOpts): MultiplayerSignaling {
-  const { videoRef: localVideoRef, status: camStatus, start: startCamera, stop: stopCamera, getStream } = useCamera();
+  const { videoRef: localVideoRef, status: camStatus, start: startCamera, stop: stopCamera, getStream } = useCamera('multiplayer');
   const [peers, setPeers] = useState<Record<string, SignalingPeer>>({});
   const [channelStatus, setChannelStatus] = useState<ChannelStatus>('connecting');
   const [presentPeerIds, setPresentPeerIds] = useState<string[]>([]);

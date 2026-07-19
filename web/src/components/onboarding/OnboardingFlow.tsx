@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,6 +8,7 @@ import { Zippy } from '@/components/shared/Zippy';
 import { ZIPPY_LINES } from '@/data/zippy';
 import { DominantHandStep } from '@/components/onboarding/DominantHandStep';
 import type { SkillLevel } from '@/types/user';
+import { track } from '@/analytics';
 
 interface Props {
   onComplete: () => void;
@@ -52,6 +53,9 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { completeOnboarding, setDominantHand } = useUserStore();
   const { user, signInWithGoogle } = useAuth();
+  const startedAtRef = useRef(Date.now());
+
+  useEffect(() => { track('onboarding_step_viewed', { step }); }, [step]);
 
   // Covers the Google OAuth redirect-and-return: the page reloads with an active session,
   // so if the user lands back here already signed in, skip straight past the auth step.
@@ -60,18 +64,29 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
   }, [user, step]);
 
   const handleSkillSelect = (level: SkillLevel) => {
+    track('onboarding_skill_selected', { skill_level: level });
     setSelectedLevel(level);
     completeOnboarding(level);
     setStep('hand');
   };
 
   const finish = () => {
+    track('onboarding_completed', {
+      skill_level: selectedLevel ?? 'unknown',
+      duration_ms: Date.now() - startedAtRef.current,
+    });
     setStep('done');
     setTimeout(onComplete, 1400);
   };
 
   const handleHandConfirm = (hand: 'left' | 'right') => {
+    track('dominant_hand_selected', { hand, skipped: false });
     setDominantHand(hand);
+    finish();
+  };
+
+  const handleHandSkip = () => {
+    track('dominant_hand_selected', { hand: 'right', skipped: true });
     finish();
   };
 
@@ -153,7 +168,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
               </motion.button>
 
               <button
-                onClick={() => setStep('skill')}
+                onClick={() => { track('guest_started', {}); setStep('skill'); }}
                 className="text-z-gray-400 text-sm mt-2 py-3 underline"
               >
                 Continue as guest
@@ -217,7 +232,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
         )}
 
         {step === 'hand' && (
-          <DominantHandStep onConfirm={handleHandConfirm} onSkip={finish} />
+          <DominantHandStep onConfirm={handleHandConfirm} onSkip={handleHandSkip} />
         )}
 
         {step === 'done' && (

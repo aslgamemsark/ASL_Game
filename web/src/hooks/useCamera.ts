@@ -1,8 +1,13 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
+import { track, isKillSwitchOn, type ScreenName } from '@/analytics';
 
 export type CameraStatus = 'idle' | 'requesting' | 'active' | 'denied' | 'error';
 
-export function useCamera() {
+/** `screen` is optional and purely for analytics labeling — every recognition-driven page passes
+ *  its own screen name so camera_permission_* events say which screen asked. Defaults to
+ *  'onboarding' since DominantHandStep (the one caller that doesn't pass one) runs inside the
+ *  onboarding flow. */
+export function useCamera(screen: ScreenName = 'onboarding') {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<CameraStatus>('idle');
@@ -22,6 +27,13 @@ export function useCamera() {
       setStatus('active');
       return;
     }
+    // Emergency remote kill switch (PostHog flag `disable_camera`) — lets camera-based practice be
+    // disabled instantly if it breaks under real launch load, without a hotfix deploy. Surfaces as
+    // the same 'error' status the UI already handles for a genuine getUserMedia failure.
+    if (isKillSwitchOn('disable_camera')) {
+      setStatus('error');
+      return;
+    }
     setStatus('requesting');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -31,11 +43,18 @@ export function useCamera() {
       streamRef.current = stream;
       attachStream();
       setStatus('active');
+      track('camera_permission_granted', { screen });
     } catch (err: unknown) {
       const name = err instanceof DOMException ? err.name : '';
-      setStatus(name === 'NotAllowedError' ? 'denied' : 'error');
+      if (name === 'NotAllowedError') {
+        setStatus('denied');
+        track('camera_permission_denied', { screen });
+      } else {
+        setStatus('error');
+        track('camera_error', { screen, error_name: name || 'unknown' });
+      }
     }
-  }, [attachStream]);
+  }, [attachStream, screen]);
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());

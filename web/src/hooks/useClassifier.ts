@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { loadClassifier, type SignClassifier } from '@/engine/classifier';
 import type { GateDecision } from '@/engine/gate';
 import { MODEL_URL, CLASSES_URL, isClassifierDebugEnabled } from '@/config/classifier';
+import { track, isKillSwitchOn } from '@/analytics';
 
 export type ClassifierStatus = 'disabled' | 'loading' | 'ready';
 
@@ -27,13 +28,23 @@ async function fetchClasses(): Promise<string[] | null> {
 
 function loadOnce(): Promise<LoadResult> {
   if (!cached) {
+    const startedAt = performance.now();
     cached = (async () => {
+      // Emergency kill switch — same reasoning as useCamera's disable_camera. Falls back to the
+      // rules-only path (identical to "no model deployed"), never breaks recognition outright.
+      if (isKillSwitchOn('disable_classifier')) return { classifier: null, status: 'disabled' as const };
       const classes = await fetchClasses();
-      if (!classes) return { classifier: null, status: 'disabled' as const };
+      if (!classes) {
+        track('ai_model_unavailable', {});
+        return { classifier: null, status: 'disabled' as const };
+      }
       const c = await loadClassifier(MODEL_URL, classes);
-      return c.enabled
-        ? { classifier: c, status: 'ready' as const }
-        : { classifier: null, status: 'disabled' as const };
+      if (c.enabled) {
+        track('ai_model_loaded', { load_ms: Math.round(performance.now() - startedAt) });
+        return { classifier: c, status: 'ready' as const };
+      }
+      track('ai_model_unavailable', {});
+      return { classifier: null, status: 'disabled' as const };
     })();
   }
   return cached;

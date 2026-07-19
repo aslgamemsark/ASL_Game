@@ -16,6 +16,7 @@ import { MovementKind } from '@/engine/schema';
 import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
 import type { SpeedTier } from '@/types/user';
+import { track } from '@/analytics';
 
 const TIER_CONFIG = {
   warmup: { label: 'Warm Up', icon: '🌡️', timePerSign: 15,  xpMult: 1, signsMult: 1, bg: 'linear-gradient(135deg,#0F766E,#14B8A6)', glow: 'rgba(20,184,166,0.45)' },
@@ -33,7 +34,7 @@ export function SpeedChallengePage({ onExit }: Props) {
   const { addXp, addSigns, recordSign, recordSpeedResult, checkBadges, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
-  const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera();
+  const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera('speed');
   const sounds = useSounds();
   const { burst } = useConfetti();
 
@@ -113,6 +114,19 @@ export function SpeedChallengePage({ onExit }: Props) {
 
   const handleAttempt = useCallback(
     (a: AttemptRecord) => {
+      // No single world_id — Speed Challenge draws from the full sign pool across worlds.
+      track('sign_attempt', {
+        sign_id: a.signId,
+        world_id: null,
+        source: 'speed',
+        rule_passed: a.rulePassed,
+        ai_vetoed: a.aiVetoed,
+        final_passed: a.finalPassed,
+        ai_prediction: a.aiPrediction,
+        ai_confidence: a.aiConfidence,
+        duration_ms: a.durationMs,
+        attempt_number: a.attemptNumber,
+      });
       if (!user) return;
       void logAttempt({
         userId: user.id,
@@ -129,7 +143,7 @@ export function SpeedChallengePage({ onExit }: Props) {
     [user]
   );
 
-  const recognition = useRecognition({ onPass: handlePass, onAttempt: handleAttempt });
+  const recognition = useRecognition({ onPass: handlePass, onAttempt: handleAttempt, screen: 'speed' });
 
   useEffect(() => {
     recognition.init();
@@ -196,6 +210,7 @@ export function SpeedChallengePage({ onExit }: Props) {
   useEffect(() => {
     if (phase === 'done') {
       recordSpeedResult(tier, score, maxCombo, totalSignsEarned);
+      track('speed_session_completed', { tier, score, combo: maxCombo, signs_earned: totalSignsEarned });
       checkBadges();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -234,6 +249,7 @@ export function SpeedChallengePage({ onExit }: Props) {
     loopStartedRef.current = null;
     setCountdown(3);
     setPhase('countdown');
+    track('speed_session_started', { tier: selectedTier });
     await startCam();
 
     let c = 3;

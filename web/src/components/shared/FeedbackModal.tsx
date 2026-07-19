@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { buildFeedbackPayload, MAX_FEEDBACK_LEN, type FeedbackCategory } from '@/lib/feedback';
 import { safeTruncate } from '@/lib/text';
+import { track } from '@/analytics';
 
 const CATEGORIES: { id: FeedbackCategory; label: string; icon: string; hint: string }[] = [
   { id: 'bug', label: 'Report a bug', icon: '🐞', hint: "Something broke or didn't work" },
@@ -52,6 +53,10 @@ export function FeedbackModal({ page, onClose }: Props) {
       setStatus('error');
       return;
     }
+    const feedbackPage = payload.page ?? 'unknown';
+    track('feedback_submitted', { category, page: feedbackPage, anonymous });
+    if (category === 'bug') track('bug_reported', { page: feedbackPage });
+    if (category === 'feature') track('feature_requested', { page: feedbackPage });
     setStatus('done');
   };
 
