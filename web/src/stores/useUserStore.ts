@@ -22,6 +22,7 @@ function defaultProgress(): UserProgress {
     streakFreezes: 1,
     dailyGoalMinutes: 10,
     dailyProgressMinutes: 0,
+    dailyProgressDate: null,
     completedLessons: [],
     signAccuracy: {},
     achievements: [],
@@ -126,7 +127,15 @@ export const useUserStore = create<UserStore>()(
       addGold: (amount) => set((s) => ({ gold: s.gold + amount })),
 
       addDailyMinutes: (minutes) => {
-        set((s) => ({ dailyProgressMinutes: s.dailyProgressMinutes + minutes }));
+        set((s) => {
+          const today = todayStr();
+          // Today's minutes only. A stored date other than today means the counter is holding a
+          // past day's total, so it starts fresh — this is the daily reset. Treating "new day" as
+          // "stored date != today" keeps the reset a degenerate case of the normal add, no branch
+          // needed elsewhere and no midnight timer required.
+          const base = s.dailyProgressDate === today ? s.dailyProgressMinutes : 0;
+          return { dailyProgressMinutes: base + minutes, dailyProgressDate: today };
+        });
       },
 
       completeLesson: (lessonId) => {

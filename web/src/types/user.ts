@@ -38,6 +38,10 @@ export interface UserProgress {
   streakFreezes: number;
   dailyGoalMinutes: number;
   dailyProgressMinutes: number;
+  /** Calendar day (YYYY-MM-DD, local) that `dailyProgressMinutes` is counting. When it isn't
+   *  today, the stored minutes belong to a past day and count as 0 — this is what makes the
+   *  daily counter reset at midnight instead of accumulating forever. null before first practice. */
+  dailyProgressDate: string | null;
   completedLessons: string[];
   signAccuracy: Record<string, SignStats>;
   achievements: string[];

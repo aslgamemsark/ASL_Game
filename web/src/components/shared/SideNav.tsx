@@ -24,12 +24,13 @@ interface Props {
   onSignIn: () => void;
 }
 
-// Shop intentionally excluded — its entry point is the cart icon under the gold pill in TopBar
-// (2026-07-16), not a row here. `handlers.shop`/`onShop` stay wired below regardless, since
-// SideNavScreen still needs an exhaustive handler map.
+// Shop is a first-class nav row (2026-07-19). It was previously reachable only via a small cart
+// icon under the gold pill in TopBar, which testers reported as hard to find — the row here is
+// the discoverable entry point; the TopBar cart stays as a convenient shortcut.
 const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'home', label: 'Journey', icon: '🗺️' },
   { id: 'alphabet', label: 'Alphabets', icon: '🔤' },
+  { id: 'shop', label: 'Shop', icon: '🛒' },
   { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
   { id: 'multiplayer', label: 'Multiplayer', icon: '⚔️' },
   { id: 'friends', label: 'Friends', icon: '🤝' },
