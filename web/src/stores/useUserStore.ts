@@ -3,6 +3,9 @@ import { persist } from 'zustand/middleware';
 import type { UserProgress, SkillLevel, Quest, QuestType, SpeedTier, Chest } from '@/types/user';
 import { generateQuestsForToday } from '@/data/quests';
 import { ALL_BADGES, getBadge } from '@/data/badges';
+import { WORLDS, getWorldIdForUnit } from '@/data/worlds';
+import { getUnitIdForLesson } from '@/data/lessons';
+import { track } from '@/analytics';
 
 const STREAK_MILESTONES = [7, 30, 100];
 const MILESTONE_GOLD: Record<number, number> = { 7: 5, 30: 15, 100: 50 };
@@ -22,6 +25,7 @@ function defaultProgress(): UserProgress {
     streakFreezes: 1,
     dailyGoalMinutes: 10,
     dailyProgressMinutes: 0,
+    dailyProgressDate: null,
     completedLessons: [],
     signAccuracy: {},
     achievements: [],
@@ -73,6 +77,21 @@ function daysBetween(dateStr1: string, dateStr2: string): number {
   return Math.round((t2 - t1) / 86400000);
 }
 
+// Fires achievement_unlocked for a newly-earned badge, and — when that badge is the completion
+// badge for one of data/worlds.ts's WORLDS — also world_completed / journey_completed. Shared by
+// checkBadges (the bulk condition-check path) and awardBadge (StoryPage's direct one-off award),
+// so both call sites emit exactly the same events instead of duplicating this logic.
+function trackBadgeAwarded(badgeId: string, badgesAfterAward: string[]): void {
+  const badge = getBadge(badgeId);
+  track('achievement_unlocked', { badge_id: badgeId, gold_reward: badge?.goldReward ?? 0 });
+  const completedWorld = WORLDS.find((w) => w.badgeId === badgeId);
+  if (!completedWorld) return;
+  track('world_completed', { world_id: completedWorld.id, badge_id: badgeId });
+  if (WORLDS.every((w) => badgesAfterAward.includes(w.badgeId))) {
+    track('journey_completed', { total_worlds: WORLDS.length });
+  }
+}
+
 interface UserStore extends UserProgress {
   addXp: (amount: number) => void;
   addSigns: (amount: number) => void;
@@ -115,10 +134,13 @@ export const useUserStore = create<UserStore>()(
       ...defaultProgress(),
 
       addXp: (amount) => {
+        const prevLevel = get().level;
         set((s) => {
           const newXp = s.xp + amount;
           return { xp: newXp, level: Math.floor(newXp / 100) + 1 };
         });
+        const newLevel = get().level;
+        if (newLevel > prevLevel) track('level_up', { new_level: newLevel });
         get().checkBadges();
       },
 
@@ -126,7 +148,15 @@ export const useUserStore = create<UserStore>()(
       addGold: (amount) => set((s) => ({ gold: s.gold + amount })),
 
       addDailyMinutes: (minutes) => {
-        set((s) => ({ dailyProgressMinutes: s.dailyProgressMinutes + minutes }));
+        set((s) => {
+          const today = todayStr();
+          // Today's minutes only. A stored date other than today means the counter is holding a
+          // past day's total, so it starts fresh — this is the daily reset. Treating "new day" as
+          // "stored date != today" keeps the reset a degenerate case of the normal add, no branch
+          // needed elsewhere and no midnight timer required.
+          const base = s.dailyProgressDate === today ? s.dailyProgressMinutes : 0;
+          return { dailyProgressMinutes: base + minutes, dailyProgressDate: today };
+        });
       },
 
       completeLesson: (lessonId) => {
@@ -168,6 +198,7 @@ export const useUserStore = create<UserStore>()(
             signs: st.signs - cost,
           };
         });
+        track('lesson_skipped', { lesson_id: lessonId, world_id: getWorldIdForUnit(getUnitIdForLesson(lessonId) ?? ''), cost });
         get().updateQuestProgress('complete_lesson', 1);
         get().checkBadges();
         return true;
@@ -215,7 +246,15 @@ export const useUserStore = create<UserStore>()(
 
       checkStreak: () => {
         const newlyAwarded: number[] = [];
+        // Captured inside the set() updater below (it's the only place that knows which branch
+        // ran) and read after set() completes, to fire the right analytics event without making
+        // the updater itself impure toward the STORE — a plain local, not state. An object
+        // property (not a bare `let`) deliberately, so TS doesn't narrow the type to the
+        // declaration-time literal across the set() closure boundary.
+        const result: { outcome: 'first' | 'extended' | 'extended_with_freeze' | 'reset' | 'same_day'; previousStreak: number } =
+          { outcome: 'same_day', previousStreak: 0 };
         set((s) => {
+          result.previousStreak = s.streak;
           const today = todayStr();
           if (s.lastPracticeDate === today) return s;
 
@@ -228,15 +267,19 @@ export const useUserStore = create<UserStore>()(
           let freezesLeft = s.streakFreezes;
           if (!s.lastPracticeDate) {
             newStreak = 1;
+            result.outcome = 'first';
           } else {
             const gapDays = daysBetween(s.lastPracticeDate, today);
             if (gapDays <= 3) {
               newStreak = s.streak + 1;
+              result.outcome = 'extended';
             } else if (freezesLeft > 0) {
               newStreak = s.streak + 1; // protection card saves the streak instead of resetting
               freezesLeft -= 1;
+              result.outcome = 'extended_with_freeze';
             } else {
               newStreak = 1;
+              result.outcome = s.streak > 1 ? 'reset' : 'first'; // streak was already 0/1 -> nothing was really "lost"
             }
           }
 
@@ -268,6 +311,11 @@ export const useUserStore = create<UserStore>()(
             gold: s.gold + goldBonus,
           };
         });
+        if (result.outcome === 'extended' || result.outcome === 'extended_with_freeze') {
+          track('streak_extended', { new_streak: get().streak, used_freeze: result.outcome === 'extended_with_freeze' });
+        } else if (result.outcome === 'reset') {
+          track('streak_lost', { previous_streak: result.previousStreak });
+        }
         get().updateQuestProgress('streak_days');
         get().checkBadges();
         return newlyAwarded;
@@ -458,6 +506,7 @@ export const useUserStore = create<UserStore>()(
             badges: [...st.badges, ...toAward],
             gold: st.gold + goldBonus,
           }));
+          for (const id of toAward) trackBadgeAwarded(id, get().badges);
         }
 
         // Suppress unused import warning
@@ -467,6 +516,7 @@ export const useUserStore = create<UserStore>()(
       },
 
       awardBadge: (id) => {
+        const alreadyHad = get().badges.includes(id);
         set((s) => {
           if (s.badges.includes(id)) return s;
           const badge = getBadge(id);
@@ -475,6 +525,7 @@ export const useUserStore = create<UserStore>()(
             gold: s.gold + (badge?.goldReward ?? 0),
           };
         });
+        if (!alreadyHad) trackBadgeAwarded(id, get().badges);
       },
 
       setActiveBadge: (id) => set({ activeBadge: id }),
@@ -507,6 +558,7 @@ export const useUserStore = create<UserStore>()(
         const s = get();
         if (s.gold < goldPrice || s.ownedCosmetics.includes(itemId)) return false;
         set((st) => ({ gold: st.gold - goldPrice, ownedCosmetics: [...st.ownedCosmetics, itemId] }));
+        track('item_purchased', { item_id: itemId, gold_price: goldPrice, item_type: 'cosmetic' });
         return true;
       },
 
@@ -514,6 +566,7 @@ export const useUserStore = create<UserStore>()(
         const s = get();
         if (s.gold < 150) return false;
         set((st) => ({ gold: st.gold - 150, renameCards: st.renameCards + 1 }));
+        track('item_purchased', { item_id: 'rename_card', gold_price: 150, item_type: 'rename_card' });
         return true;
       },
 
@@ -530,6 +583,7 @@ export const useUserStore = create<UserStore>()(
         const s = get();
         if (s.gold < goldPrice) return false;
         set((st) => ({ gold: st.gold - goldPrice, streakFreezes: st.streakFreezes + 1 }));
+        track('item_purchased', { item_id: 'streak_freeze', gold_price: goldPrice, item_type: 'streak_freeze' });
         return true;
       },
 
@@ -540,6 +594,7 @@ export const useUserStore = create<UserStore>()(
         const s = get();
         if (s.gold < cost || s.unlockedWorldIds.includes(worldId)) return false;
         set((st) => ({ gold: st.gold - cost, unlockedWorldIds: [...st.unlockedWorldIds, worldId] }));
+        track('item_purchased', { item_id: worldId, gold_price: cost, item_type: 'world_unlock' });
         return true;
       },
 
@@ -559,6 +614,7 @@ export const useUserStore = create<UserStore>()(
           signs: st.signs + signsWon,
           gold: st.gold + goldWon,
         }));
+        track('chest_opened', { chest_id: chestId, signs_won: signsWon, gold_won: goldWon });
         return { signs: signsWon, gold: goldWon };
       },
 
@@ -575,16 +631,25 @@ export const useUserStore = create<UserStore>()(
             c.id === chestId ? { ...c, readyAt: 0 } : c
           ),
         }));
+        track('chest_skipped', { chest_id: chestId, gold_cost: cost });
         return true;
       },
 
-      addFriend: (userId) => set((s) => ({
-        friends: s.friends.includes(userId) ? s.friends : [...s.friends, userId],
-      })),
+      addFriend: (userId) => {
+        const already = get().friends.includes(userId);
+        set((s) => ({
+          friends: s.friends.includes(userId) ? s.friends : [...s.friends, userId],
+        }));
+        if (!already) track('friend_added', {});
+      },
 
-      removeFriend: (userId) => set((s) => ({
-        friends: s.friends.filter((id) => id !== userId),
-      })),
+      removeFriend: (userId) => {
+        const had = get().friends.includes(userId);
+        set((s) => ({
+          friends: s.friends.filter((id) => id !== userId),
+        }));
+        if (had) track('friend_removed', {});
+      },
 
       setCollectTrainingData: (enabled) => set({ collectTrainingData: enabled }),
     }),

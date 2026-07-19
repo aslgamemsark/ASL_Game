@@ -48,6 +48,16 @@ export function PrivacyPage({ onExit }: Props) {
         </section>
 
         <section>
+          <h2 className="font-bold text-white mb-2">Anonymous usage analytics</h2>
+          <p>
+            We use PostHog to see which screens and features get used, at an anonymous,
+            aggregate level — never video, never sign/landmark data, and we don't record or replay
+            your screen. Events aren't tied to your identity until you sign in. Turn this off
+            anytime in Settings → Privacy.
+          </p>
+        </section>
+
+        <section>
           <h2 className="font-bold text-white mb-2">Who can see what</h2>
           <p>
             Your practice data is private to your account. Usernames and leaderboard stats are
@@ -57,11 +67,33 @@ export function PrivacyPage({ onExit }: Props) {
         </section>
 
         <section>
+          <h2 className="font-bold text-white mb-2">Deleting your data</h2>
+          <p>
+            There's no self-service delete button yet — email us at{' '}
+            <a href="mailto:aslgamemsark@gmail.com" className="text-z-purple-light underline">
+              aslgamemsark@gmail.com
+            </a>{' '}
+            and we'll remove your account and associated data.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-bold text-white mb-2">Contact</h2>
+          <p>
+            Questions, bug reports, or feedback:{' '}
+            <a href="mailto:aslgamemsark@gmail.com" className="text-z-purple-light underline">
+              aslgamemsark@gmail.com
+            </a>
+          </p>
+        </section>
+
+        <section>
           <h2 className="font-bold text-white mb-2">Terms</h2>
           <p>
             QuickSign is currently in beta. Features, balance, and content may change without notice.
-            Don't use the app to harass or impersonate other users — accounts doing so may be
-            suspended. Found a bug or have feedback? Use the "Report a bug" link in Settings.
+            The app is provided "as is," without warranty of any kind, while in beta. Don't use the
+            app to harass or impersonate other users — accounts doing so may be suspended. Found a
+            bug or have feedback? Use the "Report a bug" link in Settings, or email us above.
           </p>
         </section>
       </motion.div>

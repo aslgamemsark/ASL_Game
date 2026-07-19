@@ -208,7 +208,7 @@ export function HomePage({
       </div>
 
       <div className="lg:hidden">
-        <BottomNav active={tab} onChange={setTab} onMultiplayer={onOpenMultiplayer} onSettings={onSettings} />
+        <BottomNav active={tab} onChange={setTab} onMultiplayer={onOpenMultiplayer} onShop={onOpenShop} onSettings={onSettings} />
       </div>
     </div>
   );

@@ -3,6 +3,53 @@
 We're building a **gamified ASL learning app** with two developers, **scenario by scenario**.
 Saad owns the coffee-shop scenario; a teammate owns another scenario.
 
+## Software design rules
+This project follows Ousterhout-derived software design principles — binding
+design guidance, not optional style notes. Rules are split by topic under
+.claude/rules/:
+
+*At the start of every session, read all rule files before writing any code.*
+Apply them wherever they are relevant to production code — not mechanically
+everywhere, but wherever the rule genuinely improves the design. These rules
+exist to prevent the specific failure modes listed in each file; treat a
+violation as a design signal, not a style note.
+
+*Design principles* (Ousterhout-derived):
+- .claude/rules/complexity.md
+- .claude/rules/modules.md
+- .claude/rules/information-hiding.md
+- .claude/rules/error-handling.md
+- .claude/rules/comments.md
+- .claude/rules/naming.md
+- .claude/rules/process.md
+- .claude/rules/red-flags.md
+- .claude/rules/no-hardcoding.md
+- .claude/rules/file-placement.md
+- .claude/rules/fixes.md
+
+*Concurrency and timing bugs:*
+- .claude/rules/concurrency/race-conditions.md
+- .claude/rules/concurrency/toctou.md
+- .claude/rules/concurrency/deadlock.md
+- .claude/rules/concurrency/livelock.md
+- .claude/rules/concurrency/starvation.md
+- .claude/rules/concurrency/order-violations.md
+- .claude/rules/concurrency/fire-and-forget-tasks.md
+- .claude/rules/concurrency/resource-cleanup.md
+- .claude/rules/concurrency/event-ordering-assumptions.md
+- .claude/rules/concurrency/testing-concurrency-bugs.md
+
+*Systems and OS-level bugs:*
+- .claude/rules/systems/memory-safety.md
+- .claude/rules/systems/resource-limits.md
+- .claude/rules/systems/process-signals.md
+- .claude/rules/systems/filesystem-issues.md
+- .claude/rules/systems/networking.md
+- .claude/rules/systems/numeric-issues.md
+- .claude/rules/systems/time-date-handling.md
+- .claude/rules/systems/silent-error-handling.md
+- .claude/rules/systems/internationalization-encoding.md
+
 ## ARCHITECTURE DECISIONS ALREADY MADE — do not relitigate
 
 - **Runtime: Python prototype now, port to TypeScript/browser later.** v1 runs locally with

@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { LogoutConfirm } from '@/components/auth/LogoutConfirm';
 import { FeedbackModal } from '@/components/shared/FeedbackModal';
+import { isAnalyticsOptedOut, setAnalyticsOptOut } from '@/analytics';
 
 interface Props {
   onExit: () => void;
@@ -21,6 +22,10 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
   const { addGold, addSigns, collectTrainingData, setCollectTrainingData } = useUserStore();
   const [showLogout, setShowLogout] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  // Analytics opt-out (separate from the AI-training-data toggle above — this governs anonymous
+  // PRODUCT USAGE events, not landmark data). Read once at mount; the toggle below writes through
+  // setAnalyticsOptOut immediately, so there's no "opted out" state this component can miss.
+  const [analyticsOptedOut, setAnalyticsOptedOutState] = useState(() => isAnalyticsOptedOut());
 
   const giveTestCredits = () => {
     addGold(10000);
@@ -144,6 +149,38 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
               </span>
             </button>
           </div>
+
+          {/* Separate from the toggle above: this governs anonymous PRODUCT USAGE analytics
+              (PostHog — which screens/features get used, never video, never landmarks), not
+              training data. On by default (anonymous until sign-in, no session replay); this is
+              the one switch that turns it off entirely. */}
+          <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-white/5">
+            <div>
+              <p className="font-semibold text-sm">Anonymous usage analytics</p>
+              <p className="text-xs text-z-gray-400 mt-0.5 leading-relaxed">
+                Helps us see which features get used and where people get stuck — never your video,
+                never sign data.
+              </p>
+            </div>
+            <button
+              role="switch"
+              aria-checked={!analyticsOptedOut}
+              onClick={() => {
+                const next = !analyticsOptedOut;
+                setAnalyticsOptedOutState(next);
+                setAnalyticsOptOut(next);
+              }}
+              className="p-1.5 -m-1.5 shrink-0"
+            >
+              <span className={`relative block w-14 h-8 rounded-full transition-colors ${!analyticsOptedOut ? 'bg-z-purple' : 'bg-z-gray-500'}`}>
+                <motion.span
+                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
+                  animate={{ x: !analyticsOptedOut ? 24 : 0 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              </span>
+            </button>
+          </div>
         </motion.div>
 
         {/* Account */}
@@ -211,6 +248,8 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
             </div>
           </motion.div>
         )}
+
+        <p className="text-center text-xs text-z-gray-600 pt-2">QuickSign v{__APP_VERSION__}</p>
       </div>
 
       <LogoutConfirm open={showLogout} onClose={() => setShowLogout(false)} />

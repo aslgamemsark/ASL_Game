@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRecognition } from '@/hooks/useRecognition';
+import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { useUserStore } from '@/stores/useUserStore';
@@ -21,6 +21,7 @@ import { RemotePeerVideo } from '@/components/shared/RemotePeerVideo';
 import { Scoreboard } from '@/components/multiplayer/Scoreboard';
 import { RoundProgressDots } from '@/components/multiplayer/RoundProgressDots';
 import { RoundResultCard } from '@/components/multiplayer/RoundResultCard';
+import { track } from '@/analytics';
 
 type Phase = 'lobby' | 'waiting' | 'signer' | 'guesser' | 'result' | 'done' | 'waiting-reconnect';
 type Visibility = 'public' | 'private';
@@ -70,7 +71,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const sounds = useSounds();
   const { burst } = useConfetti();
-  const recognition = useRecognition({ onPass: handleSignCorrect });
+  const recognition = useRecognition({ onPass: handleSignCorrect, onAttempt: handleDuelAttempt, screen: 'multiplayer' });
 
   const [phase, setPhase] = useState<Phase>('lobby');
   const [reportOpen, setReportOpen] = useState(false);
@@ -115,6 +116,12 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const phaseBeforeDisconnectRef = useRef<Phase>('signer');
   const wasPresentRef = useRef(false);
   const handleOpponentLostRef = useRef<() => void>(() => {});
+  // Analytics-only state: when the match's first round actually started (for finished's
+  // duration_ms) and whether multiplayer_match_started already fired (guards against re-firing on
+  // a reconnect, which restores 'signer'/'guesser' without starting a NEW match).
+  const matchStartedAtRef = useRef(0);
+  const matchStartTrackedRef = useRef(false);
+  const disconnectedAtRef = useRef(0);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   useEffect(() => { matchStateRef.current = matchState; }, [matchState]);
@@ -143,6 +150,14 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     if (nextRound > totalRounds) {
       setMatchState((s) => s ? { ...s, myScore: myNewScore, opponentScore: opNewScore } : s);
       setPhase('done');
+      track('multiplayer_match_finished', {
+        mode: 'duel',
+        room_id: ms.roomId,
+        player_count: 2,
+        duration_ms: Date.now() - matchStartedAtRef.current,
+        won: myNewScore > opNewScore,
+        forfeited: false,
+      });
       if (myNewScore > opNewScore) {
         addSigns(200);
         addGold(10);
@@ -176,6 +191,24 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     resultTimerRef.current = setTimeout(() => advanceRound(iScored, opponentScored), RESULT_HOLD_MS);
   }, [advanceRound]);
 
+  // Analytics-only — Duel doesn't feed the Supabase landmark-training pipeline (logAttempt) the
+  // way solo screens do; that's a deliberate scope limit for this pass, not an oversight (see the
+  // Analytics Coverage Report). No single world_id: any sign in the pool can come up.
+  function handleDuelAttempt(a: AttemptRecord) {
+    track('sign_attempt', {
+      sign_id: a.signId,
+      world_id: null,
+      source: 'duel',
+      rule_passed: a.rulePassed,
+      ai_vetoed: a.aiVetoed,
+      final_passed: a.finalPassed,
+      ai_prediction: a.aiPrediction,
+      ai_confidence: a.aiConfidence,
+      duration_ms: a.durationMs,
+      attempt_number: a.attemptNumber,
+    });
+  }
+
   function handleSignCorrect(_r: VerifyResult) {
     const ms = matchStateRef.current;
     if (phase !== 'signer' || !ms) return;
@@ -197,6 +230,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       const amSigner = isSignerForRound(user.id, opId, 1);
       setMatchState({ roomId: matchStateRef.current?.roomId ?? '', opponentId: opId, opponentUsername: opName, opponentBorder: opBorder, currentSign: firstSign, round: 1, myScore: 0, opponentScore: 0 });
       setPhase(amSigner ? 'signer' : 'guesser');
+      matchStartedAtRef.current = Date.now();
+      matchStartTrackedRef.current = true;
+      track('multiplayer_match_started', { mode: 'duel', room_id: matchStateRef.current?.roomId ?? '', player_count: 2 });
       if (!amSigner) buildGuessOptions(firstSign);
       void (async () => {
         await signaling.startCamera();
@@ -218,6 +254,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       setMatchState((s) => ({ roomId: s?.roomId ?? '', opponentId: hostId, opponentUsername: 'Host', opponentBorder: hostBorder, currentSign: firstSign, round: 1, myScore: 0, opponentScore: 0 }));
       setPhase(amSigner ? 'signer' : 'guesser');
       if (!amSigner) buildGuessOptions(firstSign);
+      matchStartedAtRef.current = Date.now();
+      matchStartTrackedRef.current = true;
+      track('multiplayer_match_started', { mode: 'duel', room_id: matchStateRef.current?.roomId ?? '', player_count: 2 });
       return;
     }
     if (event === 'signed') {
@@ -261,7 +300,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
 
   useEffect(() => {
     if (autoHostRoomId) void createRoom(autoHostRoomId);
-    else if (autoJoinCode) void joinRoom(autoJoinCode);
+    else if (autoJoinCode) void joinRoom(autoJoinCode, 'challenge');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -283,6 +322,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     setMatchState((s) => ({ ...(s ?? { opponentId: '', opponentUsername: '', currentSign: '', round: 1, myScore: 0, opponentScore: 0 }), roomId }));
     setStatusMsg(`Room code: ${roomId} — Share with a friend!`);
     setPhase('waiting');
+    track('multiplayer_room_created', { mode: 'duel', room_id: roomId, visibility, rounds: rules.rounds, turn_seconds: rules.turnSeconds });
     await signaling.join(`mp-room-${roomId}`);
     // Start the camera immediately, same as the joiner — previously the host only requested it
     // once the opponent's 'join' message arrived, so getUserMedia (permission prompt + warmup)
@@ -291,7 +331,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     await signaling.startCamera();
   };
 
-  const joinRoom = async (overrideCode?: string) => {
+  const joinRoom = async (overrideCode?: string, via: 'code' | 'search' | 'challenge' = 'code') => {
     if (!user) return;
     const code = (overrideCode ?? joinCode).trim().toUpperCase();
     if (!code) return;
@@ -306,6 +346,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     const roomId = code;
     setPhase('waiting');
     setStatusMsg('Joining room…');
+    track('multiplayer_room_joined', { mode: 'duel', room_id: roomId, via });
     setMatchState((s) => ({ ...(s ?? { opponentId: '', opponentUsername: '', currentSign: '', round: 1, myScore: 0, opponentScore: 0 }), roomId }));
     await signaling.join(`mp-room-${roomId}`);
     await signaling.startCamera();
@@ -324,7 +365,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     // that case and used to fall through to joinRoom(undefined).
     const code = (data as { code?: string } | null)?.code;
     if (error || !code) { setCodeError('No open duels right now — try creating one!'); return; }
-    await joinRoom(code);
+    await joinRoom(code, 'search');
   };
 
   const handleGuess = (signId: string) => {
@@ -443,6 +484,14 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     clearReconnectTimers();
     setEndedByForfeit(true);
     setPhase('done');
+    track('multiplayer_match_finished', {
+      mode: 'duel',
+      room_id: matchStateRef.current?.roomId ?? '',
+      player_count: 2,
+      duration_ms: Date.now() - matchStartedAtRef.current,
+      won: true,
+      forfeited: true,
+    });
     addSigns(200);
     addGold(10);
     sounds.levelUp();
@@ -455,6 +504,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const resumeAfterReconnect = useCallback(() => {
     clearReconnectTimers();
     setPhase(phaseBeforeDisconnectRef.current);
+    track('multiplayer_reconnected', { mode: 'duel', room_id: matchStateRef.current?.roomId ?? '', downtime_ms: Date.now() - disconnectedAtRef.current });
     const opponentId = matchStateRef.current?.opponentId;
     if (opponentId) void signaling.connectToPeer(opponentId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -472,6 +522,8 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     setPhase('waiting-reconnect');
     setReconnectLeft(RECONNECT_SECONDS);
     clearReconnectTimers();
+    disconnectedAtRef.current = Date.now();
+    track('multiplayer_connection_lost', { mode: 'duel', room_id: matchStateRef.current?.roomId ?? '' });
     reconnectIntervalRef.current = setInterval(() => setReconnectLeft((s) => Math.max(0, s - 1)), 1000);
     forfeitTimerRef.current = setTimeout(() => forfeitWin(), RECONNECT_SECONDS * 1000);
   }, [clearReconnectTimers, forfeitWin]);
@@ -484,6 +536,12 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     recognition.stopLoop();
     clearReconnectTimers();
     const roomId = matchStateRef.current?.roomId;
+    const activePhases: Phase[] = ['signer', 'guesser', 'result', 'waiting-reconnect'];
+    if (activePhases.includes(phaseRef.current)) {
+      track('multiplayer_match_abandoned', { mode: 'duel', room_id: roomId ?? '', at_round: matchStateRef.current?.round ?? 0 });
+    } else if (roomId) {
+      track('multiplayer_room_left', { mode: 'duel', room_id: roomId });
+    }
     if (roomId) {
       // Host exiting ends the match for good — delete the room outright rather than just
       // decrementing the count (previously this called leave_multiplayer_room unconditionally,

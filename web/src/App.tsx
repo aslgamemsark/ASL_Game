@@ -36,13 +36,13 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { generateRoomCode } from '@/lib/multiplayerRooms';
-import { trackScreen } from '@/lib/analytics';
 import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
 import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal';
 import { Zippy } from '@/components/shared/Zippy';
 import { CelebrationHost } from '@/components/shared/CelebrationHost';
+import { useScreenView } from '@/analytics';
 
 type Screen =
   | { type: 'home' }
@@ -126,6 +126,11 @@ export default function App() {
     if (localStorage.getItem(SEEN_LANDING_KEY) === '1') return { type: 'onboarding' };
     return { type: 'landing' };
   });
+  // One screen_viewed per navigation — every Screen union member is a valid ScreenName (kept in
+  // sync deliberately; a new Screen variant that isn't in analytics/types.ts's ScreenName is a
+  // type error here, not a silently-untracked screen). Covers 'landing' too, same as every
+  // other screen.
+  useScreenView(screen.type);
 
   const leaveLanding = useCallback(() => {
     localStorage.setItem(SEEN_LANDING_KEY, '1');
@@ -190,22 +195,29 @@ export default function App() {
   }, []);
   const showSideNav = SIDE_NAV_SCREENS.includes(screen.type as SideNavScreen);
 
-  // Manual pageview capture: the app has no real client-side routing (a single URL, driven by
-  // this Screen union instead), so PostHog's URL-based pageview autocapture would never fire
-  // past the first load. This covers every screen, including 'landing'.
-  useEffect(() => {
-    trackScreen(screen.type);
-  }, [screen.type]);
-
   // Subscribe to incoming challenge notifications while logged in
   useEffect(() => {
     if (!user || !supabaseReady) return;
-    const ch = supabase.channel(`challenge_${user.id}`);
-    ch.on('broadcast', { event: 'challenge' }, ({ payload }) => {
-      setIncomingChallenge({ from: payload.from as string, roomId: payload.roomId as string });
-    });
-    ch.subscribe();
-    return () => { supabase.removeChannel(ch); };
+    // private: true — Realtime Authorization only lets this user's own JWT subscribe to their
+    // challenge topic (see migration 20260718010000), so strangers can't read incoming challenges
+    // (which carry joinable room codes) off the wire. The subscribe MUST run with the JWT already
+    // on the socket: the global setAuth listener in lib/supabase.ts is fire-and-forget, so await
+    // the current token explicitly here first — otherwise a private subscribe races an unset token,
+    // RLS sees auth.uid() = null, and challenges silently never arrive.
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session?.access_token) await supabase.realtime.setAuth(session.access_token);
+      if (cancelled) return;
+      ch = supabase.channel(`challenge_${user.id}`, { config: { private: true } });
+      ch.on('broadcast', { event: 'challenge' }, ({ payload }) => {
+        setIncomingChallenge({ from: payload.from as string, roomId: payload.roomId as string });
+      });
+      ch.subscribe();
+    })();
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [user?.id]);
 
   // Called from FriendsPage: create a room, notify the friend, navigate to multiplayer as host
@@ -221,18 +233,20 @@ export default function App() {
       { code: roomId, mode: 'duel', visibility: 'private', host_id: user.id, max_participants: 2 },
       { onConflict: 'code', ignoreDuplicates: true }
     );
-    // Broadcast challenge to friend's personal channel
-    const ch = supabase.channel(`challenge_${friendId}`);
-    ch.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        ch.send({
-          type: 'broadcast',
-          event: 'challenge',
-          payload: { from: username ?? 'Someone', roomId, fromId: user.id },
-        });
-        setTimeout(() => supabase.removeChannel(ch), 2000);
-      }
-    });
+    // Broadcast challenge to friend's personal channel — WITHOUT subscribing first. Under Realtime
+    // Authorization only the friend themselves may subscribe to (receive on) their challenge topic;
+    // senders are covered by a separate friends-only INSERT policy, which supabase-js exercises by
+    // routing send() on an un-joined channel through the REST broadcast endpoint. That REST call
+    // only attaches the Authorization header if the socket already has the access token, so set it
+    // explicitly first — otherwise the private broadcast is evaluated as anon and silently dropped.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) await supabase.realtime.setAuth(session.access_token);
+    const ch = supabase.channel(`challenge_${friendId}`, { config: { private: true } });
+    void ch.send({
+      type: 'broadcast',
+      event: 'challenge',
+      payload: { from: username ?? 'Someone', roomId, fromId: user.id },
+    }).finally(() => supabase.removeChannel(ch));
     // Navigate to multiplayer as the host with the pre-generated room ID
     setScreen({ type: 'multiplayer', mode: 'duel', autoHostRoomId: roomId });
     void friendUsername; // used in the notification received on the other side

@@ -47,6 +47,11 @@ tools/calibration_logs/
 # --- Landmark dataset deliverable for the teammate (regenerable; send directly, not via git) ---
 asl_landmarks_for_friend.zip
 
+# --- Env files (secrets) — anywhere in the repo, only the example template is tracked ---
+.env
+.env.*
+!.env.example
+
 # --- OS / editor ---
 .DS_Store
 Thumbs.db
@@ -69,3 +74,6 @@ supabase/.temp/
 
 # --- impeccable's local cache (regenerable, per-machine) ---
 .impeccable/
+
+# --- Local training_samples drains (exported landmark data, kept off-DB and off-git) ---
+ml/training_exports/

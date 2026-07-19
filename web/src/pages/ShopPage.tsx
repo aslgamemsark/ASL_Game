@@ -4,6 +4,7 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { SHOP_ITEMS, RARITY_COLOR, type ShopItem, type CosmeticType } from '@/data/shop';
 import { useUserStore } from '@/stores/useUserStore';
 import { useSounds } from '@/hooks/useSounds';
+import { useFeatureFlag } from '@/analytics';
 
 const SECTIONS: { type: CosmeticType; title: string; icon: string }[] = [
   { type: 'border', title: 'Borders', icon: '🖼' },
@@ -16,6 +17,9 @@ interface Props {
 }
 
 export function ShopPage({ onExit }: Props) {
+  // Emergency remote kill switch — lets the shop be pulled instantly (e.g. a pricing/economy bug
+  // found live) without a hotfix deploy. Defaults to enabled when the flag is unreadable.
+  const shopDisabled = useFeatureFlag('disable_shop', false);
   const { gold, ownedCosmetics, equippedBorder, equippedAvatar, renameCards, streakFreezes, purchaseCosmetic, purchaseRenameCard, purchaseStreakFreeze, equipBorder, equipAvatar } = useUserStore();
   const { purchase, wrong } = useSounds();
   const [selected, setSelected] = useState<ShopItem | null>(null);
@@ -46,8 +50,9 @@ export function ShopPage({ onExit }: Props) {
   };
 
   const handleEquip = (item: ShopItem) => {
-    if (item.type === 'border') equippedBorder === item.id ? equipBorder(null) : equipBorder(item.id);
-    else if (item.type === 'avatar') equippedAvatar === item.id ? equipAvatar(null) : equipAvatar(item.id);
+    // Tapping an already-equipped cosmetic un-equips it (toggle); otherwise equip it.
+    if (item.type === 'border') equipBorder(equippedBorder === item.id ? null : item.id);
+    else if (item.type === 'avatar') equipAvatar(equippedAvatar === item.id ? null : item.id);
     setSelected(null);
   };
 
@@ -55,6 +60,22 @@ export function ShopPage({ onExit }: Props) {
   const isEquipped = (item: ShopItem) =>
     (item.type === 'border' && equippedBorder === item.id) ||
     (item.type === 'avatar' && equippedAvatar === item.id);
+
+  if (shopDisabled) {
+    return (
+      <div className="min-h-screen bg-z-bg flex flex-col">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
+          <HeaderBackButton onClick={onExit} />
+          <h1 className="font-bold text-lg flex-1">Shop</h1>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
+          <span className="text-5xl">🛠️</span>
+          <p className="font-bold text-lg">The shop is briefly offline</p>
+          <p className="text-z-gray-400 text-sm">We're fixing something — check back in a bit.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-z-bg flex flex-col">

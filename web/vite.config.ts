@@ -4,7 +4,23 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
+// Release metadata for the analytics module (web/src/analytics/client.ts registers these as
+// PostHog session super properties, once per session, not threaded into every event manually).
+// Vercel sets VERCEL_GIT_COMMIT_SHA/VERCEL_ENV in its build environment; local dev falls back to
+// harmless placeholders since a developer machine has neither. See analytics/buildInfo.d.ts for
+// the corresponding ambient type declarations.
+const APP_VERSION = process.env.npm_package_version ?? '0.0.0';
+const GIT_COMMIT = process.env.VERCEL_GIT_COMMIT_SHA ?? 'local';
+const DEPLOY_ENV = process.env.VERCEL_ENV ?? 'development';
+const BUILD_TIMESTAMP = new Date().toISOString();
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+    __GIT_COMMIT__: JSON.stringify(GIT_COMMIT),
+    __DEPLOY_ENV__: JSON.stringify(DEPLOY_ENV),
+    __BUILD_TIMESTAMP__: JSON.stringify(BUILD_TIMESTAMP),
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -69,6 +85,12 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  // Strip console.log/.debug from PRODUCTION bundles only (marking them pure lets the minifier
+  // drop the unused calls). Dev keeps them. console.error/.warn are intentionally NOT listed —
+  // real error reporting (lib/errorReporting.ts) must survive in production.
+  esbuild: {
+    pure: ['console.log', 'console.debug'],
   },
   // tfjs is only reached via a lazy dynamic import in engine/classifier.ts, which Vite's dep
   // scanner doesn't always pre-bundle — list it so the dev server can serve the optimized dep

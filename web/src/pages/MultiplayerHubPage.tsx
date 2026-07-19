@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { DuelPage } from '@/pages/DuelPage';
 import { RoomPage } from '@/pages/RoomPage';
+import { useFeatureFlag } from '@/analytics';
 
 type Mode = 'hub' | 'duel' | 'room';
 
@@ -19,6 +20,25 @@ interface Props {
 export function MultiplayerHubPage({ onExit, mode, autoHostRoomId, autoJoinCode, onRequireSignIn }: Props) {
   const { user } = useAuth();
   const [active, setActive] = useState<Mode>(mode ?? 'hub');
+  // Emergency remote kill switch — WebRTC/Realtime bugs under real concurrent load are exactly the
+  // class of thing worth disabling instantly rather than waiting on a hotfix deploy.
+  const multiplayerDisabled = useFeatureFlag('disable_multiplayer', false);
+
+  if (multiplayerDisabled) {
+    return (
+      <div className="min-h-screen bg-z-bg flex flex-col">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
+          <HeaderBackButton icon="close" onClick={onExit} />
+          <h1 className="font-bold text-lg">Multiplayer</h1>
+        </div>
+        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 flex flex-col items-center justify-center gap-4 text-center">
+          <span className="text-5xl">🛠️</span>
+          <p className="font-bold text-lg">Multiplayer is briefly offline</p>
+          <p className="text-z-gray-400 text-sm">We're fixing something — check back in a bit.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Guest gate BEFORE the mode branches below, so a guest can never reach DuelPage/RoomPage (and
   // therefore never see or use the room-code input) even via the challenge-friend auto-host/join

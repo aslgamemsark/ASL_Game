@@ -17,3 +17,15 @@ export const supabase = createClient(
 );
 
 export const supabaseReady = Boolean(url && key);
+
+// Push the signed-in user's JWT to the Realtime socket on every auth change. Private channels
+// (Realtime Authorization) evaluate RLS on realtime.messages with this token; without it,
+// auth.uid() is null and every private subscribe is denied — which manifested as multiplayer
+// hanging on "Joining room…". onAuthStateChange emits INITIAL_SESSION on load too, so this also
+// covers returning users whose session is restored from storage (the case supabase-js does not
+// reliably sync to Realtime on its own). Passing null on sign-out drops back to the anon key.
+if (supabaseReady) {
+  supabase.auth.onAuthStateChange((_event, session) => {
+    void supabase.realtime.setAuth(session?.access_token ?? null);
+  });
+}

@@ -5,7 +5,7 @@ import { validateUsername } from '@/lib/username';
 import { isInappropriate } from '@/lib/profanity';
 import { isAlreadyRegisteredError } from '@/lib/authErrors';
 import { useUserStore } from '@/stores/useUserStore';
-import { identifyUser, resetAnalytics } from '@/lib/analytics';
+import { track } from '@/analytics';
 
 type ProfileRow = { username: string; is_admin: boolean; is_banned: boolean; ban_reason: string | null };
 
@@ -76,10 +76,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // true instead of dropping them straight into the app under a session they didn't
       // actively choose to start.
       if (event === 'PASSWORD_RECOVERY') setPasswordRecoveryMode(true);
-      if (s) {
-        fetchUsername(s.user.id, s.user);
-        identifyUser(s.user.id);
-      } else {
+      // A real sign-in (not the initial-session restore on page load, which fires its own event).
+      // A brand-new account also fires SIGNED_IN — see fetchUsername's !fetched branch below for
+      // the separate signup_completed signal; both firing for one first session is intentional.
+      if (event === 'SIGNED_IN' && s) {
+        track('login', { provider: s.user.app_metadata?.provider === 'google' ? 'google' : 'email' });
+      }
+      if (s) fetchUsername(s.user.id, s.user);
+      else {
         setUsername(null);
         setNeedsUsernameSetup(false);
         setIsAdmin(false);
@@ -90,7 +94,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // (not INITIAL_SESSION) so a guest who was never signed in never gets reset on page load.
         if (event === 'SIGNED_OUT') {
           useUserStore.getState().reset();
-          resetAnalytics();
         }
       }
     });
@@ -128,10 +131,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setNeedsTrainingConsent(true);
     }
 
-    // Auto-assign a username if none exists (e.g. OAuth user with no profile row yet).
+    // Auto-assign a username if none exists (e.g. OAuth user with no profile row yet). No prior
+    // profile row is the accurate "this is a brand-new account" signal for OAuth, where there's
+    // no separate signUp() call to hang signup_completed off of (see signUpWithEmail for the
+    // email/password path's own signup_completed).
     if (!fetched) {
       const u = userObj ?? session?.user;
       if (u) {
+        if (u.app_metadata?.provider === 'google') track('signup_completed', { provider: 'google' });
         // Capped at 16 chars before appending the 4-digit suffix so the result always fits the
         // profiles.username CHECK constraint (3-20 chars) regardless of email length — an
         // uncapped prefix from a long email local-part could otherwise produce a >20-char
@@ -158,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const usernameError = await validateUsername(username);
     if (usernameError) return usernameError;
 
+    track('signup_started', { provider: 'email' });
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       // Supabase's own signUp() response is an enumeration oracle: an already-registered,
@@ -179,11 +187,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('profiles')
         .update({ username } as Record<string, string>)
         .eq('id', data.user.id);
+      track('signup_completed', { provider: 'email' });
     }
     return null;
   }
 
   async function signInWithGoogle() {
+    // Fired on intent, before the redirect — can't yet distinguish a new account from a returning
+    // one (that's resolved after the redirect back, in fetchUsername's !fetched branch / the
+    // SIGNED_IN handler above). Documented as an intentional limitation, not a bug.
+    track('signup_started', { provider: 'google' });
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -228,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    track('logout', {});
     await supabase.auth.signOut();
     // Always wipe local progress on an explicit "Log out", even for a guest with no active
     // session — Supabase fires no SIGNED_OUT event in that case, so the onAuthStateChange handler
@@ -235,10 +249,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // onboardingComplete back to false (defaultProgress), which App watches to route the now
     // signed-out user to the sign-in screen.
     useUserStore.getState().reset();
-    resetAnalytics();
   }
 
   async function requestPasswordReset(email: string): Promise<string | null> {
+    track('password_reset_requested', {});
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin,
     });
@@ -251,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function completePasswordReset(newPassword: string): Promise<string | null> {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) return error.message;
+    track('password_recovery_completed', {});
     setPasswordRecoveryMode(false);
     return null;
   }

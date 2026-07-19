@@ -22,9 +22,11 @@ import { logVerification, logAttempt } from '@/hooks/useProgressSync';
 import type { VerificationEntry } from '@/hooks/useRecognition';
 import { SIGNS } from '@/data/signs';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
-import { getLessonById } from '@/data/lessons';
+import { getLessonById, getUnitIdForLesson } from '@/data/lessons';
+import { getWorldIdForUnit } from '@/data/worlds';
 import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
+import { track } from '@/analytics';
 
 type Phase = 'intro' | 'signing' | 'success' | 'replay' | 'complete';
 
@@ -38,7 +40,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
   const { addXp, addDailyMinutes, completeLesson, recordSign, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
-  const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera();
+  const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera('lesson');
   const recorder = useAttemptRecorder();
   const [replayEnabled] = useState(
     () => localStorage.getItem('signup-replay-enabled') === '1'
@@ -66,6 +68,8 @@ export function LessonPage({ lessonId, onExit }: Props) {
   const currentSignId = signIds[promptIdx];
   const currentSignData = currentSignId ? SIGNS[currentSignId] : null;
   const currentEngineSign = currentSignId ? ENGINE_SIGNS[currentSignId] : null;
+  const worldId = getWorldIdForUnit(getUnitIdForLesson(lessonId) ?? '');
+  const lessonStartedAtRef = useRef(Date.now());
 
   // Never shames the low end of the range — just calmer instead of celebratory.
   const pickCompleteMessage = useCallback(() => {
@@ -79,9 +83,16 @@ export function LessonPage({ lessonId, onExit }: Props) {
     setCompleteMsg(pickCompleteMessage());
     setPhase('complete');
     completeLesson(lessonId);
+    track('lesson_completed', {
+      lesson_id: lessonId,
+      world_id: worldId,
+      duration_ms: Date.now() - lessonStartedAtRef.current,
+      hints_used: 0, // Lesson has no hint mechanic today (unlike Practice) — 0 is accurate, not a placeholder.
+      xp_earned: earnedXp,
+    });
     sounds.levelUp();
     bigCelebration();
-  }, [pickCompleteMessage, completeLesson, lessonId, sounds, bigCelebration]);
+  }, [pickCompleteMessage, completeLesson, lessonId, worldId, earnedXp, sounds, bigCelebration]);
 
   const advancePrompt = useCallback(() => {
     if (promptIdx + 1 < signIds.length) {
@@ -129,6 +140,21 @@ export function LessonPage({ lessonId, onExit }: Props) {
 
   const handleAttempt = useCallback(
     (a: AttemptRecord) => {
+      // Analytics tracks every attempt, guest or signed-in — the activation funnel needs
+      // anonymous data too. Supabase's landmark-training-data logAttempt stays user-gated below
+      // (it's tied to an account, unlike PostHog's anonymous-until-identify model).
+      track('sign_attempt', {
+        sign_id: a.signId,
+        world_id: worldId,
+        source: 'lesson',
+        rule_passed: a.rulePassed,
+        ai_vetoed: a.aiVetoed,
+        final_passed: a.finalPassed,
+        ai_prediction: a.aiPrediction,
+        ai_confidence: a.aiConfidence,
+        duration_ms: a.durationMs,
+        attempt_number: a.attemptNumber,
+      });
       if (!user) return;
       void logAttempt({
         userId: user.id,
@@ -142,7 +168,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
         frames: a.frames,
       });
     },
-    [user]
+    [user, worldId]
   );
 
   const { classifier, status: classifierStatus, logVote, lastVote } = useClassifier();
@@ -152,6 +178,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
     onVote: logVote,
     onVerified: handleVerified,
     onAttempt: handleAttempt,
+    screen: 'lesson',
   });
   // First-run only: overlay a camera-framing guide until the user is well positioned.
   const showCamGuide = useFirstRunCameraGuide(recognition.framing?.ok);
@@ -208,6 +235,8 @@ export function LessonPage({ lessonId, onExit }: Props) {
       setShowOnboarding(true);
       return;
     }
+    lessonStartedAtRef.current = Date.now();
+    track('lesson_started', { lesson_id: lessonId, world_id: worldId });
     await startCam();
     setPhase('signing');
   };
@@ -215,6 +244,8 @@ export function LessonPage({ lessonId, onExit }: Props) {
   const handleOnboardingContinue = async () => {
     localStorage.setItem('signup-camera-onboarded', '1');
     setShowOnboarding(false);
+    lessonStartedAtRef.current = Date.now();
+    track('lesson_started', { lesson_id: lessonId, world_id: worldId });
     await startCam();
     setPhase('signing');
   };

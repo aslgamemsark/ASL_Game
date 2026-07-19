@@ -20,6 +20,8 @@ import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
 import type { StoryScript } from '@/data/stories';
 import type { VerifyResult } from '@/engine/verifier';
+import { getWorldIdForStory } from '@/data/worlds';
+import { track } from '@/analytics';
 
 type Phase = 'intro' | 'dialogue' | 'fail' | 'response' | 'complete';
 
@@ -49,7 +51,7 @@ export function StoryPage({ story, onExit }: Props) {
   const { addXp, addSigns, addGold, addDailyMinutes, recordSign, completeLesson, checkBadges, awardBadge, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
-  const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera();
+  const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera('story');
   const sounds = useSounds();
   const { burst, bigCelebration } = useConfetti();
 
@@ -65,6 +67,7 @@ export function StoryPage({ story, onExit }: Props) {
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const loopStartedRef = useRef<string | null>(null);
+  const worldId = getWorldIdForStory(story.id);
   const isZippy = story.npcName === 'Zippy';
   const npcCostume = story.npcCostume;
 
@@ -98,6 +101,7 @@ export function StoryPage({ story, onExit }: Props) {
           const storyGold = Math.max(5, 20 - skipsUsed * 3 - Math.floor(hintsUsed / 2));
           addGold(storyGold);
           completeLesson(story.id);
+          track('story_completed', { story_id: story.id, world_id: worldId, duration_ms: Date.now() - startedAt, hints_used: hintsUsed, skips_used: skipsUsed });
           if (story.id === 'coffee-story') awardBadge('coffee_story');
           if (story.id === 'hospital-story') awardBadge('hospital_story');
           checkBadges();
@@ -107,11 +111,23 @@ export function StoryPage({ story, onExit }: Props) {
         }
       }, 1800);
     },
-    [phase, lineIdx, currentLine, story, recordSign, addXp, addSigns, addGold, completeLesson, skipsUsed, hintsUsed, awardBadge, checkBadges]
+    [phase, lineIdx, currentLine, story, recordSign, addXp, addSigns, addGold, completeLesson, skipsUsed, hintsUsed, awardBadge, checkBadges, worldId, startedAt]
   );
 
   const handleAttempt = useCallback(
     (a: AttemptRecord) => {
+      track('sign_attempt', {
+        sign_id: a.signId,
+        world_id: worldId,
+        source: 'story',
+        rule_passed: a.rulePassed,
+        ai_vetoed: a.aiVetoed,
+        final_passed: a.finalPassed,
+        ai_prediction: a.aiPrediction,
+        ai_confidence: a.aiConfidence,
+        duration_ms: a.durationMs,
+        attempt_number: a.attemptNumber,
+      });
       if (!user) return;
       void logAttempt({
         userId: user.id,
@@ -125,11 +141,11 @@ export function StoryPage({ story, onExit }: Props) {
         frames: a.frames,
       });
     },
-    [user]
+    [user, worldId]
   );
 
   const { classifier, status: classifierStatus, logVote, lastVote } = useClassifier();
-  const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote, onAttempt: handleAttempt });
+  const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote, onAttempt: handleAttempt, screen: 'story' });
 
   useEffect(() => { recognition.init(); }, [recognition.init]);
 
@@ -152,12 +168,15 @@ export function StoryPage({ story, onExit }: Props) {
   }, []);
 
   const handleStart = async () => {
+    track('story_started', { story_id: story.id, world_id: worldId });
     await startCam();
     setPhase('dialogue');
   };
 
   const handleHint = () => {
-    setHintLevel((p) => Math.min(p + 1, 2));
+    const nextLevel = Math.min(hintLevel + 1, 2);
+    track('hint_used', { screen: 'story', sign_id: currentLine?.requiredSignId ?? '', hint_level: nextLevel });
+    setHintLevel(nextLevel);
     setHintsUsed((p) => p + 1);
   };
 
@@ -188,6 +207,7 @@ export function StoryPage({ story, onExit }: Props) {
       } else {
         setPhase('complete');
         completeLesson(story.id);
+        track('story_completed', { story_id: story.id, world_id: worldId, duration_ms: Date.now() - startedAt, hints_used: hintsUsed, skips_used: skipsUsed + 1 });
         sounds.levelUp();
         bigCelebration();
       }

@@ -1,12 +1,15 @@
-import { useUserStore } from '@/stores/useUserStore';
+import { useUserStore, todayStr } from '@/stores/useUserStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zippy } from '@/components/shared/Zippy';
 
 const MILESTONES = [7, 30, 100];
 
 export function StreakCard() {
-  const { streak, dailyGoalMinutes, dailyProgressMinutes, streakMilestonesAwarded, streakFreezes } = useUserStore();
-  const progress = Math.min(1, dailyProgressMinutes / dailyGoalMinutes);
+  const { streak, dailyGoalMinutes, dailyProgressMinutes, dailyProgressDate, streakMilestonesAwarded, streakFreezes } = useUserStore();
+  // Stored minutes count only if they belong to today; a past day's total reads as 0 so the
+  // card resets at midnight even before the user practices again (addDailyMinutes zeroes it too).
+  const todaysMinutes = dailyProgressDate === todayStr() ? dailyProgressMinutes : 0;
+  const progress = Math.min(1, todaysMinutes / dailyGoalMinutes);
 
   const nextMilestone = MILESTONES.find(m => streak < m) ?? null;
   const latestMilestone = [...MILESTONES].reverse().find(m => streakMilestonesAwarded.includes(m)) ?? null;
@@ -108,7 +111,7 @@ export function StreakCard() {
           <div className="flex justify-between text-sm mb-2">
             <span className="text-white/70">Today&apos;s goal</span>
             <span className="font-bold text-z-orange-bright">
-              {dailyProgressMinutes}/{dailyGoalMinutes} min
+              {todaysMinutes}/{dailyGoalMinutes} min
             </span>
           </div>
           <div className="h-2.5 bg-white/15 rounded-full overflow-hidden">
