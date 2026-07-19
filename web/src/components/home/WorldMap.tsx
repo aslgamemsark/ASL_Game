@@ -154,7 +154,7 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                 const isStoryNode = node.id === selectedWorld.storyId || STORIES.some((s) => s.id === node.id);
                 if (isStoryNode) {
                   const status = getNodeStatus(node.id, units);
-                  // Dr. Reeves / Mr. Zippy / the coffee-shop barista are Zippy in costume — show
+                  // Dr. Zippy / Mr. Zippy / the coffee-shop barista are Zippy in costume — show
                   // that art here too instead of the generic emoji, so the character who's
                   // actually waiting to talk to you is visible before you even tap in.
                   const npcCostume = STORIES.find((s) => s.id === node.id)?.npcCostume;

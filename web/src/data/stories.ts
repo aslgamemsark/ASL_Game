@@ -18,7 +18,7 @@ export interface StoryScript {
   npcName: string;
   npcEmoji: string;
   backgroundEmoji: string;
-  /** Dr. Reeves, Mr. Zippy, and the coffee-shop barista are still Zippy underneath — just dressed
+  /** Dr. Zippy, Mr. Zippy, and the coffee-shop barista are still Zippy underneath — just dressed
    *  for the part. When set, this costume art replaces npcEmoji everywhere the NPC appears
    *  (story screens, world map node icon). Omitted for stories Zippy narrates as himself. */
   npcCostume?: ZippyExpression;
@@ -192,7 +192,7 @@ export const HOSPITAL_STORY: StoryScript = {
   id: 'hospital-story',
   title: 'At the Hospital',
   description: 'Help a patient communicate with the doctor',
-  npcName: 'Dr. Reeves',
+  npcName: 'Dr. Zippy',
   npcEmoji: '🩺',
   npcCostume: 'doctor',
   backgroundEmoji: '🏥',
