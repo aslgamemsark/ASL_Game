@@ -141,14 +141,25 @@ export default function App() {
   useEffect(() => {
     if (!user || !supabaseReady) return;
     // private: true — Realtime Authorization only lets this user's own JWT subscribe to their
-    // challenge topic (see migration 20260718010000), so strangers can't read incoming
-    // challenges (which carry joinable room codes) off the wire anymore.
-    const ch = supabase.channel(`challenge_${user.id}`, { config: { private: true } });
-    ch.on('broadcast', { event: 'challenge' }, ({ payload }) => {
-      setIncomingChallenge({ from: payload.from as string, roomId: payload.roomId as string });
-    });
-    ch.subscribe();
-    return () => { supabase.removeChannel(ch); };
+    // challenge topic (see migration 20260718010000), so strangers can't read incoming challenges
+    // (which carry joinable room codes) off the wire. The subscribe MUST run with the JWT already
+    // on the socket: the global setAuth listener in lib/supabase.ts is fire-and-forget, so await
+    // the current token explicitly here first — otherwise a private subscribe races an unset token,
+    // RLS sees auth.uid() = null, and challenges silently never arrive.
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session?.access_token) await supabase.realtime.setAuth(session.access_token);
+      if (cancelled) return;
+      ch = supabase.channel(`challenge_${user.id}`, { config: { private: true } });
+      ch.on('broadcast', { event: 'challenge' }, ({ payload }) => {
+        setIncomingChallenge({ from: payload.from as string, roomId: payload.roomId as string });
+      });
+      ch.subscribe();
+    })();
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [user?.id]);
 
   // Called from FriendsPage: create a room, notify the friend, navigate to multiplayer as host
@@ -164,11 +175,14 @@ export default function App() {
       { code: roomId, mode: 'duel', visibility: 'private', host_id: user.id, max_participants: 2 },
       { onConflict: 'code', ignoreDuplicates: true }
     );
-    // Broadcast challenge to friend's personal channel — WITHOUT subscribing first. Under
-    // Realtime Authorization only the friend themselves may subscribe to (receive on) their
-    // challenge topic; senders are covered by a separate friends-only INSERT policy, which
-    // supabase-js exercises by routing send() on an un-joined channel through the REST broadcast
-    // endpoint. The old subscribe-then-send pattern would now be rejected at subscribe time.
+    // Broadcast challenge to friend's personal channel — WITHOUT subscribing first. Under Realtime
+    // Authorization only the friend themselves may subscribe to (receive on) their challenge topic;
+    // senders are covered by a separate friends-only INSERT policy, which supabase-js exercises by
+    // routing send() on an un-joined channel through the REST broadcast endpoint. That REST call
+    // only attaches the Authorization header if the socket already has the access token, so set it
+    // explicitly first — otherwise the private broadcast is evaluated as anon and silently dropped.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) await supabase.realtime.setAuth(session.access_token);
     const ch = supabase.channel(`challenge_${friendId}`, { config: { private: true } });
     void ch.send({
       type: 'broadcast',

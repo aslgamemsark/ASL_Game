@@ -166,6 +166,10 @@ export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplaye
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) await supabase.realtime.setAuth(session.access_token);
 
+    // Drop any prior channel first — a retry (e.g. the reconnect button) calls join() again without
+    // leave(), which would otherwise orphan the old channel with a live subscription + presence.
+    if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; }
+
     const ch = supabase.channel(channelName, { config: { presence: { key: selfPeerId }, private: true } });
     channelRef.current = ch;
 
