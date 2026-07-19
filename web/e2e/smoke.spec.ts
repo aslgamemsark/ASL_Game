@@ -18,11 +18,16 @@ test.describe('app smoke test', () => {
 
     // Skill-level picker — pick the first option.
     await expect(page.getByText(/how much asl do you know/i)).toBeVisible();
-    await page.locator('button', { hasText: /./ }).first().click();
+    await page.getByRole('button', { name: /just starting/i }).click();
+
+    // Dominant-hand picker (added after this test was first written — migration 20260716130000).
+    await expect(page.getByText(/which hand do you sign with/i)).toBeVisible();
+    await page.getByRole('button', { name: /right hand/i }).click();
 
     // Onboarding's own "done" celebration auto-advances to Home after ~1.4s (see
-    // OnboardingFlow.tsx's setTimeout(onComplete, 1400)).
-    await expect(page.getByRole('button', { name: /sign in/i }).or(page.getByText(/streak/i)))
+    // OnboardingFlow.tsx's setTimeout(onComplete, 1400)). The guest sign-in affordance in the
+    // top bar is a stable Home marker (.first() avoids strict-mode on repeated "streak" text).
+    await expect(page.getByRole('button', { name: /sign in/i }).first())
       .toBeVisible({ timeout: 10_000 });
   });
 
@@ -30,7 +35,8 @@ test.describe('app smoke test', () => {
     await page.goto('/');
     await page.getByRole('button', { name: /get started/i }).click();
     await page.getByRole('button', { name: /continue as guest/i }).click();
-    await page.locator('button', { hasText: /./ }).first().click();
+    await page.getByRole('button', { name: /just starting/i }).click();
+    await page.getByRole('button', { name: /right hand/i }).click(); // dominant-hand step
     await page.waitForTimeout(1600); // clear onboarding's auto-advance
 
     const signInTrigger = page.getByRole('button', { name: /sign in/i }).first();
