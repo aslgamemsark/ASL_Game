@@ -73,4 +73,40 @@ describe('computeFraming', () => {
     f.mouth = null;
     expect(computeFraming(f).ok).toBe(true);
   });
+
+  // A hand is 21 landmarks; represent it here as a small cluster of points around a center.
+  function handAt(cxRatio: number, cyRatio: number, width = 640, height = 480) {
+    const cx = cxRatio * width;
+    const cy = cyRatio * height;
+    const points = [
+      [cx, cy, 0], [cx - 12, cy - 12, 0], [cx + 12, cy - 12, 0], [cx - 12, cy + 12, 0], [cx + 12, cy + 12, 0],
+    ];
+    return { handedness: 'Right', points };
+  }
+
+  it('warns when a raised hand runs off a side edge (would drop the sign)', () => {
+    const f = frameWith({ shoulderRatio: 0.5 });
+    f.hands = [handAt(0.01, 0.4)]; // hand hugging the left edge
+    const r = computeFraming(f);
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/hands in the frame/i);
+  });
+
+  it('warns when a raised hand runs off the top edge', () => {
+    const f = frameWith({ shoulderRatio: 0.5 });
+    f.hands = [handAt(0.5, 0.01)];
+    expect(computeFraming(f).ok).toBe(false);
+  });
+
+  it('passes when both hands are well inside the frame', () => {
+    const f = frameWith({ shoulderRatio: 0.5 });
+    f.hands = [handAt(0.35, 0.45), handAt(0.65, 0.45)];
+    expect(computeFraming(f).ok).toBe(true);
+  });
+
+  it('does NOT nag about hands resting at the bottom edge (only sides/top count)', () => {
+    const f = frameWith({ shoulderRatio: 0.5 });
+    f.hands = [handAt(0.5, 0.99)]; // hand hanging off the bottom at rest
+    expect(computeFraming(f).ok).toBe(true);
+  });
 });
