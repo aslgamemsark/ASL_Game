@@ -46,8 +46,9 @@ export function ShopPage({ onExit }: Props) {
   };
 
   const handleEquip = (item: ShopItem) => {
-    if (item.type === 'border') equippedBorder === item.id ? equipBorder(null) : equipBorder(item.id);
-    else if (item.type === 'avatar') equippedAvatar === item.id ? equipAvatar(null) : equipAvatar(item.id);
+    // Tapping an already-equipped cosmetic un-equips it (toggle); otherwise equip it.
+    if (item.type === 'border') equipBorder(equippedBorder === item.id ? null : item.id);
+    else if (item.type === 'avatar') equipAvatar(equippedAvatar === item.id ? null : item.id);
     setSelected(null);
   };
 
