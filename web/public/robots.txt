@@ -1,2 +1,6 @@
 User-agent: *
+Allow: /landing.html
+Allow: /$
 Disallow: /
+
+Sitemap: https://aslgame.vercel.app/sitemap.xml

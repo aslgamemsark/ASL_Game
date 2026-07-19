@@ -248,6 +248,8 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
             </div>
           </motion.div>
         )}
+
+        <p className="text-center text-xs text-z-gray-600 pt-2">QuickSign v{__APP_VERSION__}</p>
       </div>
 
       <LogoutConfirm open={showLogout} onClose={() => setShowLogout(false)} />
