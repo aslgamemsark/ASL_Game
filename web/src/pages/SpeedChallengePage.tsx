@@ -6,6 +6,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
+import { useCameraFramingGuide } from '@/hooks/useCameraFramingGuide';
 import { Zippy } from '@/components/shared/Zippy';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -130,6 +131,8 @@ export function SpeedChallengePage({ onExit }: Props) {
   );
 
   const recognition = useRecognition({ onPass: handlePass, onAttempt: handleAttempt });
+  // Once per session: overlay the camera-framing guide until the user is well positioned.
+  const showCamGuide = useCameraFramingGuide(recognition.framing?.ok);
 
   useEffect(() => {
     recognition.init();
@@ -415,7 +418,7 @@ export function SpeedChallengePage({ onExit }: Props) {
               </div>
 
               {/* Webcam */}
-              <WebcamMirror videoRef={videoRef} passed={justPassed} cosmeticBorderClasses={cosmeticBorderClasses} />
+              <WebcamMirror videoRef={videoRef} passed={justPassed} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} />
 
               {/* Skip */}
               <div className="flex justify-end mt-auto pt-1">

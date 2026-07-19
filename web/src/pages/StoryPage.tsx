@@ -8,6 +8,7 @@ import { useConfetti } from '@/hooks/useConfetti';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
+import { useCameraFramingGuide } from '@/hooks/useCameraFramingGuide';
 import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
 import { Zippy } from '@/components/shared/Zippy';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
@@ -130,6 +131,8 @@ export function StoryPage({ story, onExit }: Props) {
 
   const { classifier, status: classifierStatus, logVote, lastVote } = useClassifier();
   const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote, onAttempt: handleAttempt });
+  // Once per session: overlay the camera-framing guide until the user is well positioned.
+  const showCamGuide = useCameraFramingGuide(recognition.framing?.ok);
 
   useEffect(() => { recognition.init(); }, [recognition.init]);
 
@@ -304,7 +307,7 @@ export function StoryPage({ story, onExit }: Props) {
               </div>
 
               {/* Webcam */}
-              <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} />
+              <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} />
 
               {recognition.result && (
                 <ParameterChecklist params={recognition.result.params} sign={currentEngineSign} />

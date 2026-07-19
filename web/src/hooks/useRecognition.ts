@@ -5,34 +5,14 @@ import { verify, type VerifyResult, resultPassed } from '@/engine/verifier';
 import { gatePass, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
 import { topK, type SignClassifier } from '@/engine/classifier';
 import { GATE_CONFIDENCE, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
+import { computeFraming, type FramingStatus } from '@/engine/framing';
 import type { Sign } from '@/engine/schema';
 
 export type RecognitionStatus = 'loading' | 'ready' | 'running' | 'error';
 
-/** Live camera-framing feedback derived from the pose landmarks already computed each frame — used
- *  by the first-run camera-position guide. `ok` means the user is well framed (face centered, a
- *  reasonable distance, chest visible below). All thresholds are ratios of the frame, so they hold
- *  regardless of resolution. */
-export interface FramingStatus {
-  ok: boolean;
-  message: string;
-}
-
-function computeFraming(frame: Frame): FramingStatus {
-  const { leftShoulder, rightShoulder, mouth, width, height } = frame;
-  if (!width || !height || !leftShoulder || !rightShoulder) {
-    return { ok: false, message: 'Step into view so I can see you' };
-  }
-  const shoulderWidthRatio = Math.abs(leftShoulder[0] - rightShoulder[0]) / width;
-  const midX = ((leftShoulder[0] + rightShoulder[0]) / 2) / width;
-  const centerOffset = Math.abs(midX - 0.5);
-  if (shoulderWidthRatio > 0.8) return { ok: false, message: 'Move back a little' };
-  if (shoulderWidthRatio < 0.32) return { ok: false, message: 'Come a little closer' };
-  if (centerOffset > 0.16) return { ok: false, message: 'Center yourself in the box' };
-  // Keep the face in the upper part of the frame so the chest stays visible below it.
-  if (mouth && mouth[1] / height > 0.55) return { ok: false, message: 'Raise your camera a touch' };
-  return { ok: true, message: 'Perfect — hold it there ✓' };
-}
+// Framing feedback lives in engine/framing.ts (pure + unit-tested); re-exported here so existing
+// importers of FramingStatus from useRecognition keep working.
+export type { FramingStatus };
 
 /** Decision for one verification event, for telemetry — see onVerified below. */
 export type VerificationDecision = 'pass' | 'veto' | 'no-classifier';
