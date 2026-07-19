@@ -548,19 +548,29 @@ export function RoomPage({ onExit }: Props) {
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <p className="font-bold text-lg text-center">{statusMsg || 'Waiting…'}</p>
               {roomId && (
-                <div className="bg-z-card border border-white/10 rounded-2xl px-8 py-4 text-center">
-                  <p className="text-xs text-z-gray-400 mb-1">Room Code</p>
-                  <p className="text-3xl font-bold tracking-widest text-z-purple-light">{roomId}</p>
-                </div>
+                <button
+                  onClick={() => { void navigator.clipboard?.writeText(roomId).catch(() => {}); }}
+                  className="rounded-2xl bg-z-card px-8 py-4 text-center ring-1 ring-inset ring-z-purple-deep/60 transition-colors hover:ring-z-purple/50"
+                  title="Tap to copy"
+                >
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-z-gray-400">Room code · tap to copy</p>
+                  <p className="text-3xl font-extrabold tracking-[0.3em] text-z-purple-glow">{roomId}</p>
+                </button>
               )}
-              <div className="w-full max-w-xs bg-z-card border border-white/8 rounded-2xl p-4">
-                <p className="text-xs text-z-gray-400 uppercase tracking-widest mb-2">Players ({roster.length}/{MAX_PLAYERS})</p>
+              <div className="w-full max-w-xs rounded-2xl bg-z-card p-4 ring-1 ring-inset ring-z-purple-deep/50">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-z-gray-400">Players ({roster.length}/{MAX_PLAYERS})</p>
                 <div className="flex flex-col gap-1.5">
                   {roster.map((m) => (
-                    <p key={m.peerId} className="text-sm font-semibold flex items-center gap-1.5">
+                    <motion.p
+                      key={m.peerId}
+                      className="flex items-center gap-1.5 text-sm font-semibold"
+                      initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-z-green" />
                       {m.peerId === user?.id ? 'You' : m.username}
                       {disconnectedPeerIds.includes(m.peerId) && <span className="text-xs font-normal text-z-red">disconnected</span>}
-                    </p>
+                    </motion.p>
                   ))}
                 </div>
               </div>
@@ -581,11 +591,15 @@ export function RoomPage({ onExit }: Props) {
                 <RoundProgressDots total={totalRounds} current={round} />
                 <Scoreboard entries={scoreboardEntries} />
               </div>
-              <div className="bg-z-card border border-z-purple/30 rounded-2xl p-4 text-center">
-                <p className="text-xs text-z-gray-400 mb-1">
-                  SIGN THIS · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-500">waiting for everyone's camera…</span>}
+              <div className="relative overflow-hidden rounded-2xl bg-z-card p-4 text-center ring-1 ring-inset ring-z-purple/40">
+                <div
+                  className="pointer-events-none absolute -top-10 left-1/2 h-28 w-28 -translate-x-1/2 rounded-full blur-3xl"
+                  style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.4) 0%, transparent 70%)' }}
+                />
+                <p className="relative mb-1 text-[11px] font-semibold uppercase tracking-widest text-z-gray-400">
+                  Sign this · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : 'text-z-gray-300'}>{Math.ceil(timeLeft)}s</span> : <span className="normal-case tracking-normal text-z-gray-500">waiting for everyone's camera…</span>}
                 </p>
-                <p className="text-3xl font-bold text-z-purple-light">{SIGNS[currentSignId]?.name.replace(/_/g, ' ') ?? currentSignId}</p>
+                <p className="relative text-3xl font-extrabold text-z-purple-glow">{SIGNS[currentSignId]?.name.replace(/_/g, ' ') ?? currentSignId}</p>
               </div>
               <WebcamMirror videoRef={signaling.localVideoRef} label="You" cosmeticBorderClasses={cosmeticBorderClasses} activeTurn turnLabel="YOUR TURN" timerPercent={timerPercent} />
               <p className="text-center text-z-gray-400 text-sm">Sign it — everyone else guesses!</p>
@@ -616,20 +630,25 @@ export function RoomPage({ onExit }: Props) {
                 {turnArmed ? 'What are they signing?' : <span className="text-z-gray-500 font-normal text-sm">connecting…</span>}
               </p>
               <div className="grid grid-cols-2 gap-3">
-                {guessOptions.map((s) => (
-                  <motion.button key={s} onClick={() => handleGuess(s)}
-                    disabled={!!myGuess}
-                    className={`py-4 rounded-2xl font-bold text-sm border transition-colors ${
-                      myGuess
-                        ? s === currentSignId
-                          ? 'bg-z-green/20 border-z-green text-z-green'
-                          : 'border-white/8 text-z-gray-400'
-                        : 'bg-z-card border-white/10 hover:border-z-purple/40 text-white'
-                    }`}
-                    whileTap={{ scale: 0.97 }}>
-                    {SIGNS[s]?.name.replace(/_/g, ' ') ?? s}
-                  </motion.button>
-                ))}
+                {guessOptions.map((s) => {
+                  const isCorrect = myGuess && s === currentSignId;
+                  return (
+                    <motion.button key={s} onClick={() => handleGuess(s)}
+                      disabled={!!myGuess}
+                      className={`py-4 rounded-2xl font-bold text-sm ring-1 ring-inset transition-all duration-200 ${
+                        myGuess
+                          ? isCorrect
+                            ? 'bg-z-green/20 ring-z-green text-z-green shadow-[0_0_20px_-4px_rgba(52,211,153,0.7)]'
+                            : 'ring-white/8 text-z-gray-500'
+                          : 'bg-z-card ring-white/10 text-white hover:ring-z-purple/50 hover:bg-z-surface/60 active:scale-[0.98]'
+                      }`}
+                      animate={isCorrect ? { scale: [1, 1.05, 1] } : {}}
+                      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                      whileTap={{ scale: 0.97 }}>
+                      {SIGNS[s]?.name.replace(/_/g, ' ') ?? s}
+                    </motion.button>
+                  );
+                })}
               </div>
             </motion.div>
           )}

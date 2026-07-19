@@ -14,8 +14,12 @@ export function RoundProgressDots({ total, current }: Props) {
         return (
           <span
             key={i}
-            className={`h-1.5 rounded-full transition-all duration-300 ${
-              active ? 'w-5 bg-z-purple-light' : done ? 'w-1.5 bg-z-purple/60' : 'w-1.5 bg-white/15'
+            className={`h-1.5 rounded-full transition-all duration-300 ease-out ${
+              active
+                ? 'w-6 bg-z-purple-light shadow-[0_0_10px_rgba(167,139,250,0.7)]'
+                : done
+                  ? 'w-1.5 bg-z-purple/70'
+                  : 'w-1.5 bg-white/15'
             }`}
           />
         );

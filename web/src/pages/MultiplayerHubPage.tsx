@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { DuelPage } from '@/pages/DuelPage';
@@ -64,35 +64,28 @@ export function MultiplayerHubPage({ onExit, mode, autoHostRoomId, autoJoinCode,
       </div>
 
       <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 flex flex-col justify-center gap-4">
-        <AnimatePresence>
+        {[
+          { key: 'duel' as const, icon: '⚔️', title: '1v1 Duel', desc: 'Challenge one friend — sign it, they guess it.' },
+          { key: 'room' as const, icon: '👥', title: 'Group Room', desc: 'Up to 4 players — everyone takes a turn signing.' },
+        ].map((m, i) => (
           <motion.button
-            key="duel"
-            onClick={() => setActive('duel')}
-            className="w-full text-left bg-z-card border border-white/8 hover:border-z-purple/40 rounded-2xl p-5 flex items-center gap-4 transition-colors"
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+            key={m.key}
+            onClick={() => setActive(m.key)}
+            className="group w-full text-left bg-z-card rounded-3xl p-5 flex items-center gap-4 ring-1 ring-inset ring-z-purple-deep/50 transition-all duration-200 hover:ring-z-purple/50 hover:bg-z-surface/50"
+            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.06, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.98 }}
           >
-            <span className="text-4xl">⚔️</span>
-            <div>
-              <p className="font-bold text-lg">1v1 Duel</p>
-              <p className="text-z-gray-400 text-sm mt-0.5">Challenge one friend — sign it, they guess it.</p>
+            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-z-purple/15 text-3xl ring-1 ring-inset ring-z-purple/30 transition-transform duration-200 group-hover:scale-105">
+              {m.icon}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-bold text-lg">{m.title}</p>
+              <p className="text-z-gray-400 text-sm mt-0.5">{m.desc}</p>
             </div>
+            <span className="text-z-gray-500 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-z-purple-light" aria-hidden>→</span>
           </motion.button>
-
-          <motion.button
-            key="room"
-            onClick={() => setActive('room')}
-            className="w-full text-left bg-z-card border border-white/8 hover:border-z-purple/40 rounded-2xl p-5 flex items-center gap-4 transition-colors"
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-          >
-            <span className="text-4xl">👥</span>
-            <div>
-              <p className="font-bold text-lg">Group Room</p>
-              <p className="text-z-gray-400 text-sm mt-0.5">Up to 4 players — everyone takes a turn signing.</p>
-            </div>
-          </motion.button>
-        </AnimatePresence>
+        ))}
       </div>
     </div>
   );

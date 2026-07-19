@@ -579,15 +579,27 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
           )}
 
           {phase === 'waiting' && (
-            <motion.div key="waiting" className="flex-1 flex flex-col items-center justify-center gap-5"
+            <motion.div key="waiting" className="flex-1 flex flex-col items-center justify-center gap-6"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <motion.div className="text-5xl" animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>⚙️</motion.div>
+              {/* Branded spinner: a purple arc orbiting a calm Zippy, instead of a placeholder emoji. */}
+              <div className="relative h-20 w-20">
+                <motion.span
+                  className="absolute inset-0 rounded-full border-[3px] border-z-purple-deep/60 border-t-z-purple-light"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1.1, repeat: Infinity, ease: 'linear' }}
+                />
+                <span className="absolute inset-0 flex items-center justify-center text-3xl">🤟</span>
+              </div>
               <p className="font-bold text-lg text-center">{statusMsg || 'Waiting…'}</p>
               {matchState?.roomId && (
-                <div className="bg-z-card border border-white/10 rounded-2xl px-8 py-4 text-center">
-                  <p className="text-xs text-z-gray-400 mb-1">Room Code</p>
-                  <p className="text-3xl font-bold tracking-widest text-z-purple-light">{matchState.roomId}</p>
-                </div>
+                <button
+                  onClick={() => { void navigator.clipboard?.writeText(matchState.roomId ?? '').catch(() => {}); }}
+                  className="group rounded-2xl bg-z-card px-8 py-4 text-center ring-1 ring-inset ring-z-purple-deep/60 transition-colors hover:ring-z-purple/50"
+                  title="Tap to copy"
+                >
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-z-gray-400">Room code · tap to copy</p>
+                  <p className="text-3xl font-extrabold tracking-[0.3em] text-z-purple-glow">{matchState.roomId}</p>
+                </button>
               )}
             </motion.div>
           )}
@@ -599,11 +611,15 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                 <RoundProgressDots total={totalRounds} current={matchState.round} />
                 <Scoreboard entries={[{ label: 'You', score: matchState.myScore, isYou: true }, { label: matchState.opponentUsername, score: matchState.opponentScore, isYou: false }]} />
               </div>
-              <div className="bg-z-card border border-z-purple/30 rounded-2xl p-4 text-center">
-                <p className="text-xs text-z-gray-400 mb-1">
-                  SIGN THIS · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-500">waiting for {matchState.opponentUsername}'s camera…</span>}
+              <div className="relative overflow-hidden rounded-2xl bg-z-card p-4 text-center ring-1 ring-inset ring-z-purple/40">
+                <div
+                  className="pointer-events-none absolute -top-10 left-1/2 h-28 w-28 -translate-x-1/2 rounded-full blur-3xl"
+                  style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.4) 0%, transparent 70%)' }}
+                />
+                <p className="relative mb-1 text-[11px] font-semibold uppercase tracking-widest text-z-gray-400">
+                  Sign this · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : 'text-z-gray-300'}>{Math.ceil(timeLeft)}s</span> : <span className="normal-case tracking-normal text-z-gray-500">waiting for {matchState.opponentUsername}'s camera…</span>}
                 </p>
-                <p className="text-3xl font-bold text-z-purple-light">{SIGNS[matchState.currentSign]?.name.replace(/_/g, ' ') ?? matchState.currentSign}</p>
+                <p className="relative text-3xl font-extrabold text-z-purple-glow">{SIGNS[matchState.currentSign]?.name.replace(/_/g, ' ') ?? matchState.currentSign}</p>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <WebcamMirror videoRef={signaling.localVideoRef} label="You" cosmeticBorderClasses={cosmeticBorderClasses} activeTurn turnLabel="YOUR TURN" timerPercent={timerPercent} />
@@ -631,20 +647,25 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                 What are they signing? · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red' : 'text-z-gray-400'}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-500 font-normal text-sm">connecting…</span>}
               </p>
               <div className="grid grid-cols-2 gap-3">
-                {guessOptions.map((s) => (
-                  <motion.button key={s} onClick={() => handleGuess(s)}
-                    disabled={!!guessResult}
-                    className={`py-4 rounded-2xl font-bold text-sm border transition-colors ${
-                      guessResult
-                        ? s === matchState.currentSign
-                          ? 'bg-z-green/20 border-z-green text-z-green'
-                          : 'border-white/8 text-z-gray-400'
-                        : 'bg-z-card border-white/10 hover:border-z-purple/40 text-white'
-                    }`}
-                    whileTap={{ scale: 0.97 }}>
-                    {SIGNS[s]?.name.replace(/_/g, ' ') ?? s}
-                  </motion.button>
-                ))}
+                {guessOptions.map((s) => {
+                  const isCorrect = guessResult && s === matchState.currentSign;
+                  return (
+                    <motion.button key={s} onClick={() => handleGuess(s)}
+                      disabled={!!guessResult}
+                      className={`py-4 rounded-2xl font-bold text-sm ring-1 ring-inset transition-all duration-200 ${
+                        guessResult
+                          ? isCorrect
+                            ? 'bg-z-green/20 ring-z-green text-z-green shadow-[0_0_20px_-4px_rgba(52,211,153,0.7)]'
+                            : 'ring-white/8 text-z-gray-500'
+                          : 'bg-z-card ring-white/10 text-white hover:ring-z-purple/50 hover:bg-z-surface/60 active:scale-[0.98]'
+                      }`}
+                      animate={isCorrect ? { scale: [1, 1.05, 1] } : {}}
+                      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                      whileTap={{ scale: 0.97 }}>
+                      {SIGNS[s]?.name.replace(/_/g, ' ') ?? s}
+                    </motion.button>
+                  );
+                })}
               </div>
             </motion.div>
           )}

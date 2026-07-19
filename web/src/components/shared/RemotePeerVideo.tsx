@@ -40,15 +40,30 @@ export function RemotePeerVideo({ stream, label, connected, cosmeticBorderClasse
     }
   }, [stream]);
   return (
-    <div className={`relative rounded-2xl overflow-hidden bg-z-surface aspect-video ${cosmeticBorderClasses ?? ''} ${activeTurn ? 'outline outline-2 outline-z-purple-light' : ''}`}>
+    <div
+      className={`relative rounded-2xl overflow-hidden bg-z-surface aspect-video transition-shadow duration-300 ${cosmeticBorderClasses ?? ''} ${
+        activeTurn
+          ? 'ring-2 ring-z-purple-light shadow-[0_0_22px_-2px_rgba(167,139,250,0.6)]'
+          : 'ring-1 ring-inset ring-white/10'
+      }`}
+    >
       <video ref={ref} autoPlay playsInline muted className="w-full h-full object-cover" onLoadedData={onVideoReady} />
       {!(connected && stream) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-z-surface/90">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-z-surface/90">
+          <span className="flex gap-1" aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="h-1.5 w-1.5 rounded-full bg-z-purple-light animate-[pulse_1s_ease-in-out_infinite]"
+                style={{ animationDelay: `${i * 0.16}s` }}
+              />
+            ))}
+          </span>
           <p className="text-xs text-z-gray-400">Connecting…</p>
         </div>
       )}
       <TurnOverlay active={!!activeTurn} label={turnLabel} timerPercent={timerPercent} />
-      <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded-md">{label}</span>
+      <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded-md backdrop-blur-sm">{label}</span>
     </div>
   );
 }
