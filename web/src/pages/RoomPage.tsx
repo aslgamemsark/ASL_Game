@@ -396,8 +396,12 @@ export function RoomPage({ onExit }: Props) {
     setSearching(true);
     const { data, error } = await supabase.rpc('find_public_room', { p_mode: 'room' });
     setSearching(false);
-    if (error || !data) { setCodeError('No open rooms right now — try creating one!'); return; }
-    await joinRoom((data as { code: string }).code);
+    // find_public_room returns a bare composite row (not setof), so a "no match" result can come
+    // back as PostgREST's all-null composite object rather than a JS null — `!data` alone misses
+    // that case and used to fall through to joinRoom(undefined).
+    const code = (data as { code?: string } | null)?.code;
+    if (error || !code) { setCodeError('No open rooms right now — try creating one!'); return; }
+    await joinRoom(code);
   };
 
   const startGame = () => {
@@ -525,6 +529,7 @@ export function RoomPage({ onExit }: Props) {
                 whileTap={{ scale: 0.97 }}>
                 {searching ? 'Searching…' : '🔍 Search for a Room'}
               </motion.button>
+              {codeError && <p className="text-center text-z-red text-xs -mt-3">{codeError}</p>}
 
               <div className="w-full max-w-xs">
                 <p className="text-center text-z-gray-400 text-sm mb-2">— or join with a code —</p>
@@ -538,7 +543,6 @@ export function RoomPage({ onExit }: Props) {
                     Join
                   </motion.button>
                 </div>
-                {codeError && <p className="text-center text-z-red text-xs mt-2">{codeError}</p>}
               </div>
             </motion.div>
           )}

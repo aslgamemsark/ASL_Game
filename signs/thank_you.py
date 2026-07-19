@@ -42,6 +42,12 @@ THANK_YOU = Sign(
         direction=(0.0, 1.0),            # downward in image space (y grows downward)
         min_displacement_ratio=0.2,      # ~0.2 shoulder-widths of travel (real strokes are ~0.36)
         min_duration_s=0.4,
-        required=True, min_confidence=0.25),
+        # min_confidence raised 0.25->0.85 (2026-07-19): the TS engine (web/src/engine/signs/
+        # index.ts) was already raised to 0.85 on 2026-07-14 after a real calibration log showed a
+        # chin-touch confusor (tapping/resting near the chin without a full downward push)
+        # sustaining a false accept at 0.25 — this Python mirror was never updated to match,
+        # violating the "never diverge" rule (CLAUDE.md). Reconciled here; no independent Python
+        # calibration data justifies a different value.
+        required=True, min_confidence=0.85),
     orientation=OrientationReq(hand=DOMINANT, facing=PalmFacing.UP, required=False, min_confidence=0.25),
 )

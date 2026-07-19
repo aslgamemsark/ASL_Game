@@ -18,7 +18,7 @@ export interface StoryScript {
   npcName: string;
   npcEmoji: string;
   backgroundEmoji: string;
-  /** Dr. Reeves, Ms. Rowan, and the coffee-shop barista are still Zippy underneath — just dressed
+  /** Dr. Reeves, Mr. Zippy, and the coffee-shop barista are still Zippy underneath — just dressed
    *  for the part. When set, this costume art replaces npcEmoji everywhere the NPC appears
    *  (story screens, world map node icon). Omitted for stories Zippy narrates as himself. */
   npcCostume?: ZippyExpression;
@@ -268,8 +268,8 @@ export const CLASSROOM_STORY: StoryScript = {
   id: 'classroom-story',
   title: 'At School',
   description: 'Meet your teacher and make a new friend',
-  npcName: 'Ms. Rowan',
-  npcEmoji: '👩‍🏫',
+  npcName: 'Mr. Zippy',
+  npcEmoji: '👨‍🏫',
   npcCostume: 'teacher',
   backgroundEmoji: '🏫',
   lines: [

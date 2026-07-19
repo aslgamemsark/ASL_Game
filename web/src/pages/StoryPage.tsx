@@ -36,7 +36,7 @@ const MOOD_EMOJI: Record<string, string> = {
 };
 
 // Zippy narrates the greetings + coffee stories. When he's the NPC we swap the emoji avatar for his
-// real expression art, chosen by the line's mood. Other stories' NPCs (Dr. Reeves, Ms. Rowan) keep
+// real expression art, chosen by the line's mood. Other stories' NPCs (Dr. Reeves, Mr. Zippy) keep
 // their own emoji — they aren't Zippy.
 const MOOD_ZIPPY: Record<string, ZippyExpression> = {
   neutral: 'teaching',

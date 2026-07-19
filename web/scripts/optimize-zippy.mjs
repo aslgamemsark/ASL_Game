@@ -60,7 +60,9 @@ const MAP = {
   // Third batch (2026-07-13) — costume variants for story roleplay NPCs (he's still Zippy,
   // just dressed for the part).
   barista: 'zippy-barista.png',
-  doctor: 'zippy-doctor.png',
+  // Swapped to the newer doc2 pose (2026-07-19) — zippy-doctor.png kept in zippy-src/ for
+  // reference but no longer mapped to a role.
+  doctor: 'zippy-doc2.png',
   teacher: 'zippy-teacher.png',
 };
 
