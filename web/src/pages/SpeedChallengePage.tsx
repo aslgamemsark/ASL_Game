@@ -418,7 +418,7 @@ export function SpeedChallengePage({ onExit }: Props) {
               </div>
 
               {/* Webcam */}
-              <WebcamMirror videoRef={videoRef} passed={justPassed} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} />
+              <WebcamMirror videoRef={videoRef} passed={justPassed} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} landmarksRef={recognition.handsRef} showLandmarks={showCamGuide} />
 
               {/* Skip */}
               <div className="flex justify-end mt-auto pt-1">

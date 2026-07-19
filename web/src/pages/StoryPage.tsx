@@ -307,7 +307,7 @@ export function StoryPage({ story, onExit }: Props) {
               </div>
 
               {/* Webcam */}
-              <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} />
+              <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} landmarksRef={recognition.handsRef} showLandmarks={showCamGuide} />
 
               {recognition.result && (
                 <ParameterChecklist params={recognition.result.params} sign={currentEngineSign} />

@@ -2,6 +2,51 @@ import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { TurnOverlay } from '@/components/shared/TurnOverlay';
 
+// Standard MediaPipe 21-landmark hand topology (thumb, four fingers, palm base) — used to draw the
+// bones between landmark dots for the live hand-tracking overlay.
+const HAND_CONNECTIONS: [number, number][] = [
+  [0, 1], [1, 2], [2, 3], [3, 4],          // thumb
+  [0, 5], [5, 6], [6, 7], [7, 8],          // index
+  [5, 9], [9, 10], [10, 11], [11, 12],     // middle
+  [9, 13], [13, 14], [14, 15], [15, 16],   // ring
+  [13, 17], [17, 18], [18, 19], [19, 20],  // pinky
+  [0, 17],                                  // palm base
+];
+
+/**
+ * Draw both hands' landmark skeletons onto the (already video-painted) canvas. Points arrive in
+ * video-pixel space; the visible feed is mirrored, so X is flipped here to match. Brand-purple
+ * dots + bones instead of raw MediaPipe red, so it reads as part of QuickSign.
+ */
+function drawHandSkeleton(ctx: CanvasRenderingContext2D, canvasWidth: number, hands: { points: number[][] }[]) {
+  const mirrorX = (x: number) => canvasWidth - x;
+  const boneWidth = Math.max(2, canvasWidth * 0.006);
+  const dotRadius = Math.max(3, canvasWidth * 0.008);
+  for (const hand of hands) {
+    const pts = hand.points;
+    if (!pts || pts.length < 21) continue;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineWidth = boneWidth;
+    ctx.strokeStyle = 'rgba(196,181,253,0.85)'; // z-purple-glow
+    for (const [a, b] of HAND_CONNECTIONS) {
+      ctx.beginPath();
+      ctx.moveTo(mirrorX(pts[a][0]), pts[a][1]);
+      ctx.lineTo(mirrorX(pts[b][0]), pts[b][1]);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#A78BFA'; // z-purple-light
+    ctx.shadowColor = 'rgba(167,139,250,0.9)';
+    ctx.shadowBlur = dotRadius * 1.5;
+    for (const p of pts) {
+      ctx.beginPath();
+      ctx.arc(mirrorX(p[0]), p[1], dotRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
 interface Props {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   /** Practice mode's small reference-clip overlay (top-right), shown while "show reference" is on. */
@@ -38,6 +83,12 @@ interface Props {
    *  handedness label, which flips depending on the camera/driver and was reported backwards on
    *  real hardware (2026-07-16) — see DominantHandStep.tsx for the full reasoning. */
   handZones?: { active: 'left' | 'right' | null; selected: 'left' | 'right' | null } | null;
+  /** Live hand landmarks to draw as a skeleton overlay (from useRecognition's handsRef). A ref so
+   *  the canvas loop reads the latest frame without re-rendering. */
+  landmarksRef?: React.RefObject<{ points: number[][] }[] | null>;
+  /** When true, draws the hand skeleton from `landmarksRef`. Used by the camera-position guide so
+   *  the user can see both hands being tracked while framing, then it's off during signing. */
+  showLandmarks?: boolean;
 }
 
 /**
@@ -48,9 +99,15 @@ interface Props {
  * (production audit, 2026-07-12). The camera stream and recognition loop were already correctly
  * shared via hooks (useCamera/useRecognition) — only this rendering piece was duplicated.
  */
-export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones }: Props) {
+export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones, landmarksRef, showLandmarks }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
+  // The RAF loop below is long-lived; mirror the latest overlay props into refs so it always reads
+  // current values without being torn down and recreated each render.
+  const showLandmarksRef = useRef(showLandmarks);
+  showLandmarksRef.current = showLandmarks;
+  const landmarksSourceRef = useRef(landmarksRef);
+  landmarksSourceRef.current = landmarksRef;
 
   useEffect(() => {
     const draw = () => {
@@ -65,6 +122,10 @@ export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmetic
           ctx.scale(-1, 1);
           ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
           ctx.restore();
+          const hands = landmarksSourceRef.current?.current;
+          if (showLandmarksRef.current && hands && hands.length > 0) {
+            drawHandSkeleton(ctx, canvas.width, hands);
+          }
         }
       }
       rafRef.current = requestAnimationFrame(draw);

@@ -385,7 +385,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
               ) : (
                 <>
                   {/* Visible webcam mirror — reads from the hidden video element */}
-                  <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} />
+                  <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} landmarksRef={recognition.handsRef} showLandmarks={showCamGuide} />
 
                   {recognition.result && (
                     <ParameterChecklist

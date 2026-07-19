@@ -65,6 +65,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   const captureRef = useRef<Capture | null>(null);
   const bufferRef = useRef(new RollingBuffer(2.0));
   const stabilizerRef = useRef(new HandStabilizer(0.3));
+  // Latest frame's hand landmarks, published by ref (never state) so the camera-position guide can
+  // draw a live hand skeleton without triggering ~28 re-renders/sec. Cleared when the loop stops so
+  // no stale skeleton lingers over the feed.
+  const handsRef = useRef<Frame['hands']>([]);
   const rafRef = useRef<number>(0);
   const signRef = useRef<Sign | null>(null);
   const runningRef = useRef(false);
@@ -170,6 +174,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           frame = stabilizerRef.current.stabilize(frame);
           bufferRef.current.add(frame);
           frameCountRef.current++;
+          handsRef.current = frame.hands; // published for the live hand-skeleton overlay (ref, no re-render)
 
           // Update framing guidance only when the message changes, to avoid 28 setStates/sec.
           const f = computeFraming(frame);
@@ -278,6 +283,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     runningRef.current = false;
     cancelAnimationFrame(rafRef.current);
     signRef.current = null;
+    handsRef.current = []; // drop the last frame's hands so no stale skeleton stays on screen
     setStatus((s) => (s === 'running' ? 'ready' : s));
   }, []);
 
@@ -288,6 +294,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     bufferRef.current.clear();
     stabilizerRef.current.reset();
     frameCountRef.current = 0;
+    handsRef.current = [];
     setResult(null);
   }, []);
 
@@ -300,5 +307,5 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     };
   }, []);
 
-  return { status, result, framing, init, startLoop, stopLoop, setSign, getSnapshot };
+  return { status, result, framing, handsRef, init, startLoop, stopLoop, setSign, getSnapshot };
 }

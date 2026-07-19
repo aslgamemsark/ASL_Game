@@ -473,6 +473,8 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                     overlayClipUrl={showClip ? currentSignData.clip : undefined}
                     cosmeticBorderClasses={cosmeticBorderClasses}
                     frameGuide={showCamGuide ? recognition.framing : null}
+                    landmarksRef={recognition.handsRef}
+                    showLandmarks={showCamGuide}
                   />
 
                   {recognition.result && (
