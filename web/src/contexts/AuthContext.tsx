@@ -5,6 +5,7 @@ import { validateUsername } from '@/lib/username';
 import { isInappropriate } from '@/lib/profanity';
 import { isAlreadyRegisteredError } from '@/lib/authErrors';
 import { useUserStore } from '@/stores/useUserStore';
+import { identifyUser, resetAnalytics } from '@/lib/analytics';
 
 type ProfileRow = { username: string; is_admin: boolean; is_banned: boolean; ban_reason: string | null };
 
@@ -75,8 +76,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // true instead of dropping them straight into the app under a session they didn't
       // actively choose to start.
       if (event === 'PASSWORD_RECOVERY') setPasswordRecoveryMode(true);
-      if (s) fetchUsername(s.user.id, s.user);
-      else {
+      if (s) {
+        fetchUsername(s.user.id, s.user);
+        identifyUser(s.user.id);
+      } else {
         setUsername(null);
         setNeedsUsernameSetup(false);
         setIsAdmin(false);
@@ -87,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // (not INITIAL_SESSION) so a guest who was never signed in never gets reset on page load.
         if (event === 'SIGNED_OUT') {
           useUserStore.getState().reset();
+          resetAnalytics();
         }
       }
     });
@@ -231,6 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // onboardingComplete back to false (defaultProgress), which App watches to route the now
     // signed-out user to the sign-in screen.
     useUserStore.getState().reset();
+    resetAnalytics();
   }
 
   async function requestPasswordReset(email: string): Promise<string | null> {

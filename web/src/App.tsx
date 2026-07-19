@@ -36,6 +36,7 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { generateRoomCode } from '@/lib/multiplayerRooms';
+import { trackScreen } from '@/lib/analytics';
 import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
@@ -188,6 +189,13 @@ export default function App() {
     setScreen({ type: 'home' });
   }, []);
   const showSideNav = SIDE_NAV_SCREENS.includes(screen.type as SideNavScreen);
+
+  // Manual pageview capture: the app has no real client-side routing (a single URL, driven by
+  // this Screen union instead), so PostHog's URL-based pageview autocapture would never fire
+  // past the first load. This covers every screen, including 'landing'.
+  useEffect(() => {
+    trackScreen(screen.type);
+  }, [screen.type]);
 
   // Subscribe to incoming challenge notifications while logged in
   useEffect(() => {

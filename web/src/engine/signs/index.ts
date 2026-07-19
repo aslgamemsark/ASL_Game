@@ -459,7 +459,12 @@ export const TEACHER = createSign({
   // minCycles=1 was tried and reverted: a live test found that simply holding two hands still
   // near the forehead could score ~1 cycle from tracking jitter alone (near-face hand tracking is
   // noisy). 2 cycles sometimes needs a retry to register, but that's safer than passing on no motion.
-  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.08, minDurationS: 0.5, required: true, minConfidence: 0.4},
+  // minConfidence raised 0.4->0.6 (2026-07-19): real calibration log (TEACHER_2026-07-19T11-43-26)
+  // showed a static-hold confusor (hands near forehead, no real repeated tap) sustain a 2-frame
+  // all-required-pass false accept at movement=0.50 — just above the old 0.4 floor. At 0.6 that
+  // confusor scores 0 the entire take, while the correct take's own pass window (frames 86-98,
+  // movement 0.75-1.0) is untouched. See the downloaded CSV for the full per-frame trace.
+  movement: { kind: MovementKind.REPEATED, actor: DOMINANT, minCycles: 2, minAmplitudeRatio: 0.08, minDurationS: 0.5, required: true, minConfidence: 0.6},
 });
 
 export const WRITE = createSign({

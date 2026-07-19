@@ -18,6 +18,10 @@ import type { ParamScore } from '@/engine/verifier';
 
 type Phase = 'idle' | 'correct' | 'confusor';
 
+// Timed capture: press SPACE to auto-record CORRECT for this many ms, ENTER for CONFUSOR — no
+// manual stop needed, so you can keep both hands on the sign instead of reaching for the mouse.
+const AUTO_RECORD_MS = 4000;
+
 interface LogRow {
   phase: 'correct' | 'confusor';
   frameIdx: number;
@@ -93,6 +97,9 @@ export function CalibrationPage() {
   const [phase, setPhase] = useState<Phase>('idle');
   const phaseRef = useRef<Phase>('idle');
   phaseRef.current = phase;
+  const [autoRemainingMs, setAutoRemainingMs] = useState<number | null>(null);
+  const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const frameIdxRef = useRef<Record<'correct' | 'confusor', number>>({ correct: 0, confusor: 0 });
   const logRef = useRef<LogRow[]>([]);
   const [logCount, setLogCount] = useState({ correct: 0, confusor: 0 });
@@ -153,18 +160,56 @@ export function CalibrationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recognition.result]);
 
-  const togglePhase = useCallback((target: 'correct' | 'confusor') => {
-    setPhase((cur) => (cur === target ? 'idle' : target));
-    setReport(null);
+  const clearAutoTimers = useCallback(() => {
+    if (autoStopRef.current) { clearTimeout(autoStopRef.current); autoStopRef.current = null; }
+    if (autoTickRef.current) { clearInterval(autoTickRef.current); autoTickRef.current = null; }
+    setAutoRemainingMs(null);
   }, []);
 
+  const togglePhase = useCallback((target: 'correct' | 'confusor') => {
+    clearAutoTimers();
+    setPhase((cur) => (cur === target ? 'idle' : target));
+    setReport(null);
+  }, [clearAutoTimers]);
+
+  // SPACE (CORRECT) / ENTER (CONFUSOR): records for AUTO_RECORD_MS then auto-stops — no manual
+  // stop click needed, so both hands stay on the sign the whole time.
+  const startTimedPhase = useCallback((target: 'correct' | 'confusor') => {
+    clearAutoTimers();
+    setReport(null);
+    setPhase(target);
+    const startedAt = Date.now();
+    autoTickRef.current = setInterval(() => {
+      setAutoRemainingMs(Math.max(0, AUTO_RECORD_MS - (Date.now() - startedAt)));
+    }, 100);
+    autoStopRef.current = setTimeout(() => {
+      setPhase('idle');
+      clearAutoTimers();
+    }, AUTO_RECORD_MS);
+  }, [clearAutoTimers]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) return;
+      if (phaseRef.current !== 'idle') return;
+      if (e.code === 'Space') { e.preventDefault(); startTimedPhase('correct'); }
+      else if (e.code === 'Enter') { e.preventDefault(); startTimedPhase('confusor'); }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [startTimedPhase]);
+
+  useEffect(() => () => clearAutoTimers(), [clearAutoTimers]);
+
   const resetLog = useCallback(() => {
+    clearAutoTimers();
     logRef.current = [];
     frameIdxRef.current = { correct: 0, confusor: 0 };
     setLogCount({ correct: 0, confusor: 0 });
     setReport(null);
     setPhase('idle');
-  }, []);
+  }, [clearAutoTimers]);
 
   const buildReport = useCallback(() => {
     const rows = logRef.current;
@@ -201,12 +246,13 @@ export function CalibrationPage() {
     <div style={{ fontFamily: 'monospace', background: '#111', color: '#eee', minHeight: '100vh', padding: 16 }}>
       <h1 style={{ fontSize: 18, marginBottom: 8 }}>Calibration harness — {signName}</h1>
       <p style={{ fontSize: 12, color: '#999', marginBottom: 16 }}>
-        Dev-only (/calibrate). Pick a sign, press "Record CORRECT" and perform it correctly for a
-        few seconds, press it again to stop. Then "Record CONFUSOR" and perform the likeliest
-        accidental false positive. Press "Build report" to see per-parameter medians against the
-        real thresholds, and "Download CSV" to save every raw frame. Use the Notes box any time to
-        jot what looked wrong in plain English — it's tagged with the current sign/phase/frame
-        automatically so you can match it back up against the numbers later.
+        Dev-only (/calibrate). Pick a sign, then press <b>SPACE</b> to auto-record CORRECT (or{' '}
+        <b>ENTER</b> for CONFUSOR) for {AUTO_RECORD_MS / 1000}s — no click needed, just perform the
+        sign. The buttons below still work too (click again to stop manually). Press "Build report"
+        to see per-parameter medians against the real thresholds, and "Download CSV" to save every
+        raw frame. Use the Notes box any time to jot what looked wrong in plain English — it's
+        tagged with the current sign/phase/frame automatically so you can match it back up against
+        the numbers later.
       </p>
 
       <div style={{ display: 'flex', gap: 24 }}>
@@ -237,6 +283,7 @@ export function CalibrationPage() {
           </div>
           <p style={{ marginTop: 8, fontWeight: 'bold', color: PHASE_COLOR[phase] }}>
             phase: {phase}
+            {autoRemainingMs != null && `  ·  auto-stop in ${(autoRemainingMs / 1000).toFixed(1)}s`}
           </p>
 
           <div style={{ marginTop: 16 }}>

@@ -40,6 +40,10 @@ export function PrivacyPage({ onExit }: Props) {
               attempts — used to improve future recognition models. This is on by default and can
               be turned off anytime in Settings → Privacy.
             </li>
+            <li>
+              Anonymous product-usage analytics (which screens you visit, feature usage) to help
+              us improve the app — no video, images, or camera data are ever included.
+            </li>
           </ul>
         </section>
 

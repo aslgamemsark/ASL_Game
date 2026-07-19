@@ -8,8 +8,10 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { installGlobalErrorReporting } from '@/lib/errorReporting';
+import { initAnalytics } from '@/lib/analytics';
 
 installGlobalErrorReporting();
+initAnalytics();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
