@@ -399,15 +399,24 @@ export function LessonPage({ lessonId, onExit }: Props) {
               {(camStatus === 'denied' || camStatus === 'error' || recognition.status === 'error') ? (
                 <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center">
                   <p className="text-sm font-bold text-z-red">
-                    {camStatus === 'denied' ? 'Camera access denied' : 'Camera unavailable'}
+                    {camStatus === 'denied'
+                      ? 'Camera access denied'
+                      : camStatus === 'error'
+                        ? 'Camera unavailable'
+                        : "Couldn't load the recognizer"}
                   </p>
                   <p className="text-xs text-z-gray-300 mt-1">
                     {camStatus === 'denied'
                       ? 'Live coaching needs your camera. Allow camera access in your browser settings, then try again.'
-                      : 'Something went wrong starting the camera. Try again, or check that no other app is using it.'}
+                      : camStatus === 'error'
+                        ? 'Something went wrong starting the camera. Try again, or check that no other app is using it.'
+                        : "We couldn't load the sign recognizer — usually a network hiccup. Check your connection and try again."}
                   </p>
+                  {/* Retry both paths: recognition.init() re-attempts the MediaPipe load (now that a
+                      failed init no longer caches its rejection — see getSharedCapture), and startCam()
+                      re-requests the camera. Both are safe no-ops if already succeeded. */}
                   <button
-                    onClick={() => startCam()}
+                    onClick={() => { recognition.init(); startCam(); }}
                     className="mt-3 text-xs font-bold text-white bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
                   >
                     Try again
