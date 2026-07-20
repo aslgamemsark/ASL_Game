@@ -5,7 +5,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMultiplayerSignaling } from '@/hooks/useMultiplayerSignaling';
+import { useMultiplayerSignaling, type IceResult } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
 import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_DUEL_RULES, DUEL_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
 import { RoomRulesPanel } from '@/components/multiplayer/RoomRulesPanel';
@@ -296,7 +296,21 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildGuessOptions, enterResult, user]);
 
-  const signaling = useMultiplayerSignaling({ selfPeerId: user?.id ?? '', onMessage: handleMessage });
+  // Networking telemetry — see multiplayer_ice_* in analytics/types.ts (answers "do we need paid
+  // TURN?"). room_id read from the ref so this callback stays stable across the match.
+  const handleIceResult = useCallback((r: IceResult) => {
+    const room_id = matchStateRef.current?.roomId ?? '';
+    if (r.outcome === 'connected') {
+      track('multiplayer_ice_connected', {
+        mode: 'duel', room_id, connection_time_ms: r.connectionTimeMs,
+        candidate_type: r.candidateType, used_relay: r.usedRelay, used_default_turn: r.usedDefaultTurn,
+      });
+    } else {
+      track('multiplayer_ice_failed', { mode: 'duel', room_id, reason: r.reason, used_default_turn: r.usedDefaultTurn });
+    }
+  }, []);
+
+  const signaling = useMultiplayerSignaling({ selfPeerId: user?.id ?? '', onMessage: handleMessage, onIceResult: handleIceResult });
 
   useEffect(() => {
     if (autoHostRoomId) void createRoom(autoHostRoomId);

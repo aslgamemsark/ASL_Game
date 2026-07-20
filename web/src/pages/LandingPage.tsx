@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion, useScroll, useTransform, useSpring } from 'framer-motion';
 import { Zippy } from '@/components/shared/Zippy';
 import { ZippyMessage } from '@/components/shared/ZippyMessage';
+import { InAppBrowserBanner } from '@/components/shared/InAppBrowserBanner';
 import { WORLDS } from '@/data/worlds';
 import { SIGNS } from '@/data/signs';
 
@@ -217,6 +218,7 @@ export function LandingPage({ onGetStarted }: Props) {
   return (
     <>
       <ScrollProgressBar />
+      <InAppBrowserBanner />
       <main className="min-h-screen bg-z-bg overflow-x-hidden">
       {/* ── Hero ─────────────────────────────────────────────────────────────────────── */}
       <section className="relative flex flex-col items-center justify-center text-center px-6 pt-[clamp(3rem,10vh,6rem)] pb-[clamp(3rem,8vh,5rem)]">

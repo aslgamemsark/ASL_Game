@@ -5,7 +5,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMultiplayerSignaling } from '@/hooks/useMultiplayerSignaling';
+import { useMultiplayerSignaling, type IceResult } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
 import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_ROOM_RULES, ROOM_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
 import { RoomRulesPanel } from '@/components/multiplayer/RoomRulesPanel';
@@ -354,7 +354,20 @@ export function RoomPage({ onExit }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applyGameOver, applyRoundEnd, beginRound, endRound]);
 
-  const signaling = useMultiplayerSignaling({ selfPeerId: user?.id ?? '', onMessage: handleMessage });
+  // Networking telemetry — see multiplayer_ice_* in analytics/types.ts (answers "do we need paid
+  // TURN?"). roomId (the room code) is captured per-connection; connections happen after join sets it.
+  const handleIceResult = useCallback((r: IceResult) => {
+    if (r.outcome === 'connected') {
+      track('multiplayer_ice_connected', {
+        mode: 'room', room_id: roomId, connection_time_ms: r.connectionTimeMs,
+        candidate_type: r.candidateType, used_relay: r.usedRelay, used_default_turn: r.usedDefaultTurn,
+      });
+    } else {
+      track('multiplayer_ice_failed', { mode: 'room', room_id: roomId, reason: r.reason, used_default_turn: r.usedDefaultTurn });
+    }
+  }, [roomId]);
+
+  const signaling = useMultiplayerSignaling({ selfPeerId: user?.id ?? '', onMessage: handleMessage, onIceResult: handleIceResult });
 
   // Presence-based disconnect detection: a WebRTC connectionState drop isn't reliable here since
   // not every pair of players has a live peer connection (only the current signer connects to
@@ -706,6 +719,24 @@ export function RoomPage({ onExit }: Props) {
 
         </AnimatePresence>
       </div>
+
+      {/* Channel-drop recovery: if this client's own Realtime channel disconnects while in a room,
+          surface an explicit Retry (re-subscribe) alongside the always-available Leave. Without
+          this, a dropped channel left the player in a room that silently couldn't receive events
+          with no in-context way back other than the header close button — satisfies the launch
+          requirement that every failure offers Retry + Leave/Return Home. */}
+      {roomId && signaling.channelStatus === 'disconnected' && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-z-card border border-z-red/40 rounded-2xl px-5 py-3 shadow-xl flex items-center gap-4">
+          <span className="text-sm font-semibold text-z-red">Connection lost</span>
+          <button
+            onClick={() => void signaling.join(`mp-room-${roomId}`)}
+            className="px-3.5 py-1.5 rounded-xl bg-z-purple text-white text-xs font-bold"
+          >
+            Retry
+          </button>
+          <button onClick={exit} className="text-xs text-z-gray-400 hover:text-white">Leave</button>
+        </div>
+      )}
     </div>
   );
 }

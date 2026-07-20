@@ -77,3 +77,4 @@ supabase/.temp/
 
 # --- Local training_samples drains (exported landmark data, kept off-DB and off-git) ---
 ml/training_exports/
+graphify-out/

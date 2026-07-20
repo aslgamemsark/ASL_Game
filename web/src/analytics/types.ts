@@ -105,6 +105,20 @@ export interface EventPayloads {
   multiplayer_connection_lost: MultiplayerBase;
   multiplayer_reconnected: MultiplayerBase & { downtime_ms: number };
 
+  // WebRTC ICE outcome per peer connection. These exist to answer ONE post-launch question: do we
+  // actually need a paid TURN provider, or does free STUN cover our users? `candidate_type` is the
+  // selected local candidate (host/srflx = direct or STUN-reflexive, zero relay cost; relay = went
+  // through a TURN server). `used_relay`'s rate across all connections IS the TURN-necessity signal
+  // (see docs/MULTIPLAYER_RUNBOOK.md's decision criteria). `used_default_turn` flags whether the
+  // free OpenRelay fallback (vs a configured provider) was in play.
+  multiplayer_ice_connected: MultiplayerBase & {
+    connection_time_ms: number;
+    candidate_type: string;
+    used_relay: boolean;
+    used_default_turn: boolean;
+  };
+  multiplayer_ice_failed: MultiplayerBase & { reason: string; used_default_turn: boolean };
+
   // Economy (stores/useUserStore.ts)
   level_up: { new_level: number };
   item_purchased: { item_id: string; gold_price: number; item_type: 'cosmetic' | 'rename_card' | 'streak_freeze' | 'world_unlock' };
