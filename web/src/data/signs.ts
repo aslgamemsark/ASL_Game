@@ -195,9 +195,9 @@ export const SIGNS: Record<string, SignDef> = {
       minDurationS: 0.4,
       required: true,
     },
-    description: 'Two claw hands tap fingertips together',
+    description: 'Two flattened-O hands tap fingertips together',
     hint: 'Bring your fingertips together for another round!',
-    howTo: 'Hold both hands up in loose claw shapes, fingertips pointing at each other. Tap the fingertips of both hands together in front of you.',
+    howTo: 'Hold both hands up in a flattened-O shape (fingers and thumb loosely gathered together, not fully curled into a claw). Tap the fingertips of both hands together in front of you.',
   },
   LETTER_A: {
     name: 'LETTER_A',
