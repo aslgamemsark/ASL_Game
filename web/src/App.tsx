@@ -5,10 +5,8 @@ import { useClassifier } from '@/hooks/useClassifier';
 import { HomePage } from '@/pages/HomePage';
 import type { Tab } from '@/components/home/BottomNav';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
-import { LandingPage } from '@/pages/LandingPage';
 
-// Lazy-loaded: HomePage/OnboardingFlow/LandingPage are the only screens needed for first paint.
-// Every other
+// Lazy-loaded: HomePage/OnboardingFlow are the only screens needed for first paint. Every other
 // page (plus the admin-only panel and the dev-only avatar lab) used to be a static import, so a
 // first-time visitor downloaded all ~2MB of app JS — including AdminPanel — before picking a
 // lesson (production audit, 2026-07-12). Splitting per-route means each only loads when its
@@ -46,7 +44,6 @@ import { useScreenView } from '@/analytics';
 
 type Screen =
   | { type: 'home' }
-  | { type: 'landing' }
   | { type: 'onboarding'; startAt?: 'welcome' | 'auth' }
   | { type: 'lesson'; lessonId: string }
   | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; mixedQuiz?: boolean; bonusGoldOnPerfect?: number; heading?: string; hideReferenceClip?: boolean }
@@ -63,18 +60,6 @@ type Screen =
 
 // Focused-task screens suppress the side nav (matches hiding chrome during a lesson).
 const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboard', 'settings', 'multiplayer'];
-
-// "This browser has already seen the landing page." Device-local, like 'signup-camera-onboarded' —
-// it gates a one-time marketing surface, so it deliberately does NOT live in the synced progress
-// store (a returning user on a new device should still get the pitch if they never signed up).
-const SEEN_LANDING_KEY = 'asl-seen-landing';
-
-// `?landing` on any URL forces the marketing page — read once at module scope so it can't change
-// mid-session. Escape hatch for reviewing/sharing a page that is otherwise reachable only from a
-// browser with empty localStorage. NOT dev-gated (unlike /avatarlab et al): the whole point is to
-// be able to hand someone a real link to the live pitch.
-const FORCE_LANDING =
-  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('landing');
 
 // Shared fallback while a lazy-loaded screen's chunk downloads — same visual language as the
 // auth-restore spinner above so a route-split navigation doesn't look like a different app state.
@@ -107,56 +92,25 @@ export default function App() {
     if (!readyForWarmup) return;
     void getSharedCapture();
   }, [readyForWarmup]);
-  // A genuine first-time visitor gets the marketing landing page; everyone else goes where they
-  // were already going. Device-local (not the synced progress store) and read lazily so it's
-  // resolved once on mount: this is "has this browser seen the pitch", not user progress —
-  // matching the existing 'signup-camera-onboarded' localStorage precedent.
-  const [screen, setScreen] = useState<Screen>(() => {
-    // ?landing forces the marketing page regardless of stored state. Without this the page is
-    // only reachable from a browser with empty localStorage, which means nobody — including the
-    // people building it — can look at it twice, and it can't be linked, shared or reviewed.
-    if (FORCE_LANDING) return { type: 'landing' };
-    if (onboardingComplete) return { type: 'home' };
-    // SettingsPage's admin "Replay onboarding" clears onboardingComplete and reloads to re-walk the
-    // flow — it means onboarding specifically, so it must win over the landing page. Without this,
-    // an existing user (who predates the landing page and so has no SEEN_LANDING_KEY) would land on
-    // the marketing pitch instead, and the signed-in effect below would then bounce them to home —
-    // silently breaking the button. The flag is consumed by that effect, not here.
-    if (sessionStorage.getItem('asl-force-onboarding') === '1') return { type: 'onboarding' };
-    if (localStorage.getItem(SEEN_LANDING_KEY) === '1') return { type: 'onboarding' };
-    return { type: 'landing' };
-  });
+  const [screen, setScreen] = useState<Screen>(
+    onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
+  );
   // One screen_viewed per navigation — every Screen union member is a valid ScreenName (kept in
   // sync deliberately; a new Screen variant that isn't in analytics/types.ts's ScreenName is a
-  // type error here, not a silently-untracked screen). Covers 'landing' too, same as every
-  // other screen.
+  // type error here, not a silently-untracked screen).
   useScreenView(screen.type);
-
-  const leaveLanding = useCallback(() => {
-    localStorage.setItem(SEEN_LANDING_KEY, '1');
-    setScreen({ type: 'onboarding' });
-  }, []);
 
   // Returning users who are already logged in skip onboarding regardless of local store state —
   // except for one deliberate escape hatch: SettingsPage's admin-only "Replay onboarding" button
   // sets this sessionStorage flag right before reloading, specifically so a signed-in dev/admin
   // can re-walk the flow (e.g. to re-test the dominant-hand step) without having to sign out
   // first. Consumed once, so it can't accidentally stick past this one pass.
-  //
-  // 'landing' is included for a real case: a signed-in user on a NEW browser has no local progress
-  // yet (onboardingComplete is false until their remote progress syncs), so the initial screen
-  // resolves to 'landing'. Without this they'd be stuck on the marketing pitch for a product they
-  // already use. The landing flag is set here too, so it doesn't reappear on their next visit.
-  // `?landing` is excluded: a signed-in visitor reviewing the marketing page would otherwise be
-  // bounced to home the instant auth resolves, which is exactly what the escape hatch exists to
-  // prevent.
   useEffect(() => {
-    if (!FORCE_LANDING && !authLoading && user && (screen.type === 'onboarding' || screen.type === 'landing')) {
-      if (screen.type === 'onboarding' && sessionStorage.getItem('asl-force-onboarding') === '1') {
+    if (!authLoading && user && screen.type === 'onboarding') {
+      if (sessionStorage.getItem('asl-force-onboarding') === '1') {
         sessionStorage.removeItem('asl-force-onboarding');
         return;
       }
-      localStorage.setItem(SEEN_LANDING_KEY, '1');
       setScreen({ type: 'home' });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,15 +121,11 @@ export default function App() {
   // on whatever screen they were on, now silently rendered as a guest (the reported bug). Land
   // directly on the auth step so it reads as a sign-in/sign-up page rather than replaying the
   // welcome intro. A brand-new first-run guest is unaffected: the initial screen is already
-  // 'onboarding' (or 'landing'), and both are excluded below.
-  //
-  // 'landing' MUST be excluded: a first-time visitor is by definition signed-out with no progress,
-  // so without this guard they'd match on mount and get yanked off the landing page straight to a
-  // sign-in form before ever seeing the pitch.
+  // 'onboarding', which is excluded below.
   useEffect(() => {
     if (
       !authLoading && !user && !onboardingComplete &&
-      screen.type !== 'onboarding' && screen.type !== 'landing'
+      screen.type !== 'onboarding'
     ) {
       setScreen({ type: 'onboarding', startAt: 'auth' });
     }
@@ -251,15 +201,6 @@ export default function App() {
     setScreen({ type: 'multiplayer', mode: 'duel', autoHostRoomId: roomId });
     void friendUsername; // used in the notification received on the other side
   }, [user, username]);
-
-  // The landing page renders BEFORE the authLoading gate below, and deliberately so: it needs no
-  // session, and a first-time visitor has none to restore — gating it would show them a loading
-  // spinner as the very first thing on the marketing page. Returning users never reach this branch
-  // (their initial screen is 'home'/'onboarding'), so the gate still does its real job of
-  // preventing an onboarding flash for them.
-  if (screen.type === 'landing') {
-    return <LandingPage onGetStarted={leaveLanding} />;
-  }
 
   // Block render until auth session is restored so returning users never see the onboarding flash.
   if (authLoading) {
