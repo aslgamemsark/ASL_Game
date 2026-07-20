@@ -12,6 +12,10 @@ import {
   POSE_MOUTH_RIGHT,
 } from './landmarks';
 
+// Must match the @mediapipe/tasks-vision version in package.json — the WASM runtime (loaded from
+// the CDN below) and the JS API (from npm) are a matched pair and must not drift apart.
+const MEDIAPIPE_VERSION = '0.10.35';
+
 export class Capture {
   private hand: HandLandmarker | null = null;
   private pose: PoseLandmarker | null = null;
@@ -33,8 +37,13 @@ export class Capture {
   }
 
   async init(): Promise<void> {
+    // Pin the WASM runtime to the SAME version as the @mediapipe/tasks-vision npm package that
+    // provides the JS API (package.json). `@latest` here silently decouples the two: the CDN would
+    // serve whatever the newest WASM build is at request time, and a MediaPipe release that changes
+    // the JS<->WASM contract would break recognition for every user at once with no deploy on our
+    // side. Keep this string in lockstep with package.json's tasks-vision version.
     const vision = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+      `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`
     );
 
     // Devices without WebGL (older Android/tablets) throw when asked for a GPU delegate — retry
@@ -202,7 +211,19 @@ let sharedCaptureInit: Promise<Capture> | null = null;
 export function getSharedCapture(): Promise<Capture> {
   if (!sharedCaptureInit) {
     sharedCapture = new Capture();
-    sharedCaptureInit = sharedCapture.init().then(() => sharedCapture!);
+    sharedCaptureInit = sharedCapture
+      .init()
+      .then(() => sharedCapture!)
+      .catch((err) => {
+        // Do NOT cache the failure. init() downloads a multi-MB WASM runtime + models over the
+        // network; a transient blip (common on the mobile data a Reddit launch sends) would
+        // otherwise leave this rejected promise cached for the whole session — every later call,
+        // including the user's "Try again" button, re-awaits the same rejection and can never
+        // recover without a full page reload. Clearing it makes the next call genuinely retry.
+        sharedCapture = null;
+        sharedCaptureInit = null;
+        throw err;
+      });
   }
   return sharedCaptureInit;
 }
