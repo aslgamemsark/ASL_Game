@@ -259,7 +259,7 @@ export function ProfileTab() {
                       key={t}
                       onClick={() => setCosmeticTab(t)}
                       className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${
-                        cosmeticTab === t ? 'bg-z-card text-white' : 'text-z-gray-400 hover:text-z-gray-200'
+                        cosmeticTab === t ? 'bg-z-card text-z-gray-50' : 'text-z-gray-400 hover:text-z-gray-200'
                       }`}
                     >
                       {t === 'avatar' ? 'Avatars' : 'Borders'}

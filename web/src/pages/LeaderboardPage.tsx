@@ -124,7 +124,7 @@ function BoardList({
 
               {/* Name */}
               <div className="flex-1 min-w-0">
-                <p className={`font-bold text-sm truncate ${isMe ? 'text-z-purple-light' : 'text-white'}`}>
+                <p className={`font-bold text-sm truncate ${isMe ? 'text-z-purple-light' : 'text-z-gray-50'}`}>
                   {isMe ? `${row.username} (you)` : row.username}
                 </p>
               </div>
@@ -494,7 +494,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-bold rounded-lg transition-colors ${
-                tab === t.id ? 'bg-z-card text-white' : 'text-z-gray-400 hover:text-z-gray-200'
+                tab === t.id ? 'bg-z-card text-z-gray-50' : 'text-z-gray-400 hover:text-z-gray-200'
               }`}
             >
               <span>{t.icon}</span>

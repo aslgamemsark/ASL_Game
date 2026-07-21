@@ -45,7 +45,7 @@ export function LessonNode({ node, index, unitColor, onSelect, skipCost, signsBa
             ${isLocked
               ? 'bg-z-surface/40 border-z-gray-500/30 text-z-gray-400 cursor-not-allowed'
               : isCompleted
-                ? 'bg-z-green/20 border-z-green text-white shadow-lg shadow-z-green/20'
+                ? 'bg-z-green/20 border-z-green text-z-gray-50 shadow-lg shadow-z-green/20'
                 : 'text-white cursor-pointer border-transparent'
             }
           `}

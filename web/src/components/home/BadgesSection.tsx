@@ -90,9 +90,11 @@ export function BadgesSection() {
               >
                 <div
                   tabIndex={0}
-                  className="w-full h-full rounded-2xl flex items-center justify-center border border-white/5 bg-z-surface/30 opacity-40"
+                  className="w-full h-full rounded-2xl flex items-center justify-center border border-z-gray-400/20 bg-z-surface"
                 >
-                  <span className="text-2xl grayscale">{badge.icon}</span>
+                  {/* Locked state lives on the icon alone (desaturated + dimmed) — the box itself
+                      stays fully opaque so the tile is still clearly visible as a grid cell. */}
+                  <span className="text-2xl grayscale opacity-50">{badge.icon}</span>
                 </div>
               </Tooltip>
             ))}
