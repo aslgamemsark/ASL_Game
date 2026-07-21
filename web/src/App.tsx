@@ -38,6 +38,7 @@ import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
 import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal';
+import { TermsModal } from '@/components/shared/TermsModal';
 import { Zippy } from '@/components/shared/Zippy';
 import { CelebrationHost } from '@/components/shared/CelebrationHost';
 import { useScreenView } from '@/analytics';
@@ -133,6 +134,15 @@ export default function App() {
   const [homeTab, setHomeTab] = useState<Tab>('learn');
   const [incomingChallenge, setIncomingChallenge] = useState<{ from: string; roomId: string } | null>(null);
   const [showAuth, setShowAuth] = useState(false);
+  // First-run consent gate — checked once per device/browser, not per account, so it still shows
+  // for a guest who hasn't signed in yet. Read lazily (not in an effect) so it's already correct
+  // on the very first render instead of flashing the real app for one frame first.
+  const [termsAccepted, setTermsAccepted] = useState(
+    () => localStorage.getItem('asl-game-terms-accepted') === '1'
+  );
+  // "Accept later" only hides the gate for this tab's session (not persisted) — the localStorage
+  // flag above stays unset, so the gate reappears on their next visit until they actually accept.
+  const [termsGateDismissed, setTermsGateDismissed] = useState(false);
 
   const goHome = () => setScreen({ type: 'home' });
 
@@ -211,6 +221,21 @@ export default function App() {
           <p className="text-z-gray-500 text-sm">Loading…</p>
         </div>
       </div>
+    );
+  }
+
+  // Blocks everything else — onboarding, sign-in, even a returning signed-in session — until
+  // explicitly accepted or deferred. Checked before the banned-account screen too: a suspended
+  // account still shouldn't see the real app shell flash behind this gate.
+  if (!termsAccepted && !termsGateDismissed) {
+    return (
+      <TermsModal
+        onAccept={() => {
+          localStorage.setItem('asl-game-terms-accepted', '1');
+          setTermsAccepted(true);
+        }}
+        onAcceptLater={() => setTermsGateDismissed(true)}
+      />
     );
   }
 
