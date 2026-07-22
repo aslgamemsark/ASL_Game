@@ -37,9 +37,14 @@ export function sanitizeAnalyticsProperties(properties: Record<string, unknown>)
 
 /**
  * Initialize PostHog once, as early as possible (main.tsx). Safe to call when analytics isn't
- * configured — it's a no-op. Privacy posture (locked, do not loosen without re-reviewing the
- * product's "your camera never leaves your browser" promise):
- *   - NO session replay, ever (disable_session_recording).
+ * configured — it's a no-op. Privacy posture (reviewed 2026-07-23 — do not loosen further
+ * without re-reviewing the product's "your camera never leaves your browser" promise):
+ *   - Session replay is ON, but with every typed input MASKED (maskAllInputs) — replay records
+ *     the flow/navigation/clicks so we can see where users get stuck, but never the actual text
+ *     a user types (email, password, username, chat). It does NOT and cannot capture the webcam
+ *     stream, so the "video never leaves your device" promise still holds. Still gated by the
+ *     existing opt-out (Settings -> Privacy) and respect_dnt below. Also requires the project-
+ *     level "Record user sessions" toggle to be on in PostHog.
  *   - NO autocapture (every event is a deliberate, typed `track()` call — see capture.ts).
  *   - NO automatic $pageview capture — this is a screen-state-machine SPA, not route-based; App.tsx
  *     sends one `screen_viewed` per screen change instead (see useScreenView.ts).
@@ -55,7 +60,10 @@ export function initAnalytics(): void {
 
   posthog.init(KEY, {
     api_host: HOST,
-    disable_session_recording: true,
+    disable_session_recording: false,
+    // Record the session but never the text users type — passwords, emails, usernames and any
+    // message content are masked; only the UI structure, navigation and clicks are captured.
+    session_recording: { maskAllInputs: true },
     autocapture: false,
     capture_pageview: false,
     capture_pageleave: false,
