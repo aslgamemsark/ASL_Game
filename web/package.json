@@ -25,6 +25,7 @@
     "posthog-js": "^1.404.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "recharts": "^3.10.0",
     "tailwindcss": "^4.3.2",
     "three": "^0.185.0",
     "zustand": "^5.0.14"
