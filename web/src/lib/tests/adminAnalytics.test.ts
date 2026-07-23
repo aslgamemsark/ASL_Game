@@ -3,6 +3,7 @@ import {
   withRollingWau,
   maxRetentionOffset,
   retentionCell,
+  formatDayLabel,
   type ActivePoint,
   type RetentionCohort,
 } from '../adminAnalytics';
@@ -47,6 +48,14 @@ describe('maxRetentionOffset', () => {
       { cohort_week: day(8), cohort_size: 2, weeks: [{ offset: 0, active: 2, pct: 1 }, { offset: 5, active: 1, pct: 0.5 }] },
     ];
     expect(maxRetentionOffset(cohorts)).toBe(5);
+  });
+});
+
+describe('formatDayLabel', () => {
+  it('renders an ISO day as a readable month + day, dropping the leading zero', () => {
+    expect(formatDayLabel('2026-07-13')).toBe('Jul 13');
+    expect(formatDayLabel('2026-01-01')).toBe('Jan 1');
+    expect(formatDayLabel('2026-12-09')).toBe('Dec 9');
   });
 });
 

@@ -2,7 +2,7 @@ import {
   ResponsiveContainer, ComposedChart, AreaChart, Bar, Area, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
-import type { GrowthPoint, ActiveWithRolling } from '@/lib/adminAnalytics';
+import { formatDayLabel, type GrowthPoint, type ActiveWithRolling } from '@/lib/adminAnalytics';
 
 // Shared look for both charts: axis/grid in muted grey, tooltip on the app's card surface so it
 // reads in both light and dark themes (colors are CSS vars that flip with the theme).
@@ -21,10 +21,8 @@ function tickInterval(count: number): number {
   return Math.max(0, Math.ceil(count / 8) - 1);
 }
 
-// Drop the year from an ISO day for a compact `MM-DD` axis label.
-function shortDay(iso: string): string {
-  return iso.slice(5);
-}
+// Readable, locale-independent axis label — "Jul 13" rather than an ambiguous `07-13`.
+const shortDay = formatDayLabel;
 
 /** Signups per day (bars) with the running total of all users (line, right axis). */
 export function GrowthChart({ data }: { data: GrowthPoint[] }) {
