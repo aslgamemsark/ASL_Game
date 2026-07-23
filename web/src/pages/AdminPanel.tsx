@@ -4,6 +4,7 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { supabase } from '@/lib/supabase';
 import { SHOP_ITEMS } from '@/data/shop';
 import { WORLDS } from '@/data/worlds';
+import { formatAdminDate, formatAdminTimestamp } from '@/lib/formatTimestamp';
 
 interface Props {
   onExit: () => void;
@@ -271,7 +272,7 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
                   <span className="text-xs font-bold uppercase text-z-purple-light">{f.category}</span>
                   {f.anonymous && <span className="text-[10px] text-z-gray-500">anon</span>}
                   <span className="text-[10px] text-z-gray-500 ml-auto">
-                    {new Date(f.created_at).toLocaleDateString()}
+                    {formatAdminDate(f.created_at)}
                   </span>
                 </div>
                 <p className="text-z-gray-200 whitespace-pre-wrap break-words">{f.message}</p>
@@ -783,7 +784,7 @@ function AuditTab() {
               </>
             )}
           </p>
-          <p className="text-z-gray-500 mt-1">{new Date(r.created_at).toLocaleString()}</p>
+          <p className="text-z-gray-500 mt-1">{formatAdminTimestamp(r.created_at)}</p>
           {Object.keys(r.payload).length > 0 && (
             <p className="text-z-gray-500 mt-1 font-mono break-all">{JSON.stringify(r.payload)}</p>
           )}
