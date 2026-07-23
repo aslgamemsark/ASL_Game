@@ -108,12 +108,7 @@ export function retentionCell(cohort: RetentionCohort, offset: number): number |
   return week ? week.pct : null;
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** Turns an ISO `YYYY-MM-DD` day into a short human label like "Jul 13". Locale-independent (fixed
- *  month names) so an admin sees the same thing regardless of browser locale — the raw `07-13`
- *  form read as ambiguous/meaningless. */
-export function formatDayLabel(iso: string): string {
-  const [, month, day] = iso.split('-');
-  return `${MONTHS[Number(month) - 1] ?? month} ${Number(day)}`;
-}
+// Re-exported so existing importers (CohortGrid, TrendChart) don't need to change their import
+// path — the formatter itself now lives in lib/formatTimestamp.ts, the one place shared with
+// AdminPanel.tsx's feedback/audit-log timestamps, so the month-name formatting logic exists once.
+export { formatDayLabel } from './formatTimestamp';

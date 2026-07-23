@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withRollingWau, type AdminAnalytics } from '@/lib/adminAnalytics';
+import { formatAdminTimestamp } from '@/lib/formatTimestamp';
 import { GrowthChart, ActiveChart } from './charts/TrendChart';
 import { CohortGrid } from './charts/CohortGrid';
 import { CountryBars } from './charts/CountryBars';
@@ -154,7 +155,7 @@ export default function AnalyticsTab({ showToast }: { showToast: (m: string) => 
       </Section>
 
       <p className="text-[11px] text-z-gray-500 text-center">
-        Registered users only · updated {new Date(data.generated_at).toLocaleString()}
+        Registered users only · updated {formatAdminTimestamp(data.generated_at)}
       </p>
     </div>
   );
