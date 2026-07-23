@@ -6,6 +6,7 @@ import { BottomNav, type Tab } from '@/components/home/BottomNav';
 import { PracticeTab } from '@/components/home/PracticeTab';
 import { ProfileTab } from '@/components/home/ProfileTab';
 import { AlphabetTab } from '@/components/home/AlphabetTab';
+import { BasicSignsTab } from '@/components/home/BasicSignsTab';
 import { DailyQuestsCard } from '@/components/home/DailyQuestsCard';
 import { WorldMap } from '@/components/home/WorldMap';
 import { ChestCard } from '@/components/home/ChestCard';
@@ -186,6 +187,29 @@ export function HomePage({
                     mixedQuiz: true,
                     bonusGoldOnPerfect: 15,
                     heading: 'Letter Test',
+                    hideReferenceClip: true,
+                  })
+                }
+              />
+            </motion.div>
+          )}
+
+          {tab === 'basicSigns' && (
+            <motion.div
+              key="basicSigns"
+              initial={{ opacity: 0, x: 22, scale: 0.97 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -22, scale: 0.97 }}
+              transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+            >
+              <BasicSignsTab
+                onStartSignsPractice={(ids) => onStartPractice({ filterSignIds: ids })}
+                onTestMemory={(ids) =>
+                  onStartPractice({
+                    filterSignIds: ids,
+                    mixedQuiz: true,
+                    bonusGoldOnPerfect: 15,
+                    heading: 'Basic Signs Test',
                     hideReferenceClip: true,
                   })
                 }

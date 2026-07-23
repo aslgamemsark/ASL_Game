@@ -1,12 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { motion } from 'framer-motion';
-import { useCamera } from '@/hooks/useCamera';
 import { getSharedCapture } from '@/engine/capture';
 import { handCenter } from '@/engine/landmarks';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { Zippy } from '@/components/shared/Zippy';
 
 interface Props {
+  /** An already-active camera stream — the host page owns starting/stopping it and only mounts
+   *  this component once camera status is 'active', so unlike this component's original home in
+   *  onboarding (DominantHandStep), there's no "camera failed" case to handle here. */
+  videoRef: RefObject<HTMLVideoElement | null>;
   onConfirm: (hand: 'left' | 'right') => void;
   onSkip: () => void;
 }
@@ -34,8 +37,14 @@ const POLL_MS = 80;
 type Zone = 'none' | 'multi' | 'neutral' | 'left' | 'right';
 
 /**
- * Onboarding step: ask the user to place the hand they sign with into an on-screen box (a left box
- * and a right box, drawn over the mirrored camera feed) and read off which one they used.
+ * One-time dominant-hand check: ask the user to place the hand they sign with into an on-screen
+ * box (a left box and a right box, drawn over the mirrored camera feed) and read off which one.
+ *
+ * Moved out of onboarding (2026-07-23, formerly DominantHandStep) — asking for camera access
+ * before a brand-new user had even seen the app made some people bail at the permission prompt.
+ * Shown instead the first time a real practice session's camera actually turns on (see
+ * PracticePage + lib/handCheckGate.ts's shouldShowHandCheck), reusing that page's already-active
+ * stream rather than opening a second one.
  *
  * This is deliberately geometric — WHICH HALF OF THE MIRRORED DISPLAY the hand is in — rather than
  * reading MediaPipe's `handedness` label. That label assumes the input image is mirrored before
@@ -49,20 +58,14 @@ type Zone = 'none' | 'multi' | 'neutral' | 'left' | 'right';
  * user's real right hand lands when they look at their own reflection and raise it — true
  * regardless of whatever the camera/driver did upstream.
  */
-export function DominantHandStep({ onConfirm, onSkip }: Props) {
-  const { videoRef, status, start, stop } = useCamera();
+export function DominantHandCheck({ videoRef, onConfirm, onSkip }: Props) {
   const [detected, setDetected] = useState<'left' | 'right' | null>(null);
   const [zone, setZone] = useState<Zone>('none');
   const voteRef = useRef<{ side: 'left' | 'right' | null; count: number }>({ side: null, count: 0 });
 
-  useEffect(() => {
-    void start();
-    return () => stop();
-  }, [start, stop]);
-
   // Detection loop — runs only until a side is confidently settled, then stops.
   useEffect(() => {
-    if (status !== 'active' || detected) return;
+    if (detected) return;
     let cancelled = false;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -101,7 +104,7 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
       cancelled = true;
       if (intervalId) clearInterval(intervalId);
     };
-  }, [status, detected, videoRef]);
+  }, [detected, videoRef]);
 
   // Auto-confirm shortly after a side settles — see AUTO_CONFIRM_MS above. Cleared on unmount, so
   // tapping the manual "switch" option below (which itself calls onConfirm and moves the parent
@@ -112,86 +115,57 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
     return () => clearTimeout(t);
   }, [detected, onConfirm]);
 
-  const cameraFailed = status === 'denied' || status === 'error';
   const other = (h: 'left' | 'right') => (h === 'left' ? 'right' : 'left');
   const cap = (h: string) => h.charAt(0).toUpperCase() + h.slice(1);
 
   const hint =
-    status === 'requesting' ? 'Starting camera…'
-    : zone === 'multi' ? 'Just one hand, please 🙌'
+    zone === 'multi' ? 'Just one hand, please 🙌'
     : zone === 'none' ? 'Raise the hand you sign with'
     : zone === 'neutral' ? 'Move it into a box, left or right'
     : 'Hold it there…';
 
   return (
     <motion.div
-      key="hand"
-      className="max-w-sm w-full text-center"
-      initial={{ opacity: 0, y: 40 }}
+      key="hand-check"
+      className="flex-1 flex flex-col items-center justify-center max-w-sm w-full mx-auto text-center"
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -30 }}
-      transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+      exit={{ opacity: 0, y: -20 }}
     >
-      {/* Hidden source video for MediaPipe; WebcamMirror draws the visible (flipped) preview. */}
-      <video ref={videoRef} autoPlay playsInline muted style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }} />
-
       <div className="flex justify-center mb-3">
         <Zippy expression="teaching" size="md" />
       </div>
       <h2 className="text-2xl font-bold mb-1">Which hand do you sign with?</h2>
       <p className="text-z-gray-400 text-sm mb-5">
-        {cameraFailed
-          ? 'No camera — just pick your signing hand.'
-          : detected
-            ? "Locking that in — tap below if it's wrong."
-            : 'Place it in the matching box below.'}
+        {detected ? "Locking that in — tap below if it's wrong." : 'Place it in the matching box below.'}
       </p>
 
-      {!cameraFailed && (
-        <div className="mb-5">
-          <WebcamMirror
-            videoRef={videoRef}
-            handZones={{ active: zone === 'left' || zone === 'right' ? zone : null, selected: detected }}
-          />
-          {!detected && <p className="text-xs text-z-gray-500 mt-2 h-4">{hint}</p>}
+      <div className="mb-5 w-full">
+        <WebcamMirror
+          videoRef={videoRef}
+          handZones={{ active: zone === 'left' || zone === 'right' ? zone : null, selected: detected }}
+        />
+        {!detected && <p className="text-xs text-z-gray-500 mt-2 h-4">{hint}</p>}
+      </div>
+
+      {detected && (
+        <div className="flex flex-col gap-3 w-full">
+          <motion.p
+            className="flex items-center justify-center gap-1.5 text-z-green text-sm font-bold"
+            initial={{ opacity: 0, y: -4, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: 'spring', damping: 18, stiffness: 320 }}
+          >
+            <span aria-hidden>✅</span> Got it — {cap(detected)}-handed!
+          </motion.p>
+          <button
+            onClick={() => onConfirm(other(detected))}
+            className="py-3 rounded-2xl font-bold text-sm border border-z-gray-400/30 text-z-gray-50"
+          >
+            No — I'm {cap(other(detected))}-handed
+          </button>
         </div>
       )}
-
-      {cameraFailed || detected ? (
-        <div className="flex flex-col gap-3">
-          {detected && !cameraFailed && (
-            <motion.p
-              className="flex items-center justify-center gap-1.5 text-z-green text-sm font-bold"
-              initial={{ opacity: 0, y: -4, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: 'spring', damping: 18, stiffness: 320 }}
-            >
-              <span aria-hidden>✅</span> Got it — {cap(detected)}-handed!
-            </motion.p>
-          )}
-          {/* Manual choice: both buttons when the camera failed, or the "switch" option during the
-              brief auto-confirm window after a detection, so a mis-read is one tap to fix before
-              it locks in. */}
-          <div className="flex gap-3">
-            <motion.button
-              onClick={() => onConfirm(detected ? other(detected) : 'right')}
-              className="flex-1 py-3 rounded-2xl font-bold text-sm border border-z-gray-400/30 text-z-gray-50"
-              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-            >
-              {detected && !cameraFailed ? `No — I'm ${cap(other(detected))}-handed` : 'Right hand'}
-            </motion.button>
-            {(cameraFailed || !detected) && (
-              <motion.button
-                onClick={() => onConfirm('left')}
-                className="flex-1 py-3 rounded-2xl font-bold text-sm border border-z-gray-400/30 text-z-gray-50"
-                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-              >
-                Left hand
-              </motion.button>
-            )}
-          </div>
-        </div>
-      ) : null}
 
       <button onClick={onSkip} className="text-z-gray-400 text-sm mt-4 py-2 underline">
         Skip for now

@@ -7,13 +7,14 @@ import { getShopItem } from '@/data/shop';
 import { AvatarGlyph } from '@/components/shared/AvatarGlyph';
 import { LogoutConfirm } from '@/components/auth/LogoutConfirm';
 
-export type SideNavScreen = 'home' | 'review' | 'alphabet' | 'shop' | 'friends' | 'multiplayer' | 'leaderboard' | 'settings' | 'profile';
+export type SideNavScreen = 'home' | 'review' | 'alphabet' | 'basicSigns' | 'shop' | 'friends' | 'multiplayer' | 'leaderboard' | 'settings' | 'profile';
 
 interface Props {
   active: SideNavScreen | null;
   onHome: () => void;
   onReview: () => void;
   onAlphabet: () => void;
+  onBasicSigns: () => void;
   onShop: () => void;
   onFriends: () => void;
   onMultiplayer: () => void;
@@ -30,6 +31,7 @@ interface Props {
 const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'home', label: 'Journey', icon: '🗺️' },
   { id: 'alphabet', label: 'Alphabets', icon: '🔤' },
+  { id: 'basicSigns', label: 'Basic Signs', icon: '👋' },
   { id: 'shop', label: 'Shop', icon: '🛒' },
   { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
   { id: 'multiplayer', label: 'Multiplayer', icon: '⚔️' },
@@ -42,7 +44,7 @@ const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
 // (reported as "stutters" when pointing between two tabs, 2026-07-16).
 const ROW_TRANSITION = { duration: 0.12, ease: 'easeOut' as const };
 
-export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriends, onMultiplayer, onLeaderboard, onSettings, onProfile, onSignIn }: Props) {
+export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, onShop, onFriends, onMultiplayer, onLeaderboard, onSettings, onProfile, onSignIn }: Props) {
   const { user, username } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
   // Always mounted on desktop widths — see TopBar's identical fix for why a selector matters here.
@@ -57,6 +59,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onShop, onFriend
     home: onHome,
     review: onReview,
     alphabet: onAlphabet,
+    basicSigns: onBasicSigns,
     shop: onShop,
     friends: onFriends,
     multiplayer: onMultiplayer,

@@ -146,11 +146,14 @@ export default function App() {
 
   const goHome = () => setScreen({ type: 'home' });
 
-  // On finishing onboarding, drop brand-new "beginner" learners straight into the Alphabets tab
-  // (learn the letters first) rather than the default Journey/learn tab. skillLevel was just set
-  // by completeOnboarding() inside the flow, so reading it from the store here is current.
+  // On finishing onboarding, route by self-reported skill: brand-new "beginner" learners land on
+  // the Alphabets tab (letters first), everyone else lands on Basic Signs (greetings/courtesy
+  // words) rather than the default Journey/learn tab — a non-beginner already knows some signs,
+  // so a quick "watch it, quiz yourself, or sign it" review is more useful than starting the
+  // lesson tree from scratch. skillLevel was just set by completeOnboarding() inside the flow, so
+  // reading it from the store here (not React state) is current.
   const handleOnboardingComplete = useCallback(() => {
-    setHomeTab(useUserStore.getState().skillLevel === 'beginner' ? 'alphabet' : 'learn');
+    setHomeTab(useUserStore.getState().skillLevel === 'beginner' ? 'alphabet' : 'basicSigns');
     setScreen({ type: 'home' });
   }, []);
   const showSideNav = SIDE_NAV_SCREENS.includes(screen.type as SideNavScreen);
@@ -318,6 +321,7 @@ export default function App() {
           onHome={() => { goHome(); setHomeTab('learn'); }}
           onReview={() => { goHome(); setHomeTab('review'); }}
           onAlphabet={() => { goHome(); setHomeTab('alphabet'); }}
+          onBasicSigns={() => { goHome(); setHomeTab('basicSigns'); }}
           onShop={() => setScreen({ type: 'shop' })}
           onFriends={() => setScreen({ type: 'friends' })}
           onMultiplayer={() => setScreen({ type: 'multiplayer' })}

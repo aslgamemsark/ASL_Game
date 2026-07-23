@@ -13,6 +13,8 @@ import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { useFirstRunCameraGuide } from '@/hooks/useFirstRunCameraGuide';
 import { ReplayCompare } from '@/components/lesson/ReplayCompare';
+import { DominantHandCheck } from '@/components/shared/DominantHandCheck';
+import { shouldShowHandCheck, markHandCheckDone } from '@/lib/handCheckGate';
 import { Zippy } from '@/components/shared/Zippy';
 import { pickZippyLine } from '@/data/zippy';
 import { useUserStore } from '@/stores/useUserStore';
@@ -26,7 +28,7 @@ import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
 import { track } from '@/analytics';
 
-type Mode = 'loading' | 'menu' | 'expressive' | 'receptive' | 'mixed' | 'done';
+type Mode = 'loading' | 'menu' | 'handcheck' | 'expressive' | 'receptive' | 'mixed' | 'done';
 type CardPhase = 'prompt' | 'result' | 'replay';
 type QuestionType = 'expressive' | 'receptive';
 
@@ -55,7 +57,7 @@ function practiceContentType(autoStartMixed: boolean | undefined, heading: strin
 }
 
 export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoStartMixed, bonusGoldOnPerfect, heading, hideReferenceClip }: Props) {
-  const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession, equippedBorder } = useUserStore();
+  const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession, equippedBorder, setDominantHand } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera('practice');
@@ -87,6 +89,9 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   const loopStartedRef = useRef<string | null>(null);
   const goldAwardedRef = useRef(false);
   const sessionCompletedTrackedRef = useRef(false);
+  // Which mode to enter once the one-time hand check (if shown) resolves — see startExpressive/
+  // startMixed below.
+  const pendingModeRef = useRef<'expressive' | 'mixed' | null>(null);
 
   const currentSignId = queue[queueIdx];
   const currentSignData = currentSignId ? SIGNS[currentSignId] : null;
@@ -250,8 +255,13 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     sessionCompletedTrackedRef.current = false;
     loopStartedRef.current = null;
     track('practice_session_started', { content_type: practiceContentType(autoStartMixed, heading), question_count: pool.length });
-    await startCam();
-    setMode('expressive');
+    const camResult = await startCam();
+    if (camResult === 'active' && shouldShowHandCheck()) {
+      pendingModeRef.current = 'expressive';
+      setMode('handcheck');
+    } else {
+      setMode('expressive');
+    }
   };
 
   // Mixed session: every question is randomly either a camera sign or a multiple-choice
@@ -272,8 +282,13 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     sessionCompletedTrackedRef.current = false;
     loopStartedRef.current = null;
     track('practice_session_started', { content_type: 'mixed', question_count: shuffled.length });
-    await startCam();
-    setMode('mixed');
+    const camResult = await startCam();
+    if (camResult === 'active' && shouldShowHandCheck()) {
+      pendingModeRef.current = 'mixed';
+      setMode('handcheck');
+    } else {
+      setMode('mixed');
+    }
   };
 
   // Perfect run (every sign passed, none skipped) earns a one-time gold bonus on top of the
@@ -395,15 +410,17 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
             ? (heading ?? '')
             : mode === 'menu'
               ? 'Review'
-              : mode === 'mixed'
-                ? (heading ?? 'Test Yourself')
-                : mode === 'expressive'
-                  ? (heading ?? (showClip ? 'Sign It' : 'Sign Quiz'))
-                  : mode === 'receptive'
-                    ? 'Sign Quiz'
-                    : (heading ?? 'Done')}
+              : mode === 'handcheck'
+                ? 'Quick Setup'
+                : mode === 'mixed'
+                  ? (heading ?? 'Test Yourself')
+                  : mode === 'expressive'
+                    ? (heading ?? (showClip ? 'Sign It' : 'Sign Quiz'))
+                    : mode === 'receptive'
+                      ? 'Sign Quiz'
+                      : (heading ?? 'Done')}
         </h1>
-        {mode !== 'menu' && mode !== 'done' && mode !== 'loading' && (
+        {mode !== 'menu' && mode !== 'done' && mode !== 'loading' && mode !== 'handcheck' && (
           <span className="ml-auto text-sm text-z-gray-400">{queueIdx + 1}/{queue.length}</span>
         )}
       </div>
@@ -493,6 +510,26 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
             </motion.div>
           )}
 
+          {/* --- HAND CHECK (one-time, first real camera session — see lib/handCheckGate.ts) --- */}
+          {mode === 'handcheck' && (
+            <DominantHandCheck
+              videoRef={videoRef}
+              onConfirm={(hand) => {
+                track('dominant_hand_selected', { hand, skipped: false });
+                setDominantHand(hand);
+                markHandCheckDone();
+                setMode(pendingModeRef.current ?? 'expressive');
+                pendingModeRef.current = null;
+              }}
+              onSkip={() => {
+                track('dominant_hand_selected', { hand: 'right', skipped: true });
+                markHandCheckDone();
+                setMode(pendingModeRef.current ?? 'expressive');
+                pendingModeRef.current = null;
+              }}
+            />
+          )}
+
           {/* --- EXPRESSIVE --- */}
           {currentType === 'expressive' && currentSignData && (
             <motion.div
@@ -521,6 +558,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                     <ParameterChecklist
                       params={recognition.result.params}
                       sign={currentEngineSign}
+                      holdProgress={recognition.holdProgress}
                     />
                   )}
 

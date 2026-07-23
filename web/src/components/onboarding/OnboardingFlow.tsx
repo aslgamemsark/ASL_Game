@@ -6,7 +6,6 @@ import { AuthModal } from '@/components/auth/AuthModal';
 import { supabaseReady } from '@/lib/supabase';
 import { Zippy } from '@/components/shared/Zippy';
 import { ZIPPY_LINES } from '@/data/zippy';
-import { DominantHandStep } from '@/components/onboarding/DominantHandStep';
 import type { SkillLevel } from '@/types/user';
 import { track } from '@/analytics';
 
@@ -48,10 +47,10 @@ const SKILLS: {
 ];
 
 export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
-  const [step, setStep] = useState<'welcome' | 'auth' | 'skill' | 'hand' | 'done'>(initialStep);
+  const [step, setStep] = useState<'welcome' | 'auth' | 'skill' | 'done'>(initialStep);
   const [selectedLevel, setSelectedLevel] = useState<SkillLevel | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const { completeOnboarding, setDominantHand } = useUserStore();
+  const { completeOnboarding } = useUserStore();
   const { user, signInWithGoogle } = useAuth();
   const startedAtRef = useRef(Date.now());
 
@@ -67,27 +66,18 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
     track('onboarding_skill_selected', { skill_level: level });
     setSelectedLevel(level);
     completeOnboarding(level);
-    setStep('hand');
+    finish(level);
   };
 
-  const finish = () => {
+  // Takes the just-picked level explicitly rather than reading `selectedLevel` state — called in
+  // the same tick as setSelectedLevel(level) above, before that state update has actually applied.
+  const finish = (level: SkillLevel) => {
     track('onboarding_completed', {
-      skill_level: selectedLevel ?? 'unknown',
+      skill_level: level,
       duration_ms: Date.now() - startedAtRef.current,
     });
     setStep('done');
     setTimeout(onComplete, 1400);
-  };
-
-  const handleHandConfirm = (hand: 'left' | 'right') => {
-    track('dominant_hand_selected', { hand, skipped: false });
-    setDominantHand(hand);
-    finish();
-  };
-
-  const handleHandSkip = () => {
-    track('dominant_hand_selected', { hand: 'right', skipped: true });
-    finish();
   };
 
   return (
@@ -229,10 +219,6 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
               ))}
             </div>
           </motion.div>
-        )}
-
-        {step === 'hand' && (
-          <DominantHandStep onConfirm={handleHandConfirm} onSkip={handleHandSkip} />
         )}
 
         {step === 'done' && (

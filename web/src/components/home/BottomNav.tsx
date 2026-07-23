@@ -2,7 +2,7 @@ import { motion, type TargetAndTransition } from 'framer-motion';
 import { useUserStore } from '@/stores/useUserStore';
 import { AvatarGlyph } from '@/components/shared/AvatarGlyph';
 
-export type Tab = 'learn' | 'review' | 'alphabet' | 'profile';
+export type Tab = 'learn' | 'review' | 'alphabet' | 'basicSigns' | 'profile';
 
 interface Props {
   active: Tab;
@@ -19,16 +19,18 @@ interface Props {
 }
 
 const STATIC_TABS = [
-  { id: 'learn'    as Tab, label: 'Journey',  icon: '🗺️' },
-  { id: 'review'   as Tab, label: 'Review',   icon: '🪞'  },
-  { id: 'alphabet' as Tab, label: 'Alphabets', icon: '🔤'  },
+  { id: 'learn'      as Tab, label: 'Journey',  icon: '🗺️' },
+  { id: 'review'     as Tab, label: 'Review',   icon: '🪞'  },
+  { id: 'alphabet'   as Tab, label: 'Alphabets', icon: '🔤'  },
+  { id: 'basicSigns' as Tab, label: 'Basics',   icon: '👋'  },
 ];
 
 const ICON_HOVER: Record<Tab, TargetAndTransition> = {
-  learn:    { rotate: [0, -9, 8, -6, 0],           transition: { duration: 1.0, repeat: Infinity, ease: 'easeInOut' as const } },
-  review:   { scale: [1, 1.16, 1, 1.12, 1],         transition: { duration: 1.2, repeat: Infinity, ease: 'easeInOut' as const } },
-  alphabet: { rotate: [0, -6, 6, -4, 0], scale: [1, 1.1, 1], transition: { duration: 1.0, repeat: Infinity, ease: 'easeInOut' as const } },
-  profile:  { rotate: [0, -18, 14, -18, 14, 0],    transition: { duration: 1.1, repeat: Infinity, ease: 'easeInOut' as const } },
+  learn:      { rotate: [0, -9, 8, -6, 0],           transition: { duration: 1.0, repeat: Infinity, ease: 'easeInOut' as const } },
+  review:     { scale: [1, 1.16, 1, 1.12, 1],         transition: { duration: 1.2, repeat: Infinity, ease: 'easeInOut' as const } },
+  alphabet:   { rotate: [0, -6, 6, -4, 0], scale: [1, 1.1, 1], transition: { duration: 1.0, repeat: Infinity, ease: 'easeInOut' as const } },
+  basicSigns: { rotate: [0, 14, -10, 14, 0],         transition: { duration: 1.0, repeat: Infinity, ease: 'easeInOut' as const } },
+  profile:    { rotate: [0, -18, 14, -18, 14, 0],    transition: { duration: 1.1, repeat: Infinity, ease: 'easeInOut' as const } },
 };
 
 const SETTINGS_HOVER: TargetAndTransition = {

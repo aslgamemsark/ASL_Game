@@ -30,13 +30,13 @@ interface Props {
   /** First-run camera-position guide: draws a face-target box + a coaching caption over the feed.
    *  Pass null/undefined to hide it. `ok` turns the box green and the caption into a success chip. */
   frameGuide?: { ok: boolean; message: string } | null;
-  /** Onboarding's dominant-hand picker: draws a left/right box pair over the feed. `active` is
-   *  true the instant the user's hand geometrically enters that side (turns the box green right
-   *  away — no waiting on the confirmation dwell timer). `selected` is the confirmed side, once
-   *  the dwell threshold is reached — same green box, plus a checkmark badge. Deliberately
-   *  geometric (which half of the MIRRORED display the hand is in), not based on MediaPipe's
-   *  handedness label, which flips depending on the camera/driver and was reported backwards on
-   *  real hardware (2026-07-16) — see DominantHandStep.tsx for the full reasoning. */
+  /** The dominant-hand picker's (DominantHandCheck.tsx) left/right box pair, drawn over the feed.
+   *  `active` is true the instant the user's hand geometrically enters that side (turns the box
+   *  green right away — no waiting on the confirmation dwell timer). `selected` is the confirmed
+   *  side, once the dwell threshold is reached — same green box, plus a checkmark badge.
+   *  Deliberately geometric (which half of the MIRRORED display the hand is in), not based on
+   *  MediaPipe's handedness label, which flips depending on the camera/driver and was reported
+   *  backwards on real hardware (2026-07-16) — see DominantHandCheck.tsx for the full reasoning. */
   handZones?: { active: 'left' | 'right' | null; selected: 'left' | 'right' | null } | null;
 }
 

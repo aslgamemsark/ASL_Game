@@ -99,7 +99,7 @@ export class Capture {
   /**
    * `skipPose`: PoseLandmarker inference is a real per-frame cost (a full second model run,
    * separate from and in addition to HandLandmarker) that every caller paid unconditionally even
-   * when they never read `leftShoulder`/`rightShoulder`/`mouth` — e.g. DominantHandStep, which
+   * when they never read `leftShoulder`/`rightShoulder`/`mouth` — e.g. DominantHandCheck, which
    * only ever looks at `frame.hands`. That's wasted latency on every poll tick, not just a UI
    * debounce value to tune (found while diagnosing reported "still feels slow" on real hardware,
    * 2026-07-16). The sign-verification path (useRecognition.ts) still needs pose for shoulder-

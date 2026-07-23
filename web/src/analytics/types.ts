@@ -55,11 +55,15 @@ export interface EventPayloads {
   password_reset_requested: Record<string, never>;
   password_recovery_completed: Record<string, never>;
 
-  // Onboarding (components/onboarding/OnboardingFlow.tsx, DominantHandStep.tsx)
-  onboarding_step_viewed: { step: 'welcome' | 'auth' | 'skill' | 'hand' | 'done' };
+  // Onboarding (components/onboarding/OnboardingFlow.tsx)
+  onboarding_step_viewed: { step: 'welcome' | 'auth' | 'skill' | 'done' };
   onboarding_skill_selected: { skill_level: 'beginner' | 'intermediate' | 'advanced' };
-  dominant_hand_selected: { hand: 'left' | 'right'; skipped: boolean };
   onboarding_completed: { skill_level: string; duration_ms: number };
+
+  // Dominant-hand check (components/shared/DominantHandCheck.tsx) — moved out of onboarding
+  // (2026-07-23) to the first real camera session (see PracticePage), not asked before a
+  // brand-new user has even seen the app.
+  dominant_hand_selected: { hand: 'left' | 'right'; skipped: boolean };
 
   // Camera (hooks/useCamera.ts)
   camera_permission_granted: { screen: ScreenName };
