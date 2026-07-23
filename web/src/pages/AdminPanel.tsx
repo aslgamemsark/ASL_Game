@@ -1,15 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { supabase } from '@/lib/supabase';
 import { SHOP_ITEMS } from '@/data/shop';
 import { WORLDS } from '@/data/worlds';
+import { formatAdminDate, formatAdminTimestamp } from '@/lib/formatTimestamp';
 
 interface Props {
   onExit: () => void;
 }
 
-type AdminTab = 'beta' | 'users' | 'worlds' | 'audit';
+type AdminTab = 'beta' | 'analytics' | 'users' | 'worlds' | 'audit';
+
+// Lazy so the recharts bundle only loads when the admin actually opens the Analytics tab, never
+// for the rest of the app.
+const AnalyticsTab = lazy(() => import('@/components/admin/AnalyticsTab'));
 
 // Shape returned by the admin_beta_metrics() RPC (migration 20260715030000). One aggregate blob so
 // the dashboard is a single round-trip; every field is computed server-side behind the is_admin gate.
@@ -97,7 +102,7 @@ export function AdminPanel({ onExit }: Props) {
       </div>
 
       <div className="flex bg-z-surface/50 mx-4 mt-4 rounded-xl p-1 max-w-2xl lg:mx-auto lg:w-full">
-        {(['beta', 'users', 'worlds', 'audit'] as const).map((t) => (
+        {(['beta', 'analytics', 'users', 'worlds', 'audit'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -112,6 +117,11 @@ export function AdminPanel({ onExit }: Props) {
 
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 pt-6 pb-24">
         {tab === 'beta' && <BetaTab showToast={showToast} />}
+        {tab === 'analytics' && (
+          <Suspense fallback={<p className="text-sm text-z-gray-400">Loading…</p>}>
+            <AnalyticsTab showToast={showToast} />
+          </Suspense>
+        )}
         {tab === 'users' && <UsersTab showToast={showToast} />}
         {tab === 'worlds' && <WorldsTab showToast={showToast} />}
         {tab === 'audit' && <AuditTab />}
@@ -262,7 +272,7 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
                   <span className="text-xs font-bold uppercase text-z-purple-light">{f.category}</span>
                   {f.anonymous && <span className="text-[10px] text-z-gray-500">anon</span>}
                   <span className="text-[10px] text-z-gray-500 ml-auto">
-                    {new Date(f.created_at).toLocaleDateString()}
+                    {formatAdminDate(f.created_at)}
                   </span>
                 </div>
                 <p className="text-z-gray-200 whitespace-pre-wrap break-words">{f.message}</p>
@@ -774,7 +784,7 @@ function AuditTab() {
               </>
             )}
           </p>
-          <p className="text-z-gray-500 mt-1">{new Date(r.created_at).toLocaleString()}</p>
+          <p className="text-z-gray-500 mt-1">{formatAdminTimestamp(r.created_at)}</p>
           {Object.keys(r.payload).length > 0 && (
             <p className="text-z-gray-500 mt-1 font-mono break-all">{JSON.stringify(r.payload)}</p>
           )}
