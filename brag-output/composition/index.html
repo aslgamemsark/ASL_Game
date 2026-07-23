@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>QuickSign — Brag Video</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: 'Quicksand';
+        font-style: normal;
+        font-weight: 300 700;
+        font-display: block;
+        src: url('assets/fonts/quicksand-latin.woff2') format('woff2');
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: #0d0a1e;
+        color: #f5f3ff;
+        font-family: 'Quicksand', sans-serif;
+      }
+
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #0d0a1e;
+      }
+
+      .clip {
+        position: absolute;
+        inset: 0;
+      }
+
+      .stage {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .bg-fill {
+        position: absolute;
+        inset: 0;
+        /* Two off-center brand-color glows over the solid base — adds depth to the mostly-empty
+           vertical frame without touching the near-black center where text/cards sit, so
+           contrast is unaffected. */
+        background:
+          radial-gradient(120% 70% at 18% 12%, rgba(124, 58, 237, 0.20), transparent 55%),
+          radial-gradient(110% 65% at 88% 92%, rgba(20, 184, 166, 0.12), transparent 50%),
+          #0d0a1e;
+      }
+
+      /* ---------- Shared type ---------- */
+      .claim {
+        position: relative;
+        max-width: 880px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 76px;
+        line-height: 1.18;
+        letter-spacing: -0.01em;
+        padding: 0 60px;
+      }
+      .claim--dim { color: #f5f3ff; }
+      .claim--accent {
+        background: linear-gradient(135deg, #7c3aed, #a78bfa);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: #a78bfa;
+      }
+
+      .trust-line {
+        font-size: 30px;
+        font-weight: 500;
+        color: #9c90b0;
+        text-align: center;
+      }
+
+      /* ---------- Scene 2: card frame teaser ---------- */
+      .frame-teaser {
+        position: absolute;
+        width: 760px;
+        height: 900px;
+        border-radius: 48px;
+        background: linear-gradient(160deg, #18103a, #221548);
+        border: 2px solid rgba(167, 139, 250, 0.25);
+        top: 50%;
+        left: 50%;
+        z-index: 0;
+      }
+
+      /* ---------- Scene 3: product demo ---------- */
+      .demo-card {
+        position: relative;
+        width: 860px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 36px;
+      }
+
+      .webcam-frame {
+        position: relative;
+        width: 700px;
+        height: 620px;
+        border-radius: 40px;
+        background: radial-gradient(120% 120% at 30% 20%, #2d1b5c 0%, #18103a 60%, #120b28 100%);
+        border: 2px solid rgba(167, 139, 250, 0.3);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      /* Real demo footage + its HUD overlay are authored as separate host-root clips
+         (never nested inside .webcam-frame) — HyperFrames only decodes <video> elements
+         that are direct children of the composition root. Both are positioned to exactly
+         match .webcam-frame's box (190,220,700x620 — computed from the .stage/.demo-card
+         layout above) so they read as one card; DOM order (video, then hud) is what keeps
+         the HUD painted on top, not z-index. */
+      .video-frame {
+        left: 190px;
+        top: 220px;
+        right: auto;
+        bottom: auto;
+        width: 700px;
+        height: 620px;
+        border-radius: 40px;
+        overflow: hidden;
+        object-fit: cover;
+        background: #120b28;
+      }
+      .hud-overlay {
+        left: 190px;
+        top: 220px;
+        right: auto;
+        bottom: auto;
+        width: 700px;
+        height: 620px;
+        pointer-events: none;
+      }
+      /* The source footage is a flat gray studio backdrop — reads as a jarring flat panel
+         against the app's dark-purple theme. A brand-colored multiply tint + edge vignette
+         (a separate host-root sibling, painted after the video, never a wrapper around it)
+         ties it into the rest of the frame without touching the video element itself. */
+      .video-tint {
+        left: 190px;
+        top: 220px;
+        right: auto;
+        bottom: auto;
+        width: 700px;
+        height: 620px;
+        border-radius: 40px;
+        pointer-events: none;
+        background: linear-gradient(165deg, rgba(124, 58, 237, 0.32), rgba(20, 14, 46, 0.1) 55%, rgba(9, 6, 20, 0.4)),
+          radial-gradient(140% 100% at 50% 8%, transparent 45%, rgba(9, 6, 20, 0.55) 100%);
+        mix-blend-mode: multiply;
+      }
+      .rec-dot {
+        position: absolute;
+        top: 32px;
+        left: 32px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 20px;
+        border-radius: 999px;
+        background: rgba(13, 10, 30, 0.55);
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: #f5f3ff;
+      }
+      .rec-dot::before {
+        content: '';
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #ef4444;
+      }
+
+      .zippy-stage {
+        position: absolute;
+        bottom: 28px;
+        right: 28px;
+        width: 168px;
+        height: 168px;
+      }
+      .zippy-img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35));
+      }
+
+      .checklist {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .param-row {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        padding: 22px 28px;
+        border-radius: 24px;
+        background: rgba(34, 21, 72, 0.55);
+        border: 1.5px solid rgba(255, 255, 255, 0.06);
+      }
+      .param-icon {
+        position: relative;
+        width: 52px;
+        height: 52px;
+        min-width: 52px;
+        border-radius: 16px;
+        background: rgba(76, 61, 107, 0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .param-icon-glyph {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        font-weight: 700;
+      }
+      .param-icon-pending { color: #9c90b0; }
+      .param-icon-check { color: #052e1c; opacity: 0; }
+      .param-label {
+        flex: 1;
+        font-size: 34px;
+        font-weight: 700;
+        color: #9c90b0;
+      }
+      .param-track {
+        width: 200px;
+        height: 14px;
+        border-radius: 999px;
+        background: #221548;
+        overflow: hidden;
+      }
+      .param-fill {
+        width: 0%;
+        height: 100%;
+        border-radius: 999px;
+        background: #a78bfa;
+      }
+
+      /* ---------- Scene 4: outro ---------- */
+      .outro-word {
+        display: inline-block;
+        opacity: 0;
+      }
+      .wordmark {
+        font-size: 58px;
+        font-weight: 700;
+        color: #f5f3ff;
+        text-align: center;
+      }
+      .zippy-badge {
+        /* Fixed width+height on an img with a non-square source (345x512) stretched it —
+           height-only sizing preserves the art's real aspect ratio. */
+        display: block;
+        height: 200px;
+        width: auto;
+      }
+
+      /* ---------- Confetti ---------- */
+      .confetti-field {
+        position: absolute;
+        left: 50%;
+        top: 44%;
+        width: 0;
+        height: 0;
+      }
+      .confetti-piece {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 18px;
+        height: 26px;
+        border-radius: 4px;
+        opacity: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="quicksign-brag"
+      data-start="0"
+      data-width="1080"
+      data-height="1920"
+      data-duration="20"
+    >
+      <!-- ================= Scene 1: Hook — 0s to 2.5s ================= -->
+      <section id="scene-hook" class="clip" data-start="0" data-duration="2.5" data-track-index="1">
+        <div class="bg-fill"></div>
+        <div class="stage">
+          <h1 id="hook-line" class="claim claim--dim">Most ASL apps just show you a video.</h1>
+        </div>
+      </section>
+
+      <!-- ================= Scene 2: Reveal — 2.5s to 5.5s ================= -->
+      <section id="scene-reveal" class="clip" data-start="2.5" data-duration="3" data-track-index="1">
+        <div class="bg-fill"></div>
+        <div class="stage">
+          <div id="frame-teaser" class="frame-teaser"></div>
+          <h1 id="reveal-line" class="claim claim--accent">This one watches you sign it back.</h1>
+        </div>
+      </section>
+
+      <!-- ================= Scene 3: The product, live — 5.5s to 14.5s ================= -->
+      <section id="scene-product" class="clip" data-start="5.5" data-duration="9" data-track-index="1">
+        <div class="bg-fill"></div>
+        <div class="stage" style="justify-content: flex-start; padding-top: 220px;">
+          <div id="product-card" class="demo-card">
+            <!-- Empty shell: fallback color only, in case the video is ever unavailable.
+                 The real demo footage + HUD are separate host-root clips positioned over
+                 this exact box (see .video-frame / .hud-overlay below). -->
+            <div class="webcam-frame"></div>
+
+            <div class="checklist">
+              <div class="param-row" id="row-hand">
+                <div class="param-icon">
+                  <span class="param-icon-glyph param-icon-pending">…</span>
+                  <span class="param-icon-glyph param-icon-check">✓</span>
+                </div>
+                <div class="param-label" id="row-hand-label">Hand shape</div>
+                <div class="param-track"><div class="param-fill" id="row-hand-fill"></div></div>
+              </div>
+              <div class="param-row" id="row-position">
+                <div class="param-icon">
+                  <span class="param-icon-glyph param-icon-pending">…</span>
+                  <span class="param-icon-glyph param-icon-check">✓</span>
+                </div>
+                <div class="param-label" id="row-position-label">Position</div>
+                <div class="param-track"><div class="param-fill" id="row-position-fill"></div></div>
+              </div>
+              <div class="param-row" id="row-movement">
+                <div class="param-icon">
+                  <span class="param-icon-glyph param-icon-pending">…</span>
+                  <span class="param-icon-glyph param-icon-check">✓</span>
+                </div>
+                <div class="param-label" id="row-movement-label">Movement</div>
+                <div class="param-track"><div class="param-fill" id="row-movement-fill"></div></div>
+              </div>
+              <div class="param-row" id="row-palm">
+                <div class="param-icon">
+                  <span class="param-icon-glyph param-icon-pending">…</span>
+                  <span class="param-icon-glyph param-icon-check">✓</span>
+                </div>
+                <div class="param-label" id="row-palm-label">Palm direction</div>
+                <div class="param-track"><div class="param-fill" id="row-palm-fill"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Real demo footage: an actual sign (HELLO) from QuickSign's own reference-clip
+           library, muted/looped, cropped to match the mockup's frame exactly. Host-root
+           direct child per HyperFrames' media rule (nesting inside .webcam-frame would
+           silently fail to decode). -->
+      <!-- The source clip is 5.5s but the slot is 9s; `loop` alone doesn't extend frame
+           extraction (the renderer only pulls native-length frames per video element, so a
+           looping single element under-covers a longer slot and the render gate rejects it).
+           Two back-to-back plays of the same clip cover the full 9s instead, each within its
+           own native length so extraction is always 100% covered. -->
+      <video
+        id="demo-video-a"
+        class="clip video-frame"
+        src="assets/hello-demo.mp4"
+        data-start="5.5"
+        data-duration="5.5"
+        data-track-index="2"
+        muted
+        playsinline
+      ></video>
+      <video
+        id="demo-video-b"
+        class="clip video-frame"
+        src="assets/hello-demo.mp4"
+        data-start="11"
+        data-duration="3.5"
+        data-track-index="2"
+        muted
+        playsinline
+      ></video>
+
+      <div id="video-tint" class="clip video-tint" data-start="5.5" data-duration="9" data-track-index="4"></div>
+
+      <!-- HUD overlay (REC badge, Zippy, confetti) — a second host-root clip positioned
+           over the same box, painted after the video in DOM order so it stays on top
+           without needing z-index. -->
+      <div id="product-hud" class="clip hud-overlay" data-start="5.5" data-duration="9" data-track-index="3">
+        <div class="rec-dot">WATCHING</div>
+        <div class="zippy-stage">
+          <img id="zippy-thinking" class="zippy-img" src="assets/zippy/thinking.webp" alt="" style="opacity: 1;" />
+          <img id="zippy-thumbsup" class="zippy-img" src="assets/zippy/thumbsup.webp" alt="" style="opacity: 0;" />
+          <img id="zippy-celebrating" class="zippy-img" src="assets/zippy/celebrating.webp" alt="" style="opacity: 0;" />
+        </div>
+        <div id="confetti-field" class="confetti-field"></div>
+      </div>
+
+      <!-- ================= Scene 4: Outro — 14.5s to 20s ================= -->
+      <section id="scene-outro" class="clip" data-start="14.5" data-duration="5.5" data-track-index="1">
+        <div class="bg-fill"></div>
+        <div class="stage" style="gap: 44px;">
+          <img id="zippy-outro" class="zippy-badge" src="assets/zippy/celebrating.webp" alt="Zippy celebrating" />
+          <h1 id="outro-line" class="claim claim--dim" style="font-size: 66px;">
+            <span class="outro-word">Learn</span>
+            <span class="outro-word">ASL.</span>
+            <span class="outro-word">Actually</span>
+            <span class="outro-word">sign</span>
+            <span class="outro-word">it.</span>
+          </h1>
+          <div id="outro-wordmark" class="wordmark" style="opacity: 0;">QuickSign</div>
+          <p id="outro-trust" class="trust-line" style="opacity: 0;">
+            Free · runs in your browser · camera never leaves your device
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= Audio ================= -->
+      <audio
+        id="bgm"
+        src="assets/music/happy-beats-business-moves-vol-1-by-ende-dot-app.mp3"
+        data-start="0"
+        data-duration="20"
+        data-track-index="10"
+        data-volume="0.06"
+      ></audio>
+      <audio
+        id="sfx-reveal"
+        src="assets/sfx/impactSoft_medium_001.ogg"
+        data-start="2.5"
+        data-duration="0.18"
+        data-track-index="11"
+        data-volume="0.8"
+      ></audio>
+      <audio
+        id="sfx-product-in"
+        src="assets/sfx/impactSoft_medium_001.ogg"
+        data-start="5.5"
+        data-duration="0.18"
+        data-track-index="11"
+        data-volume="0.7"
+      ></audio>
+      <audio
+        id="sfx-row-hand"
+        src="assets/sfx/click_003.ogg"
+        data-start="7.024"
+        data-duration="0.01"
+        data-track-index="12"
+        data-volume="0.7"
+      ></audio>
+      <audio
+        id="sfx-row-position"
+        src="assets/sfx/click_003.ogg"
+        data-start="8.0225"
+        data-duration="0.01"
+        data-track-index="12"
+        data-volume="0.7"
+      ></audio>
+      <audio
+        id="sfx-row-movement"
+        src="assets/sfx/click_003.ogg"
+        data-start="9.021"
+        data-duration="0.01"
+        data-track-index="12"
+        data-volume="0.7"
+      ></audio>
+      <audio
+        id="sfx-row-palm"
+        src="assets/sfx/click_003.ogg"
+        data-start="10.0194"
+        data-duration="0.01"
+        data-track-index="12"
+        data-volume="0.7"
+      ></audio>
+      <audio
+        id="sfx-success"
+        src="assets/sfx/impactBell_heavy_000.ogg"
+        data-start="10.05"
+        data-duration="1"
+        data-track-index="13"
+        data-volume="0.9"
+      ></audio>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      // ---------- Confetti: precomputed deterministic burst (no runtime randomness) ----------
+      const CONFETTI_COLORS = ['#34D399', '#A78BFA', '#5EEAD4', '#F97316', '#F5F3FF'];
+      const CONFETTI_VECTORS = [
+        [-210, -260, -40], [180, -300, 30], [-330, -140, -70], [300, -180, 60],
+        [-120, -340, 20], [140, -320, -30], [-260, -60, 80], [260, -80, -60],
+        [-40, -360, 50], [60, -360, -50], [-300, -220, 15], [320, -200, -15],
+        [-160, -300, -80], [200, -280, 80], [-380, -20, 40], [380, -40, -40],
+      ];
+      const confettiField = document.getElementById('confetti-field');
+      CONFETTI_VECTORS.forEach((vec, i) => {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.id = 'confetti-' + i;
+        piece.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+        confettiField.appendChild(piece);
+      });
+
+      // ================= Scene 1: Hook (0 - 2.5s) =================
+      tl.fromTo(
+        '#hook-line',
+        { autoAlpha: 0, y: 26, scale: 0.94 },
+        { autoAlpha: 1, y: 0, scale: 1, duration: 0.5, ease: 'power4.out' },
+        0.08
+      );
+
+      // ================= Scene 2: Reveal (2.5 - 5.5s) =================
+      // Carrier: the card frame enters from the right on the same leftward "current"
+      // established by the hook cut, at speed, so scene 3's card can pick it up mid-flight.
+      tl.fromTo(
+        '#frame-teaser',
+        { xPercent: -50, yPercent: -50, x: 640, opacity: 0 },
+        { xPercent: -50, yPercent: -50, x: 0, opacity: 1, duration: 0.6, ease: 'power3.out' },
+        2.55
+      );
+      tl.fromTo(
+        '#reveal-line',
+        { autoAlpha: 0, y: 26 },
+        { autoAlpha: 1, y: 0, duration: 0.5, ease: 'power4.out' },
+        2.62
+      );
+
+      // ================= Scene 3: The product, live (5.5 - 14.5s) =================
+      tl.fromTo(
+        '#product-card, #demo-video-a, #demo-video-b, #video-tint, #product-hud',
+        { autoAlpha: 0, x: 50 },
+        { autoAlpha: 1, x: 0, duration: 0.5, ease: 'power3.out' },
+        5.55
+      );
+      // Checklist rows cascade in on top of the card's own slide-in — a `.from()` on position
+      // only (no opacity) so it layers with the parent's fade instead of fighting it.
+      tl.from(
+        '.param-row',
+        { y: 18, duration: 0.4, stagger: 0.06, ease: 'power2.out' },
+        5.7
+      );
+
+      function clearRow(rowId, fillId, iconRootSel, atTime) {
+        // Stillness-before-climax: the fill completes, THEN the check + label recolor land
+        // on the beat — a small deliberate gap, not simultaneous with the fill's landing.
+        tl.to('#' + fillId, { width: '100%', duration: 0.45, ease: 'power2.out' }, atTime - 0.45);
+        tl.to(rowId + ' .param-icon-pending', { autoAlpha: 0, duration: 0.15 }, atTime);
+        tl.to(rowId + ' .param-icon-check', { autoAlpha: 1, duration: 0.15 }, atTime);
+        tl.to(rowId + ' .param-icon', { backgroundColor: '#34D399', duration: 0.15 }, atTime);
+        tl.to(rowId + ' .param-track', { backgroundColor: '#18103a', duration: 0.15 }, atTime);
+        tl.to('#' + fillId, { backgroundColor: '#34D399', duration: 0.15 }, atTime);
+        tl.to(rowId + ' .param-label', { color: '#34D399', duration: 0.15 }, atTime);
+        tl.to(rowId, { borderColor: 'rgba(52, 211, 153, 0.35)', duration: 0.15 }, atTime);
+      }
+
+      // beat-grid: row 1 at 7.024s, row 2 at 8.0225s, row 3 at 9.021s, row 4 at 10.0194s
+      // (every-other-beat from the track's own beat grid — ~1s apart, held long enough to read)
+      clearRow('#row-hand', 'row-hand-fill', '#row-hand', 7.024);
+      clearRow('#row-position', 'row-position-fill', '#row-position', 8.0225);
+      clearRow('#row-movement', 'row-movement-fill', '#row-movement', 9.021);
+      clearRow('#row-palm', 'row-palm-fill', '#row-palm', 10.0194);
+
+      // Zippy reacts in step with the last clear: thinking -> thumbsup -> celebrating
+      tl.to('#zippy-thinking', { autoAlpha: 0, duration: 0.2 }, 10.0194);
+      tl.to('#zippy-thumbsup', { autoAlpha: 1, duration: 0.2 }, 10.0194);
+      tl.to('#zippy-thumbsup', { autoAlpha: 0, duration: 0.2 }, 10.55);
+      tl.to('#zippy-celebrating', { autoAlpha: 1, duration: 0.2 }, 10.55);
+
+      // Confetti burst — beat-locked to the 4th row clearing (major payoff moment)
+      // beat-locked: 10.0194s
+      CONFETTI_VECTORS.forEach((vec, i) => {
+        const [dx, dy, rot] = vec;
+        const delay = 10.05 + (i % 4) * 0.03;
+        tl.fromTo(
+          '#confetti-' + i,
+          { x: 0, y: 0, rotation: 0, opacity: 1, scale: 0.6 },
+          { x: dx, y: dy, rotation: rot, opacity: 0, scale: 1, duration: 1.3, ease: 'power2.out' },
+          delay
+        );
+      });
+
+      // Gentle settle hold on the fully-cleared card through the rest of scene 3 (13.9 - 14.5)
+      // Exit still moving into the cut — gives scene 4's entrance a matched vector to meet.
+      tl.to(
+        '#product-card, #demo-video-a, #demo-video-b, #video-tint, #product-hud',
+        { opacity: 0.85, scale: 0.98, duration: 0.3, ease: 'power2.in' },
+        14.2
+      );
+
+      // ================= Scene 4: Outro (14.5 - 20s) =================
+      tl.fromTo(
+        '#zippy-outro',
+        { autoAlpha: 0, y: 20, scale: 0.9 },
+        { autoAlpha: 1, y: 0, scale: 1, duration: 0.4, ease: 'power3.out' },
+        14.55
+      );
+
+      // Word-by-word reveal (typing energy without literal per-character split)
+      const outroWords = document.querySelectorAll('#outro-line .outro-word');
+      outroWords.forEach((word, i) => {
+        tl.fromTo(
+          word,
+          { autoAlpha: 0, y: 10 },
+          { autoAlpha: 1, y: 0, duration: 0.18, ease: 'power2.out' },
+          14.9 + i * 0.14
+        );
+      });
+
+      // Wordmark + trust line land on the track's next strong cue (its first strong_beat
+      // after this scene begins) — the outro's one deliberate beat-lock.
+      // beat-locked: 16.02s
+      tl.to('#outro-wordmark', { autoAlpha: 1, y: -6, duration: 0.35, ease: 'power2.out' }, 16.02);
+      tl.fromTo('#outro-wordmark', { y: 10 }, { y: -6 }, 16.02);
+      tl.to('#outro-trust', { autoAlpha: 1, duration: 0.4, ease: 'power2.out' }, 16.55);
+
+      // Music fade-out under the final hold
+      tl.to('#bgm', { volume: 0, duration: 1.8, ease: 'power1.in' }, 17.8);
+
+      window.__timelines['quicksign-brag'] = tl;
+    </script>
+  </body>
+</html>

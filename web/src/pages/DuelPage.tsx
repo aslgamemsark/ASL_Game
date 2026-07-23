@@ -715,7 +715,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                         ? s === matchState.currentSign
                           ? 'bg-z-green/20 border-z-green text-z-green'
                           : 'border-white/8 text-z-gray-400'
-                        : 'bg-z-card border-white/10 hover:border-z-purple/40 text-white'
+                        : 'bg-z-card border-z-gray-400/30 hover:border-z-purple/40 text-z-gray-50'
                     }`}
                     whileTap={{ scale: 0.97 }}>
                     {SIGNS[s]?.name.replace(/_/g, ' ') ?? s}
@@ -820,7 +820,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
           ) : (
             <span className="text-sm font-semibold">{matchState.opponentUsername} disconnected — {reconnectLeft}s</span>
           )}
-          <button onClick={exit} className="text-xs text-z-gray-400 hover:text-white">Leave</button>
+          <button onClick={exit} className="text-xs text-z-gray-400 hover:text-z-gray-50">Leave</button>
         </div>
       )}
 

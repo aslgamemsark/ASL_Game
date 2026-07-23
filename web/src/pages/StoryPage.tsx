@@ -340,7 +340,7 @@ export function StoryPage({ story, onExit }: Props) {
                   </motion.button>
                 )}
                 <motion.button onClick={handleSkip}
-                  className="px-4 py-2 text-xs rounded-xl border border-white/10 text-z-gray-400 hover:text-white transition-colors"
+                  className="px-4 py-2 text-xs rounded-xl border border-z-gray-400/30 text-z-gray-400 hover:text-z-gray-50 transition-colors"
                   whileTap={{ scale: 0.96 }}>
                   Skip
                 </motion.button>

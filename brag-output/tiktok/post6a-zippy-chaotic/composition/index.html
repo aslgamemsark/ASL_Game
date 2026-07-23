@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>QuickSign — Post 6A (Zippy Chaotic)</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: 'Quicksand'; font-style: normal; font-weight: 300 700; font-display: block;
+        src: url('assets/fonts/quicksand-latin.woff2') format('woff2');
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #0d0a1e; color: #f5f3ff; font-family: 'Quicksand', sans-serif; }
+      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #0d0a1e; }
+      .clip { position: absolute; inset: 0; }
+      .bg {
+        position: absolute; inset: 0;
+        background:
+          radial-gradient(100% 60% at 20% 10%, rgba(124,58,237,0.30), transparent 55%),
+          radial-gradient(100% 60% at 85% 95%, rgba(52,211,153,0.14), transparent 55%),
+          #0d0a1e;
+      }
+
+      .big-text {
+        position: absolute; left: 60px; right: 60px; text-align: center;
+        font-weight: 700; letter-spacing: -0.015em; line-height: 1.1;
+      }
+
+      .zippy-hero { position: absolute; left: 50%; transform: translateX(-50%); }
+      .zippy-hero img { width: 100%; height: 100%; object-fit: contain;
+        filter: drop-shadow(0 20px 40px rgba(0,0,0,0.5)); }
+
+      /* Checklist mini-card for the "catch" beat */
+      .card {
+        position: absolute; left: 190px; top: 780px; width: 700px;
+        display: flex; flex-direction: column; gap: 18px;
+      }
+      .row {
+        display: flex; align-items: center; gap: 26px;
+        padding: 26px 32px; border-radius: 26px;
+        background: rgba(34,21,72,0.65); border: 2px solid rgba(255,255,255,0.06);
+      }
+      .row.g { background: rgba(52,211,153,0.14); border-color: rgba(52,211,153,0.4); }
+      .row.r { background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.45); }
+      .ic {
+        position: relative; width: 66px; height: 66px; min-width: 66px; border-radius: 18px;
+        display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 700;
+        background: rgba(76,61,107,0.4);
+      }
+      .ic.g { background: #34d399; color: #052e1c; }
+      .ic.r { background: #ef4444; color: #fff; }
+      .lbl { font-size: 40px; font-weight: 700; color: #9c90b0; }
+      .lbl.g { color: #34d399; } .lbl.r { color: #f5f3ff; }
+      .glyph { position: absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+
+      /* Floating badge notifications (chaotic celebration beat) */
+      .badge {
+        position: absolute; padding: 18px 34px; border-radius: 999px;
+        font-size: 34px; font-weight: 700; color: #052e1c; background: #34d399;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.4); opacity: 0;
+      }
+      .badge.purple { background: #a78bfa; color: #1e1147; }
+      .badge.orange { background: #fdba74; color: #4a1d02; }
+
+      .brand-end { position: absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 20px; }
+      .brand-name { font-size: 66px; font-weight: 700; color: #f5f3ff; }
+      .brand-sub { font-size: 32px; font-weight: 600; color: #34d399; }
+
+      .confetti-field { position: absolute; left: 50%; top: 38%; width: 0; height: 0; }
+      .cf { position: absolute; top: 0; left: 0; width: 22px; height: 32px; border-radius: 5px; opacity: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="quicksign-post6a" data-start="0" data-width="1080" data-height="1920" data-duration="14">
+      <section class="clip" data-start="0" data-duration="12" data-track-index="1">
+        <div class="bg"></div>
+
+        <!-- Beat 1 (0-1.3s): cold open joke -->
+        <div id="t1" class="big-text" style="top: 160px; font-size: 76px; opacity:0;">me trying to fake sign language 💀</div>
+        <div id="z1" class="zippy-hero" style="top: 640px; width: 460px; height: 460px; opacity:0;">
+          <img src="assets/zippy/surprised.webp" alt="" />
+        </div>
+
+        <!-- Beat 2 (1.3-2.6s): Zippy calls it out -->
+        <div id="t2" class="big-text" style="top: 160px; font-size: 68px; opacity:0;">Zippy: not on my watch 👀</div>
+        <div id="z2" class="zippy-hero" style="top: 640px; width: 460px; height: 460px; opacity:0;">
+          <img src="assets/zippy/teaching.webp" alt="" />
+        </div>
+
+        <!-- Beat 3 (2.6-5.4s): the catch (real checklist, red row) -->
+        <div id="t3" class="big-text" style="top: 200px; font-size: 60px; opacity:0;">it catches EVERY fake sign</div>
+        <div id="card" class="card" style="opacity:0;">
+          <div class="row g"><div class="ic g"><span class="glyph">✓</span></div><div class="lbl g">Hand shape</div></div>
+          <div class="row g"><div class="ic g"><span class="glyph">✓</span></div><div class="lbl g">Location</div></div>
+          <div class="row g"><div class="ic g"><span class="glyph">✓</span></div><div class="lbl g">Movement</div></div>
+          <div class="row g"><div class="ic g"><span class="glyph">✓</span></div><div class="lbl g">Expression</div></div>
+          <div id="row3" class="row r">
+            <div id="ic3" class="ic r">
+              <span id="x3" class="glyph" style="opacity:1;">✗</span>
+              <span id="c3" class="glyph" style="opacity:0; color:#052e1c;">✓</span>
+            </div>
+            <div id="lbl3" class="lbl r">Palm direction</div>
+          </div>
+        </div>
+        <div id="z3" class="zippy-hero" style="top: 1520px; width: 260px; height: 260px; opacity:0;">
+          <img src="assets/zippy/oops.webp" alt="" />
+        </div>
+
+        <!-- Beat 4 (5.4-6.8s): fixed + chaotic celebration -->
+        <div id="t4" class="big-text" style="top: 200px; font-size: 66px; opacity:0; color:#34d399;">FIXED IT 🎉</div>
+        <div id="z4a" class="zippy-hero" style="top: 700px; width: 480px; height: 480px; opacity:0;"><img src="assets/zippy/celebrating.webp" alt="" /></div>
+        <div id="z4b" class="zippy-hero" style="top: 700px; width: 480px; height: 480px; opacity:0;"><img src="assets/zippy/applauding.webp" alt="" /></div>
+        <div id="z4c" class="zippy-hero" style="top: 700px; width: 480px; height: 480px; opacity:0;"><img src="assets/zippy/proud.webp" alt="" /></div>
+
+        <div id="badge-streak" class="badge purple" style="top: 500px; left: 90px;">🔥 streak +1</div>
+        <div id="badge-xp" class="badge" style="top: 620px; right: 80px;">+50 XP</div>
+        <div id="badge-level" class="badge orange" style="top: 1350px; left: 120px;">LEVEL UP</div>
+
+        <div id="confetti-field" class="confetti-field"></div>
+
+        <!-- Beat 5 (8.6-10s): sign-off -->
+        <div id="t5" class="big-text" style="top: 200px; font-size: 62px; opacity:0;">free. no downloads. no catch.</div>
+        <div id="z5" class="zippy-hero" style="top: 680px; width: 440px; height: 440px; opacity:0;"><img src="assets/zippy/goodbye.webp" alt="" /></div>
+      </section>
+
+      <!-- Beat 6 (12-14s): end card -->
+      <section id="endcard" class="clip" data-start="12" data-duration="2" data-track-index="1">
+        <div class="bg"></div>
+        <div class="brand-end">
+          <div class="zippy-hero" style="position:relative; left:auto; transform:none; width: 220px; height: 220px;">
+            <img src="assets/zippy/levelup.webp" alt="" />
+          </div>
+          <div class="brand-name">QuickSign</div>
+          <div class="brand-sub">learn ASL by doing 🤟 free</div>
+        </div>
+      </section>
+
+      <audio id="bgm" src="assets/music/happy-beats-business-moves-vol-1-by-ende-dot-app.mp3" data-start="0" data-duration="14" data-track-index="10" data-volume="0.09"></audio>
+      <audio id="sfx-1" src="assets/sfx/impactSoft_medium_001.ogg" data-start="0.1" data-duration="0.18" data-track-index="11" data-volume="0.7"></audio>
+      <audio id="sfx-catch" src="assets/sfx/click_003.ogg" data-start="6.3" data-duration="0.01" data-track-index="12" data-volume="0.8"></audio>
+      <audio id="sfx-win" src="assets/sfx/impactBell_heavy_000.ogg" data-start="6.9" data-duration="1" data-track-index="13" data-volume="0.9"></audio>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      const COLORS = ['#34D399','#A78BFA','#5EEAD4','#F97316','#F5F3FF'];
+      const VEC = [[-260,-320,-40],[240,-360,30],[-400,-180,-70],[380,-220,60],[-150,-420,20],[170,-400,-30],
+        [-320,-90,80],[320,-110,-60],[-60,-450,50],[80,-450,-50],[-380,-260,15],[400,-250,-15],[-210,-380,-80],[250,-350,80]];
+      const field = document.getElementById('confetti-field');
+      VEC.forEach((v,i)=>{ const p=document.createElement('div'); p.className='cf'; p.id='cf-'+i;
+        p.style.background=COLORS[i%COLORS.length]; field.appendChild(p); });
+
+      // ---- Beat 1: cold open (0 - 1.8s) ----
+      tl.fromTo('#t1, #z1', { autoAlpha: 0, scale: 0.85 }, { autoAlpha: 1, scale: 1, duration: 0.3, ease: 'back.out(1.6)' }, 0.05);
+      tl.to('#t1, #z1', { autoAlpha: 0, duration: 0.2, ease: 'power2.in' }, 1.6);
+
+      // ---- Beat 2: Zippy calls it out (1.85 - 3.4s) ----
+      tl.fromTo('#t2, #z2', { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.3, ease: 'power3.out' }, 1.85);
+      tl.to('#t2, #z2', { autoAlpha: 0, duration: 0.2, ease: 'power2.in' }, 3.25);
+
+      // ---- Beat 3: the catch (3.45 - 6.8s) ----
+      tl.fromTo('#t3, #card, #z3', { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.4, ease: 'power3.out' }, 3.45);
+      // shake the red row
+      tl.to('#row3', { x: -8, duration: 0.08, repeat: 5, yoyo: true, ease: 'power1.inOut' }, 4.7);
+      tl.set('#row3', { x: 0 }, 5.2);
+      // fix it
+      tl.to('#ic3', { backgroundColor: '#34d399', duration: 0.2 }, 6.3);
+      tl.to('#x3', { autoAlpha: 0, duration: 0.15 }, 6.3);
+      tl.to('#c3', { autoAlpha: 1, duration: 0.15 }, 6.3);
+      tl.to('#lbl3', { color: '#34d399', duration: 0.2 }, 6.3);
+      tl.to('#row3', { backgroundColor: 'rgba(52,211,153,0.14)', borderColor: 'rgba(52,211,153,0.4)', duration: 0.2 }, 6.3);
+      tl.to('#t3, #card, #z3', { autoAlpha: 0, duration: 0.25, ease: 'power2.in' }, 6.55);
+
+      // ---- Beat 4: chaotic celebration (6.85 - 10s) ----
+      tl.fromTo('#t4', { autoAlpha: 0, scale: 0.85 }, { autoAlpha: 1, scale: 1, duration: 0.3, ease: 'back.out(1.7)' }, 6.85);
+      // rapid-fire Zippy pose cycling — the "chaotic" energy, given more room to land
+      tl.fromTo('#z4a', { autoAlpha: 0, scale: 0.7 }, { autoAlpha: 1, scale: 1, duration: 0.2, ease: 'back.out(2)' }, 6.9);
+      tl.to('#z4a', { autoAlpha: 0, duration: 0.12 }, 7.5);
+      tl.fromTo('#z4b', { autoAlpha: 0, scale: 0.7 }, { autoAlpha: 1, scale: 1, duration: 0.15, ease: 'back.out(2)' }, 7.5);
+      tl.to('#z4b', { autoAlpha: 0, duration: 0.12 }, 7.9);
+      tl.fromTo('#z4c', { autoAlpha: 0, scale: 0.7 }, { autoAlpha: 1, scale: 1, duration: 0.15, ease: 'back.out(2)' }, 7.9);
+
+      // badges pop in staggered
+      tl.fromTo('#badge-streak', { autoAlpha: 0, y: 20, rotate: -8 }, { autoAlpha: 1, y: 0, rotate: -4, duration: 0.3, ease: 'back.out(1.8)' }, 7.0);
+      tl.fromTo('#badge-xp', { autoAlpha: 0, y: 20, rotate: 8 }, { autoAlpha: 1, y: 0, rotate: 4, duration: 0.3, ease: 'back.out(1.8)' }, 7.3);
+      tl.fromTo('#badge-level', { autoAlpha: 0, y: 20, rotate: -6 }, { autoAlpha: 1, y: 0, rotate: -3, duration: 0.3, ease: 'back.out(1.8)' }, 7.6);
+
+      // confetti burst — immediateRender:false is required here: fromTo() otherwise paints
+      // the "from" opacity (1, at rest position) the instant the tween is created, long
+      // before the timeline reaches 6.95s, which is why a stray confetti dot was visible
+      // sitting at center-frame from the very first frame of the video.
+      VEC.forEach((v,i)=>{ const [dx,dy,rot]=v;
+        tl.fromTo('#cf-'+i, { x:0,y:0,rotation:0,opacity:1,scale:0.6 }, { x:dx,y:dy,rotation:rot,opacity:0,scale:1,duration:1.2,ease:'power2.out', immediateRender:false }, 6.95 + (i%4)*0.03); });
+
+      // clear beat 4
+      tl.to('#t4, #z4c, #badge-streak, #badge-xp, #badge-level', { autoAlpha: 0, duration: 0.25, ease: 'power2.in' }, 9.9);
+
+      // ---- Beat 5: sign-off (10.2 - 11.55s) ----
+      tl.fromTo('#t5, #z5', { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: 'power3.out' }, 10.2);
+      tl.to('#t5, #z5', { autoAlpha: 0, duration: 0.25, ease: 'power2.in' }, 11.3);
+
+      // ---- Beat 6: end card entrance ----
+      tl.fromTo('#endcard .zippy-hero', { autoAlpha: 0, scale: 0.8 }, { autoAlpha: 1, scale: 1, duration: 0.35, ease: 'back.out(1.6)' }, 12.1);
+      tl.fromTo('#endcard .brand-name', { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.3 }, 12.35);
+      tl.fromTo('#endcard .brand-sub', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.3 }, 12.55);
+
+      tl.to('#bgm', { volume: 0, duration: 1.0, ease: 'power1.in' }, 12.8);
+
+      window.__timelines['quicksign-post6a'] = tl;
+    </script>
+  </body>
+</html>

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QuickSign — Social Posts Preview</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: #0d0a1e;
+        color: #f5f3ff;
+        font-family: 'Quicksand', system-ui, sans-serif;
+        padding: 32px 16px 80px;
+      }
+      h1 { text-align: center; font-weight: 700; margin: 0 0 6px; }
+      .sub { text-align: center; color: #9c90b0; margin: 0 0 32px; font-size: 14px; }
+      .grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 32px;
+        justify-content: center;
+        align-items: flex-start;
+      }
+      .card {
+        width: 300px;
+        background: #18103a;
+        border: 1px solid rgba(167,139,250,0.25);
+        border-radius: 24px;
+        padding: 16px;
+      }
+      .card h2 { font-size: 16px; margin: 0 0 4px; }
+      .card .meta { font-size: 12px; color: #9c90b0; margin: 0 0 12px; }
+      video {
+        width: 100%;
+        border-radius: 16px;
+        background: #000;
+        display: block;
+      }
+      .altlink { display: inline-block; margin-top: 10px; font-size: 12px; color: #a78bfa; }
+      .pending { opacity: 0.5; }
+      .placeholder {
+        aspect-ratio: 9/16;
+        border-radius: 16px;
+        border: 1px dashed rgba(167,139,250,0.3);
+        display: flex; align-items: center; justify-content: center;
+        color: #9c90b0; font-size: 13px; text-align: center; padding: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>QuickSign — Social Posts</h1>
+    <p class="sub">Vertical 1080×1920 · TikTok / Reels / Shorts. Tap play. Building one at a time.</p>
+    <div class="grid">
+      <div class="card">
+        <h2>Post 1 — "It watches you"</h2>
+        <p class="meta">Flagship · 15.7s · AI vortex hook</p>
+        <video src="post1-hook/video.mp4" controls playsinline preload="metadata"></video>
+        <a class="altlink" href="post1-hook/video-long.mp4" target="_blank">▶ 22.5s long version (YouTube)</a>
+      </div>
+      <div class="card">
+        <h2>Post 2 — "Won't let you fake it"</h2>
+        <p class="meta">Cinematic · 10s · AI scene + brand end-card</p>
+        <video src="post2-correction/video.mp4" controls playsinline preload="metadata"></video>
+      </div>
+      <div class="card">
+        <h2>Post 6A — Zippy Chaotic (Duolingo-style)</h2>
+        <p class="meta">14s · $0 credits · mascot-led, slower pacing v2</p>
+        <video src="post6a-zippy-chaotic/video.mp4" controls playsinline preload="metadata"></video>
+      </div>
+      <div class="card">
+        <h2>Post 6B — Cinematic Hero</h2>
+        <p class="meta">13s · 18 credits · hook-first, real footage + real UI</p>
+        <video src="post6b-cinematic/video.mp4" controls playsinline preload="metadata"></video>
+      </div>
+      <div class="card">
+        <h2>Post 3 — HELLO myth-bust</h2>
+        <p class="meta">13.2s · $0 credits · real clip + real checklist</p>
+        <video src="post3-hello-myth/video.mp4" controls playsinline preload="metadata"></video>
+      </div>
+      <div class="card">
+        <h2>Post 4 — PLEASE myth-bust</h2>
+        <p class="meta">15.2s · $0 credits · "a lot of apps would pass this"</p>
+        <video src="post4-please-myth/video.mp4" controls playsinline preload="metadata"></video>
+      </div>
+      <div class="card">
+        <h2>Post 5 — Live Multiplayer Duel</h2>
+        <p class="meta">12.4s · 6 credits · real WebRTC 1v1 + Group Room</p>
+        <video src="post5-multiplayer/video.mp4" controls playsinline preload="metadata"></video>
+      </div>
+      <div class="card pending">
+        <h2>Post — Meet Zippy</h2>
+        <p class="meta">Mascot · pending</p>
+        <div class="placeholder">Not built yet</div>
+      </div>
+    </div>
+  </body>
+</html>

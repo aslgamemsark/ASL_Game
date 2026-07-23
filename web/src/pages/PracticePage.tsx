@@ -556,13 +556,13 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                       <button
                         onClick={() => setCardPhase('replay')}
                         disabled={!recorder.replayUrl}
-                        className="text-xs text-z-purple-light hover:text-white px-3 py-1.5 rounded-lg border border-z-purple-light/40 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="text-xs text-z-purple-light hover:text-z-gray-50 px-3 py-1.5 rounded-lg border border-z-purple-light/40 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {recorder.replayUrl ? '▶ Watch replay' : 'Preparing replay…'}
                       </button>
                       <button
                         onClick={() => { recorder.discard(); advanceQueue(); }}
-                        className="text-xs text-z-gray-300 hover:text-white px-3 py-1.5 rounded-lg border border-z-gray-500/30"
+                        className="text-xs text-z-gray-300 hover:text-z-gray-50 px-3 py-1.5 rounded-lg border border-z-gray-500/30"
                       >
                         Next word →
                       </button>
@@ -608,7 +608,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                             : isSelected
                               ? 'bg-z-red/20 border-z-red text-z-red'
                               : 'bg-z-surface/30 border-z-gray-500/20 text-z-gray-400'
-                          : 'bg-z-card border-z-gray-500/20 text-white hover:border-z-purple-light'
+                          : 'bg-z-card border-z-gray-500/20 text-z-gray-50 hover:border-z-purple-light'
                       }`}
                       whileHover={cardPhase === 'prompt' ? { scale: 1.03 } : undefined}
                       whileTap={cardPhase === 'prompt' ? { scale: 0.97 } : undefined}

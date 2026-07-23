@@ -108,7 +108,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
 
             {/* Solid color, not gradient-clipped text: emphasis belongs to weight/color, and the
                 TopBar wordmark is the app's single deliberate gradient-text brand mark. */}
-            <h1 className="text-4xl font-bold mb-1 text-white">
+            <h1 className="text-4xl font-bold mb-1 text-z-gray-50">
               Welcome to <span className="text-z-purple-light">QuickSign</span>
             </h1>
             <p className="text-z-purple-light/80 text-sm font-semibold tracking-wide uppercase mb-4">Beyond Words</p>
@@ -160,7 +160,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
 
               <motion.button
                 onClick={() => setShowAuthModal(true)}
-                className="w-full py-3.5 rounded-2xl font-bold text-sm border border-white/15 text-white"
+                className="w-full py-3.5 rounded-2xl font-bold text-sm border border-z-gray-400/30 text-z-gray-50"
                 whileHover={{ scale: 1.02, borderColor: 'rgba(168,85,247,0.5)' }}
                 whileTap={{ scale: 0.97 }}
               >
@@ -203,7 +203,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                 <motion.button
                   key={s.level}
                   onClick={() => handleSkillSelect(s.level)}
-                  className="w-full rounded-2xl p-4 text-left bg-z-card border border-white/5"
+                  className="w-full rounded-2xl p-4 text-left bg-z-card border border-z-gray-400/20"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.08 }}
@@ -217,7 +217,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                   <div className="flex items-center gap-3">
                     <span className="text-3xl">{s.emoji}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-white">{s.title}</p>
+                      <p className="font-bold text-z-gray-50">{s.title}</p>
                       <p className="text-z-gray-400 text-sm">{s.subtitle}</p>
                     </div>
                     <svg className="w-4 h-4 text-z-gray-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

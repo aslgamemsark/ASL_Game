@@ -175,7 +175,7 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
           <div className="flex gap-3">
             <motion.button
               onClick={() => onConfirm(detected ? other(detected) : 'right')}
-              className="flex-1 py-3 rounded-2xl font-bold text-sm border border-white/15 text-white"
+              className="flex-1 py-3 rounded-2xl font-bold text-sm border border-z-gray-400/30 text-z-gray-50"
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
             >
               {detected && !cameraFailed ? `No — I'm ${cap(other(detected))}-handed` : 'Right hand'}
@@ -183,7 +183,7 @@ export function DominantHandStep({ onConfirm, onSkip }: Props) {
             {(cameraFailed || !detected) && (
               <motion.button
                 onClick={() => onConfirm('left')}
-                className="flex-1 py-3 rounded-2xl font-bold text-sm border border-white/15 text-white"
+                className="flex-1 py-3 rounded-2xl font-bold text-sm border border-z-gray-400/30 text-z-gray-50"
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
               >
                 Left hand

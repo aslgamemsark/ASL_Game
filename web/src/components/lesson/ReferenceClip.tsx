@@ -133,7 +133,7 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
                 <button
                   onClick={() => setExpanded(false)}
                   aria-label="Close enlarged view"
-                  className="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-z-card border border-white/10 flex items-center justify-center text-white text-lg shadow-lg"
+                  className="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-z-card border border-white/10 flex items-center justify-center text-z-gray-50 text-lg shadow-lg"
                 >
                   ✕
                 </button>

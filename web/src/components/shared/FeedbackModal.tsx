@@ -108,8 +108,8 @@ export function FeedbackModal({ page, onClose }: Props) {
                     onClick={() => setCategory(c.id)}
                     className={`flex items-center gap-3 text-left px-3 py-2.5 rounded-xl border transition-colors ${
                       category === c.id
-                        ? 'border-z-purple bg-z-purple/20 text-white'
-                        : 'border-white/10 text-z-gray-300 hover:border-white/20'
+                        ? 'border-z-purple bg-z-purple/20 text-z-gray-50'
+                        : 'border-z-gray-400/30 text-z-gray-300 hover:border-z-gray-400/50'
                     }`}
                   >
                     <span className="text-lg" aria-hidden="true">{c.icon}</span>
@@ -132,7 +132,7 @@ export function FeedbackModal({ page, onClose }: Props) {
                     : 'Tell us more…'
                 }
                 rows={4}
-                className="w-full bg-z-surface border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-z-gray-500 resize-none"
+                className="w-full bg-z-surface border border-z-gray-400/30 rounded-xl px-3 py-2 text-sm text-z-gray-50 placeholder:text-z-gray-500 resize-none"
               />
 
               {user && (
@@ -152,7 +152,7 @@ export function FeedbackModal({ page, onClose }: Props) {
               <div className="flex gap-2 mt-4">
                 <button
                   onClick={onClose}
-                  className="flex-1 py-2.5 rounded-xl font-bold text-sm border border-white/10 text-z-gray-300"
+                  className="flex-1 py-2.5 rounded-xl font-bold text-sm border border-z-gray-400/30 text-z-gray-300"
                 >
                   Cancel
                 </button>

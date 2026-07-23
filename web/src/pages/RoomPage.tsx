@@ -678,7 +678,7 @@ export function RoomPage({ onExit }: Props) {
                         ? s === currentSignId
                           ? 'bg-z-green/20 border-z-green text-z-green'
                           : 'border-white/8 text-z-gray-400'
-                        : 'bg-z-card border-white/10 hover:border-z-purple/40 text-white'
+                        : 'bg-z-card border-z-gray-400/30 hover:border-z-purple/40 text-z-gray-50'
                     }`}
                     whileTap={{ scale: 0.97 }}>
                     {SIGNS[s]?.name.replace(/_/g, ' ') ?? s}

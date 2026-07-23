@@ -138,7 +138,7 @@ export function AuthModal({ onClose }: Props) {
         <p className="text-z-gray-400 text-xs mb-4">We'll email you a link to set a new one.</p>
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+            className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
             type="email"
             placeholder="Email"
             value={email}
@@ -158,7 +158,7 @@ export function AuthModal({ onClose }: Props) {
           </button>
           <button
             type="button"
-            className="w-full py-3 text-xs text-z-gray-400 hover:text-white transition-colors"
+            className="w-full py-3 text-xs text-z-gray-400 hover:text-z-gray-50 transition-colors"
             onClick={() => { setTab('signin'); setError(null); }}
           >
             Back to sign in
@@ -193,7 +193,7 @@ export function AuthModal({ onClose }: Props) {
                 className={`w-full bg-white/5 border rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none transition-colors pr-10 ${
                   usernameStatus === 'error' ? 'border-z-red/60 focus:border-z-red' :
                   usernameStatus === 'ok'    ? 'border-z-green/60 focus:border-z-green' :
-                  'border-white/10 focus:border-z-purple'
+                  'border-z-gray-400/30 focus:border-z-purple'
                 }`}
                 placeholder="Username"
                 value={username}
@@ -225,7 +225,7 @@ export function AuthModal({ onClose }: Props) {
         )}
 
         <input
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+          className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
           type="email"
           placeholder="Email"
           value={email}
@@ -235,7 +235,7 @@ export function AuthModal({ onClose }: Props) {
           maxLength={254}
         />
         <input
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+          className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
           type="password"
           placeholder="Password"
           value={password}
@@ -249,7 +249,7 @@ export function AuthModal({ onClose }: Props) {
         {tab === 'signin' && (
           <button
             type="button"
-            className="text-xs text-z-gray-400 hover:text-white transition-colors px-1"
+            className="text-xs text-z-gray-400 hover:text-z-gray-50 transition-colors px-1"
             onClick={() => { setTab('reset'); setError(null); }}
           >
             Forgot password?
@@ -270,14 +270,14 @@ export function AuthModal({ onClose }: Props) {
       </form>
 
       <div className="flex items-center gap-3 my-4">
-        <div className="flex-1 h-px bg-white/10" />
+        <div className="flex-1 h-px bg-z-gray-400/20" />
         <span className="text-z-gray-400 text-xs">or</span>
-        <div className="flex-1 h-px bg-white/10" />
+        <div className="flex-1 h-px bg-z-gray-400/20" />
       </div>
 
       <button
         onClick={signInWithGoogle}
-        className="w-full py-2.5 rounded-xl border border-white/10 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-white/5 transition-colors"
+        className="w-full py-2.5 rounded-xl border border-z-gray-400/30 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-white/5 transition-colors"
       >
         <svg width="16" height="16" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -299,7 +299,7 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
           <span className="text-xl">🤟</span>
           <span className="font-bold text-base">Join Zippy</span>
         </div>
-        <button onClick={onClose} aria-label="Close" className="w-11 h-11 -mr-2 flex items-center justify-center text-z-gray-400 hover:text-white text-xl leading-none">×</button>
+        <button onClick={onClose} aria-label="Close" className="w-11 h-11 -mr-2 flex items-center justify-center text-z-gray-400 hover:text-z-gray-50 text-xl leading-none">×</button>
       </div>
       {children}
     </ModalShell>

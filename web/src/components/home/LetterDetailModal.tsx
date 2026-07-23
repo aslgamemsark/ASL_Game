@@ -62,7 +62,7 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
             <button
               onClick={onClose}
               aria-label="Close"
-              className="text-z-gray-400 hover:text-white text-2xl leading-none -mt-1"
+              className="text-z-gray-400 hover:text-z-gray-50 text-2xl leading-none -mt-1"
             >
               ×
             </button>

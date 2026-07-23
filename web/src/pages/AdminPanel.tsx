@@ -587,7 +587,7 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
             <h3 className="font-bold">@{selected.username}</h3>
             <button
               onClick={() => { setSelected(null); setDetail(null); setResults([]); }}
-              className="text-xs text-z-gray-400 hover:text-white"
+              className="text-xs text-z-gray-400 hover:text-z-gray-50"
             >
               ← Back to search
             </button>

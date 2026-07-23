@@ -442,7 +442,7 @@ export function SpeedChallengePage({ onExit }: Props) {
                     setCombo(0);
                     advanceSign(false);
                   }}
-                  className="text-xs text-z-gray-400 hover:text-white px-3 py-1.5 rounded-lg border border-z-gray-500/30"
+                  className="text-xs text-z-gray-400 hover:text-z-gray-50 px-3 py-1.5 rounded-lg border border-z-gray-500/30"
                 >
                   Skip
                 </button>

@@ -1,0 +1,9 @@
+[mcp_servers.seekstone]
+command = "npx"
+args = [
+    "-y",
+    "seekstone",
+]
+
+[mcp_servers.seekstone.env]
+SEEKSTONE_VAULT = 'E:\ASL_Game\docs'

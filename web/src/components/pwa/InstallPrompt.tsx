@@ -88,7 +88,7 @@ export function InstallPrompt() {
             </button>
             <button
               onClick={() => setNeedRefresh(false)}
-              className="text-xs text-z-gray-400 hover:text-white px-2 min-h-11"
+              className="text-xs text-z-gray-400 hover:text-z-gray-50 px-2 min-h-11"
               aria-label="Dismiss"
             >
               Later
@@ -121,7 +121,7 @@ export function InstallPrompt() {
             <button
               onClick={dismiss}
               aria-label="Dismiss"
-              className="w-11 h-11 flex items-center justify-center text-z-gray-500 hover:text-white text-lg leading-none shrink-0 -mr-2"
+              className="w-11 h-11 flex items-center justify-center text-z-gray-500 hover:text-z-gray-50 text-lg leading-none shrink-0 -mr-2"
             >
               ×
             </button>
@@ -148,7 +148,7 @@ export function InstallPrompt() {
             <button
               onClick={dismiss}
               aria-label="Dismiss"
-              className="w-11 h-11 flex items-center justify-center text-z-gray-500 hover:text-white text-lg leading-none shrink-0 -mr-2"
+              className="w-11 h-11 flex items-center justify-center text-z-gray-500 hover:text-z-gray-50 text-lg leading-none shrink-0 -mr-2"
             >
               ×
             </button>

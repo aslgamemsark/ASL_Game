@@ -13,7 +13,7 @@
  *  from a specific screen but aren't a screen-view themselves. */
 export type ScreenName =
   | 'home' | 'onboarding' | 'lesson' | 'practice' | 'story' | 'speed' | 'shop' | 'friends'
-  | 'multiplayer' | 'settings' | 'leaderboard' | 'admin' | 'privacy' | 'user-profile' | 'landing';
+  | 'multiplayer' | 'settings' | 'leaderboard' | 'admin' | 'privacy' | 'user-profile';
 
 /** A sign-recognition attempt's outcome, shared by every screen that runs the recognition loop
  *  (Lesson/Practice/Story/Speed/Duel/Room) — see engine/gate.ts for what rule-pass/veto mean. */

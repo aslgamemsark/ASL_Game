@@ -188,7 +188,7 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
           <h2 className="font-bold text-sm mb-3 text-z-gray-300 uppercase tracking-wide">Account</h2>
           {user ? (
             <>
-              <p className="text-sm text-z-gray-300 mb-3">Signed in as <span className="font-semibold text-white">{username ?? user.email}</span></p>
+              <p className="text-sm text-z-gray-300 mb-3">Signed in as <span className="font-semibold text-z-gray-50">{username ?? user.email}</span></p>
               <button onClick={() => setShowLogout(true)} className="w-full py-2.5 rounded-xl bg-z-red/15 text-z-red font-bold text-sm">
                 Log out
               </button>

@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>QuickSign — Post 3 (HELLO myth-bust)</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: 'Quicksand'; font-style: normal; font-weight: 300 700; font-display: block;
+        src: url('assets/fonts/quicksand-latin.woff2') format('woff2');
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #0d0a1e; color: #f5f3ff; font-family: 'Quicksand', sans-serif; }
+      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #0d0a1e; }
+      .clip { position: absolute; inset: 0; }
+      .bg {
+        position: absolute; inset: 0;
+        background:
+          radial-gradient(100% 60% at 20% 10%, rgba(124,58,237,0.30), transparent 55%),
+          radial-gradient(100% 60% at 85% 95%, rgba(52,211,153,0.14), transparent 55%),
+          #0d0a1e;
+      }
+
+      .cap {
+        position: absolute; left: 64px; right: 64px; text-align: center;
+        font-weight: 700; letter-spacing: -0.01em;
+        text-shadow: 0 2px 18px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.7);
+      }
+
+      /* Device-frame mockup — keeps the reference clip's flat grey backdrop from
+         clashing with the brand gradient; shown as a contained "preview", not full-bleed. */
+      .device-frame {
+        position: absolute; left: 190px; top: 460px; width: 700px; height: 900px;
+        border-radius: 40px; overflow: hidden; background: #1a1030;
+        border: 3px solid rgba(167,139,250,0.3);
+        box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+      }
+      .device-frame img, .device-frame video {
+        width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%;
+      }
+      .flag-badge {
+        position: absolute; top: 40px; right: 40px;
+        display: flex; align-items: center; gap: 14px;
+        padding: 16px 26px; border-radius: 999px;
+        background: rgba(239,68,68,0.9); color: #fff;
+        font-size: 32px; font-weight: 700;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      }
+
+      /* Checklist mini-card */
+      .card {
+        position: absolute; left: 190px; top: 900px; width: 700px;
+        display: flex; flex-direction: column; gap: 18px;
+      }
+      .row {
+        display: flex; align-items: center; gap: 26px;
+        padding: 26px 32px; border-radius: 26px;
+        background: rgba(34,21,72,0.65); border: 2px solid rgba(255,255,255,0.06);
+      }
+      .row.g { background: rgba(52,211,153,0.14); border-color: rgba(52,211,153,0.4); }
+      .row.r { background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.45); }
+      .ic {
+        position: relative; width: 66px; height: 66px; min-width: 66px; border-radius: 18px;
+        display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 700;
+        background: rgba(76,61,107,0.4);
+      }
+      .ic.g { background: #34d399; color: #052e1c; }
+      .ic.r { background: #ef4444; color: #fff; }
+      .lbl { font-size: 40px; font-weight: 700; color: #9c90b0; }
+      .lbl.g { color: #34d399; } .lbl.r { color: #f5f3ff; }
+      .glyph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+      #cap-catch { top: 620px; font-size: 58px; line-height: 1.16; color: #f5f3ff; }
+
+      /* Payoff beat: Zippy celebration */
+      .zippy-hero { position: absolute; left: 50%; transform: translateX(-50%); }
+      .zippy-hero img { width: 100%; height: 100%; object-fit: contain;
+        filter: drop-shadow(0 20px 40px rgba(0,0,0,0.5)); }
+      #cap-payoff { top: 420px; font-size: 62px; line-height: 1.16; color: #34d399; }
+      .confetti-field { position: absolute; left: 50%; top: 55%; width: 0; height: 0; }
+      .cf { position: absolute; top: 0; left: 0; width: 22px; height: 32px; border-radius: 5px; opacity: 0; }
+
+      /* Brand end card */
+      .endcard-bg {
+        position: absolute; inset: 0;
+        background:
+          radial-gradient(120% 70% at 20% 12%, rgba(124,58,237,0.24), transparent 55%),
+          radial-gradient(110% 60% at 85% 92%, rgba(20,184,166,0.12), transparent 55%),
+          #0d0a1e;
+      }
+      .endcard { position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 22px; }
+      .zippy-end { width: 220px; height: 220px; }
+      .zippy-end img { width: 100%; height: 100%; object-fit: contain;
+        filter: drop-shadow(0 16px 32px rgba(0,0,0,0.4)); }
+      .brand-name { font-size: 64px; font-weight: 700; color: #f5f3ff; }
+      .brand-sub { font-size: 30px; font-weight: 500; color: #9c90b0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="quicksign-post3" data-start="0" data-width="1080" data-height="1920" data-duration="13.2">
+
+      <!-- Beat 1+2 (0 - 2.8s): the myth, stated up front — a still hand near the forehead is NOT HELLO -->
+      <section id="myth" class="clip" data-start="0" data-duration="2.8" data-track-index="1">
+        <div class="bg"></div>
+        <div id="cap-myth1" class="cap" style="top:170px; font-size:60px; line-height:1.16; opacity:0;">a still hand near your head</div>
+        <div id="cap-myth2" class="cap" style="top:170px; font-size:60px; line-height:1.16; color:#ef4444; opacity:0;">isn't HELLO ❌</div>
+        <div id="frame1" class="device-frame" style="opacity:0;">
+          <img src="assets/hello-still.jpg" alt="" />
+          <div id="flag" class="flag-badge" style="opacity:0;">✗ no movement</div>
+        </div>
+      </section>
+
+      <!-- Beat 3 (2.8 - 6.2s): the real sign — it needs the wave.
+           Video is a direct child of #root (framework-owned playback via data-start/
+           data-duration) with the device-frame look applied via inline style, and a
+           separate decorative border layered on top by DOM order — nesting a <video>
+           inside a wrapper div silently breaks decode, and imperative play()/currentTime
+           calls break deterministic rendering (both caught by hyperframes check). -->
+      <section id="real-bg" class="clip" data-start="2.8" data-duration="3.4" data-track-index="1">
+        <div class="bg"></div>
+        <div id="cap-real" class="cap" style="top:170px; font-size:62px; line-height:1.16; color:#34d399; opacity:0;">HELLO needs the wave 👋</div>
+      </section>
+      <video id="helloVid" class="clip" src="assets/hello-real.mp4" data-start="2.9" data-duration="3.0" data-track-index="2"
+        muted playsinline
+        style="left:190px; top:460px; width:700px; height:900px; right:auto; bottom:auto; border-radius:40px; object-fit:cover; object-position:50% 20%; background:#1a1030; opacity:0;"></video>
+      <div id="frame2-border" class="clip" data-start="2.9" data-duration="3.0" data-track-index="3"
+        style="left:190px; top:460px; width:700px; height:900px; right:auto; bottom:auto; border-radius:40px; border:3px solid rgba(167,139,250,0.3); box-shadow:0 30px 80px rgba(0,0,0,0.5); pointer-events:none; opacity:0;"></div>
+
+      <!-- Beat 4 (6.2 - 9.2s): the real product truth — it checks the motion, not just the pose -->
+      <section id="catch" class="clip" data-start="6.2" data-duration="3.0" data-track-index="1">
+        <div class="bg"></div>
+        <div id="cap-catch" class="cap" style="opacity:0;">it checks the wave, not just the pose</div>
+        <div id="card" class="card" style="opacity:0;">
+          <div class="row g"><div class="ic g"><span class="glyph">✓</span></div><div class="lbl g">Hand shape</div></div>
+          <div id="row2" class="row r">
+            <div id="ic2" class="ic r">
+              <span id="x2" class="glyph" style="opacity:1;">✗</span>
+              <span id="c2" class="glyph" style="opacity:0; color:#052e1c;">✓</span>
+            </div>
+            <div id="lbl2" class="lbl r">Movement</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Beat 5 (9.2 - 11.2s): payoff -->
+      <section id="payoff" class="clip" data-start="9.2" data-duration="2.0" data-track-index="1">
+        <div class="bg"></div>
+        <div id="cap-payoff" class="cap" style="opacity:0;">no wave, no pass 🤟</div>
+        <div id="z-payoff" class="zippy-hero" style="top: 780px; width: 480px; height: 480px; opacity:0;">
+          <img src="assets/zippy/celebrating.webp" alt="" />
+        </div>
+        <div id="confetti-field" class="confetti-field"></div>
+      </section>
+
+      <!-- Beat 6 (11.2 - 13.2s): brand end card -->
+      <section id="endcard" class="clip" data-start="11.2" data-duration="2.0" data-track-index="1">
+        <div class="endcard-bg"></div>
+        <div class="endcard">
+          <div class="zippy-end"><img id="z-end" src="assets/zippy/thumbsup.webp" alt="Zippy thumbs up" /></div>
+          <div class="brand-name">QuickSign</div>
+          <div class="brand-sub">free. no downloads. no catch.</div>
+        </div>
+      </section>
+
+      <!-- Audio -->
+      <audio id="bgm" src="assets/music/happy-beats-business-moves-vol-1-by-ende-dot-app.mp3" data-start="0" data-duration="13.2" data-track-index="10" data-volume="0.07"></audio>
+      <audio id="sfx-flag" src="assets/sfx/click_003.ogg" data-start="0.4" data-duration="0.01" data-track-index="11" data-volume="0.7"></audio>
+      <audio id="sfx-catch" src="assets/sfx/click_003.ogg" data-start="8.4" data-duration="0.01" data-track-index="12" data-volume="0.7"></audio>
+      <audio id="sfx-win" src="assets/sfx/impactBell_heavy_000.ogg" data-start="8.6" data-duration="1" data-track-index="13" data-volume="0.85"></audio>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      const COLORS = ['#34D399','#A78BFA','#5EEAD4','#F97316','#F5F3FF'];
+      const VEC = [[-260,-320,-40],[240,-360,30],[-400,-180,-70],[380,-220,60],[-150,-420,20],[170,-400,-30],
+        [-320,-90,80],[320,-110,-60],[-60,-450,50],[80,-450,-50],[-380,-260,15],[400,-250,-15]];
+      const field = document.getElementById('confetti-field');
+      VEC.forEach((v,i)=>{ const p=document.createElement('div'); p.className='cf'; p.id='cf-'+i;
+        p.style.background=COLORS[i%COLORS.length]; field.appendChild(p); });
+
+      // ---- Beat 1: the myth stated up front (0 - 1.4s) ----
+      tl.fromTo('#frame1', { autoAlpha: 0, scale: 0.96 }, { autoAlpha: 1, scale: 1, duration: 0.4, ease: 'power3.out' }, 0.05);
+      tl.fromTo('#cap-myth1', { autoAlpha: 0, y: -16 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: 'power3.out' }, 0.2);
+      tl.fromTo('#flag', { autoAlpha: 0, scale: 0.7 }, { autoAlpha: 1, scale: 1, duration: 0.3, ease: 'back.out(1.8)' }, 0.4);
+
+      // ---- Beat 2: the reveal (1.4 - 2.8s) ----
+      tl.to('#cap-myth1', { autoAlpha: 0, duration: 0.2, ease: 'power2.in' }, 1.4);
+      tl.fromTo('#cap-myth2', { autoAlpha: 0, scale: 0.9 }, { autoAlpha: 1, scale: 1, duration: 0.35, ease: 'back.out(1.6)' }, 1.6);
+      tl.to('#cap-myth2, #frame1, #flag', { autoAlpha: 0, duration: 0.25, ease: 'power2.in' }, 2.55);
+      tl.set('#cap-myth2, #frame1, #flag', { autoAlpha: 0 }, 2.8);
+
+      // ---- Beat 3: the real sign (2.8 - 6.2s) — video playback is framework-owned via
+      // data-start/data-duration on #helloVid itself; the timeline only fades it in/out.
+      tl.fromTo('#helloVid, #frame2-border', { autoAlpha: 0, scale: 0.96 }, { autoAlpha: 1, scale: 1, duration: 0.4, ease: 'power3.out' }, 2.9);
+      tl.fromTo('#cap-real', { autoAlpha: 0, y: -16 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: 'power3.out' }, 3.05);
+      tl.to('#helloVid, #frame2-border, #cap-real', { autoAlpha: 0, duration: 0.25, ease: 'power2.in' }, 5.95);
+      tl.set('#helloVid, #frame2-border, #cap-real', { autoAlpha: 0 }, 6.2);
+
+      // ---- Beat 4: the catch (6.2 - 9.2s) ----
+      tl.fromTo('#cap-catch, #card', { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.4, ease: 'power3.out' }, 6.4);
+      tl.to('#row2', { x: -8, duration: 0.08, repeat: 5, yoyo: true, ease: 'power1.inOut' }, 7.6);
+      tl.set('#row2', { x: 0 }, 8.1);
+      tl.to('#ic2', { backgroundColor: '#34d399', duration: 0.2 }, 8.4);
+      tl.to('#x2', { autoAlpha: 0, duration: 0.15 }, 8.4);
+      tl.to('#c2', { autoAlpha: 1, duration: 0.15 }, 8.4);
+      tl.to('#lbl2', { color: '#34d399', duration: 0.2 }, 8.4);
+      tl.to('#row2', { backgroundColor: 'rgba(52,211,153,0.14)', borderColor: 'rgba(52,211,153,0.4)', duration: 0.2 }, 8.4);
+      tl.to('#cap-catch, #card', { autoAlpha: 0, duration: 0.25, ease: 'power2.in' }, 8.95);
+      tl.set('#cap-catch, #card', { autoAlpha: 0 }, 9.2);
+
+      // ---- Beat 5: payoff (9.2 - 11.2s) ----
+      tl.fromTo('#cap-payoff', { autoAlpha: 0, scale: 0.9 }, { autoAlpha: 1, scale: 1, duration: 0.35, ease: 'back.out(1.6)' }, 9.35);
+      tl.fromTo('#z-payoff', { autoAlpha: 0, y: 24, scale: 0.8 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.4, ease: 'back.out(1.6)' }, 9.5);
+      VEC.forEach((v,i)=>{ const [dx,dy,rot]=v;
+        tl.fromTo('#cf-'+i, { x:0,y:0,rotation:0,opacity:1,scale:0.6 }, { x:dx,y:dy,rotation:rot,opacity:0,scale:1,duration:1.1,ease:'power2.out', immediateRender:false }, 9.55 + (i%4)*0.03); });
+      tl.to('#cap-payoff, #z-payoff', { autoAlpha: 0, duration: 0.25, ease: 'power2.in' }, 10.95);
+      tl.set('#cap-payoff, #z-payoff', { autoAlpha: 0 }, 11.2);
+
+      // ---- Beat 6: end card entrance ----
+      tl.fromTo('#endcard .zippy-end', { autoAlpha: 0, scale: 0.8 }, { autoAlpha: 1, scale: 1, duration: 0.35, ease: 'back.out(1.6)' }, 11.3);
+      tl.fromTo('#endcard .brand-name', { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.3 }, 11.55);
+      tl.fromTo('#endcard .brand-sub', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.3 }, 11.75);
+
+      tl.to('#bgm', { volume: 0, duration: 1.0, ease: 'power1.in' }, 12.0);
+
+      window.__timelines['quicksign-post3'] = tl;
+    </script>
+  </body>
+</html>

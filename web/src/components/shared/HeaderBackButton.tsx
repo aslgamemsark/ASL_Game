@@ -16,7 +16,7 @@ export function HeaderBackButton({ onClick, icon = 'back', 'aria-label': ariaLab
     <button
       onClick={onClick}
       aria-label={ariaLabel ?? (icon === 'close' ? 'Close' : 'Back')}
-      className="w-11 h-11 -ml-1.5 flex items-center justify-center text-z-gray-400 hover:text-white transition-colors shrink-0"
+      className="w-11 h-11 -ml-1.5 flex items-center justify-center text-z-gray-400 hover:text-z-gray-50 transition-colors shrink-0"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         {icon === 'close'

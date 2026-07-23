@@ -8,22 +8,40 @@
     <title>QuickSign — Learn ASL with Zippy</title>
     <meta name="description" content="Most apps ask you to recognize a sign. QuickSign watches you make it — and tells you exactly which part to fix. Free, in your browser, camera never leaves your device." />
     <meta name="theme-color" content="#120B1E" />
+    <link rel="canonical" href="https://aslgame.vercel.app/" />
+    <meta name="robots" content="index,follow" />
 
-    <!-- Link previews (Slack/Discord/iMessage/X). Without these a shared link renders as a bare
-         URL, which undercuts the landing page it points at. og:image reuses the existing PWA icon
-         rather than adding another asset to keep in sync; absolute URLs are required by spec, so
-         these hardcode the production origin. -->
+    <!-- Link previews (Slack/Discord/iMessage/X). og:image reuses landing.html's dedicated
+         1200x630 asset (web/public/og-image.png) — correct aspect ratio, no new asset needed
+         since it already exists and is already maintained for landing.html. Absolute URLs are
+         required by spec, so these hardcode the production origin. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="QuickSign" />
     <meta property="og:title" content="QuickSign — Learn to sign. Actually sign." />
     <meta property="og:description" content="Most apps ask you to recognize a sign. QuickSign watches you make it — and tells you exactly which part to fix." />
     <meta property="og:url" content="https://aslgame.vercel.app/" />
-    <meta property="og:image" content="https://aslgame.vercel.app/pwa-512x512.png" />
-    <meta property="og:image:alt" content="Zippy, the QuickSign mascot, waving hello" />
+    <meta property="og:image" content="https://aslgame.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="QuickSign: Learn ASL by using your hands, not flashcards — a phone screenshot of the app's home screen with daily quests" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="QuickSign — Learn to sign. Actually sign." />
     <meta name="twitter:description" content="Most apps ask you to recognize a sign. QuickSign watches you make it — and tells you exactly which part to fix." />
-    <meta name="twitter:image" content="https://aslgame.vercel.app/pwa-512x512.png" />
+    <meta name="twitter:image" content="https://aslgame.vercel.app/og-image.png" />
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "QuickSign",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Web",
+      "description": "Practice American Sign Language with real-time, per-parameter feedback: handshape, palm orientation, location, and movement.",
+      "url": "https://aslgame.vercel.app/",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
+    </script>
+
     <!-- Home-screen install (iOS Safari uses these; other browsers read the web manifest the PWA plugin injects). -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />

@@ -73,20 +73,23 @@
   --rt-z-blue: #2563EB;
   --rt-z-cream: #FFF8E7;
 
-  --rt-z-gray-50: #131B2E;
-  --rt-z-gray-100: #283044;
+  --rt-z-gray-50: #24123F; /* dark purple, not navy/black — primary text color in light mode */
+  --rt-z-gray-100: #3A2354;
   --rt-z-gray-200: #4A4455;
   --rt-z-gray-300: #6B6478;
   --rt-z-gray-400: #625B71; /* WCAG AA 4.5:1 floor against both bg and card (was #7B7487 at 4.25/4.06:1) */
   --rt-z-gray-500: #CCC3D8;
 
-  --rt-z-bg: #FAF8FF;
-  --rt-z-card: #F2F3FF;
-  --rt-z-surface: #EAEDFF;
-  --rt-z-surface-hover: #E2E7FF;
+  /* card/surface must read as visibly LIGHTER than bg (sidebar + cards float above the page),
+     while staying clearly lavender rather than near-white. An earlier pass made card/surface as
+     dark as or darker than bg, which flattened the whole app to one indistinguishable tone. */
+  --rt-z-bg: #E7D9FB;
+  --rt-z-card: #F0E6FC;
+  --rt-z-surface: #F4EDFD;
+  --rt-z-surface-hover: #E9DCFA;
 
-  --rt-body-bg: #FAF8FF;
-  --rt-body-text: #131B2E;
+  --rt-body-bg: #E7D9FB;
+  --rt-body-text: #24123F;
   --rt-scrollbar-thumb: #DAE2FD;
 }
 

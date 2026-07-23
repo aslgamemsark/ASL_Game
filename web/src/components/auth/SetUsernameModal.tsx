@@ -82,7 +82,7 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
 
           {/* First-time soft disclaimer */}
           {!isRename && (
-            <div className="rounded-xl px-3 py-2 mb-4 text-xs text-z-gray-400 bg-white/4 border border-white/8 leading-relaxed">
+            <div className="rounded-xl px-3 py-2 mb-4 text-xs text-z-gray-400 bg-white/4 border border-z-gray-400/25 leading-relaxed">
               ⚠️ Choose carefully — future username changes require a <span className="text-z-gray-300 font-medium">Rename Card</span> from the Shop (🪙 150).
             </div>
           )}
@@ -95,7 +95,7 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
                 className={`w-full bg-white/5 border rounded-xl pl-8 pr-10 py-2.5 text-sm placeholder:text-z-gray-500 focus:outline-none transition-colors ${
                   status === 'error' ? 'border-z-red/60 focus:border-z-red' :
                   status === 'ok'    ? 'border-z-green/60 focus:border-z-green' :
-                  'border-white/10 focus:border-z-purple'
+                  'border-z-gray-400/30 focus:border-z-purple'
                 }`}
                 placeholder="your_username"
                 value={value}

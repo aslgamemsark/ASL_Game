@@ -417,7 +417,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
                       re-requests the camera. Both are safe no-ops if already succeeded. */}
                   <button
                     onClick={() => { recognition.init(); startCam(); }}
-                    className="mt-3 text-xs font-bold text-white bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
+                    className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
                   >
                     Try again
                   </button>
@@ -474,13 +474,13 @@ export function LessonPage({ lessonId, onExit }: Props) {
                   <button
                     onClick={() => setPhase('replay')}
                     disabled={!recorder.replayUrl}
-                    className="text-xs text-z-purple-light hover:text-white px-3 py-1.5 rounded-lg border border-z-purple-light/40 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="text-xs text-z-purple-light hover:text-z-gray-50 px-3 py-1.5 rounded-lg border border-z-purple-light/40 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {recorder.replayUrl ? '▶ Watch replay' : 'Preparing replay…'}
                   </button>
                   <button
                     onClick={() => { recorder.discard(); advancePrompt(); }}
-                    className="text-xs text-z-gray-300 hover:text-white px-3 py-1.5 rounded-lg border border-z-gray-500/30"
+                    className="text-xs text-z-gray-300 hover:text-z-gray-50 px-3 py-1.5 rounded-lg border border-z-gray-500/30"
                   >
                     Next word →
                   </button>

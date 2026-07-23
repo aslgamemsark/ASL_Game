@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>QuickSign — Post 2 (Cinematic)</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: 'Quicksand'; font-style: normal; font-weight: 300 700; font-display: block;
+        src: url('assets/fonts/quicksand-latin.woff2') format('woff2');
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #0d0a1e; color: #f5f3ff; font-family: 'Quicksand', sans-serif; }
+      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #0d0a1e; }
+      .clip { position: absolute; inset: 0; }
+
+      /* Full-bleed cinematic video (host-root direct child, per media rule) */
+      .cine {
+        object-fit: cover; background: #0d0a1e;
+      }
+      /* Gradient scrims so white text stays readable over any part of the frame */
+      .scrim-top {
+        position: absolute; inset: 0; pointer-events: none;
+        background: linear-gradient(to bottom, rgba(5,3,14,0.75) 0%, rgba(5,3,14,0.15) 30%, transparent 48%);
+      }
+      .scrim-bottom {
+        position: absolute; inset: 0; pointer-events: none;
+        background: linear-gradient(to top, rgba(5,3,14,0.85) 0%, rgba(5,3,14,0.2) 26%, transparent 46%);
+      }
+
+      .cap {
+        position: absolute; left: 64px; right: 64px; text-align: center;
+        font-weight: 700; letter-spacing: -0.01em;
+        text-shadow: 0 2px 18px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.7);
+      }
+      #cap-problem { top: 130px; font-size: 64px; line-height: 1.16; color: #f5f3ff; }
+      #cap-win { bottom: 210px; font-size: 68px; line-height: 1.14; color: #34d399; }
+
+      /* Brand end-card */
+      .endcard-bg {
+        position: absolute; inset: 0;
+        background:
+          radial-gradient(120% 70% at 20% 12%, rgba(124,58,237,0.24), transparent 55%),
+          radial-gradient(110% 60% at 85% 92%, rgba(20,184,166,0.12), transparent 55%),
+          #0d0a1e;
+      }
+      .endcard { position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 22px; }
+      .zippy-end { width: 220px; height: 220px; }
+      .zippy-end img { width: 100%; height: 100%; object-fit: contain;
+        filter: drop-shadow(0 16px 32px rgba(0,0,0,0.4)); }
+      .brand-name { font-size: 64px; font-weight: 700; color: #f5f3ff; }
+      .brand-sub { font-size: 30px; font-weight: 500; color: #9c90b0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="quicksign-post2" data-start="0" data-width="1080" data-height="1920" data-duration="10">
+
+      <!-- Cinematic background video: host-root direct child, muted -->
+      <video id="cine" class="clip cine" src="assets/cinematic-raw.mp4" data-start="0" data-duration="7.8" data-track-index="2" muted playsinline></video>
+
+      <!-- Scrims + captions layer, same window as the video -->
+      <div id="overlay" class="clip" data-start="0" data-duration="7.8" data-track-index="3">
+        <div class="scrim-top"></div>
+        <div class="scrim-bottom"></div>
+        <div id="cap-problem" class="cap">POV: it caught the ONE thing<br />I always got wrong 😭</div>
+        <div id="cap-win" class="cap" style="opacity:0;">it won't let you fake it 🤟</div>
+      </div>
+
+      <!-- Brand end card -->
+      <section id="endcard" class="clip" data-start="7.8" data-duration="2.2" data-track-index="1">
+        <div class="endcard-bg"></div>
+        <div class="endcard">
+          <div class="zippy-end"><img id="z-end" src="assets/zippy/celebrating.webp" alt="Zippy celebrating" /></div>
+          <div class="brand-name">QuickSign</div>
+          <div class="brand-sub">free ASL practice · in your browser</div>
+        </div>
+      </section>
+
+      <!-- Audio -->
+      <audio id="bgm" src="assets/music/happy-beats-business-moves-vol-1-by-ende-dot-app.mp3" data-start="0" data-duration="10" data-track-index="10" data-volume="0.05"></audio>
+      <audio id="sfx-win" src="assets/sfx/impactBell_heavy_000.ogg" data-start="4.85" data-duration="1" data-track-index="12" data-volume="0.75"></audio>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      // Problem caption slams in early, holds through the frustrated beats
+      tl.fromTo('#cap-problem', { autoAlpha: 0, y: -20, scale: 0.96 },
+        { autoAlpha: 1, y: 0, scale: 1, duration: 0.45, ease: 'power4.out' }, 0.3);
+
+      // Caption swap lands exactly on her expression turning (verified ~4.8s in the raw clip)
+      tl.to('#cap-problem', { autoAlpha: 0, y: -14, duration: 0.3, ease: 'power2.in' }, 4.6);
+      tl.fromTo('#cap-win', { autoAlpha: 0, y: 16, scale: 0.96 },
+        { autoAlpha: 1, y: 0, scale: 1, duration: 0.4, ease: 'back.out(1.4)' }, 4.85);
+
+      // Cut to end card at 7.8s (handled by clip visibility) — entrance for its contents
+      tl.fromTo('#z-end', { autoAlpha: 0, y: 24, scale: 0.85 },
+        { autoAlpha: 1, y: 0, scale: 1, duration: 0.4, ease: 'back.out(1.5)' }, 7.9);
+      tl.fromTo('.brand-name', { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: 'power2.out' }, 8.15);
+      tl.fromTo('.brand-sub', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: 'power2.out' }, 8.35);
+
+      tl.to('#bgm', { volume: 0, duration: 1.0, ease: 'power1.in' }, 8.8);
+
+      window.__timelines['quicksign-post2'] = tl;
+    </script>
+  </body>
+</html>

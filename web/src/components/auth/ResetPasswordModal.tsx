@@ -52,7 +52,7 @@ export function ResetPasswordModal() {
               </div>
               <form onSubmit={handleSubmit} className="space-y-3">
                 <input
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+                  className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
                   type="password"
                   placeholder="New password"
                   value={password}
@@ -64,7 +64,7 @@ export function ResetPasswordModal() {
                   autoFocus
                 />
                 <input
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+                  className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
                   type="password"
                   placeholder="Confirm new password"
                   value={confirm}
@@ -85,7 +85,7 @@ export function ResetPasswordModal() {
                 <button
                   type="button"
                   onClick={signOut}
-                  className="w-full py-3 text-xs text-z-gray-400 hover:text-white transition-colors"
+                  className="w-full py-3 text-xs text-z-gray-400 hover:text-z-gray-50 transition-colors"
                 >
                   Cancel and sign out
                 </button>
