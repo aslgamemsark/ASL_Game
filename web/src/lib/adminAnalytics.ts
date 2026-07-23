@@ -107,3 +107,13 @@ export function retentionCell(cohort: RetentionCohort, offset: number): number |
   const week = cohort.weeks.find((w) => w.offset === offset);
   return week ? week.pct : null;
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Turns an ISO `YYYY-MM-DD` day into a short human label like "Jul 13". Locale-independent (fixed
+ *  month names) so an admin sees the same thing regardless of browser locale — the raw `07-13`
+ *  form read as ambiguous/meaningless. */
+export function formatDayLabel(iso: string): string {
+  const [, month, day] = iso.split('-');
+  return `${MONTHS[Number(month) - 1] ?? month} ${Number(day)}`;
+}
