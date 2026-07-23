@@ -5,8 +5,17 @@ import { verify, type VerifyResult, resultPassed } from '@/engine/verifier';
 import { gatePass, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
 import { topK, type SignClassifier } from '@/engine/classifier';
 import { GATE_CONFIDENCE, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
-import type { Sign } from '@/engine/schema';
+import { MovementKind, type Sign } from '@/engine/schema';
+import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
+
+// Static signs (movement.kind === NONE) have no motion scorer to naturally pace a pass —
+// scoreMovement returns 1 immediately for them — so without an explicit hold requirement a
+// fleeting, accidentally-correct handshape could pass the instant the smoothing window clears.
+// Signs WITH real movement don't need this: MovementReq.minDurationS already requires their
+// trajectory to develop over time, so the short frame-debounce (PASS_THRESHOLD, below) is
+// enough there to filter single-frame noise.
+const STATIC_HOLD_SECONDS = 2.0;
 
 export type RecognitionStatus = 'loading' | 'ready' | 'running' | 'error';
 
@@ -103,6 +112,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   // doesn't setState on every one of the ~28 frames/sec — only when the guidance actually changes.
   const [framing, setFraming] = useState<FramingStatus | null>(null);
   const framingMsgRef = useRef<string | null>(null);
+  // 0..1 while a static (no-movement) sign's pose is being held toward STATIC_HOLD_SECONDS; null
+  // when not currently holding or when the current sign has real movement (that case is paced by
+  // the movement scorer itself, not a hold timer — see the constant's comment above).
+  const [holdProgress, setHoldProgress] = useState<number | null>(null);
   const passCallbackRef = useRef(opts?.onPass);
   passCallbackRef.current = opts?.onPass;
   const hintCallbackRef = useRef(opts?.onHint);
@@ -158,6 +171,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       bufferRef.current.clear();
       stabilizerRef.current.reset();
       setResult(null);
+      setHoldProgress(null);
       frameCountRef.current = 0;
       loopStartRef.current = performance.now();
       attemptCountRef.current = 0;
@@ -180,6 +194,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       const MIN_FRAMES_BEFORE_PASS = 30;
       let passFrames = 0;
       const PASS_THRESHOLD = 6;
+      const isStaticSign = sign.movement.kind === MovementKind.NONE;
+      let holdStartMs: number | null = null;
 
       // Cap MediaPipe processing to ~28fps instead of raw display refresh rate (60-120fps on most
       // mobile screens) — halves battery/thermal load with no effect on the rolling-window
@@ -231,83 +247,111 @@ export function useRecognition(opts?: UseRecognitionOpts) {
             console.log(`[QuickSign] Frame ${frameCountRef.current}: hands=${hands} shoulders=${sw} w=${frame.width}`);
           }
 
-          // Don't allow pass until buffer has enough data
-          if (frameCountRef.current >= MIN_FRAMES_BEFORE_PASS && resultPassed(vr)) {
-            passFrames++;
-            if (passFrames >= PASS_THRESHOLD) {
-              passFrames = 0;
-              const cls = classifierRef.current;
-              if (cls?.enabled && cls.knownSigns.has(sign.name) && !GATE_EXCLUDED_SIGNS.has(sign.name)) {
-                // Gate the rule-pass through the ML classifier (single inference at pass time).
-                if (!gatingRef.current) {
-                  gatingRef.current = true;
-                  const snapshot = bufferRef.current.frames;
-                  const gatedSign = signRef.current;
-                  cls.classify(snapshot)
-                    .then((vote) => {
-                      if (!gatedSign) return;
-                      const passed = gatePass(true, vote, gatedSign.name, gateConfRef.current);
-                      const hint = passed ? null : gateHint(vote, gatedSign.name);
-                      voteCallbackRef.current?.({
-                        prompted: gatedSign.name,
-                        vote,
-                        decision: passed ? 'pass' : 'veto',
-                        topK: vote ? topK(vote, 3) : [],
-                        hint,
-                      });
-                      verifiedCallbackRef.current?.({
-                        signName: gatedSign.name,
-                        params: vr.params,
-                        vote,
-                        decision: passed ? 'pass' : 'veto',
-                      });
-                      attemptCountRef.current += 1;
-                      attemptCallbackRef.current?.({
-                        signId: gatedSign.name,
-                        rulePassed: true,
-                        aiPrediction: vote ? vote.topSign : null,
-                        aiConfidence: vote ? vote.confidence : null,
-                        aiVetoed: !passed,
-                        finalPassed: passed,
-                        frames: snapshot,
-                        durationMs: Math.round(performance.now() - loopStartRef.current),
-                        attemptNumber: attemptCountRef.current,
-                      });
-                      if (passed) {
-                        passCallbackRef.current?.(vr);
-                        hintCallbackRef.current?.(null);
-                      } else {
-                        hintCallbackRef.current?.(hint);
-                      }
-                    })
-                    .catch((e) => console.error('[QuickSign] gate error:', e))
-                    .finally(() => { gatingRef.current = false; });
-                }
-              } else {
-                if (import.meta.env.DEV) console.log('[QuickSign] PASS:', sign.name, vr.params.map(p => `${p.name}=${p.score.toFixed(2)}`).join(' '));
-                verifiedCallbackRef.current?.({
-                  signName: sign.name,
-                  params: vr.params,
-                  vote: null,
-                  decision: 'no-classifier',
-                });
-                attemptCountRef.current += 1;
-                attemptCallbackRef.current?.({
-                  signId: sign.name,
-                  rulePassed: true,
-                  aiPrediction: null,
-                  aiConfidence: null,
-                  aiVetoed: false,
-                  finalPassed: true,
-                  frames: bufferRef.current.frames,
-                  durationMs: Math.round(performance.now() - loopStartRef.current),
-                  attemptNumber: attemptCountRef.current,
-                });
-                passCallbackRef.current?.(vr);
+          // Fires one pass event: gates through the ML classifier when available, otherwise
+          // passes on rules alone. Shared by both the static-hold path and the movement
+          // frame-debounce path below — the two differ only in WHEN this gets called.
+          const firePass = () => {
+            const cls = classifierRef.current;
+            if (cls?.enabled && cls.knownSigns.has(sign.name) && !GATE_EXCLUDED_SIGNS.has(sign.name)) {
+              // Gate the rule-pass through the ML classifier (single inference at pass time).
+              if (!gatingRef.current) {
+                gatingRef.current = true;
+                const snapshot = bufferRef.current.frames;
+                const gatedSign = signRef.current;
+                cls.classify(snapshot)
+                  .then((vote) => {
+                    if (!gatedSign) return;
+                    const passed = gatePass(true, vote, gatedSign.name, gateConfRef.current);
+                    const hint = passed ? null : gateHint(vote, gatedSign.name);
+                    voteCallbackRef.current?.({
+                      prompted: gatedSign.name,
+                      vote,
+                      decision: passed ? 'pass' : 'veto',
+                      topK: vote ? topK(vote, 3) : [],
+                      hint,
+                    });
+                    verifiedCallbackRef.current?.({
+                      signName: gatedSign.name,
+                      params: vr.params,
+                      vote,
+                      decision: passed ? 'pass' : 'veto',
+                    });
+                    attemptCountRef.current += 1;
+                    attemptCallbackRef.current?.({
+                      signId: gatedSign.name,
+                      rulePassed: true,
+                      aiPrediction: vote ? vote.topSign : null,
+                      aiConfidence: vote ? vote.confidence : null,
+                      aiVetoed: !passed,
+                      finalPassed: passed,
+                      frames: snapshot,
+                      durationMs: Math.round(performance.now() - loopStartRef.current),
+                      attemptNumber: attemptCountRef.current,
+                    });
+                    if (passed) {
+                      passCallbackRef.current?.(vr);
+                      hintCallbackRef.current?.(null);
+                    } else {
+                      hintCallbackRef.current?.(hint);
+                    }
+                  })
+                  .catch((e) => console.error('[QuickSign] gate error:', e))
+                  .finally(() => { gatingRef.current = false; });
               }
+            } else {
+              if (import.meta.env.DEV) console.log('[QuickSign] PASS:', sign.name, vr.params.map(p => `${p.name}=${p.score.toFixed(2)}`).join(' '));
+              verifiedCallbackRef.current?.({
+                signName: sign.name,
+                params: vr.params,
+                vote: null,
+                decision: 'no-classifier',
+              });
+              attemptCountRef.current += 1;
+              attemptCallbackRef.current?.({
+                signId: sign.name,
+                rulePassed: true,
+                aiPrediction: null,
+                aiConfidence: null,
+                aiVetoed: false,
+                finalPassed: true,
+                frames: bufferRef.current.frames,
+                durationMs: Math.round(performance.now() - loopStartRef.current),
+                attemptNumber: attemptCountRef.current,
+              });
+              passCallbackRef.current?.(vr);
+            }
+          };
+
+          // Don't allow pass until buffer has enough data
+          const clearedEnough = frameCountRef.current >= MIN_FRAMES_BEFORE_PASS && resultPassed(vr);
+
+          if (isStaticSign) {
+            // Hold-to-pass: the pose must clear the verifier continuously for
+            // STATIC_HOLD_SECONDS (wall-clock, not frame count, so it's consistent regardless of
+            // any dip in processed framerate) before it counts as a pass.
+            if (clearedEnough) {
+              if (holdStartMs === null) holdStartMs = nowMs;
+              const elapsedMs = nowMs - holdStartMs;
+              setHoldProgress(clip(elapsedMs / (STATIC_HOLD_SECONDS * 1000), 0, 1));
+              if (elapsedMs >= STATIC_HOLD_SECONDS * 1000) {
+                holdStartMs = null;
+                setHoldProgress(null);
+                firePass();
+              }
+            } else {
+              holdStartMs = null;
+              setHoldProgress(null);
             }
           } else {
-            passFrames = 0;
+            if (clearedEnough) {
+              passFrames++;
+              if (passFrames >= PASS_THRESHOLD) {
+                passFrames = 0;
+                firePass();
+              }
+            } else {
+              passFrames = 0;
+            }
           }
         } catch (e) {
           console.error('[QuickSign] Tick error:', e);
@@ -340,6 +384,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     loopStartRef.current = performance.now();
     attemptCountRef.current = 0;
     setResult(null);
+    setHoldProgress(null);
   }, []);
 
   useEffect(() => {
@@ -351,5 +396,5 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     };
   }, []);
 
-  return { status, result, framing, init, startLoop, stopLoop, setSign, getSnapshot };
+  return { status, result, framing, holdProgress, init, startLoop, stopLoop, setSign, getSnapshot };
 }

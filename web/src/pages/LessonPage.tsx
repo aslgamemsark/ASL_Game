@@ -422,6 +422,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
                     <ParameterChecklist
                       params={recognition.result.params}
                       sign={currentEngineSign}
+                      holdProgress={recognition.holdProgress}
                     />
                   )}
                 </>

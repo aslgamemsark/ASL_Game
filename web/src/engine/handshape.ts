@@ -116,6 +116,39 @@ function openConfidence(hand: Hand): number {
   return clip(1.0 - mean(allCurls(hand)), 0, 1);
 }
 
+// Average adjacent-fingertip separation across all three gaps (index-middle, middle-ring,
+// ring-pinky), not just the index-middle pair togetherScore/vConfidence use — B and 5 differ
+// across the whole hand, not just one gap.
+function adjacentFingerSpread(hand: Hand): number {
+  const s1 = fingerSpread(hand, INDEX_TIP, MIDDLE_TIP);
+  const s2 = fingerSpread(hand, MIDDLE_TIP, RING_TIP);
+  const s3 = fingerSpread(hand, RING_TIP, PINKY_TIP);
+  return (s1 + s2 + s3) / 3;
+}
+
+// Letter B: flat open hand, fingers held TOGETHER — distinct from 5 (below), which is the same
+// flat-open shape with fingers SPREAD apart. Before this, both dispatched to plain openConfidence
+// (extension only, no spread check), so a 5 always passed for a prompted B and vice versa (real
+// user report, 2026-07-23). Reuses this file's already-calibrated adjacent-fingertip-spread bands
+// (togetherScore's 0.15-0.60 "together" band, vConfidence/kConfidence's 0.15-0.40 "apart" band) —
+// those were tuned against a real recorded index/middle pair, not this averaged 3-gap metric, so
+// treat this as a principled starting point pending a real B/5 confusor recording via /calibrate,
+// not a fully-calibrated threshold.
+function bConfidence(hand: Hand): number {
+  const openScore = openConfidence(hand);
+  const spread = adjacentFingerSpread(hand);
+  const togetherScore = clip((0.60 - spread) / (0.60 - 0.15), 0, 1);
+  return Math.min(openScore, togetherScore);
+}
+
+// Number 5: flat open hand, fingers SPREAD apart — see bConfidence above for the shared history.
+function fiveConfidence(hand: Hand): number {
+  const openScore = openConfidence(hand);
+  const spread = adjacentFingerSpread(hand);
+  const spreadScore = clip((spread - 0.15) / (0.40 - 0.15), 0, 1);
+  return Math.min(openScore, spreadScore);
+}
+
 function clawConfidence(hand: Hand): number {
   const curls = allCurls(hand);
   const m = mean(curls);
@@ -458,8 +491,8 @@ const DISPATCH: Record<string, (hand: Hand) => number> = {
   a: aConfidence,
   index: indexConfidence,
   open: openConfidence,
-  b: openConfidence,
-  '5': openConfidence,
+  b: bConfidence,
+  '5': fiveConfidence,
   claw: clawConfidence,
   flat_o: flatOConfidence,
   f: fConfidence,

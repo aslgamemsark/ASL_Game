@@ -116,9 +116,13 @@ export function hintFor(param: ParamScore, sign?: Sign | null): string | null {
 interface Props {
   params: ParamScore[];
   sign?: Sign | null;
+  /** 0..1 while a static (no-movement) sign is being held toward its pass duration; null/omitted
+   *  otherwise (movement signs are paced by their own movement scorer, not a hold timer — see
+   *  STATIC_HOLD_SECONDS in useRecognition.ts). */
+  holdProgress?: number | null;
 }
 
-export function ParameterChecklist({ params, sign }: Props) {
+export function ParameterChecklist({ params, sign, holdProgress }: Props) {
   // Per-parameter confidence-gate state, keyed by param name, sustained across frames so a
   // single noisy frame can't flip a specific (possibly wrong) coaching tip on or off. See
   // engine/coachingGate.ts — 'cleared' is immediate, 'confident-fail' requires a sustained
@@ -139,6 +143,28 @@ export function ParameterChecklist({ params, sign }: Props) {
 
   return (
     <div className="space-y-2">
+      {holdProgress != null && (
+        <motion.div
+          className="flex items-center gap-3 rounded-xl px-3 py-2.5 border bg-z-purple/10 border-z-purple/30"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-z-purple-light">Hold the pose…</p>
+            <p className="text-xs text-z-gray-400 mt-0.5">Keep still while it locks in</p>
+          </div>
+          <div className="w-20 h-2 bg-z-surface rounded-full overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-z-purple-light"
+              animate={{ width: `${Math.round(holdProgress * 100)}%` }}
+              transition={{ duration: 0.1, ease: 'linear' }}
+            />
+          </div>
+          <span className="text-xs font-mono w-8 text-right text-z-purple-light">
+            {Math.round(holdProgress * 100)}%
+          </span>
+        </motion.div>
+      )}
       {params.map((param, i) => {
         const gate = gatesRef.current[param.name] ?? initGateState();
         const cleared = gate.status === 'cleared';

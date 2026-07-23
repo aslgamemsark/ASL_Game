@@ -160,6 +160,42 @@ def open_confidence(hand: Hand) -> float:
     return float(np.clip(1.0 - float(np.mean(_all_curls(hand))), 0.0, 1.0))
 
 
+def _adjacent_finger_spread(hand: Hand) -> float:
+    """Average adjacent-fingertip separation across all three gaps (index-middle, middle-ring,
+    ring-pinky) — B and 5 differ across the whole hand, not just the one index-middle pair
+    _together_score/v_confidence check."""
+    s1 = _finger_spread(hand, INDEX_TIP, MIDDLE_TIP)
+    s2 = _finger_spread(hand, MIDDLE_TIP, RING_TIP)
+    s3 = _finger_spread(hand, RING_TIP, PINKY_TIP)
+    return (s1 + s2 + s3) / 3.0
+
+
+def b_confidence(hand: Hand) -> float:
+    """Letter B: flat open hand, fingers held TOGETHER — distinct from 5 (below), the same
+    flat-open shape with fingers SPREAD apart. Before this, both dispatched to plain
+    open_confidence (extension only, no spread check), so a 5 always passed for a prompted B and
+    vice versa (real user report, 2026-07-23; mirrors web/src/engine/handshape.ts's b/5 fix).
+    Reuses this module's already-calibrated adjacent-fingertip-spread bands (_together_score's
+    0.15-0.60 "together" band, v/k_confidence's 0.15-0.40 "apart" band) — those were tuned
+    against a real recorded index/middle pair, not this averaged 3-gap metric, so treat this as a
+    principled starting point pending a real B/5 confusor recording, not a fully-calibrated
+    threshold.
+    """
+    open_score = open_confidence(hand)
+    spread = _adjacent_finger_spread(hand)
+    together_score = float(np.clip((0.60 - spread) / (0.60 - 0.15), 0.0, 1.0))
+    return float(min(open_score, together_score))
+
+
+def five_confidence(hand: Hand) -> float:
+    """Number 5: flat open hand, fingers SPREAD apart — see b_confidence above for the shared
+    history."""
+    open_score = open_confidence(hand)
+    spread = _adjacent_finger_spread(hand)
+    spread_score = float(np.clip((spread - 0.15) / (0.40 - 0.15), 0.0, 1.0))
+    return float(min(open_score, spread_score))
+
+
 def claw_confidence(hand: Hand) -> float:
     """Fingers clearly curled but not fully closed (E-hand / bent-5 approximation).
 
@@ -562,8 +598,8 @@ _DISPATCH = {
     "a": a_confidence,
     "index": index_confidence,
     "open": open_confidence,
-    "b": open_confidence,
-    "5": open_confidence,
+    "b": b_confidence,
+    "5": five_confidence,
     "claw": claw_confidence,
     "flat_o": flat_o_confidence,
     "f": f_confidence,

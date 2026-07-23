@@ -269,6 +269,18 @@ def local_hand(kind: str, scale: float = CANON_SCALE, mirror: bool = False) -> n
         for joint in (1, 2, 3):
             pts[index_i + joint, 0] = mid_x + (pts[index_i + joint, 0] - mid_x) * 0.05
             pts[middle_i + joint, 0] = mid_x + (pts[middle_i + joint, 0] - mid_x) * 0.05
+    elif key == "b":
+        # B: all FOUR fingers held TOGETHER (not spread like 5) — same squeeze-toward-midline
+        # treatment as H/U above, generalized across all four MCPs instead of just index+middle.
+        # Without this, B and 5 synthesized to identical geometry (both just "all four extended"
+        # in SHAPE_SPECS), so core.handshape's new b_confidence/five_confidence spread check
+        # could never distinguish the synthesized presets from each other (real bug found via
+        # test_synthesis.py's self-verify gate immediately after adding that check).
+        mean_x = float(np.mean([_MCP[n][0] for n in _FINGER_ORDER]))
+        for name in _FINGER_ORDER:
+            i = base[name]
+            for joint in (1, 2, 3):
+                pts[i + joint, 0] = mean_x + (pts[i + joint, 0] - mean_x) * 0.05
 
     pts[:, :2] *= scale
 
