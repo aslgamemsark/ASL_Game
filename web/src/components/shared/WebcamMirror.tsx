@@ -1,11 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { TurnOverlay } from '@/components/shared/TurnOverlay';
+import { ClipEnlarge } from '@/components/lesson/ClipEnlarge';
 
 interface Props {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   /** Practice mode's small reference-clip overlay (top-right), shown while "show reference" is on. */
   overlayClipUrl?: string;
+  /** Sign name for the overlay clip's enlarged caption — required whenever overlayClipUrl is set. */
+  overlaySignName?: string;
   /** Speed Challenge's just-passed state — green border + checkmark flash. Omit entirely (not
    *  `false`) on pages that never use this, e.g. Lesson/Practice/Story — passing `false` still
    *  reserves a transparent 2px border to avoid a layout shift the instant it flips to green,
@@ -48,9 +51,10 @@ interface Props {
  * (production audit, 2026-07-12). The camera stream and recognition loop were already correctly
  * shared via hooks (useCamera/useRecognition) — only this rendering piece was duplicated.
  */
-export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones }: Props) {
+export function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
+  const [overlayEnlarged, setOverlayEnlarged] = useState(false);
 
   useEffect(() => {
     const draw = () => {
@@ -123,16 +127,29 @@ export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmetic
       <TurnOverlay active={!!activeTurn} label={turnLabel} timerPercent={timerPercent} />
       {label && <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded-md">{label}</span>}
       {overlayClipUrl && (
-        <div className="absolute top-2 right-2 w-28 rounded-xl overflow-hidden border-2 border-white/20 shadow-lg bg-black">
-          <video
-            src={overlayClipUrl}
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover"
+        <>
+          <button
+            type="button"
+            onClick={() => setOverlayEnlarged(true)}
+            aria-label="Enlarge reference clip"
+            className="absolute top-2 right-2 w-28 rounded-xl overflow-hidden border-2 border-white/20 shadow-lg bg-black cursor-zoom-in"
+          >
+            <video
+              src={overlayClipUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-contain"
+            />
+          </button>
+          <ClipEnlarge
+            clipUrl={overlayClipUrl}
+            signName={overlaySignName ?? ''}
+            open={overlayEnlarged}
+            onClose={() => setOverlayEnlarged(false)}
           />
-        </div>
+        </>
       )}
       {passed && (
         <motion.div

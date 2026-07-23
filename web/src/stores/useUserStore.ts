@@ -50,6 +50,7 @@ function defaultProgress(): UserProgress {
     friends: [],
     renameCards: 0,
     collectTrainingData: true,
+    firstLessonCelebrated: false,
   };
 }
 
@@ -126,6 +127,7 @@ interface UserStore extends UserProgress {
   addFriend: (userId: string) => void;
   removeFriend: (userId: string) => void;
   setCollectTrainingData: (enabled: boolean) => void;
+  markFirstLessonCelebrated: () => void;
 }
 
 export const useUserStore = create<UserStore>()(
@@ -652,6 +654,8 @@ export const useUserStore = create<UserStore>()(
       },
 
       setCollectTrainingData: (enabled) => set({ collectTrainingData: enabled }),
+
+      markFirstLessonCelebrated: () => set({ firstLessonCelebrated: true }),
     }),
     { name: 'asl-game-progress' }
   )

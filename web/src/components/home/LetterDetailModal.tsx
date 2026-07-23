@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LetterDef } from '@/data/alphabet';
+import { ClipEnlarge } from '@/components/lesson/ClipEnlarge';
 
 // All 26 letters now ship a StudioGalt-archive-rendered demo clip in /public/clips
 // (LETTER_<letter>.mp4) — independent of whether the letter also has a camera-recognizable
@@ -17,6 +18,7 @@ interface Props {
 export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
   const [imgFailed, setImgFailed] = useState(false);
   const [clipFailed, setClipFailed] = useState(false);
+  const [enlarged, setEnlarged] = useState(false);
   const hasClip = CLIP_LETTERS.has(def.letter) && !clipFailed;
   const canPractice = def.signId != null;
 
@@ -69,7 +71,10 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
           </div>
 
           {/* Reference visual */}
-          <div className="rounded-2xl overflow-hidden bg-z-bg border border-white/5 aspect-[4/3] flex items-center justify-center mb-4 relative">
+          <div
+            className={`rounded-2xl overflow-hidden bg-z-bg border border-white/5 aspect-[3/4] flex items-center justify-center mb-4 relative ${hasClip ? 'cursor-zoom-in' : ''}`}
+            onClick={hasClip ? () => setEnlarged(true) : undefined}
+          >
             {hasClip ? (
               <video
                 src={`/clips/LETTER_${def.letter}.mp4`}
@@ -78,7 +83,7 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
                 muted
                 playsInline
                 onError={() => setClipFailed(true)}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             ) : !imgFailed ? (
               <img
@@ -105,7 +110,21 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
             <span className="absolute top-2 left-2 text-[9px] uppercase tracking-widest text-z-gray-300 bg-black/40 px-2 py-0.5 rounded-full">
               {hasClip ? 'Demo clip' : 'Reference'}
             </span>
+            {hasClip && (
+              <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white/90 text-xs pointer-events-none">
+                ⤢
+              </div>
+            )}
           </div>
+
+          {hasClip && (
+            <ClipEnlarge
+              clipUrl={`/clips/LETTER_${def.letter}.mp4`}
+              signName={def.letter}
+              open={enlarged}
+              onClose={() => setEnlarged(false)}
+            />
+          )}
 
           {/* Description + hint */}
           <p className="text-z-gray-200 text-sm mb-2 leading-relaxed">{def.description}</p>

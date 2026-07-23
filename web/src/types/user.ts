@@ -72,6 +72,10 @@ export interface UserProgress {
   renameCards: number;
   /** Opt-out: when true, passed/failed attempts also save a landmark snapshot for future model training. */
   collectTrainingData: boolean;
+  /** Whether the amplified "first lesson ever" celebration has already fired. Not derivable from
+   *  completedLessons.length === 1 — completeOnboarding() pre-seeds that array for intermediate/
+   *  advanced skill levels, so a first REAL completion could already start at length 2+. */
+  firstLessonCelebrated: boolean;
 }
 
 export interface SignStats {

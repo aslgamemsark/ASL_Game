@@ -12,11 +12,14 @@ export function useConfetti() {
     });
   }, []);
 
-  const bigCelebration = useCallback(() => {
-    const end = Date.now() + 600;
+  // durationMs/particleCount let a rarer, bigger moment (e.g. the first lesson ever completed)
+  // ask for a longer, denser burst than a routine lesson finish, without every caller having to
+  // reimplement the frame loop.
+  const bigCelebration = useCallback((durationMs = 600, particleCount = 3) => {
+    const end = Date.now() + durationMs;
     const frame = () => {
       confetti({
-        particleCount: 3,
+        particleCount,
         angle: 60,
         spread: 55,
         origin: { x: 0 },
@@ -24,7 +27,7 @@ export function useConfetti() {
         disableForReducedMotion: true,
       });
       confetti({
-        particleCount: 3,
+        particleCount,
         angle: 120,
         spread: 55,
         origin: { x: 1 },

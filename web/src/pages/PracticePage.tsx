@@ -550,6 +550,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                   <WebcamMirror
                     videoRef={videoRef}
                     overlayClipUrl={showClip ? currentSignData.clip : undefined}
+                    overlaySignName={currentSignData.name}
                     cosmeticBorderClasses={cosmeticBorderClasses}
                     frameGuide={showCamGuide ? recognition.framing : null}
                   />

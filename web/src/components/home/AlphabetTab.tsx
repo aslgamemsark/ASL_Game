@@ -6,6 +6,11 @@ import { LetterDetailModal } from './LetterDetailModal';
 import { useSounds } from '@/hooks/useSounds';
 
 const QUIZ_SIZE = 5;
+// A brand-new beginner's very first tap here should land in a real practice session within one
+// click, not a 26-letter marathon — the first 5 (A-E) give a quick, completable first win.
+// Distinct from QUIZ_SIZE/pickRandomLetters below: this is a fixed starter set for guided
+// practice, not a random draw for testing recall.
+const FIRST_LETTERS_COUNT = 5;
 
 function pickRandomLetters(count: number): string[] {
   const shuffled = [...PRACTICEABLE_LETTER_IDS].sort(() => Math.random() - 0.5);
@@ -40,7 +45,7 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
         className="mb-5"
       >
         <motion.button
-          onClick={() => onStartLettersPractice(PRACTICEABLE_LETTER_IDS)}
+          onClick={() => onStartLettersPractice(PRACTICEABLE_LETTER_IDS.slice(0, FIRST_LETTERS_COUNT))}
           className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative bg-gradient-primary"
           whileHover={{ scale: 1.02, boxShadow: '0 14px 40px rgba(91,33,182,0.5)' }}
           whileTap={{ scale: 0.97 }}
@@ -50,7 +55,7 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
             <div>
               <h3 className="text-base font-bold text-white">Practice Letters</h3>
               <p className="text-purple-200 text-sm mt-0.5">
-                {PRACTICEABLE_LETTER_IDS.length} letters with camera recognition
+                Start with your first {FIRST_LETTERS_COUNT} letters
               </p>
             </div>
             <span className="text-3xl">🔤</span>

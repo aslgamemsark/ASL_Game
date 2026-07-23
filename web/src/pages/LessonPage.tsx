@@ -37,7 +37,7 @@ interface Props {
 
 export function LessonPage({ lessonId, onExit }: Props) {
   const lesson = getLessonById(lessonId);
-  const { addXp, addDailyMinutes, completeLesson, recordSign, equippedBorder } = useUserStore();
+  const { addXp, addDailyMinutes, completeLesson, recordSign, equippedBorder, firstLessonCelebrated, markFirstLessonCelebrated } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera('lesson');
@@ -54,6 +54,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
   const [correctCount, setCorrectCount] = useState(0);
   const [successMsg, setSuccessMsg] = useState('Nice work!');
   const [completeMsg, setCompleteMsg] = useState('');
+  const [isFirstLessonComplete, setIsFirstLessonComplete] = useState(false);
   // Mirrors correctCount so the ratio can be read the instant phase flips to 'complete' — the
   // setTimeout in handlePass fires advancePrompt with whatever closure it captured, and waiting on
   // the correctCount *state* there would risk reading a value from before the final increment.
@@ -79,8 +80,16 @@ export function LessonPage({ lessonId, onExit }: Props) {
       : pickZippyLine('lessonCompleteEncourage');
   }, [signIds.length]);
 
+  // AMPLIFIED_CELEBRATION_* tune the one-time first-lesson-ever moment (longer, denser confetti
+  // than a routine lesson finish) — named constants rather than inline magic numbers so the "how
+  // much bigger" decision lives in one place.
+  const AMPLIFIED_CELEBRATION_DURATION_MS = 1400;
+  const AMPLIFIED_CELEBRATION_PARTICLE_COUNT = 6;
+
   const finishLesson = useCallback(() => {
-    setCompleteMsg(pickCompleteMessage());
+    const isFirstEver = !firstLessonCelebrated;
+    setIsFirstLessonComplete(isFirstEver);
+    setCompleteMsg(isFirstEver ? pickZippyLine('firstLessonComplete') : pickCompleteMessage());
     setPhase('complete');
     completeLesson(lessonId);
     track('lesson_completed', {
@@ -91,8 +100,13 @@ export function LessonPage({ lessonId, onExit }: Props) {
       xp_earned: earnedXp,
     });
     sounds.levelUp();
-    bigCelebration();
-  }, [pickCompleteMessage, completeLesson, lessonId, worldId, earnedXp, sounds, bigCelebration]);
+    if (isFirstEver) {
+      bigCelebration(AMPLIFIED_CELEBRATION_DURATION_MS, AMPLIFIED_CELEBRATION_PARTICLE_COUNT);
+      markFirstLessonCelebrated();
+    } else {
+      bigCelebration();
+    }
+  }, [pickCompleteMessage, completeLesson, lessonId, worldId, earnedXp, sounds, bigCelebration, firstLessonCelebrated, markFirstLessonCelebrated]);
 
   const advancePrompt = useCallback(() => {
     if (promptIdx + 1 < signIds.length) {
@@ -505,8 +519,8 @@ export function LessonPage({ lessonId, onExit }: Props) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <Zippy expression={correctCount / (signIds.length || 1) >= 0.5 ? 'celebrating' : 'proud'} size="lg" />
-              <h1 className="text-2xl font-bold">Lesson Complete!</h1>
+              <Zippy expression={isFirstLessonComplete || correctCount / (signIds.length || 1) >= 0.5 ? 'celebrating' : 'proud'} size="lg" />
+              <h1 className="text-2xl font-bold">{isFirstLessonComplete ? 'Your First Lesson! 🎉' : 'Lesson Complete!'}</h1>
               <p className="text-z-gray-300 text-center max-w-xs -mt-2">{completeMsg}</p>
               <div className="flex gap-6 text-center">
                 <div>
