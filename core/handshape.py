@@ -162,38 +162,47 @@ def open_confidence(hand: Hand) -> float:
 
 def _adjacent_finger_spread(hand: Hand) -> float:
     """Average adjacent-fingertip separation across all three gaps (index-middle, middle-ring,
-    ring-pinky) — B and 5 differ across the whole hand, not just the one index-middle pair
-    _together_score/v_confidence check."""
+    ring-pinky). Kept for reference/tests — a real B/5 confusor recording (2026-07-23) found this
+    barely separates the two shapes (median ~0.234 vs ~0.238, same order as noise) even when the
+    5 take was performed with a deliberately wide, exaggerated spread. b_confidence/five_confidence
+    below use THUMB position instead — see their docstring."""
     s1 = _finger_spread(hand, INDEX_TIP, MIDDLE_TIP)
     s2 = _finger_spread(hand, MIDDLE_TIP, RING_TIP)
     s3 = _finger_spread(hand, RING_TIP, PINKY_TIP)
     return (s1 + s2 + s3) / 3.0
 
 
+# B/5 are textbook distinguished by THUMB position, not finger spacing: B holds the thumb folded
+# across the palm; 5 holds it extended out as the 5th spread digit. A real confusor recording
+# (2026-07-23, real user report "B still passes on 5 fingers") found adjacent-finger spread barely
+# separates the two shapes even exaggerated (see _adjacent_finger_spread's note), while raw
+# thumb-tip-to-index-MCP distance cleanly does: this user's B measured 0.204-0.270 (median 0.252),
+# their 5 measured 0.267-0.403 (median 0.287) hand-scale units. This band's crossover sits at the
+# midpoint between those two medians (~0.27), NOT reusing _thumb_extended's (0.5, 1.2) band — that
+# one targets L/Y's much-farther-out thumb and reads B/5's real range as a flat 0 throughout
+# (already flagged as miscalibrated for other letters in a_confidence's comment above).
+_THUMB_TUCKED_LOW = 0.25   # full "tucked" (B) credit at/below this raw distance
+_THUMB_TUCKED_HIGH = 0.29  # full "extended" (5) credit at/above this
+
+
+def _thumb_tucked_score(hand: Hand) -> float:
+    d = _thumb_dist(hand, INDEX_MCP)
+    return float(np.clip((_THUMB_TUCKED_HIGH - d) / (_THUMB_TUCKED_HIGH - _THUMB_TUCKED_LOW), 0.0, 1.0))
+
+
 def b_confidence(hand: Hand) -> float:
-    """Letter B: flat open hand, fingers held TOGETHER — distinct from 5 (below), the same
-    flat-open shape with fingers SPREAD apart. Before this, both dispatched to plain
-    open_confidence (extension only, no spread check), so a 5 always passed for a prompted B and
-    vice versa (real user report, 2026-07-23; mirrors web/src/engine/handshape.ts's b/5 fix).
-    Reuses this module's already-calibrated adjacent-fingertip-spread bands (_together_score's
-    0.15-0.60 "together" band, v/k_confidence's 0.15-0.40 "apart" band) — those were tuned
-    against a real recorded index/middle pair, not this averaged 3-gap metric, so treat this as a
-    principled starting point pending a real B/5 confusor recording, not a fully-calibrated
-    threshold.
-    """
-    open_score = open_confidence(hand)
-    spread = _adjacent_finger_spread(hand)
-    together_score = float(np.clip((0.60 - spread) / (0.60 - 0.15), 0.0, 1.0))
-    return float(min(open_score, together_score))
+    """Letter B: flat open hand, thumb folded across the palm — distinct from 5 (below), the same
+    flat-open shape with the thumb extended out. Before this, both dispatched to plain
+    open_confidence (extension only, no thumb check), so a 5 always passed for a prompted B and
+    vice versa (real user report, 2026-07-23). See the thumb-band comment above for the real
+    calibration data this threshold is measured against."""
+    return float(min(open_confidence(hand), _thumb_tucked_score(hand)))
 
 
 def five_confidence(hand: Hand) -> float:
-    """Number 5: flat open hand, fingers SPREAD apart — see b_confidence above for the shared
-    history."""
-    open_score = open_confidence(hand)
-    spread = _adjacent_finger_spread(hand)
-    spread_score = float(np.clip((spread - 0.15) / (0.40 - 0.15), 0.0, 1.0))
-    return float(min(open_score, spread_score))
+    """Number 5: flat open hand, thumb extended out as the 5th spread digit — see b_confidence
+    above for the shared history and calibration."""
+    return float(min(open_confidence(hand), 1.0 - _thumb_tucked_score(hand)))
 
 
 def claw_confidence(hand: Hand) -> float:
