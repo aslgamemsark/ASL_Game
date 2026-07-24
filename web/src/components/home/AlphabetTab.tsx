@@ -6,6 +6,11 @@ import { LetterDetailModal } from './LetterDetailModal';
 import { useSounds } from '@/hooks/useSounds';
 
 const QUIZ_SIZE = 5;
+// One-click "Practice Letters" starts this many letters, in order, straight into expressive
+// practice — a beginner's compelling first action, not the full 26-letter set landing on a
+// practice-vs-test chooser menu they have to understand first (analytics showed this stalling
+// new users at onboarding, 2026-07-24).
+const FIRST_LETTERS_COUNT = 5;
 
 function pickRandomLetters(count: number): string[] {
   const shuffled = [...PRACTICEABLE_LETTER_IDS].sort(() => Math.random() - 0.5);
@@ -22,6 +27,7 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
   const selectedDef = ALPHABET.find(l => l.letter === selected);
   const sounds = useSounds();
   const quizSize = Math.min(QUIZ_SIZE, PRACTICEABLE_LETTER_IDS.length);
+  const firstLetters = PRACTICEABLE_LETTER_IDS.slice(0, FIRST_LETTERS_COUNT);
 
   return (
     <div className="px-4 pb-24">
@@ -40,7 +46,7 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
         className="mb-5"
       >
         <motion.button
-          onClick={() => onStartLettersPractice(PRACTICEABLE_LETTER_IDS)}
+          onClick={() => { sounds.tap(); onStartLettersPractice(firstLetters); }}
           className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative bg-gradient-primary"
           whileHover={{ scale: 1.02, boxShadow: '0 14px 40px rgba(91,33,182,0.5)' }}
           whileTap={{ scale: 0.97 }}
@@ -50,7 +56,7 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
             <div>
               <h3 className="text-base font-bold text-white">Practice Letters</h3>
               <p className="text-purple-200 text-sm mt-0.5">
-                {PRACTICEABLE_LETTER_IDS.length} letters with camera recognition
+                Start with your first {firstLetters.length} letters
               </p>
             </div>
             <span className="text-3xl">🔤</span>

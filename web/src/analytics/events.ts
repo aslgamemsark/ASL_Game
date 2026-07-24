@@ -34,6 +34,7 @@ export const EVENTS = {
   camera_permission_granted: 'camera_permission_granted',
   camera_permission_denied: 'camera_permission_denied',
   camera_error: 'camera_error',
+  camera_stalled: 'camera_stalled',
   framing_check: 'framing_check',
 
   // AI
