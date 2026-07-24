@@ -69,6 +69,10 @@ export interface EventPayloads {
   camera_permission_granted: { screen: ScreenName };
   camera_permission_denied: { screen: ScreenName };
   camera_error: { screen: ScreenName; error_name: string };
+  /** getUserMedia succeeded (permission granted, stream returned) but no video frame ever arrived
+   *  within the liveness window, or a live track ended unexpectedly — the "granted but blank feed"
+   *  failure mode, distinct from a permission denial or a getUserMedia() throw. */
+  camera_stalled: { screen: ScreenName; reason: 'no_frame' | 'track_ended' };
 
   // Camera framing guide (engine/framing.ts) — sampled, not per-frame.
   framing_check: { ok: boolean; reason: string | null; screen: ScreenName };

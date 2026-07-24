@@ -47,7 +47,10 @@ export function sanitizeAnalyticsProperties(properties: Record<string, unknown>)
  *     level "Record user sessions" toggle to be on in PostHog.
  *   - NO autocapture (every event is a deliberate, typed `track()` call — see capture.ts).
  *   - NO automatic $pageview capture — this is a screen-state-machine SPA, not route-based; App.tsx
- *     sends one `screen_viewed` per screen change instead (see useScreenView.ts).
+ *     sends one `screen_viewed` per screen change instead (see useScreenView.ts). $pageleave IS
+ *     captured (unlike $pageview) — it fires once on tab-close/navigate-away regardless of the SPA's
+ *     internal screen state, and PostHog needs it to compute accurate bounce rate/session duration;
+ *     disabling it was an unrelated side effect of disabling $pageview, not an intentional choice.
  *   - person_profiles: 'identified_only' — anonymous users generate events but not a Person
  *     profile until they actually sign in (identifyUser in capture.ts).
  *   - respect_dnt — a browser's Do Not Track signal disables capture outright.
@@ -66,7 +69,7 @@ export function initAnalytics(): void {
     session_recording: { maskAllInputs: true },
     autocapture: false,
     capture_pageview: false,
-    capture_pageleave: false,
+    capture_pageleave: true,
     person_profiles: 'identified_only',
     respect_dnt: true,
     capture_performance: { web_vitals: true },
