@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { TurnOverlay } from '@/components/shared/TurnOverlay';
+import { useClipEnlarge, ClipEnlargeOverlay } from '@/components/shared/ClipEnlarge';
 
 interface Props {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -51,6 +52,7 @@ interface Props {
 export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
+  const { expanded: overlayExpanded, open: openOverlay, close: closeOverlay } = useClipEnlarge();
 
   useEffect(() => {
     const draw = () => {
@@ -123,16 +125,29 @@ export function WebcamMirror({ videoRef, overlayClipUrl, passed, label, cosmetic
       <TurnOverlay active={!!activeTurn} label={turnLabel} timerPercent={timerPercent} />
       {label && <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded-md">{label}</span>}
       {overlayClipUrl && (
-        <div className="absolute top-2 right-2 w-28 rounded-xl overflow-hidden border-2 border-white/20 shadow-lg bg-black">
-          <video
-            src={overlayClipUrl}
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-          />
-        </div>
+        <>
+          {/* aspect-[3/4] (portrait) + object-contain, not an unconstrained box + object-cover —
+              the avatar demo clips are portrait and cover-fill was cropping the raised hand. */}
+          <button
+            type="button"
+            onClick={openOverlay}
+            className="absolute top-2 right-2 w-28 aspect-[3/4] rounded-xl overflow-hidden border-2 border-white/20 shadow-lg bg-black cursor-zoom-in"
+            aria-label="Enlarge reference clip"
+          >
+            <video
+              src={overlayClipUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-contain"
+            />
+            <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-black/50 flex items-center justify-center text-white/90 text-[9px] pointer-events-none">
+              ⤢
+            </span>
+          </button>
+          <ClipEnlargeOverlay open={overlayExpanded} onClose={closeOverlay} clipUrl={overlayClipUrl} label="Reference" />
+        </>
       )}
       {passed && (
         <motion.div

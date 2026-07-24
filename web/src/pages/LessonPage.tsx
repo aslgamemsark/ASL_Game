@@ -37,7 +37,7 @@ interface Props {
 
 export function LessonPage({ lessonId, onExit }: Props) {
   const lesson = getLessonById(lessonId);
-  const { addXp, addDailyMinutes, completeLesson, recordSign, equippedBorder } = useUserStore();
+  const { addXp, addDailyMinutes, completeLesson, recordSign, equippedBorder, firstLessonCelebrated, markFirstLessonCelebrated } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera('lesson');
@@ -80,7 +80,8 @@ export function LessonPage({ lessonId, onExit }: Props) {
   }, [signIds.length]);
 
   const finishLesson = useCallback(() => {
-    setCompleteMsg(pickCompleteMessage());
+    const isFirstEver = !firstLessonCelebrated;
+    setCompleteMsg(isFirstEver ? pickZippyLine('firstLessonComplete') : pickCompleteMessage());
     setPhase('complete');
     completeLesson(lessonId);
     track('lesson_completed', {
@@ -91,8 +92,14 @@ export function LessonPage({ lessonId, onExit }: Props) {
       xp_earned: earnedXp,
     });
     sounds.levelUp();
-    bigCelebration();
-  }, [pickCompleteMessage, completeLesson, lessonId, worldId, earnedXp, sounds, bigCelebration]);
+    if (isFirstEver) {
+      // Amplified one-time moment: confetti runs 2.5x longer than the standard celebration.
+      bigCelebration(1500);
+      markFirstLessonCelebrated();
+    } else {
+      bigCelebration();
+    }
+  }, [pickCompleteMessage, completeLesson, lessonId, worldId, earnedXp, sounds, bigCelebration, firstLessonCelebrated, markFirstLessonCelebrated]);
 
   const advancePrompt = useCallback(() => {
     if (promptIdx + 1 < signIds.length) {
@@ -396,27 +403,33 @@ export function LessonPage({ lessonId, onExit }: Props) {
                 </div>
               ) : null}
 
-              {(camStatus === 'denied' || camStatus === 'error' || recognition.status === 'error') ? (
+              {(camStatus === 'denied' || camStatus === 'error' || camStatus === 'stalled' || recognition.status === 'error') ? (
                 <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center">
                   <p className="text-sm font-bold text-z-red">
                     {camStatus === 'denied'
                       ? 'Camera access denied'
                       : camStatus === 'error'
                         ? 'Camera unavailable'
-                        : "Couldn't load the recognizer"}
+                        : camStatus === 'stalled'
+                          ? "Camera feed isn't showing"
+                          : "Couldn't load the recognizer"}
                   </p>
                   <p className="text-xs text-z-gray-300 mt-1">
                     {camStatus === 'denied'
                       ? 'Live coaching needs your camera. Allow camera access in your browser settings, then try again.'
                       : camStatus === 'error'
                         ? 'Something went wrong starting the camera. Try again, or check that no other app is using it.'
-                        : "We couldn't load the sign recognizer — usually a network hiccup. Check your connection and try again."}
+                        : camStatus === 'stalled'
+                          ? "Your camera is on but no picture is coming through. Try again, or check that no other app is using it."
+                          : "We couldn't load the sign recognizer — usually a network hiccup. Check your connection and try again."}
                   </p>
                   {/* Retry both paths: recognition.init() re-attempts the MediaPipe load (now that a
-                      failed init no longer caches its rejection — see getSharedCapture), and startCam()
-                      re-requests the camera. Both are safe no-ops if already succeeded. */}
+                      failed init no longer caches its rejection — see getSharedCapture). stopCam()
+                      before startCam() forces a fresh getUserMedia() call instead of reattaching the
+                      same (possibly dead) stream — required for the 'stalled' case, harmless for the
+                      others since stop() on an already-idle camera is a no-op. */}
                   <button
-                    onClick={() => { recognition.init(); startCam(); }}
+                    onClick={() => { recognition.init(); stopCam(); startCam(); }}
                     className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
                   >
                     Try again

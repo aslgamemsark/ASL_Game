@@ -24,13 +24,12 @@ interface Props {
   onSignIn: () => void;
 }
 
-// Shop is a first-class nav row (2026-07-19). It was previously reachable only via a small cart
-// icon under the gold pill in TopBar, which testers reported as hard to find — the row here is
-// the discoverable entry point; the TopBar cart stays as a convenient shortcut.
+// Shop is intentionally NOT a side-nav row: it's reachable via the TopBar cart icon (under the
+// gold pill) and the mobile BottomNav shop button, so a third entry here was redundant clutter.
+// The 'shop' screen and onShop handler still exist — this list just doesn't surface it.
 const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'home', label: 'Journey', icon: '🗺️' },
   { id: 'alphabet', label: 'Alphabets', icon: '🔤' },
-  { id: 'shop', label: 'Shop', icon: '🛒' },
   { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
   { id: 'multiplayer', label: 'Multiplayer', icon: '⚔️' },
   { id: 'friends', label: 'Friends', icon: '🤝' },

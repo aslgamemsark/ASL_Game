@@ -12,8 +12,8 @@ export function useConfetti() {
     });
   }, []);
 
-  const bigCelebration = useCallback(() => {
-    const end = Date.now() + 600;
+  const bigCelebration = useCallback((durationMs = 600) => {
+    const end = Date.now() + durationMs;
     const frame = () => {
       confetti({
         particleCount: 3,
