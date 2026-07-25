@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense, type ComponentType } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getSharedCapture } from '@/engine/capture';
 import { useClassifier } from '@/hooks/useClassifier';
@@ -23,7 +23,15 @@ const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then((m) => ({ defa
 const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })));
 const UserProfilePage = lazy(() => import('@/pages/UserProfilePage').then((m) => ({ default: m.UserProfilePage })));
 const AdminPanel = lazy(() => import('@/pages/AdminPanel').then((m) => ({ default: m.AdminPanel })));
-const AvatarLabPage = lazy(() => import('@/avatar/viewer/AvatarLabPage').then((m) => ({ default: m.AvatarLabPage })));
+// DEV check inside the import thunk (not just at the render site below): import.meta.env.DEV is
+// statically false in `vite build`, which lets the bundler drop the dynamic import — without it,
+// the dev-only Avatar Lab (three.js + 6.8k lines, a ~660 kB chunk) is emitted into every
+// production deploy even though no production code path can ever fetch it.
+const AvatarLabPage = lazy<ComponentType>(() =>
+  import.meta.env.DEV
+    ? import('@/avatar/viewer/AvatarLabPage').then((m) => ({ default: m.AvatarLabPage as ComponentType }))
+    : Promise.resolve({ default: (() => null) as ComponentType })
+);
 const CalibrationPage = lazy(() => import('@/pages/CalibrationPage').then((m) => ({ default: m.CalibrationPage })));
 import { SideNav, type SideNavScreen } from '@/components/shared/SideNav';
 import { ScreenTransition } from '@/components/shared/ScreenTransition';

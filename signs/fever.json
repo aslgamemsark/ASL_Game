@@ -1,0 +1,43 @@
+{
+  "name": "FEVER",
+  "twoHanded": false,
+  "extraHandMotionFloor": null,
+  "dominant": {
+    "kind": "open",
+    "required": true,
+    "minConfidence": 0.55
+  },
+  "nondominant": null,
+  "location": {
+    "anchor": "forehead",
+    "actingHand": "dominant",
+    "maxDistRatio": 0.7,
+    "minDistRatio": 0.0,
+    "vertical": null,
+    "below": null,
+    "useClosestApproach": false,
+    "required": true,
+    "minConfidence": 0.6
+  },
+  "movement": {
+    "kind": "linear",
+    "actor": "dominant",
+    "pivot": "nondominant",
+    "minTotalRotationDeg": 300.0,
+    "radiusToleranceRatio": 0.4,
+    "direction": null,
+    "minDisplacementRatio": 0.18,
+    "minCycles": 2,
+    "minAmplitudeRatio": 0.05,
+    "minApproachRatio": 0.15,
+    "traceTemplate": [],
+    "traceToleranceDeg": 60.0,
+    "gateToLocation": true,
+    "otherHandMaxMotionRatio": null,
+    "minDurationS": 0.4,
+    "required": true,
+    "minConfidence": 0.5
+  },
+  "orientation": null,
+  "nmm": null
+}

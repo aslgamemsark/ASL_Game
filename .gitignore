@@ -77,3 +77,9 @@ supabase/.temp/
 
 # --- Local training_samples drains (exported landmark data, kept off-DB and off-git) ---
 ml/training_exports/
+
+# --- Session artifacts / generated reports (not product) ---
+graphify-out/
+brag-output/
+/*.pdf
+asl_landmarks_for_friend.zip
