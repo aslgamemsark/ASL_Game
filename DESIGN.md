@@ -70,6 +70,30 @@ shipped CSS, AA asserted per theme) and `web/tests/designTokens.test.ts` (no lit
 component gradient; no undefined `bg-gradient-*` class, which Tailwind would otherwise drop
 silently and render as a transparent card with white text on it).
 
+## Text over live video
+
+The webcam mirror and the reference clips are the only surfaces whose background is unknown — it
+is whatever the learner's room looks like. Theme tokens are no help, because the video does not
+follow the theme. The only honest floor is the worst case: check every overlay against a blown-out
+WHITE frame and a BLACK one, and require AA in both.
+
+- **`bg-video-plate` is the backing.** Never a hand-rolled `bg-black/NN`. Its 62% comes from the
+  worst case — below 54% a bright frame wins. White on it is 6.2:1 against any frame.
+- **`text-white/85` is the floor** for secondary lines. `white/70` is 4.0:1 and fails.
+- **A fade is not a plate.** ReferenceClip's caption was a single `to-t from-black/60 to-transparent`
+  with the text inside it, which put the sign name — the most important label on the surface — at
+  the *transparent* end, 1.41:1. The fade is now a text-free lead-in strip above a real plate.
+- **State goes on borders and icons, never on the text colour.** Accent tokens invert with the
+  theme and the video does not, so `text-z-green` on video was 1.79:1. The one exception is the
+  selected-hand ✓ badge, `bg-z-green` + `text-z-bg`: those two tokens invert in *opposite*
+  directions, so the pair stays high-contrast in both themes (10.12:1 / 4.55:1). `bg-z-green` +
+  `text-white` was 1.92:1 in the dark theme.
+
+Enforced by `tokenContrast.test.ts` (plate alpha vs. both frame extremes; the ✓ badge and turn chip
+per theme) and `designTokens.test.ts` (no `bg-black/NN` and no sub-85 white text in the five
+video-surface components — modal backdrops, which are `fixed inset-0` and carry no text, are
+excluded by position rather than by an exception list).
+
 | Role | Token | Value |
 |---|---|---|
 | Brand / primary | `--color-z-purple` | `#7C3AED` |

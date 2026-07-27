@@ -208,6 +208,29 @@
    world reads as inert next to the saturated live ones. No scrim: it is already dark enough to
    carry white/60 at 6.54:1. Built from the theme's own deep purple rather than the off-palette
    #1a1a2e/#16213e navy it used to hardcode, which belonged to neither theme's palette. */
+/* ── Text over live video ────────────────────────────────────────────────────────────────────
+   The webcam mirror and the reference clips are the only surfaces in the app whose background is
+   genuinely UNKNOWN — it is whatever the learner's room looks like. A caption that reads fine
+   against a dim bedroom disappears entirely against a window, and neither theme's tokens help,
+   because the video does not follow the theme.
+
+   So the only honest floor is the worst case: evaluate every overlay against a blown-out white
+   frame AND a black frame, and require AA in both. For white text that means a black plate of at
+   least 54% — below that a white frame wins. 62% is the shipped value, which leaves headroom and
+   lands white at 6.2:1 / white-85 at 5.03:1 against ANY frame.
+
+   Consequences worth knowing before you reach for something else:
+   - `text-white/70` is NOT enough on video (4.0:1 even on this plate). white/85 is the floor.
+   - A soft `from-black/60 to-transparent` fade is not a plate. ReferenceClip's sign name used to
+     sit at the transparent END of exactly such a gradient, at 1.41:1 — the most important label
+     on the surface had the least backing. Fades are decoration; put text on the plate.
+   - Accent tokens do not work here for the same reason they do not work on gradient cards: they
+     invert with the theme, the video does not. State goes on borders and icons, not on the
+     colour of the text. */
+@utility bg-video-plate {
+  background-color: rgb(0 0 0 / 0.62);
+}
+
 /* Timer running out. Tokens, not the literal #ef4444/#f97316 it used to hardcode. */
 /* The wordmark — the app's ONE sanctioned use of gradient text, and the reason headings elsewhere
    use solid colour (see the comment on OnboardingFlow's welcome h1). Gradient text is otherwise

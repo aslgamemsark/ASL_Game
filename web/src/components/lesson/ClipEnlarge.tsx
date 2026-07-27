@@ -71,7 +71,7 @@ export function ClipEnlarge({ clipUrl, signName, open, onClose }: Props) {
             >
               ✕
             </button>
-            <div className="absolute bottom-3 left-3 right-3 bg-black/60 rounded-xl px-3 py-2">
+            <div className="absolute bottom-3 left-3 right-3 bg-video-plate rounded-xl px-3 py-2">
               <p className="text-white text-sm font-bold">{signName.replace(/_/g, ' ')}</p>
             </div>
           </motion.div>

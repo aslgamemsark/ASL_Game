@@ -67,16 +67,27 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
               onError={() => setFailed(true)}
               className="w-full h-full object-contain"
             />
-            {/* Discoverability hint for the click/right-click-to-enlarge affordance below. */}
-            <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white/90 text-xs pointer-events-none">
+            {/* Discoverability hint for the click/right-click-to-enlarge affordance below.
+                bg-video-plate, not bg-black/50: this sits on the clip itself, and /50 left the
+                glyph at 3.56:1 against a bright frame. */}
+            <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-video-plate flex items-center justify-center text-white text-xs pointer-events-none">
               ⤢
             </div>
           </>
         )}
         {!compact && (
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
-            <p className="text-white text-sm font-bold">{signName.replace(/_/g, ' ')}</p>
-            <p className="text-white/70 text-xs">{showPlaceholder ? 'No demo video yet — follow the hint below' : 'Watch and follow along — tap to enlarge'}</p>
+          // The caption used to be a single `from-black/60 to-transparent` fade with the text
+          // inside it. On a `to-t` gradient the transparent end is at the TOP — which is exactly
+          // where the sign name sits — so the most important label on the surface had the least
+          // backing behind it: 1.41:1 against a bright frame. A fade is decoration, not a plate.
+          // Split in two: the fade is now a text-free lead-in strip that keeps the soft edge, and
+          // the text sits on a real plate underneath it.
+          <div className="absolute bottom-0 left-0 right-0">
+            <div className="h-6 bg-gradient-to-t from-black/62 to-transparent" aria-hidden="true" />
+            <div className="bg-video-plate p-3">
+              <p className="text-white text-sm font-bold">{signName.replace(/_/g, ' ')}</p>
+              <p className="text-white/85 text-xs">{showPlaceholder ? 'No demo video yet — follow the hint below' : 'Watch and follow along — tap to enlarge'}</p>
+            </div>
           </div>
         )}
       </motion.div>

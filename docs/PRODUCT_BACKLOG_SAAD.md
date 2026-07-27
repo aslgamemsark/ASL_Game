@@ -422,6 +422,54 @@ confirmed in the emitted CSS. Before/after captured at `web` preview in both the
 
 ---
 
+### QS-012
+Problem:
+Every overlay on the camera and reference-clip surfaces was built assuming the video behind it
+would be dark. It is dark in a developer's room. Against a bright one — a learner sitting in front
+of a window, which is a normal way to sit for a camera app — seven of them dropped below AA, three
+of them to the point of being invisible.
+
+Evidence (worst-case contrast, each overlay composited over a white frame AND a black frame,
+2026-07-27):
+| Overlay | Treatment | On a bright frame |
+|---|---|---|
+| WebcamMirror hand-zone label | unplated `text-white/60` | **1.00:1** — invisible |
+| ReferenceClip sign name | at the transparent end of a `to-t from-black/60` fade | **1.41:1** |
+| WebcamMirror hand label, occupied | `text-z-green` on `bg-z-green/10` | 1.79:1 |
+| Camera guide, SUCCESS state | `bg-z-green/90` + `text-white` | **1.82:1** |
+| ReferenceClip subtitle | `text-white/70` on the fade | 2.46:1 |
+| ReferenceClip ⤢ badge | `bg-black/50` + `text-white/90` | 3.56:1 |
+| TurnOverlay label | `bg-z-purple/85` | 4.36:1 |
+
+Two of these are worse than their ratio suggests. The camera guide's failure was on its **success**
+state — the one message telling a learner they are finally framed correctly was the least readable
+thing on screen, while the error state (`bg-black/75`, 10.41:1) was fine. And the reference clip's
+fade put the *least* backing behind the *most* important label: on a `to-t` gradient the
+transparent end is the top, which is exactly where the sign name sits.
+
+Root cause:
+Two mistakes, both invisible to review. (1) A fade was treated as a plate — it is decoration, and
+where the text sits in it was never checked. (2) Accent tokens were used as text over video; they
+invert with the theme and the video does not, so no single value can work.
+
+Fix shipped:
+One `@utility bg-video-plate` (62% black — derived from the worst case; below 54% a bright frame
+wins) behind all 9 overlays across 5 components. `text-white/85` floor. State moved onto borders
+and icons. The reference-clip caption is now a text-free fade strip above a real plate, keeping the
+soft edge without putting text on it. The ✓ badge uses `bg-z-green` + `text-z-bg`, which works
+because those two tokens invert in opposite directions between themes.
+
+Guarded by `tokenContrast.test.ts` (plate alpha against both frame extremes, plus the ✓ badge and
+turn chip per theme) and `designTokens.test.ts` (no `bg-black/NN` and no sub-85 white text in the
+five video-surface components; `fixed inset-0` modal backdrops excluded by position, not by an
+exception list that would rot). The markup guard was verified to fail on the real `text-white/60`.
+
+Status:
+Shipped 2026-07-27 — 676 tests pass, `tsc -b` clean, production build clean. Before/after rendered
+over a blown-out frame using the shipped stylesheet.
+
+---
+
 ## ✅ Verified healthy (do not spend time here)
 
 - **Core Web Vitals.** LCP p75: Mobile 1,992 ms, Desktop 1,783 ms — both inside Google's "good"

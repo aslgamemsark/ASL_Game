@@ -94,8 +94,13 @@ export function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed
             className={`mt-[6%] rounded-[45%] border-2 border-dashed transition-colors duration-300 ${frameGuide.ok ? 'border-z-green' : 'border-white/85'}`}
             style={{ width: '42%', height: '58%', boxShadow: '0 0 0 9999px rgba(0,0,0,0.18)' }}
           />
-          <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap ${frameGuide.ok ? 'bg-z-green/90 text-white' : 'bg-black/75 text-white'}`}>
-            {frameGuide.message}
+          {/* Both states sit on the same plate. The success state used to be `bg-z-green/90` with
+              white text — white on a light green, 1.82:1, i.e. the one message confirming the
+              learner is finally framed correctly was the least readable thing on screen. Over
+              video the state has to be carried by something other than the text colour, so it is
+              the face-box border (green above) plus the ✓ here. */}
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap bg-video-plate text-white">
+            {frameGuide.ok ? `✓ ${frameGuide.message}` : frameGuide.message}
           </div>
         </div>
       )}
@@ -107,16 +112,24 @@ export function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed
             // dwell timer that decides when to lock in the final answer, so the box responds to
             // the hand's actual position immediately instead of lagging behind it.
             const isOccupied = isSelected || handZones.active === side;
-            const tone = isOccupied ? 'border-z-green bg-z-green/10 text-z-green' : 'border-white/35 text-white/60';
+            // Occupancy is carried by the BOX (border + fill tint), never by the label's colour.
+            // The label used to be `text-white/60` unplated over live video — 1.00:1 against a
+            // bright frame, literally invisible — and `text-z-green` when occupied, 1.79:1. An
+            // accent token cannot work here: it inverts with the theme and the video does not.
+            const box = isOccupied ? 'border-z-green bg-z-green/10' : 'border-white/35';
             return (
               <div key={side} className="flex-1 flex items-center justify-center p-[6%]">
-                <div className={`relative w-full h-[72%] rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-colors duration-100 ${tone}`}>
+                <div className={`relative w-full h-[72%] rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-colors duration-100 ${box}`}>
                   <span className="text-4xl leading-none" role="img" aria-hidden>✋</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wide">
+                  <span className="text-[10px] font-bold uppercase tracking-wide bg-video-plate text-white px-2 py-1 rounded-full">
                     {side === 'left' ? 'Left hand' : 'Right hand'}
                   </span>
                   {isSelected && (
-                    <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-z-green text-white flex items-center justify-center text-xs shadow-lg">✓</span>
+                    // text-z-bg, not text-white: z-bg and z-green invert in OPPOSITE directions
+                    // between themes (light ink on a light-green fill in dark mode, dark ink on a
+                    // dark-green fill in light mode), so the pair stays high-contrast in both —
+                    // 10.12:1 and 4.55:1. `bg-z-green text-white` was 1.92:1 in the dark theme.
+                    <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-z-green text-z-bg flex items-center justify-center text-xs font-bold shadow-lg">✓</span>
                   )}
                 </div>
               </div>
@@ -125,7 +138,7 @@ export function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed
         </div>
       )}
       <TurnOverlay active={!!activeTurn} label={turnLabel} timerPercent={timerPercent} />
-      {label && <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded-md">{label}</span>}
+      {label && <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-video-plate text-white px-1.5 py-0.5 rounded-md">{label}</span>}
       {overlayClipUrl && (
         <>
           <button

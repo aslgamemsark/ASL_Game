@@ -184,3 +184,84 @@ describe.each([
     });
   }
 });
+
+/**
+ * Text over LIVE VIDEO. The webcam mirror and the reference clips are the only surfaces whose
+ * background is genuinely unknown — it is the learner's room. Neither theme's tokens help, because
+ * the video does not follow the theme, so the only honest floor is the worst case: every overlay
+ * must clear AA against a blown-out WHITE frame and against a BLACK one.
+ *
+ * Regression, 2026-07-27. Seven overlays failed, and the pattern in each was the same mistake —
+ * assuming the video would be dark:
+ *   - ReferenceClip's sign name sat at the transparent end of a `to-t from-black/60` fade: 1.41:1.
+ *     The most important label on the surface had the least backing behind it.
+ *   - WebcamMirror's hand-zone labels were unplated `text-white/60`: 1.00:1 on a bright frame.
+ *   - The camera guide's SUCCESS chip was `bg-z-green/90` + white — white on a light green,
+ *     1.82:1 — so the one message confirming correct framing was the least readable thing on it.
+ */
+describe('text over live video', () => {
+  const WHITE_FRAME = '#FFFFFF';
+  const BLACK_FRAME = '#000000';
+
+  /** Composite `hex` at `alpha` over an opaque background. */
+  function composite(hex: string, alpha: number, bg: string): string {
+    const mix = [1, 3, 5].map((i) =>
+      Math.round(parseInt(hex.slice(i, i + 2), 16) * alpha + parseInt(bg.slice(i, i + 2), 16) * (1 - alpha))
+    );
+    return '#' + mix.map((c) => c.toString(16).padStart(2, '0')).join('');
+  }
+
+  const plateAlpha = Number(
+    CSS.slice(CSS.indexOf('@utility bg-video-plate {'))
+      .match(/rgb\(0 0 0 \/ ([\d.]+)\)/)?.[1]
+  );
+
+  it('bg-video-plate is defined with a parseable alpha', () => {
+    expect(plateAlpha, 'could not read the alpha out of @utility bg-video-plate').toBeGreaterThan(0);
+  });
+
+  // white/85 is the documented floor for body text on this plate; white/70 does NOT clear it.
+  for (const textAlpha of [1, 0.85]) {
+    for (const frame of [WHITE_FRAME, BLACK_FRAME]) {
+      it(`white/${textAlpha * 100} on bg-video-plate clears AA over a ${frame === WHITE_FRAME ? 'blown-out' : 'dark'} frame`, () => {
+        const plate = composite('#000000', plateAlpha, frame);
+        const ratio = contrastRatio(composite('#FFFFFF', textAlpha, plate), plate);
+        expect(
+          Number(ratio.toFixed(2)),
+          `white/${textAlpha * 100} over bg-video-plate (${plateAlpha}) on a ${frame} frame is ` +
+            `${ratio.toFixed(2)}:1 — below AA. Raise the plate alpha in index.css; do not fix this ` +
+            `by assuming the camera feed is dark, because it is whatever room the learner is in.`
+        ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+      });
+    }
+  }
+
+  /**
+   * The selected-hand ✓ badge. `bg-z-green` + `text-z-bg` works in both themes *because* the two
+   * tokens invert in opposite directions — light ink on a light-green fill in the dark theme, dark
+   * ink on a dark-green fill in the light theme. `bg-z-green text-white` was 1.92:1 in the dark
+   * theme, which is what this pair replaced. Both halves must keep inverting for it to hold.
+   */
+  describe.each([
+    ['dark', ':root,\n.dark'],
+    ['light', '.light {'],
+  ])('%s theme', (themeName, selector) => {
+    const tokens = themeTokens(selector);
+
+    it('the success badge (bg-z-green + text-z-bg) clears AA', () => {
+      const ratio = contrastRatio(tokens['z-bg'], tokens['z-green']);
+      expect(
+        Number(ratio.toFixed(2)),
+        `text-z-bg (${tokens['z-bg']}) on bg-z-green (${tokens['z-green']}) is ${ratio.toFixed(2)}:1 ` +
+          `in the ${themeName} theme. This pair only works while z-bg and z-green invert in ` +
+          `OPPOSITE directions between themes — check that before changing either.`
+      ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    });
+
+    it('the turn-indicator chip (bg-z-purple + white) clears AA', () => {
+      const ratio = contrastRatio('#FFFFFF', tokens['z-purple']);
+      expect(Number(ratio.toFixed(2)), `white on bg-z-purple is ${ratio.toFixed(2)}:1 in ${themeName}`)
+        .toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    });
+  });
+});

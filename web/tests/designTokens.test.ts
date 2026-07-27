@@ -86,3 +86,64 @@ describe('design token discipline', () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Overlays on the camera / clip surfaces. These are the only places in the app where the
+ * background is unknown at build time — it is whatever the learner's room looks like — so the
+ * usual "check it against the theme token" reasoning does not apply and the rules have to be
+ * enforced on the markup instead.
+ *
+ * Both rules below encode the same root mistake, which every one of the seven 2026-07-27 failures
+ * shared: assuming the video would be dark. It is dark in the developer's room.
+ */
+describe('overlays on live video', () => {
+  // Every component that draws chrome on top of a <video> or the mirrored canvas.
+  const VIDEO_SURFACES = [
+    'components/shared/WebcamMirror.tsx',
+    'components/shared/RemotePeerVideo.tsx',
+    'components/shared/TurnOverlay.tsx',
+    'components/lesson/ReferenceClip.tsx',
+    'components/lesson/ClipEnlarge.tsx',
+  ];
+
+  /** Source with comments removed — these files explain the old bad values in prose, and a naive
+   *  scan would flag the explanation as the defect. */
+  function markup(rel: string): string {
+    const file = FILES.find((f) => f.rel === rel);
+    if (!file) throw new Error(`${rel} not found — was it moved? Update VIDEO_SURFACES.`);
+    return file.source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  }
+
+  it('uses bg-video-plate, never a hand-rolled bg-black/NN backing', () => {
+    // A full-screen modal backdrop is `fixed inset-0` and dims the PAGE, not the video — it has no
+    // text on it and no contrast requirement, so it is not part of this rule. An over-video plate
+    // is positioned inside the frame. The distinction is the positioning, which is why it is
+    // matched here rather than left to a per-file exception list that would rot.
+    const offenders = VIDEO_SURFACES.flatMap((rel) =>
+      markup(rel)
+        .split('\n')
+        .filter((line) => !/fixed inset-0/.test(line))
+        .flatMap((line) => [...line.matchAll(/bg-black\/\d+/g)].map((m) => `${rel}: ${m[0]}`))
+    );
+    expect(
+      offenders,
+      `Hand-rolled black plates on a video surface:\n${offenders.join('\n')}\n` +
+        `Use bg-video-plate. Its alpha is derived from the worst case (a blown-out frame) and is ` +
+        `covered by tokenContrast.test.ts; a local bg-black/NN is a guess that drifts.`
+    ).toEqual([]);
+  });
+
+  it('never drops white text below /85 on a video surface', () => {
+    const offenders = VIDEO_SURFACES.flatMap((rel) =>
+      [...markup(rel).matchAll(/text-white\/(\d+)/g)]
+        .filter((m) => Number(m[1]) < 85)
+        .map((m) => `${rel}: ${m[0]}`)
+    );
+    expect(
+      offenders,
+      `Text this faint is not readable against a bright camera frame:\n${offenders.join('\n')}\n` +
+        `white/85 on bg-video-plate is 5.03:1 against any frame; white/70 is 4.0:1 and fails. ` +
+        `WebcamMirror's hand labels were unplated white/60 — 1.00:1, invisible.`
+    ).toEqual([]);
+  });
+});
