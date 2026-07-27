@@ -26,11 +26,49 @@ The brand gradient is consolidated into the `bg-gradient-primary` utility class
 `style={{ background: 'linear-gradient(135deg, ...)' }}` again; 15 call sites across the app had
 drifted into two near-duplicate hex pairs before this was extracted.
 
-**Correction (2026-07-27):** this section previously claimed that gradient was the app's *one*
-inline-style exception. It is not — 20 hardcoded inline `linear-gradient(...)` values remain
-across 15 files, and because they are literal hex they are all theme-blind. `StreakCard.tsx:20`
-is the clearest cost: it hardcodes `#18103A`, the *dark* theme's `z-card`, so the streak card
-stays near-black while every other card turns light lavender in light mode. Tracked as QS-010.
+**Resolved 2026-07-27.** That claim had gone stale — 20 hardcoded `linear-gradient(...)` values had
+reappeared across 15 files, all literal hex and therefore all theme-blind. They are now nine
+`@utility` classes:
+
+| Utility | Used by | Text it carries |
+|---|---|---|
+| `bg-gradient-primary` | primary CTA buttons | `text-white` only (unscrimmed) |
+| `bg-gradient-teal` | alphabet/basics quiz cards, Warm Up tier | `text-white`, `text-white/80` |
+| `bg-gradient-blue` | Speed Challenge entry + Sprint tier | ” |
+| `bg-gradient-violet` | practice entry cards, Blitz tier | ” |
+| `bg-gradient-amber` | Shop purchase buttons | ” |
+| `bg-gradient-ember` | Weak Signs card | ” |
+| `bg-gradient-streak` | streak card | ” |
+| `bg-gradient-locked` | locked / coming-soon world | ” |
+| `bg-gradient-urgent` | Speed timer bar under 40% | no text |
+| `text-gradient-brand` | the QuickSign wordmark | (is the text) |
+
+**Gradient text is banned everywhere except the wordmark.** It is decorative rather than
+meaningful, so it is confined to the logotype, where decorative *is* the meaning — that is why the
+onboarding `h1` and every other heading use solid colour (`OnboardingFlow.tsx:99-101`). This was
+already the convention in a component comment; recording it here so it survives. Design linters
+will flag `text-gradient-brand` as an anti-pattern hit: that is correct, and it is a known scoped
+exception, not a licence to gradient another heading or metric.
+
+**The scrim is baked into the utility, not written at the call site.** Every card used to hand-roll
+`<div className="absolute inset-0 bg-black/NN" />`, and those had drifted to /20, /30, /45 and /50
+— several below what their own gradient needed, and three cards had none. 45% is the family floor:
+what the lightest gradient (amber) needs to carry body text.
+
+**Text on a gradient is white.** `text-white`, or `text-white/80` for a secondary line — never
+lower (white/70 fails on teal at 4.28:1 and amber at 3.94:1), and never an accent token. Accent
+tokens are derived against the theme surfaces and invert between light and dark; these gradients do
+not invert, so a token legible on a dark card is not legible here. `text-z-yellow` on the streak
+card measured 1.95:1 in the light theme for exactly this reason.
+
+Data-driven gradients (`WORLDS[].bgGradient`, a unit's own colour) stay in data and get the same
+floor at the point of use via `WorldMap`'s `scrimmed()` helper — the data describes what a world
+looks like, not how text is made legible on it.
+
+Both rules are enforced by `web/tests/tokenContrast.test.ts` (scrim + stops parsed out of the
+shipped CSS, AA asserted per theme) and `web/tests/designTokens.test.ts` (no literal hex in a
+component gradient; no undefined `bg-gradient-*` class, which Tailwind would otherwise drop
+silently and render as a transparent card with white text on it).
 
 | Role | Token | Value |
 |---|---|---|

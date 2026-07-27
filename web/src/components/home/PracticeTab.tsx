@@ -149,9 +149,8 @@ export function PracticeTab({ onStartPractice, onStartWeakPractice }: Props) {
       >
         <motion.button
           onClick={onStartPractice}
-          className="w-full rounded-2xl p-5 text-left border border-white/5 overflow-hidden relative"
-          style={{ background: 'linear-gradient(135deg, #5B21B6, #7C3AED)' }}
-          initial="rest"
+          className="w-full rounded-2xl p-5 text-left border border-white/5 overflow-hidden relative bg-gradient-violet"
+                   initial="rest"
           animate="rest"
           whileHover="hover"
           whileTap={{ scale: 0.97 }}
@@ -164,7 +163,7 @@ export function PracticeTab({ onStartPractice, onStartWeakPractice }: Props) {
           <div className="relative flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-white">Quick Session</h3>
-              <p className="text-purple-200 text-sm mt-1">
+              <p className="text-white/80 text-sm mt-1">
                 {dueForReview.length > 0
                   ? `${dueForReview.length} sign${dueForReview.length > 1 ? 's' : ''} to review`
                   : 'Warm up with your learned signs'}
@@ -192,9 +191,8 @@ export function PracticeTab({ onStartPractice, onStartWeakPractice }: Props) {
         >
           <motion.button
             onClick={() => onStartWeakPractice(weakSignIds)}
-            className="w-full rounded-2xl p-5 text-left border border-z-orange/20 overflow-hidden relative"
-            style={{ background: 'linear-gradient(135deg, #78180A, #C2410C)' }}
-            initial="rest"
+            className="w-full rounded-2xl p-5 text-left border border-z-orange/20 overflow-hidden relative bg-gradient-ember"
+                       initial="rest"
             animate="rest"
             whileHover="hover"
             whileTap={{ scale: 0.97 }}
@@ -207,7 +205,7 @@ export function PracticeTab({ onStartPractice, onStartWeakPractice }: Props) {
             <div className="relative flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-white">Weak Signs</h3>
-                <p className="text-orange-200 text-sm mt-1">
+                <p className="text-white/80 text-sm mt-1">
                   {weakSignIds.length} sign{weakSignIds.length > 1 ? 's' : ''} that need extra practice
                 </p>
               </div>

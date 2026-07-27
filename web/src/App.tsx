@@ -46,7 +46,6 @@ import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
 import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal';
-import { TermsModal } from '@/components/shared/TermsModal';
 import { Zippy } from '@/components/shared/Zippy';
 import { CelebrationHost } from '@/components/shared/CelebrationHost';
 import { useScreenView } from '@/analytics';
@@ -145,12 +144,6 @@ export default function App() {
   // First-run consent gate — checked once per device/browser, not per account, so it still shows
   // for a guest who hasn't signed in yet. Read lazily (not in an effect) so it's already correct
   // on the very first render instead of flashing the real app for one frame first.
-  const [termsAccepted, setTermsAccepted] = useState(
-    () => localStorage.getItem('asl-game-terms-accepted') === '1'
-  );
-  // "Accept later" only hides the gate for this tab's session (not persisted) — the localStorage
-  // flag above stays unset, so the gate reappears on their next visit until they actually accept.
-  const [termsGateDismissed, setTermsGateDismissed] = useState(false);
 
   const goHome = () => setScreen({ type: 'home' });
 
@@ -235,20 +228,27 @@ export default function App() {
     );
   }
 
-  // Blocks everything else — onboarding, sign-in, even a returning signed-in session — until
-  // explicitly accepted or deferred. Checked before the banned-account screen too: a suspended
-  // account still shouldn't see the real app shell flash behind this gate.
-  if (!termsAccepted && !termsGateDismissed) {
-    return (
-      <TermsModal
-        onAccept={() => {
-          localStorage.setItem('asl-game-terms-accepted', '1');
-          setTermsAccepted(true);
-        }}
-        onAcceptLater={() => setTermsGateDismissed(true)}
-      />
-    );
-  }
+  // REMOVED 2026-07-27: this used to `return <TermsModal/>` here, blocking onboarding, sign-in and
+  // even a returning signed-in session behind a legal document as the literal first paint.
+  //
+  // It was the single largest leak in the funnel. Of 26 non-PK users who reached the app shell,
+  // only 13 ever saw a real onboarding step — the modal is the only thing between those two
+  // events, so that 50% left at the wall. Median session for users who never got past it: 5-30s.
+  // The landing page simultaneously advertised "Free, no signup".
+  //
+  // Disclosure now happens where it is actually meaningful, and is strictly more informative than
+  // this modal was:
+  //   - CAMERA + LANDMARK DATA: CameraOnboarding, shown immediately before the camera is switched
+  //     on, states that video never leaves the device and that only numeric landmarks are stored.
+  //     That is contextual consent at the moment of collection, not a wall at t=0.
+  //   - FULL TERMS: accepted at account creation (see the notice on the auth step), which is the
+  //     legally meaningful moment. Guests receive notice; account holders give consent.
+  //   - ON DEMAND: the full text lives on PrivacyPage ("Privacy & Terms"), reachable any time from
+  //     Settings, and is linked from the auth step.
+  //
+  // TermsModal.tsx now has no call sites. Left in the tree rather than deleted in the same change
+  // that removed the gate, so reverting this is a one-line restore if the notice-vs-consent split
+  // turns out to be the wrong call.
 
   // A banned account is force-signed-out inside AuthContext the moment its profile is fetched
   // (client-side enforcement); RLS denies its own reads/writes server-side regardless (see

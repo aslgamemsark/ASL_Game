@@ -144,9 +144,94 @@
 /* Primary CTA gradient — the app's single most-repeated inline style (17+ call sites had drifted
    into two near-duplicate hex pairs: #7C3AED/#A78BFA matching the z-purple tokens, and an
    off-token #7B2FBE/#A855F7). Consolidated to one utility on the canonical token values so future
-   buttons reuse this instead of re-typing hex (impeccable audit, 2026-07-11). */
+   buttons reuse this instead of re-typing hex (impeccable audit, 2026-07-11).
+
+   Stops corrected 2026-07-27: the 2026-07-11 consolidation picked `z-purple -> z-purple-light`,
+   and every primary button in the app puts white bold text on it. In the DARK theme the light end
+   (#A78BFA) put that text at 2.72:1 — under even the 3:1 large-text floor, on "Get Started",
+   "Start Signing", "Continue" and "Claim!". Ends on `z-purple` instead, so both stops carry white
+   text (7.53:1 -> 5.70:1 dark, higher in light). Same purple identity, one shade deeper. */
 @utility bg-gradient-primary {
-  background: linear-gradient(135deg, var(--color-z-purple), var(--color-z-purple-light));
+  background: linear-gradient(135deg, var(--color-z-purple-dark), var(--color-z-purple));
+}
+
+/* ── Gradient card surfaces ─────────────────────────────────────────────────────────────────
+   A saturated gradient field that white text sits on: streak card, world/practice entry cards,
+   Speed Challenge tiers, Shop gold cards.
+
+   Two rules, both structural rather than remembered:
+
+   1. THE SCRIM IS BAKED IN. Every card in this family previously hand-rolled its own
+      `<div className="absolute inset-0 bg-black/NN" />`, and the values had drifted to five
+      different strengths (/20, /30, /45, /50) — several below what their own gradient needs.
+      Painting the scrim as the utility's first background layer means a card cannot be added
+      without it. 45% is the family floor: it is what the LIGHTEST gradient here (amber #F59E0B)
+      requires to carry body text, and the darker ones are comfortably clear of it.
+
+   2. TEXT ON THESE IS WHITE — `text-white`, or `text-white/80` for secondary lines. Never lower
+      (white/70 fails on teal at 4.28:1 and amber at 3.94:1), and never an accent token. Accent
+      tokens are derived against the THEME surfaces (z-bg/z-card/z-surface) and invert between
+      light and dark; these gradients do not invert, so a token that is legible on a dark card is
+      not legible here. `text-z-yellow` on the streak card measured 1.95:1 in the light theme for
+      exactly this reason.
+
+   Verified ratios at this scrim (white / white-80): teal 6.92/5.07, blue 9.02/6.43,
+   violet 9.47/6.69, ember 11.21/7.70, amber 6.20/4.62, streak 11.82/8.09. */
+@utility bg-gradient-teal {
+  background-image: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+                    linear-gradient(135deg, #0F766E, #14B8A6);
+}
+@utility bg-gradient-blue {
+  background-image: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+                    linear-gradient(135deg, #1E40AF, #3B82F6);
+}
+@utility bg-gradient-violet {
+  background-image: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+                    linear-gradient(135deg, #5B21B6, #A855F7);
+}
+@utility bg-gradient-amber {
+  background-image: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+                    linear-gradient(135deg, #B45309, #F59E0B);
+}
+@utility bg-gradient-ember {
+  background-image: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+                    linear-gradient(135deg, #78180A, #C2410C);
+}
+/* Streak card. Its old inline value started at the literal #18103A — the DARK theme's z-card —
+   so in the light theme the streak card stayed near-black while every other card turned light
+   lavender. Ends on the brand purple from the token instead of a copied surface hex. */
+@utility bg-gradient-streak {
+  background-image: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+                    linear-gradient(135deg, var(--color-z-purple-deep), var(--color-z-purple));
+}
+/* Locked / coming-soon world card — deliberately the one COLD surface in the family, so a locked
+   world reads as inert next to the saturated live ones. No scrim: it is already dark enough to
+   carry white/60 at 6.54:1. Built from the theme's own deep purple rather than the off-palette
+   #1a1a2e/#16213e navy it used to hardcode, which belonged to neither theme's palette. */
+/* Timer running out. Tokens, not the literal #ef4444/#f97316 it used to hardcode. */
+/* The wordmark — the app's ONE sanctioned use of gradient text, and the reason headings elsewhere
+   use solid colour (see the comment on OnboardingFlow's welcome h1). Gradient text is otherwise
+   banned here: it is decorative rather than meaningful, so it stays confined to the logotype,
+   where decorative IS the meaning. Design linters will flag this rule; that is correct behaviour
+   and the finding is a known, scoped exception — not a licence to gradient any other text.
+
+   Tokenised 2026-07-27: it hardcoded the DARK theme's #A78BFA/#14B8A6, so in the light theme the
+   wordmark rendered pale lavender on pale lavender at 2.05:1 — under even the 3:1 large-text
+   floor. Through tokens both stops follow the theme and stay legible on either background. */
+@utility text-gradient-brand {
+  background: linear-gradient(90deg, var(--color-z-purple-light) 0%, var(--color-z-teal) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@utility bg-gradient-urgent {
+  background: linear-gradient(90deg, var(--color-z-red), var(--color-z-orange));
+}
+@utility bg-gradient-locked {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--color-z-purple-deep) 60%, black),
+    var(--color-z-purple-deep));
 }
 
 /* Quicksand is SELF-HOSTED (OFL-licensed), not loaded from Google Fonts. The previous single

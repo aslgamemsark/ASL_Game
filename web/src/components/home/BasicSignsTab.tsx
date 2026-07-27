@@ -33,7 +33,7 @@ export function BasicSignsTab({ onStartSignsPractice, onTestMemory }: Props) {
       >
         <motion.button
           onClick={() => onStartSignsPractice(BASIC_SIGN_IDS)}
-          className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative bg-gradient-primary"
+          className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative bg-gradient-violet"
           whileHover={{ scale: 1.02, boxShadow: '0 14px 40px rgba(91,33,182,0.5)' }}
           whileTap={{ scale: 0.97 }}
         >
@@ -41,7 +41,7 @@ export function BasicSignsTab({ onStartSignsPractice, onTestMemory }: Props) {
           <div className="relative flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-white">Practice Basic Signs</h3>
-              <p className="text-purple-200 text-sm mt-0.5">
+              <p className="text-white/80 text-sm mt-0.5">
                 {BASIC_SIGN_IDS.length} signs with camera recognition
               </p>
             </div>
@@ -90,16 +90,15 @@ export function BasicSignsTab({ onStartSignsPractice, onTestMemory }: Props) {
         </h3>
         <motion.button
           onClick={() => { sounds.tap(); onTestMemory([...BASIC_SIGN_IDS].sort(() => Math.random() - 0.5)); }}
-          className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative"
-          style={{ background: 'linear-gradient(135deg, #0F766E, #14B8A6)' }}
-          whileHover={{ scale: 1.02, boxShadow: '0 14px 40px rgba(20,184,166,0.4)' }}
+          className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative bg-gradient-teal"
+                   whileHover={{ scale: 1.02, boxShadow: '0 14px 40px rgba(20,184,166,0.4)' }}
           whileTap={{ scale: 0.97 }}
         >
           <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-xl" />
           <div className="relative flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-white">Test from Memory</h3>
-              <p className="text-teal-100 text-sm mt-0.5">
+              <p className="text-white/80 text-sm mt-0.5">
                 {BASIC_SIGN_IDS.length} signs on camera · XP + gold
               </p>
             </div>

@@ -130,6 +130,42 @@ Open
 
 ---
 
+### QS-011 — Framing guide was calibrated to a headshot, not a signing space
+Problem:
+The camera-framing guide told users their framing was wrong 87% of the time, including users who
+were signing perfectly.
+
+Evidence (measured 2026-07-27, not estimated):
+- PostHog `framing_check`: only **153 of 1,155 checks passed (13.2%)**. "Raise your camera a touch"
+  fired 281× and hit **all 10** users who ever reached a camera.
+- Framing had **no predictive validity**: the user with 0.0% framing-OK passed 9/9 signs; another
+  at 1.4% passed 15/22; a user at 20.2% passed 0/52.
+- Replayed the old rule over **27,110 frames from attempts the rule verifier actually passed**
+  (`training_samples where rule_passed`): it rejected **81.1%** of them.
+  Per-rule false-positive rate: mouth-height **77.0%**, come-closer 11.8%, center 2.2%, move-back 0.1%.
+- Real successful geometry: shoulder-width median 0.409 (p05 0.289, p95 0.607), mouth median
+  **0.641** — the old rule demanded ≤0.55, i.e. it excluded the typical successful signer.
+- Signing space by sign: **PLEASE is the lowest** — hands sit *below* the shoulder line
+  (median +0.036 of frame height) and **2.93% of its hand points already fall off the bottom edge**.
+  HELLO is highest (−0.366). So "raise your camera" actively crops the signs that need low space.
+
+Root cause:
+The rule modelled face + shoulder position and never checked room *below* the shoulders, which is
+where chest-level signs happen. It optimised for the one thing that hurts PLEASE/COFFEE/MORE.
+
+Fix shipped (S1-T8): mouth rule deleted; come-closer 0.32 → 0.28 (p05 of real successes);
+chest-room advice added at shoulder-Y > 0.92 as a **non-blocking tip**; first-run guide given a
+20s safety ceiling so it can never nag for a whole lesson. New rule set passes **94%** of the same
+known-good frames (was 18.9%). 7 calibration tests in `web/tests/framing.test.ts`.
+
+⚠️ Caveat: `training_samples` only contains attempts that passed, so this measures **false
+positives**, not false negatives. It cannot rule out framings that genuinely break recognition.
+
+Status:
+Shipped 2026-07-27 — verify against W2 `framing_check` ok-rate (target ≥85%, baseline 13.2%)
+
+---
+
 ## 🟠 High
 
 ### QS-005
@@ -351,20 +387,38 @@ Evidence (contrast measured over each gradient's light end, at the scrim each ca
 - Verified floor: **`bg-black/45` + `text-white/80`** clears AA on every card in the family
   (4.62:1 worst case, the amber shop card). `text-white/70` still fails there (3.94:1).
 
-Partial fix shipped:
-HomePage's Speed Challenge card only (the worst offender, and above the fold on the home screen)
-— `bg-black/45` scrim added, subtitle `text-blue-200` → `text-white/80`. Heading 3.68 → 9.02:1,
-subtitle 2.59 → 6.43:1.
+Fix shipped:
+The per-call-site scrim div is gone. Nine `@utility bg-gradient-*` classes in `index.css` now own
+the family, each with the 45% scrim painted as its first background layer — a card physically
+cannot be added without one. All 20 hardcoded `linear-gradient(...)` values are gone from
+components; the only inline gradients left are token-based or data-driven (a world's or unit's own
+identity colour), and world gradients get the same 45% floor via `WorldMap`'s `scrimmed()` helper.
 
-Remaining:
-Apply the same floor to `SpeedChallengePage` tier cards and `ShopPage`'s gold cards. Related:
-20 hardcoded inline `linear-gradient(...)` values across 15 files bypass the token system
-entirely — DESIGN.md's claim that this was consolidated to "a single gradient value" is stale.
-`StreakCard.tsx:20` is the worst: it hardcodes `#18103A`, the *dark* theme's `z-card`, so the
-streak card stays near-black while every other card turns light lavender in light mode.
+Two further failures surfaced while doing it, both worse than the original finding:
+- **`bg-gradient-primary` — every primary button in the app** ("Get Started", "Start Signing",
+  "Continue", "Claim!") — ended on `z-purple-light`, putting white bold label text at **2.72:1**
+  in the dark theme, under even the 3:1 large-text floor. The 2026-07-11 consolidation had picked
+  the lighter of the two drifted pairs. Now ends on `z-purple`: 7.53 → 5.70:1.
+- **World cards**, the app's main navigation, had **no scrim at all**: white/80 subtitles sat at
+  **1.72:1** on the teal world. Their gradients come from `data/worlds.ts`, chosen as world
+  identity colours with no reference to the text that would sit on them.
+- The wordmark (`SideNav`/`TopBar`) hardcoded the dark theme's `#A78BFA`/`#14B8A6`, so in the light
+  theme it rendered pale lavender on pale lavender at **2.05:1** — effectively invisible.
+  Tokenised as `text-gradient-brand`.
+- `StreakCard`'s milestone badge used `text-z-yellow` on the streak gradient: **1.95:1** in the
+  light theme. Accent tokens invert with the theme; these gradients do not, so the two cannot be
+  combined. Now white.
+
+Guarded by two tests. `tests/tokenContrast.test.ts` parses each `@utility`'s scrim alpha and colour
+stops out of the shipped CSS and asserts white / white-80 clears AA on the LIGHTEST stop, per theme
+— verified to reproduce both original numbers (2.72:1 primary, 3.65:1 teal at the old /30 scrim).
+`tests/designTokens.test.ts` fails on any literal hex inside a `linear-gradient(...)` in a `.tsx`,
+and on any `bg-gradient-*` class used but not defined (Tailwind drops unknown classes silently,
+which would render a transparent card with white text on it).
 
 Status:
-Open (HomePage portion shipped)
+Shipped 2026-07-27 — 656 tests pass, `tsc -b` clean, production build clean, all 10 utilities
+confirmed in the emitted CSS. Before/after captured at `web` preview in both themes.
 
 ---
 

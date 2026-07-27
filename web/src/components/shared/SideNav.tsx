@@ -73,12 +73,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
           <img src="/pwa-192x192.png" alt="" className="w-full h-full object-cover" />
         </div>
         <span
-          className="font-bold text-lg tracking-tight"
-          style={{
-            background: 'linear-gradient(90deg, #A78BFA 0%, #14B8A6 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
+          className="font-bold text-lg tracking-tight text-gradient-brand"
         >
           QuickSign
         </span>

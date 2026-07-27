@@ -19,9 +19,9 @@ import type { SpeedTier } from '@/types/user';
 import { track } from '@/analytics';
 
 const TIER_CONFIG = {
-  warmup: { label: 'Warm Up', icon: '🌡️', timePerSign: 15,  xpMult: 1, signsMult: 1, bg: 'linear-gradient(135deg,#0F766E,#14B8A6)', glow: 'rgba(20,184,166,0.45)' },
-  sprint: { label: 'Sprint',  icon: '🏃',  timePerSign: 10,  xpMult: 2, signsMult: 2, bg: 'linear-gradient(135deg,#1E40AF,#3B82F6)', glow: 'rgba(59,130,246,0.45)' },
-  blitz:  { label: 'Blitz',   icon: '⚡',  timePerSign: 5,   xpMult: 3, signsMult: 3, bg: 'linear-gradient(135deg,#5B21B6,#A855F7)', glow: 'rgba(168,85,247,0.55)' },
+  warmup: { label: 'Warm Up', icon: '🌡️', timePerSign: 15,  xpMult: 1, signsMult: 1, gradient: 'bg-gradient-teal',   glow: 'rgba(20,184,166,0.45)' },
+  sprint: { label: 'Sprint',  icon: '🏃',  timePerSign: 10,  xpMult: 2, signsMult: 2, gradient: 'bg-gradient-blue',   glow: 'rgba(59,130,246,0.45)' },
+  blitz:  { label: 'Blitz',   icon: '⚡',  timePerSign: 5,   xpMult: 3, signsMult: 3, gradient: 'bg-gradient-violet', glow: 'rgba(168,85,247,0.55)' },
 } as const;
 
 type GamePhase = 'tier-select' | 'countdown' | 'playing' | 'done';
@@ -319,8 +319,7 @@ export function SpeedChallengePage({ onExit }: Props) {
                   <motion.button
                     key={id}
                     onClick={() => startGame(id)}
-                    className="w-full rounded-2xl p-5 text-left border border-white/5 overflow-hidden relative"
-                    style={{ background: cfg.bg }}
+                    className={`w-full rounded-2xl p-5 text-left border border-white/5 overflow-hidden relative ${cfg.gradient}`}
                     initial="rest"
                     animate="rest"
                     whileHover="hover"
@@ -331,15 +330,13 @@ export function SpeedChallengePage({ onExit }: Props) {
                     }}
                   >
                     <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
-                    {/* Same WCAG contrast fix as PracticeTab's "Coffee Shop Story" card: the
-                        title had no explicit text color (inherits the near-white body default)
-                        directly on a mid-bright gradient across all 3 tiers - a scrim keeps the
-                        gradient intact while giving text enough contrast to read on. */}
-                    <div className="absolute inset-0 bg-black/30 rounded-2xl" />
+                    {/* The scrim that used to be a separate div here is baked into the
+                        bg-gradient-* utilities. /30 was not enough for the Warm Up tier anyway —
+                        its teal put the subtitle at 3.16:1. See index.css. */}
                     <div className="relative flex items-center justify-between">
                       <div>
                         <h3 className="text-lg font-bold text-white">{cfg.icon} {cfg.label}</h3>
-                        <p className="text-white/70 text-sm mt-0.5">
+                        <p className="text-white/80 text-sm mt-0.5">
                           {cfg.timePerSign}s per sign · {cfg.xpMult}× XP · {cfg.signsMult}× Signs 🤟
                         </p>
                       </div>
@@ -395,13 +392,11 @@ export function SpeedChallengePage({ onExit }: Props) {
                 </div>
                 <div className="h-2.5 bg-z-surface rounded-full overflow-hidden">
                   <motion.div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${timerPercent}%`,
-                      background: timerPercent > 40
-                        ? config.bg
-                        : 'linear-gradient(90deg, #ef4444, #f97316)',
-                    }}
+                    // Reuses the tier's own gradient class so the timer bar and the tier card that
+                    // launched it are the same colour by construction, then switches to the shared
+                    // urgency gradient under 40%.
+                    className={`h-full rounded-full ${timerPercent > 40 ? config.gradient : 'bg-gradient-urgent'}`}
+                    style={{ width: `${timerPercent}%` }}
                     transition={{ duration: 0.08 }}
                   />
                 </div>
@@ -494,9 +489,8 @@ export function SpeedChallengePage({ onExit }: Props) {
                 </motion.button>
                 <motion.button
                   onClick={onExit}
-                  className="flex-1 py-3 rounded-2xl font-bold text-sm text-white"
-                  style={{ background: 'linear-gradient(135deg,#5B21B6,#A855F7)' }}
-                  whileHover={{ scale: 1.02 }}
+                  className="flex-1 py-3 rounded-2xl font-bold text-sm text-white bg-gradient-violet"
+                                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
                 >
                   Back Home

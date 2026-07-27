@@ -46,7 +46,7 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
       >
         <motion.button
           onClick={() => onStartLettersPractice(PRACTICEABLE_LETTER_IDS.slice(0, FIRST_LETTERS_COUNT))}
-          className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative bg-gradient-primary"
+          className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative bg-gradient-violet"
           whileHover={{ scale: 1.02, boxShadow: '0 14px 40px rgba(91,33,182,0.5)' }}
           whileTap={{ scale: 0.97 }}
         >
@@ -54,7 +54,7 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
           <div className="relative flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-white">Practice Letters</h3>
-              <p className="text-purple-200 text-sm mt-0.5">
+              <p className="text-white/80 text-sm mt-0.5">
                 Start with your first {FIRST_LETTERS_COUNT} letters
               </p>
             </div>
@@ -100,16 +100,15 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
         <motion.button
           onClick={() => { sounds.tap(); onTestMemory(pickRandomLetters(QUIZ_SIZE)); }}
           disabled={quizSize === 0}
-          className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: 'linear-gradient(135deg, #0F766E, #14B8A6)' }}
-          whileHover={quizSize > 0 ? { scale: 1.02, boxShadow: '0 14px 40px rgba(20,184,166,0.4)' } : undefined}
+          className="w-full rounded-2xl p-4 text-left border border-white/5 overflow-hidden relative bg-gradient-teal disabled:opacity-50 disabled:cursor-not-allowed"
+                   whileHover={quizSize > 0 ? { scale: 1.02, boxShadow: '0 14px 40px rgba(20,184,166,0.4)' } : undefined}
           whileTap={quizSize > 0 ? { scale: 0.97 } : undefined}
         >
           <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-xl" />
           <div className="relative flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-white">Test from Memory</h3>
-              <p className="text-teal-100 text-sm mt-0.5">
+              <p className="text-white/80 text-sm mt-0.5">
                 {quizSize} random letters on camera · XP + gold
               </p>
             </div>

@@ -83,12 +83,7 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
               </motion.span>
             </motion.button>
             <span
-              className="font-bold text-xl tracking-tight lg:hidden"
-              style={{
-                background: 'linear-gradient(90deg, #A78BFA 0%, #14B8A6 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
+              className="font-bold text-xl tracking-tight lg:hidden text-gradient-brand"
             >QuickSign</span>
           </div>
 

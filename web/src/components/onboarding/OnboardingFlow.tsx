@@ -169,6 +169,15 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
               </button>
             </div>
 
+            {/* Consent moved here from the old first-paint Terms wall (see App.tsx). Creating an
+                account is the legally meaningful moment; a guest gets notice, not a contract.
+                Camera/landmark disclosure is separate and lives at the camera itself
+                (CameraOnboarding), which is where it is actually actionable. */}
+            <p className="text-[11px] text-z-gray-500 mt-5 leading-relaxed">
+              By creating an account you agree to our Terms &amp; Privacy Policy — readable any time
+              in Settings → Privacy &amp; Terms. Your camera video never leaves your device.
+            </p>
+
             {showAuthModal && (
               <AuthModal onClose={() => { setShowAuthModal(false); setStep('skill'); }} />
             )}

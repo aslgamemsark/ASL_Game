@@ -93,3 +93,94 @@ describe.each([
     }
   }
 });
+
+/**
+ * The `bg-gradient-*` utilities are saturated surfaces that white text sits on. Each one must
+ * carry that text at AA on its LIGHTEST stop — the lightest stop is the worst case, and on a
+ * 135° gradient it is the bottom-right corner, which is exactly where a card's secondary line
+ * tends to land.
+ *
+ * Why this is a test and not a comment (regression, 2026-07-27): the scrim used to be a separate
+ * `<div className="absolute inset-0 bg-black/NN" />` at each call site, hand-tuned once against
+ * one gradient and then copied. The values drifted to /20, /30, /45 and /50, and three cards had
+ * no scrim at all. `bg-gradient-primary` — every primary button in the app — ended on
+ * `z-purple-light`, putting white bold label text at 2.72:1 in the dark theme. None of that is
+ * visible by reading a component; it only shows up when you multiply the stop by the scrim.
+ *
+ * Adding a gradient utility: add it here with the weakest text it must carry. If it never has
+ * text on it (a progress-bar fill, a glow), leave it out and say so — `bg-gradient-urgent`, the
+ * Speed timer bar, is the only current example.
+ */
+const GRADIENT_SURFACES: { utility: string; minWhiteAlpha: number; note: string }[] = [
+  // Buttons. Deliberately unscrimmed (a scrim reads as muddy at button size), so the floor is
+  // full white — hierarchy on these comes from weight and size, never from a dimmer label.
+  { utility: 'bg-gradient-primary', minWhiteAlpha: 1, note: 'primary CTA buttons' },
+  // Scrimmed card surfaces: heading `text-white`, secondary line `text-white/80`.
+  { utility: 'bg-gradient-teal', minWhiteAlpha: 0.8, note: 'quiz / warm-up cards' },
+  { utility: 'bg-gradient-blue', minWhiteAlpha: 0.8, note: 'Speed Challenge entry + sprint tier' },
+  { utility: 'bg-gradient-violet', minWhiteAlpha: 0.8, note: 'practice entry cards + blitz tier' },
+  { utility: 'bg-gradient-amber', minWhiteAlpha: 0.8, note: 'Shop purchase buttons' },
+  { utility: 'bg-gradient-ember', minWhiteAlpha: 0.8, note: 'weak-signs card' },
+  { utility: 'bg-gradient-streak', minWhiteAlpha: 0.8, note: 'streak card' },
+  // Unscrimmed by design — it is the one COLD surface in the family, already dark enough that a
+  // scrim would crush it to flat black. It still carries text, so it still gets checked.
+  { utility: 'bg-gradient-locked', minWhiteAlpha: 0.8, note: 'locked / coming-soon world card' },
+];
+
+/** Composite `white` at `alpha` over an opaque background. */
+function whiteOver(alpha: number, bg: string): string {
+  const channels = [1, 3, 5]
+    .map((i) => parseInt(bg.slice(i, i + 2), 16))
+    .map((c) => Math.round(255 * alpha + c * (1 - alpha)));
+  return '#' + channels.map((c) => c.toString(16).padStart(2, '0')).join('');
+}
+
+/** Darken an opaque colour by a black scrim of the given alpha. */
+function scrimmed(hex: string, alpha: number): string {
+  const channels = [1, 3, 5]
+    .map((i) => parseInt(hex.slice(i, i + 2), 16))
+    .map((c) => Math.round(c * (1 - alpha)));
+  return '#' + channels.map((c) => c.toString(16).padStart(2, '0')).join('');
+}
+
+/** The utility's declaration block, straight out of the stylesheet. */
+function utilityBody(name: string): string {
+  const at = CSS.indexOf(`@utility ${name} {`);
+  if (at === -1) throw new Error(`index.css has no "@utility ${name}"`);
+  return CSS.slice(at, CSS.indexOf('}', at));
+}
+
+describe.each([
+  ['dark', ':root,\n.dark'],
+  ['light', '.light {'],
+])('%s theme gradient surfaces', (themeName, selector) => {
+  const tokens = themeTokens(selector);
+
+  for (const { utility, minWhiteAlpha, note } of GRADIENT_SURFACES) {
+    it(`${utility} carries white/${minWhiteAlpha * 100} at AA (${note})`, () => {
+      const body = utilityBody(utility);
+
+      // A baked-in scrim is the first background layer: linear-gradient(rgb(0 0 0 / A), same).
+      const scrimAlpha = Number(body.match(/rgb\(0 0 0 \/ ([\d.]+)\)/)?.[1] ?? 0);
+
+      // Colour stops are either literal hex or var(--color-z-NAME); resolve the latter per theme.
+      const stops = [...body.matchAll(/#[0-9A-Fa-f]{6}|var\(--color-(z-[\w-]+)\)/g)]
+        .map((m) => (m[1] ? tokens[m[1]] : m[0]))
+        .filter(Boolean);
+      expect(stops.length, `could not parse colour stops out of "${utility}"`).toBeGreaterThan(0);
+
+      // Lightest stop = worst case for white text.
+      const lightest = stops.reduce((a, b) => (luminance(b) > luminance(a) ? b : a));
+      const surface = scrimmed(lightest, scrimAlpha);
+      const ratio = contrastRatio(whiteOver(minWhiteAlpha, surface), surface);
+
+      expect(
+        Number(ratio.toFixed(2)),
+        `${utility}: white/${minWhiteAlpha * 100} on its lightest stop (${lightest} under a ` +
+          `${scrimAlpha * 100}% scrim = ${surface}) is ${ratio.toFixed(2)}:1 in the ${themeName} ` +
+          `theme — below AA. Deepen the scrim or darken the stop; do not fix this at the call ` +
+          `site with a one-off text colour, which is how the family drifted apart before.`
+      ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    });
+  }
+});

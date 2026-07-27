@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { useUserStore } from '@/stores/useUserStore';
 
 // The browser fires `beforeinstallprompt` (Chrome / Edge / Android) when the PWA is installable.
 // We stash the event and trigger it from our own button so the install offer matches the app's UI
@@ -65,8 +66,17 @@ export function InstallPrompt() {
   // overlapping, unreadable text (impeccable polish pass, 2026-07-11). The update-available
   // toast is the more time-sensitive of the two (a stale service worker can mean stale app code),
   // so it takes priority; install/iOS-hint wait for it to clear.
-  const showInstall = !needRefresh && !dismissed && !!deferred;
-  const showIos = !needRefresh && !dismissed && showIosHint;
+  //
+  // Gated on having finished a lesson (2026-07-27). `beforeinstallprompt` fires on first load, so
+  // the banner used to appear on the welcome screen — at `bottom-24` it covered the tagline and
+  // overlapped the "Get Started" CTA, on the exact screen where half of all users already leave
+  // (verified in Chrome against the production build). Requiring one completed lesson puts it
+  // after the first-run flow AND after the first lesson, so it can obscure neither, and it only
+  // ever asks someone who has actually seen the product work. `completedLessons` is read
+  // reactively so the banner appears on the completion screen, not a reload later.
+  const earnedInstallPrompt = useUserStore((s) => s.completedLessons.length > 0);
+  const showInstall = earnedInstallPrompt && !needRefresh && !dismissed && !!deferred;
+  const showIos = earnedInstallPrompt && !needRefresh && !dismissed && showIosHint;
 
   return (
     <>

@@ -468,7 +468,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-bold">Sign It</h3>
-                    <p className="text-purple-200 text-sm mt-1">Camera + demo clip to follow along</p>
+                    <p className="text-white text-sm mt-1">Camera + demo clip to follow along</p>
                   </div>
                   <span className="text-3xl">🤟</span>
                 </div>
