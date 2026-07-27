@@ -2,9 +2,9 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import { Capture, getSharedCapture } from '@/engine/capture';
 import { RollingBuffer, HandStabilizer, type Frame } from '@/engine/landmarks';
 import { verify, type VerifyResult, resultPassed } from '@/engine/verifier';
-import { gatePass, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
+import { gateOutcome, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
 import { topK, type SignClassifier } from '@/engine/classifier';
-import { GATE_CONFIDENCE, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
+import { GATE_CONFIDENCE, GATE_ENFORCED, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
 import { MovementKind, type Sign } from '@/engine/schema';
 import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
@@ -261,12 +261,16 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 cls.classify(snapshot)
                   .then((vote) => {
                     if (!gatedSign) return;
-                    const passed = gatePass(true, vote, gatedSign.name, gateConfRef.current);
+                    const { passed, modelVetoed } = gateOutcome(true, vote, gatedSign.name, gateConfRef.current);
+                    // Suppressed whenever the learner passed — a "that looked more like X" note
+                    // next to a success is contradictory, and in shadow mode every attempt the
+                    // model disliked still passes.
                     const hint = passed ? null : gateHint(vote, gatedSign.name);
                     voteCallbackRef.current?.({
                       prompted: gatedSign.name,
                       vote,
-                      decision: passed ? 'pass' : 'veto',
+                      decision: modelVetoed ? 'veto' : 'pass',
+                      enforced: GATE_ENFORCED,
                       topK: vote ? topK(vote, 3) : [],
                       hint,
                     });
@@ -274,7 +278,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       signName: gatedSign.name,
                       params: vr.params,
                       vote,
-                      decision: passed ? 'pass' : 'veto',
+                      decision: modelVetoed ? 'veto' : 'pass',
                     });
                     attemptCountRef.current += 1;
                     attemptCallbackRef.current?.({
@@ -282,7 +286,9 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       rulePassed: true,
                       aiPrediction: vote ? vote.topSign : null,
                       aiConfidence: vote ? vote.confidence : null,
-                      aiVetoed: !passed,
+                      // The model's opinion, NOT the learner's result — these diverge in shadow
+                      // mode and that divergence is exactly the veto-precision measurement.
+                      aiVetoed: modelVetoed,
                       finalPassed: passed,
                       frames: snapshot,
                       durationMs: Math.round(performance.now() - loopStartRef.current),

@@ -19,8 +19,37 @@ export const CLASSES_URL = '/models/signs/classes.json';
  * the user signed a DIFFERENT sign. Higher = more conservative (fewer vetoes). Tuned high
  * because model_v1 is ~66% — we only want to catch confident mismatches, never second-guess a
  * correct sign the model is unsure about.
+ *
+ * NOTE: this threshold is inert while GATE_ENFORCED is false. Do not tune it as a fix — see below.
  */
 export const GATE_CONFIDENCE = 0.7;
+
+/**
+ * Master switch for veto ENFORCEMENT ("shadow mode" when false).
+ *
+ * When false the classifier still loads, still runs inference on every attempt, and every vote is
+ * still recorded to `sign_attempts` (ai_prediction / ai_confidence / ai_vetoed) — it simply cannot
+ * reject a rule-pass. That keeps the measurement while removing the user-facing harm.
+ *
+ * Set to FALSE on 2026-07-27 because production data proved the veto was rejecting correct signs:
+ *   HELLO — 240 attempts, rule verifier passed 231 (96.3%), users saw 61 pass (25.4%).
+ *   All 170 losses were vetoes. The model was CONFIDENTLY wrong, not uncertain:
+ *   it called a correct HELLO "NO_SIGN" @ 0.872 avg confidence and "HOSPITAL" @ 0.938 (max 0.967).
+ *   One user attempted HELLO 73 times. YOU 28.9%, MEDICINE 16.0%, WANT 33.3% — same mechanism.
+ *
+ * This is out-of-distribution failure: model_v4 was trained on ASL Citizen / WLASL studio video
+ * and scored 85% there, but runs on live webcam landmarks. Raising GATE_CONFIDENCE cannot fix it
+ * (the bad predictions sit above any usable threshold) and would be exactly the kind of
+ * threshold-tuning band-aid .claude/rules/fixes.md prohibits.
+ *
+ * BEFORE FLIPPING THIS BACK TO TRUE, all three must hold:
+ *   1. Live-pipeline preprocessing verified identical to training preprocessing (the "NO_SIGN
+ *      @ 0.87 on a correct sign" signature points at a temporal-window/feature mismatch).
+ *   2. Measured veto precision from shadow-mode production data is high — i.e. attempts where
+ *      ai_vetoed = true were genuinely wrong signs, not correct ones.
+ *   3. Re-enabled PER SIGN via GATE_EXCLUDED_SIGNS, never globally in one step.
+ */
+export const GATE_ENFORCED = false;
 
 /**
  * Verbose classifier logging + the on-screen ClassifierDevPanel, during testing. Logs every gate

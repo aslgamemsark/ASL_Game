@@ -1,0 +1,300 @@
+# QuickSign Product Backlog
+
+> Format: one `### QS-0NN` block per item, grouped by severity. Update `Status:` in place when
+> shipped — don't delete entries. Evidence must cite real numbers (PostHog project 518794 /
+> Supabase `juzqilqilxzmudazltjx`), never guesses.
+>
+> **Analytics rule:** always exclude `$geoip_country_code = 'PK'` — that traffic is friends and
+> family, not real users. Target market is US/CA.
+
+---
+
+## 🔴 Critical
+
+### QS-001
+Problem:
+Need more users.
+
+Evidence:
+- most people are leaving at onboarding
+Goal:
+we need to make users do atleast 1 lesson.
+
+Possible solutions:
+-  read posthog analytics everyday at 12am(evening) and store the statistics , analyse them and give a thought on it,maybe ways to improve the app
+make sure to open recording and maybe use (summarize by AI ) feature in post hog
+
+Status:
+Open — root causes now identified, see QS-002 through QS-005.
+
+---
+
+### QS-002
+Problem:
+The ML classifier veto rejects signs the user performed **correctly**. This is the single biggest
+reason nobody finishes Lesson 1. The rule engine says pass; the AI overrides it and tells a correct
+learner they are wrong, repeatedly, until they leave.
+
+Evidence (Supabase `sign_attempts`, 812 attempts / 11 users, 2026-07-27):
+- HELLO: 240 attempts → rule engine passed **231 (96.3%)** → final passed **61 (25.4%)**.
+  All 170 losses were `ai_vetoed`. `rule_ok_but_failed` == `ai_vetoed` exactly, every sign.
+- YOU: rule 97.8% → final 28.9%. MEDICINE: rule 100% → final 16%. WANT: rule 100% → final 33.3%.
+- The model is *confidently* wrong, so no threshold fixes it:
+  HELLO vetoed as `NO_SIGN` 81× @ 0.872 avg conf; as `HOSPITAL` 61× @ 0.938 avg conf (max 0.967).
+  `GATE_CONFIDENCE` was already raised 0.5 → 0.7 once and did not help.
+- One user attempted HELLO **73 times**; average 24.8 attempts per user on HELLO alone.
+- Lesson 1 is `['HELLO','PLEASE','YOU']` (data/lessons.ts:16) — two of its three signs are the
+  two worst performers in the entire app.
+- Fingerspelled letters (static handshapes, no movement model) pass 90–100%. The failure is
+  specific to the sequence model.
+
+Root cause:
+Out-of-distribution failure. `model_v4` was trained on ASL Citizen / WLASL studio video and scored
+85% on that distribution; it is being run on live webcam landmarks. `NO_SIGN` @ 0.87 confidence on
+a correctly-performed sign indicates the live preprocessing/temporal window does not match training.
+The comment in `web/src/engine/gate.ts` claiming veto-only "never rejects a correct sign the user
+actually made" is empirically false in production and should be corrected.
+
+Possible solutions:
+- **Immediate:** disable the veto (`GATE_CONFIDENCE` in `web/src/config/classifier.ts`, or bypass
+  in `gatePass`). Restores the 96% rule pass rate today. Also lets the 1.08 MB `vendor-tfjs`
+  chunk be dropped from the bundle.
+- Then, before re-enabling: verify live-pipeline feature parity against training preprocessing;
+  re-train/calibrate on the real webcam captures already collected (`training_samples` 808 rows,
+  `sign_verification_log` 442 rows); re-enable per-sign only where measured veto precision is high.
+- Per `.claude/rules/fixes.md`, do NOT ship another threshold bump as the fix.
+
+Status:
+Open
+
+---
+
+### QS-003
+Problem:
+Two consent/commitment walls stand between a cold visitor and any value. The first screen at the
+root URL is a **Terms & Conditions modal** — not a hero, not a sign, not the camera. The second
+onboarding step is an **account wall** ("Save your progress"), shown before the user has seen a
+single sign.
+
+Evidence (PostHog, non-PK users, 90d):
+| Stage | Users |
+|---|---|
+| Non-PK users touching the app | 52 |
+| Reached the app shell / Terms modal | 26 |
+| Got past Terms to a real onboarding step | **13** |
+| Reached the auth step | 6 |
+| Reached the skill step | **1** |
+| Completed onboarding | 1 |
+| Completed a lesson | 1 |
+
+- ~50% lost at the Terms wall; ~83% of those reaching auth never get past it.
+- `signup_started` 9 users → `signup_completed` 3.
+- Median session length for users who never reached onboarding: **5–30 seconds**.
+- `landing.html` advertises "**Free, no signup**" — the app then demands signup. Promise break.
+- "Continue as guest" is the lowest-contrast, smallest element on the auth screen
+  (`text-z-gray-400 text-sm underline`, OnboardingFlow.tsx:160-165).
+
+Possible solutions:
+- Move Terms acceptance to first *account creation*, not first paint. A beta disclaimer can be a
+  dismissible strip.
+- Move the account wall to **after** the first successful sign (Duolingo's ordering). Let the whole
+  first lesson run as guest, then offer "save your streak".
+- Make guest the visually equal option, not a hidden link.
+- Route the root URL to the real landing page, or fold its value proposition into the welcome step.
+
+Status:
+Open
+
+---
+
+### QS-004
+Problem:
+Supabase auth tokens are leaking into PostHog session recordings.
+
+Evidence:
+- A recording's `start_url` (2026-07-25T21:56) contains a full Supabase JWT `access_token` **and**
+  `refresh_token` from a `type=signup` redirect. The JWT payload decodes to a real user's email.
+- `sanitizeAnalyticsProperties` (`web/src/analytics/client.ts:28-36`) strips only `?` query
+  strings. Supabase returns tokens in the `#` fragment, which passes through untouched.
+- The function's own comment anticipates exactly this risk ("in case a query string (e.g. a
+  password-reset or magic-link token) ever leaks") but only handles the wrong separator.
+
+Possible solutions:
+- Strip on `#` as well as `?` in `sanitizeAnalyticsProperties`, and scrub the fragment before
+  PostHog initializes.
+- Purge affected recordings; rotate/invalidate any still-valid refresh tokens.
+- Add a unit test asserting a URL containing `access_token` is redacted.
+
+Status:
+Open
+
+---
+
+## 🟠 High
+
+### QS-005
+Problem:
+Retention is effectively zero and the instrumentation that would explain it is partly broken.
+
+Evidence:
+- **51 of 52** non-PK users were active on exactly one day. One user returned for a second day.
+  Zero users reached day 3.
+- `login` fires on every Supabase `SIGNED_IN`, including token refresh — one user produced **222
+  login events in a single day** (`AuthContext.tsx:82`). The metric is unusable as-is.
+- `autocapture: false` means PostHog cannot compute `$rageclick` — a core signal for QS-001's
+  "read recordings" plan is structurally unavailable.
+- `dominant_hand_selected` is emitted from `PracticePage.tsx`, not onboarding, but an
+  `onboarding_step_viewed` step named `hand` exists in the data — taxonomy drift worth cleaning.
+
+Possible solutions:
+- Gate the `login` track on a real sign-in (compare against previous session id) rather than the
+  raw `SIGNED_IN` event.
+- Enable autocapture, or add explicit dead-click/repeat-click instrumentation on key CTAs.
+- Fix QS-002 and QS-003 first — there is currently no retention to measure because almost nobody
+  reaches the product.
+
+Status:
+Open
+
+---
+
+### QS-006
+Problem:
+The welcome screen overflows the fold on a 720p viewport, and communicates nothing about what the
+product actually does.
+
+Evidence:
+- Measured on production at 1280×720: `document.scrollHeight` 728px vs 720px viewport. The
+  "Get Started" CTA sits at y=628–688 — the very bottom edge. On a 1366×768 laptop with browser
+  chrome (~650px usable) it would sit below the fold.
+- Total copy on the screen: "Welcome to QuickSign / BEYOND WORDS / Hi! I'm Zippy. Let's learn to
+  sign, one step at a time." No mention of the camera, the per-parameter feedback, that it's free,
+  or how long a lesson takes — while `landing.html` (which almost nobody sees) says all of it well.
+
+Possible solutions:
+- Tighten vertical rhythm so the CTA clears a 650px viewport.
+- Pull the landing page's actual value proposition ("Practice real signs with real-time feedback
+  that tells you exactly what to fix", "on-device, private", "free") onto this screen.
+
+Status:
+Open
+
+---
+
+## 🔵 Merged from Rafay's backlog (triaged 2026-07-27)
+
+Source preserved verbatim at [PRODUCT_BACKLOG_RAFAY.md](PRODUCT_BACKLOG_RAFAY.md).
+
+### QS-009 (was Rafay QS-002) — Drop email/password signup; keep Google + guest
+Problem:
+Email signup loses half the people who start it.
+
+Evidence:
+- Rafay: session replays `019f91e5-18a4-7048-8790-946904c61f5f`,
+  `019f9b45-90dd-7419-b246-72cb459226dd` — users leaving before confirming their email.
+- **Confirmed in `auth.users`:** 4 email signups, **2 never confirmed (50%)**. 17 of 21 total users
+  came via Google. `signup_started` 9 → `signup_completed` 3 in PostHog.
+
+⚠️ **Rafay's stated mechanism is NOT supported by the data — the fix is still correct.**
+He attributed it to "Supabase can only handle 5 emails per hour." The 4 email signups occurred on
+2026-07-16, 07-24, 07-25 and 07-26 — days apart, never clustered, so no hourly limit was hit.
+`confirmation_sent_at` is populated within ~0.1s in all 4 cases, and the 2 who did confirm took
+**1.7 min and 0.23 min** — delivery works and is fast. The real mechanism is the **context switch**:
+users leave the app to check email and don't come back.
+
+This distinction matters: believing the rate-limit theory would lead to configuring custom SMTP
+(SendGrid/Resend), which would **not** fix anything. Removing the email round-trip does.
+(Rate limits may still bite later at higher volume — revisit above ~50 signups/day.)
+
+Goal: raise signup conversion (KPI #6, baseline 33.3%).
+
+Possible solutions:
+- Hide email/password signup; offer **Google + Continue as guest** only. Keep email *sign-in* for
+  the 4 existing accounts. Behind a flag so it's reversible.
+- Supersedes nothing in Sprint 2 — it composes with QS-003's guest-first ordering.
+
+Status:
+Open — scheduled S1-T6 (cheap, low risk, cannot confound Sprint 1's core-loop KPI)
+
+---
+
+### QS-010 (was Rafay QS-001) — No path to the next lesson after completing one
+Problem:
+After finishing a lesson there is no "Next lesson" action, and returning Home does not surface
+where the user left off.
+
+Evidence:
+- Rafay: PostHog session `019f91da-af1b-7bbc-b146-2d01ed87d0d2`; replays show users leaving before
+  starting a second lesson.
+- Corroborating: `lesson_completed` 5 events / 3 users vs `lesson_started` 12 / 5 users — nobody
+  progresses past their first completion.
+
+⚠️ **Deliberately NOT scheduled for Sprint 1.** Only 1 non-PK user has ever completed a lesson, so
+this currently affects ~1 person and cannot be measured (minimum-n gate). It becomes a top-priority
+item the moment QS-002 + QS-003 land and users start finishing lessons — it is the *next*
+bottleneck, not the current one.
+
+Goal: lessons completed per activated user (currently ~1.0).
+
+Possible solutions:
+- "Next lesson →" as the primary action on the completion screen.
+- Home auto-scrolls to / highlights the next incomplete lesson.
+
+Status:
+Open — scheduled Sprint 2, pending Sprint 1 data
+
+---
+
+## 🟡 Medium
+
+### QS-007
+Problem:
+`room_join_attempts` has RLS enabled but **no policies**, and 11 `SECURITY DEFINER` admin functions
+are executable by any authenticated user.
+
+Evidence (Supabase security advisor, 2026-07-27):
+- `rls_enabled_no_policy` on `public.room_join_attempts`.
+- `admin_grant_gold`, `admin_set_ban`, `admin_grant_cosmetics`, `admin_set_username`,
+  `admin_set_world_flag`, `admin_analytics`, and others callable via `/rest/v1/rpc/...` by the
+  `authenticated` role.
+- Leaked-password protection (HaveIBeenPwned) is disabled in Supabase Auth.
+
+Possible solutions:
+- Confirm each `admin_*` function performs its own `is_admin` check internally; if it does, this is
+  informational — document that. If any does not, revoke `EXECUTE` from `authenticated`.
+- Add an explicit policy to `room_join_attempts` (or drop the table if unused — it has 3 rows).
+- Enable leaked-password protection.
+
+Status:
+Open
+
+---
+
+### QS-008
+Problem:
+Bundle carries 1.08 MB of TensorFlow.js to run the model that is currently breaking recognition.
+
+Evidence:
+- `dist/assets/vendor-tfjs-*.js` = 1,082,670 bytes uncompressed; `dist/` totals 18 MB.
+- `AnalyticsTab` chunk is 393 KB — admin-only surface.
+
+Possible solutions:
+- Falls out of QS-002: if the veto is disabled, tfjs and the model download can be dropped entirely
+  until the model is fixed.
+- Confirm `AnalyticsTab` is lazy-loaded behind the admin check.
+
+Status:
+Open
+
+---
+
+## ✅ Verified healthy (do not spend time here)
+
+- **Core Web Vitals.** LCP p75: Mobile 1,992 ms, Desktop 1,783 ms — both inside Google's "good"
+  threshold. Load performance is *not* a drop-off cause.
+- **Fingerspelled letters.** LETTER_B 100%, LETTER_H 93.3%, LETTER_I 90.9%, LETTER_N 66.7%.
+  The static-handshape path works.
+- **The rule engine.** 93–100% pass rate across every measured sign. The recognition core is sound;
+  only the ML layer on top of it is broken.
+- **Event taxonomy design.** `analytics/events.ts` is a genuinely well-built single source of truth
+  with compile-time enforcement. The problems are in a few call sites, not the architecture.

@@ -97,10 +97,12 @@ export function useClassifier(enabled: boolean = true) {
     const rulePred = d.prompted;
     const aiPred = ai ? ai.topSign : '(no vote)';
     const aiConf = ai ? `${(ai.confidence * 100).toFixed(1)}%` : 'n/a';
-    const finalPred = d.decision === 'pass' ? d.prompted : '(rejected — no pass)';
+    // In shadow mode a 'veto' decision is recorded but NOT applied, so the learner still passed.
+    const finalPred = d.decision === 'pass' || !d.enforced ? d.prompted : '(rejected — no pass)';
 
     let aiEffect: string;
     if (!ai) aiEffect = 'AI produced no vote — rule result UNCHANGED';
+    else if (d.decision === 'veto' && !d.enforced) aiEffect = `AI wanted to veto (it saw "${ai.topSign}", not "${d.prompted}") — SHADOW MODE, not enforced, learner PASSED`;
     else if (d.decision === 'veto') aiEffect = `AI VETOED the rule ✗ (it saw "${ai.topSign}", not "${d.prompted}")`;
     else if (ai.topSign !== d.prompted) aiEffect = `AI disagreed ("${ai.topSign}") but below veto threshold — rule UNCHANGED`;
     else aiEffect = 'AI agreed with the rule ✓ — rule UNCHANGED';
