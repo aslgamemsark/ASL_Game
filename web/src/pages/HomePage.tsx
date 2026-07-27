@@ -134,10 +134,17 @@ export function HomePage({
                   }}
                 >
                   <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+                  {/* Scrim, per DESIGN.md's rule for text on a saturated gradient. This card is the
+                      entry point to SpeedChallengePage's tier cards, which got the scrim in the
+                      2026-07-03 contrast pass — this one was missed, leaving the subtitle at
+                      2.59:1 and even the white heading at 3.68:1, both below AA. Measured over the
+                      gradient's light end (#3B82F6): black/45 puts the heading at 9.02:1 and
+                      white/80 body at 6.43:1. */}
+                  <div className="absolute inset-0 bg-black/45 rounded-2xl" />
                   <div className="relative flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-bold text-white">⚡ Speed Challenge</h3>
-                      <p className="text-blue-200 text-sm mt-1">Race the clock · 3× XP in Blitz mode</p>
+                      <p className="text-white/80 text-sm mt-1">Race the clock · 3× XP in Blitz mode</p>
                     </div>
                     <motion.span
                       className="text-3xl inline-block"

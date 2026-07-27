@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useUserStore } from '@/stores/useUserStore';
 
 const DIFF_STYLE = {
-  easy:   { text: 'text-emerald-400', bg: 'bg-emerald-400/15' },
-  medium: { text: 'text-z-yellow',   bg: 'bg-z-yellow/15'    },
-  hard:   { text: 'text-z-orange',   bg: 'bg-z-orange/15'    },
+  easy:   { text: 'text-z-green',  bg: 'bg-z-green/15'  },
+  medium: { text: 'text-z-yellow', bg: 'bg-z-yellow/15' },
+  hard:   { text: 'text-z-orange', bg: 'bg-z-orange/15' },
 };
 
 export function DailyQuestsCard() {
@@ -35,7 +35,7 @@ export function DailyQuestsCard() {
         <h3 className="font-bold text-sm text-z-gray-300 uppercase tracking-widest">
           Daily Quests
         </h3>
-        <span className={`text-xs font-bold ${allDone ? 'text-emerald-400' : 'text-z-gray-300'}`}>
+        <span className={`text-xs font-bold ${allDone ? 'text-z-green' : 'text-z-gray-300'}`}>
           {allDone ? '✓ All claimed!' : `${claimed}/${dailyQuests.length} done`}
         </span>
       </div>
@@ -58,7 +58,7 @@ export function DailyQuestsCard() {
             <motion.div
               key={quest.id}
               className={`bg-z-card border rounded-2xl p-4 transition-colors ${
-                quest.claimed ? 'border-emerald-500/20' : 'border-white/5'
+                quest.claimed ? 'border-z-green/20' : 'border-white/5'
               }`}
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
@@ -74,7 +74,7 @@ export function DailyQuestsCard() {
                   {quest.claimed ? (
                     <motion.span
                       key="check"
-                      className="text-emerald-400 text-sm font-bold flex-shrink-0"
+                      className="text-z-green text-sm font-bold flex-shrink-0"
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: 'spring', stiffness: 300 }}
@@ -110,8 +110,7 @@ export function DailyQuestsCard() {
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-1.5 bg-z-gray-500/40 rounded-full overflow-hidden">
                   <motion.div
-                    className={`h-full rounded-full ${quest.claimed ? '' : 'bg-gradient-primary'}`}
-                    style={quest.claimed ? { background: '#34D399' } : undefined}
+                    className={`h-full rounded-full ${quest.claimed ? 'bg-z-green' : 'bg-gradient-primary'}`}
                     initial={{ width: 0 }}
                     animate={{ width: `${pct * 100}%` }}
                     transition={{ duration: 0.65, ease: 'easeOut', delay: 0.2 + i * 0.07 }}

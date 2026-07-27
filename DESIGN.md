@@ -21,11 +21,16 @@ modals) that had drifted off-token; they broke light-mode contrast since the lig
 redefines `z-red`/`z-green` to different, darker values than Tailwind's own red-400/green-400.
 All fixed — don't reintroduce the pattern.
 
-The app's one deliberate inline-style exception is a single gradient value, now consolidated into
-the `bg-gradient-primary` utility class (`web/src/index.css`, defined via Tailwind v4's
-`@utility`) — use that class instead of writing `style={{ background: 'linear-gradient(135deg, ...)' }}`
-again; 15 call sites across the app had drifted into two near-duplicate hex pairs before this was
-extracted.
+The brand gradient is consolidated into the `bg-gradient-primary` utility class
+(`web/src/index.css`, defined via Tailwind v4's `@utility`) — use that class instead of writing
+`style={{ background: 'linear-gradient(135deg, ...)' }}` again; 15 call sites across the app had
+drifted into two near-duplicate hex pairs before this was extracted.
+
+**Correction (2026-07-27):** this section previously claimed that gradient was the app's *one*
+inline-style exception. It is not — 20 hardcoded inline `linear-gradient(...)` values remain
+across 15 files, and because they are literal hex they are all theme-blind. `StreakCard.tsx:20`
+is the clearest cost: it hardcodes `#18103A`, the *dark* theme's `z-card`, so the streak card
+stays near-black while every other card turns light lavender in light mode. Tracked as QS-010.
 
 | Role | Token | Value |
 |---|---|---|
@@ -41,11 +46,26 @@ extracted.
 | Page background | `--color-z-bg` | `#0D0A1E` |
 | Card / surface / hover | `--color-z-card` / `-surface` / `-surface-hover` | `#18103A` / `#221548` / `#2D1B5C` |
 
+The table above lists DARK values. **Light values are not hue-matches of them and must never be
+"corrected" into hue-matches** — a dark theme needs light accents to be legible on a near-black
+surface, and a light theme needs the same semantic role to be dark. Light values are derived by
+holding each colour's OKLCH hue and chroma and lowering lightness only until it clears AA against
+`z-bg` (`#E7D9FB`), the darkest of the three light surfaces. Hue-matching is exactly how the
+2026-07-27 regression happened: 26 light pairs sat below AA, `z-yellow` (XP) at 1.27:1 and
+`z-green` (sign passed) at 2.82:1 — the learner could not read their own result. See QS-009.
+
+`web/tests/tokenContrast.test.ts` now asserts this mechanically for every text token × surface ×
+theme, parsing the shipped CSS so it cannot drift from what ships. Change a token, run it, and it
+reports the exact ratio. Do not silence it by lightening a surface — that flattens the card/page
+separation the light theme deliberately builds.
+
 **Color strategy: committed.** Purple carries identity; orange = streak/energy, teal = XP/
-knowledge, semantic green/red for pass/fail coaching. **Rule (2026-07-03):** any text sitting on
-a saturated gradient/solid brand background needs an explicit contrast check — two WCAG failures
-were fixed with `bg-black/30` scrims (PracticeTab story card, SpeedChallenge tier cards); reuse
-that scrim technique rather than lightening text.
+knowledge, semantic green/red for pass/fail coaching. **Rule (2026-07-03, floor corrected
+2026-07-27):** any text sitting on a saturated gradient/solid brand background needs an explicit
+contrast check — use a scrim rather than lightening the text. The original `bg-black/30` was
+tuned against one gradient and does not hold for the lighter ones (teal and amber cards fail even
+at full white). The verified floor across the whole card family is **`bg-black/45` +
+`text-white/80` minimum** — 4.62:1 worst case. See QS-010.
 
 ## Typography
 

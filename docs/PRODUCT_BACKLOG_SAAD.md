@@ -288,6 +288,86 @@ Open
 
 ---
 
+### QS-009
+Problem:
+The light theme shipped without a contrast audit. 26 token/surface pairs were below WCAG AA,
+including every colour that carries the product's core feedback vocabulary. A learner in light
+mode could not reliably read whether they had just succeeded.
+
+Evidence (computed from the `@theme` values in `web/src/index.css`, both themes, all three
+surfaces — `z-bg` / `z-card` / `z-surface`):
+| Token | Role | Worst ratio (light) | Text call sites |
+|---|---|---|---|
+| `z-yellow` | XP | **1.27:1** | 34 |
+| `z-orange` | streak / energy | **2.02:1** | 14 |
+| `z-green` | sign passed | **2.82:1** | 26 |
+| `z-blue` | info | 3.87:1 | 1 |
+| `z-gray-300` | muted body text | 4.23:1 | 102 |
+| `z-purple-light` / `-glow` | brand accent text | 4.26:1 | 69 |
+
+- The dark theme was clean (one pair at 4.40:1) — so this is specifically a theme that was never
+  audited, not a general palette problem. Light mode is user-toggleable and persisted
+  (`contexts/ThemeContext.tsx`), so this is live for anyone who flips it.
+- Root cause: light values were chosen by hue-matching their dark counterparts rather than
+  re-derived against an inverted background. `--rt-z-yellow` was `#4CD7F6` in BOTH themes.
+- Contradicts PRODUCT.md's stated floor ("WCAG AA is the floor").
+
+Fix shipped:
+Light values re-derived by holding each colour's OKLCH hue + chroma and lowering lightness only
+until it cleared AA against `z-bg` (the darkest light surface, so clearing it clears the other
+two). Dark `z-red` `#EF4444` → `#F24746`. Also removed the raw-Tailwind drift that DESIGN.md says
+was fixed on 2026-07-11 and has since regressed (8 sites: `emerald-400`/`emerald-500`/`blue-200`,
+plus a hardcoded `#34D399` inline style in `DailyQuestsCard`). `ClassifierDevPanel`'s raw colours
+were deliberately left — it renders on a fixed `bg-black/85`, so it is theme-independent.
+
+Guarded by `web/tests/tokenContrast.test.ts` — parses the shipped CSS (not a duplicated palette)
+and asserts every text token against every surface in both themes, 84 assertions. Verified to
+fail with the real ratio when a token regresses.
+
+Status:
+Shipped 2026-07-27 — `npm run build` clean, 640 tests pass, new values confirmed in emitted CSS.
+
+---
+
+### QS-010
+Problem:
+The "saturated gradient card" pattern is used ~6 times and its `bg-black/30` scrim was tuned
+against one gradient. It does not hold for the lighter gradients in the family, so subtitle text
+on several cards is below AA.
+
+Evidence (contrast measured over each gradient's light end, at the scrim each card uses today):
+| Card | Gradient light end | Subtitle today | Ratio |
+|---|---|---|---|
+| HomePage Speed Challenge | `#3B82F6`, **no scrim** | `text-blue-200` | **2.59:1** |
+| SpeedChallenge — Warm Up | `#14B8A6` @ /30 | `text-white/70` | 3.16:1 |
+| SpeedChallenge — Sprint | `#3B82F6` @ /30 | `text-white/70` | 4.13:1 |
+| SpeedChallenge — Blitz | `#A855F7` @ /30 | `text-white/70` | 4.30:1 |
+| ShopPage gold card | `#F59E0B` @ /30 | — | 2.88:1 at white/70 |
+
+- The teal and amber cards fail even at **full white** under a /30 scrim (4.77:1 and 4.20:1).
+- DESIGN.md records the 2026-07-03 pass as having fixed "SpeedChallenge tier cards" — it fixed the
+  white *headings*, not the subtitles beneath them, and missed HomePage's entry-point card
+  entirely (same gradient, same card shape, no scrim at all).
+- Verified floor: **`bg-black/45` + `text-white/80`** clears AA on every card in the family
+  (4.62:1 worst case, the amber shop card). `text-white/70` still fails there (3.94:1).
+
+Partial fix shipped:
+HomePage's Speed Challenge card only (the worst offender, and above the fold on the home screen)
+— `bg-black/45` scrim added, subtitle `text-blue-200` → `text-white/80`. Heading 3.68 → 9.02:1,
+subtitle 2.59 → 6.43:1.
+
+Remaining:
+Apply the same floor to `SpeedChallengePage` tier cards and `ShopPage`'s gold cards. Related:
+20 hardcoded inline `linear-gradient(...)` values across 15 files bypass the token system
+entirely — DESIGN.md's claim that this was consolidated to "a single gradient value" is stale.
+`StreakCard.tsx:20` is the worst: it hardcodes `#18103A`, the *dark* theme's `z-card`, so the
+streak card stays near-black while every other card turns light lavender in light mode.
+
+Status:
+Open (HomePage portion shipped)
+
+---
+
 ## ✅ Verified healthy (do not spend time here)
 
 - **Core Web Vitals.** LCP p75: Mobile 1,992 ms, Desktop 1,783 ms — both inside Google's "good"

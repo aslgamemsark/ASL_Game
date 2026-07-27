@@ -4,6 +4,7 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { supabaseReady } from '@/lib/supabase';
+import { EMAIL_SIGNUP_ENABLED } from '@/config/auth';
 import { Zippy } from '@/components/shared/Zippy';
 import { ZIPPY_LINES } from '@/data/zippy';
 import type { SkillLevel } from '@/types/user';
@@ -154,7 +155,10 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                 whileHover={{ scale: 1.02, borderColor: 'rgba(168,85,247,0.5)' }}
                 whileTap={{ scale: 0.97 }}
               >
-                Sign in with email
+                {/* Labelled as a returning-user action, not a signup route: with email signup
+                    withdrawn, "Sign in with email" led a brand-new user to a form that cannot
+                    create them an account. */}
+                {EMAIL_SIGNUP_ENABLED ? 'Sign in with email' : 'Already have an account? Sign in'}
               </motion.button>
 
               <button

@@ -160,7 +160,7 @@ export function CelebrationHost() {
             ) : (
               <>
                 <Zippy expression="achievement" size="lg" priority className="mx-auto mb-3" />
-                <p className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-1">
+                <p className="text-xs font-bold uppercase tracking-widest text-z-green mb-1">
                   Quest complete
                 </p>
                 <h2 className="font-bold text-2xl mb-3">{current.title}</h2>

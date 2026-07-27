@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { validateUsername } from '@/lib/username';
 import { supabaseReady } from '@/lib/supabase';
+import { EMAIL_SIGNUP_ENABLED } from '@/config/auth';
 import { ModalShell } from '@/components/shared/ModalShell';
 
 interface Props {
@@ -13,6 +14,8 @@ type UsernameStatus = 'idle' | 'checking' | 'ok' | 'error';
 
 export function AuthModal({ onClose }: Props) {
   const { signInWithEmail, signUpWithEmail, signInWithGoogle, requestPasswordReset } = useAuth();
+  // With email signup withdrawn there is only one email tab left, so the switcher is hidden and
+  // 'signin' is the only reachable starting tab (see EMAIL_SIGNUP_ENABLED for the evidence).
   const [tab, setTab] = useState<Tab>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -76,6 +79,15 @@ export function AuthModal({ onClose }: Props) {
       setLoading(false);
       if (err) { setError(err); return; }
       setResetSent(true);
+      return;
+    }
+
+    // Guarded here as well as in the UI: the signup tab is unreachable while email signup is
+    // withdrawn, but this handler is the trust boundary that actually creates the account, and it
+    // must not depend on the switcher above having hidden the tab.
+    if (tab === 'signup' && !EMAIL_SIGNUP_ENABLED) {
+      setLoading(false);
+      setError('Email signup is unavailable — please continue with Google.');
       return;
     }
 
@@ -170,20 +182,31 @@ export function AuthModal({ onClose }: Props) {
 
   return (
     <Overlay onClose={onClose}>
-      {/* Tab switcher */}
-      <div className="flex rounded-xl bg-white/5 p-1 mb-5">
-        {(['signin', 'signup'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            className={`flex-1 py-1.5 rounded-lg text-sm font-bold transition-colors ${
-              tab === t ? 'bg-z-purple text-white' : 'text-z-gray-300'
-            }`}
-            onClick={() => { setTab(t); setError(null); setUsernameStatus('idle'); setUsernameMsg(''); }}
-          >
-            {t === 'signin' ? 'Sign in' : 'Sign up'}
-          </button>
-        ))}
-      </div>
+      {/* Tab switcher — only meaningful while email signup exists. With it withdrawn, a
+          two-tab switcher offering one reachable tab is pure noise. */}
+      {EMAIL_SIGNUP_ENABLED ? (
+        <div className="flex rounded-xl bg-white/5 p-1 mb-5">
+          {(['signin', 'signup'] as Tab[]).map((t) => (
+            <button
+              key={t}
+              className={`flex-1 py-1.5 rounded-lg text-sm font-bold transition-colors ${
+                tab === t ? 'bg-z-purple text-white' : 'text-z-gray-300'
+              }`}
+              onClick={() => { setTab(t); setError(null); setUsernameStatus('idle'); setUsernameMsg(''); }}
+            >
+              {t === 'signin' ? 'Sign in' : 'Sign up'}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="mb-5">
+          <p className="font-bold text-base">Sign in</p>
+          <p className="text-z-gray-400 text-xs mt-0.5">
+            New here? Use <strong className="text-z-gray-300">Continue with Google</strong> below —
+            it's one tap, no password to invent.
+          </p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         {tab === 'signup' && (
@@ -293,7 +316,10 @@ export function AuthModal({ onClose }: Props) {
 
 function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <ModalShell onClose={onClose} ariaLabel="Sign in or create an account">
+    <ModalShell
+      onClose={onClose}
+      ariaLabel={EMAIL_SIGNUP_ENABLED ? 'Sign in or create an account' : 'Sign in'}
+    >
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
           <span className="text-xl">🤟</span>

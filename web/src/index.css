@@ -25,7 +25,7 @@
 
   --rt-z-green: #34D399;
   --rt-z-green-dark: #059669;
-  --rt-z-red: #EF4444;
+  --rt-z-red: #F24746; /* AA floor against z-surface, the lightest dark surface (was #EF4444 at 4.40:1) */
   --rt-z-blue: #60A5FA;
   --rt-z-cream: #FFF8E7;
 
@@ -54,29 +54,38 @@
      numbers, active-tab labels, NPC names, etc). Their dark-theme values are a pale lavender
      meant to pop against a near-black card - that same pale value is nearly invisible against
      the light theme's light-lavender cards, so the light variant uses a richer, readable purple
-     instead of a literal hue-match. */
-  --rt-z-purple-light: #7C3AED;
-  --rt-z-purple-glow: #7C3AED;
+     instead of a literal hue-match.
 
-  --rt-z-orange: #FD761A;
+     The same reasoning governs EVERY accent below, and it is the reason the light values look
+     so much deeper than their dark-theme counterparts. A dark theme puts text on a near-black
+     surface, so accents must be light to be legible; a light theme inverts that, so the SAME
+     semantic role needs a dark value. Light values were derived by holding each colour's OKLCH
+     hue and chroma and lowering lightness only until it cleared AA against z-bg (#E7D9FB) — the
+     darkest of the three light surfaces, so clearing it clears z-card and z-surface too.
+     Verified by tokenContrast.test.ts; change a value there and the test tells you the ratio. */
+  --rt-z-purple-light: #7834E8; /* was #7C3AED at 4.26:1 on z-bg */
+  --rt-z-purple-glow: #7834E8;  /* was #7C3AED at 4.26:1 on z-bg */
+
+  --rt-z-orange: #B73300; /* streak/energy. was #FD761A at 2.02:1 on z-bg */
   --rt-z-orange-dark: #9D4300;
   --rt-z-orange-bright: #FFB690;
 
   --rt-z-teal: #005766;
   --rt-z-teal-dark: #004E5C;
-  --rt-z-teal-light: #4CD7F6;
-  --rt-z-yellow: #4CD7F6;
+  --rt-z-teal-light: #006B88; /* was #4CD7F6 at 1.27:1 on z-bg */
+  --rt-z-yellow: #006B88;     /* XP colour, aliased to teal-light. was #4CD7F6 at 1.27:1 on z-bg */
 
-  --rt-z-green: #059669;
+  --rt-z-green: #007147; /* pass/success — the app's most important feedback colour.
+                            was #059669 at 2.82:1 on z-bg */
   --rt-z-green-dark: #047857;
   --rt-z-red: #BA1A1A;
-  --rt-z-blue: #2563EB;
+  --rt-z-blue: #1A57DE; /* was #2563EB at 3.87:1 on z-bg */
   --rt-z-cream: #FFF8E7;
 
   --rt-z-gray-50: #24123F; /* dark purple, not navy/black — primary text color in light mode */
   --rt-z-gray-100: #3A2354;
   --rt-z-gray-200: #4A4455;
-  --rt-z-gray-300: #6B6478;
+  --rt-z-gray-300: #665F73; /* WCAG AA floor against z-bg (was #6B6478 at 4.23:1) */
   --rt-z-gray-400: #625B71; /* WCAG AA 4.5:1 floor against both bg and card (was #7B7487 at 4.25/4.06:1) */
   --rt-z-gray-500: #CCC3D8;
 
