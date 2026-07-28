@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { validateUsername } from '@/lib/username';
@@ -59,6 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [bannedReason, setBannedReason] = useState<string | null>(null);
   const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false);
+  /** User id we last reported a `login` for — see the SIGNED_IN handler below. */
+  const loggedInUserRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!supabaseReady) { setLoading(false); return; }
@@ -79,7 +81,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // A real sign-in (not the initial-session restore on page load, which fires its own event).
       // A brand-new account also fires SIGNED_IN — see fetchUsername's !fetched branch below for
       // the separate signup_completed signal; both firing for one first session is intentional.
-      if (event === 'SIGNED_IN' && s) {
+      //
+      // Deduplicated by session id (2026-07-27): Supabase re-emits SIGNED_IN on token refresh and
+      // on tab focus, not only on an actual sign-in, so this fired continuously for anyone who
+      // left the app open — one user generated 222 `login` events in a single day, which made the
+      // event useless for measuring returning users. A refresh keeps the same session id, so
+      // comparing against the last one we reported counts sign-ins rather than token lifecycle.
+      // Keyed on user id, NOT on the token or its expiry — a refresh mints a new access_token and
+      // a new expires_at, so keying on either would still fire on every refresh. The ref is
+      // cleared on SIGNED_OUT below, so signing out and back in (as the same user or a different
+      // one) correctly counts as a new login.
+      if (event === 'SIGNED_IN' && s && loggedInUserRef.current !== s.user.id) {
+        loggedInUserRef.current = s.user.id;
         track('login', { provider: s.user.app_metadata?.provider === 'google' ? 'google' : 'email' });
       }
       if (s) fetchUsername(s.user.id, s.user);
@@ -93,6 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // border until they sign into a different account. Guarded to the SIGNED_OUT event only
         // (not INITIAL_SESSION) so a guest who was never signed in never gets reset on page load.
         if (event === 'SIGNED_OUT') {
+          // Clears the login dedupe above so the next sign-in reports, rather than being
+          // swallowed as a duplicate of the session that just ended.
+          loggedInUserRef.current = null;
           useUserStore.getState().reset();
         }
       }

@@ -26,7 +26,7 @@ import { getLessonById, getUnitIdForLesson } from '@/data/lessons';
 import { getWorldIdForUnit } from '@/data/worlds';
 import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
-import { track } from '@/analytics';
+import { track, trackFirstSignSuccess } from '@/analytics';
 
 type Phase = 'intro' | 'signing' | 'success' | 'replay' | 'complete';
 
@@ -169,6 +169,15 @@ export function LessonPage({ lessonId, onExit }: Props) {
         duration_ms: a.durationMs,
         attempt_number: a.attemptNumber,
       });
+      // Fires at most once per browser, ever — the helper owns that guard. Placed before the
+      // `!user` return so guests are counted: they are the population this metric exists for.
+      if (a.finalPassed) {
+        trackFirstSignSuccess({
+          signId: a.signId,
+          msSinceLessonStart: a.durationMs,
+          attemptsTaken: a.attemptNumber,
+        });
+      }
       if (!user) return;
       void logAttempt({
         userId: user.id,

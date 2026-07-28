@@ -135,7 +135,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
 
             <div className="flex flex-col gap-3">
               <motion.button
-                onClick={signInWithGoogle}
+                onClick={() => { track('auth_option_selected', { method: 'google' }); void signInWithGoogle(); }}
                 className="w-full py-3.5 rounded-2xl font-bold text-sm bg-white text-gray-900 flex items-center justify-center gap-2.5"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
@@ -150,7 +150,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
               </motion.button>
 
               <motion.button
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => { track('auth_option_selected', { method: 'email' }); setShowAuthModal(true); }}
                 className="w-full py-3.5 rounded-2xl font-bold text-sm border border-z-gray-400/30 text-z-gray-50"
                 whileHover={{ scale: 1.02, borderColor: 'rgba(168,85,247,0.5)' }}
                 whileTap={{ scale: 0.97 }}
@@ -162,7 +162,11 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
               </motion.button>
 
               <button
-                onClick={() => { track('guest_started', {}); setStep('skill'); }}
+                onClick={() => {
+                  track('auth_option_selected', { method: 'guest' });
+                  track('guest_started', {});
+                  setStep('skill');
+                }}
                 className="text-z-gray-400 text-sm mt-2 py-3 underline"
               >
                 Continue as guest

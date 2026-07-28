@@ -19,18 +19,30 @@ export const analyticsConfigured = Boolean(KEY) && (import.meta.env.PROD || DEV_
 let initialized = false;
 
 /**
- * Strips any query string off $current_url/$referrer/$referring_domain before PostHog ingests
- * the event — belt-and-suspenders alongside capture_pageview:false, in case a query string (e.g.
- * a password-reset or magic-link token) ever leaks into one of these via autocapture-adjacent
- * paths. Exported standalone (not inlined in the init config) so it's unit-testable without
- * spinning up a real PostHog instance.
+ * Reduces $current_url/$referrer/$referring_domain to origin + path before PostHog ingests the
+ * event, dropping BOTH the query string and the hash fragment.
+ *
+ * The hash half is not hypothetical (found 2026-07-27): this function previously split on '?'
+ * only, and Supabase returns auth credentials in the FRAGMENT, not the query. A real session
+ * recording's start_url contained a full `access_token` and `refresh_token` from a `type=signup`
+ * redirect, and the JWT payload carried the user's email address. PostHog derives a recording's
+ * start_url from the session's first $current_url, so sanitizing here is what cleans both.
+ *
+ * Deliberately NOT done by rewriting window.location: supabase-js reads the fragment to complete
+ * the OAuth / email-confirmation exchange, and clearing it before that finishes would break
+ * sign-in. Redacting at the analytics boundary fixes the leak without touching the auth flow.
+ *
+ * Exported standalone (not inlined in the init config) so it's unit-testable without spinning up
+ * a real PostHog instance.
  */
 export function sanitizeAnalyticsProperties(properties: Record<string, unknown>): Record<string, unknown> {
   for (const key of ['$current_url', '$referrer', '$referring_domain'] as const) {
     const value = properties[key];
-    if (typeof value === 'string' && value.includes('?')) {
-      properties[key] = value.split('?')[0];
-    }
+    if (typeof value !== 'string') continue;
+    // Cut at whichever separator appears first — a fragment can contain a '?' and vice versa, so
+    // splitting on one then the other in a fixed order can leave the tail of the other behind.
+    const cut = [value.indexOf('?'), value.indexOf('#')].filter((i) => i !== -1);
+    if (cut.length) properties[key] = value.slice(0, Math.min(...cut));
   }
   return properties;
 }
@@ -45,7 +57,10 @@ export function sanitizeAnalyticsProperties(properties: Record<string, unknown>)
  *     stream, so the "video never leaves your device" promise still holds. Still gated by the
  *     existing opt-out (Settings -> Privacy) and respect_dnt below. Also requires the project-
  *     level "Record user sessions" toggle to be on in PostHog.
- *   - NO autocapture (every event is a deliberate, typed `track()` call — see capture.ts).
+ *   - Autocapture is ON (since 2026-07-27) purely so PostHog can derive $rageclick and so the AI
+ *     replay summaries have an event stream to read. Product analytics still comes exclusively
+ *     from deliberate, typed `track()` calls (see capture.ts) — autocaptured events are
+ *     diagnostic noise, never a funnel source. Typed input is still masked (maskAllInputs).
  *   - NO automatic $pageview capture — this is a screen-state-machine SPA, not route-based; App.tsx
  *     sends one `screen_viewed` per screen change instead (see useScreenView.ts). $pageleave IS
  *     captured (unlike $pageview) — it fires once on tab-close/navigate-away regardless of the SPA's
@@ -67,13 +82,28 @@ export function initAnalytics(): void {
     // Record the session but never the text users type — passwords, emails, usernames and any
     // message content are masked; only the UI structure, navigation and clicks are captured.
     session_recording: { maskAllInputs: true },
-    autocapture: false,
+    // Enabled 2026-07-27. Previously false on the reasoning that every event should be a
+    // deliberate track() call — but that also disabled the two things needed to diagnose why
+    // users leave: PostHog cannot compute $rageclick without it, and the AI session-replay
+    // summaries return "no usable events" because the summarizer reads the EVENT stream, not the
+    // replay (verified on three real recordings). The privacy posture is unchanged: autocapture
+    // records click targets and selectors, never the webcam stream, and maskAllInputs below still
+    // means typed text — emails, passwords, usernames, chat — is never recorded. The product
+    // promise is "your camera never leaves your device", which this does not touch.
+    autocapture: true,
     capture_pageview: false,
     capture_pageleave: true,
     person_profiles: 'identified_only',
     respect_dnt: true,
     capture_performance: { web_vitals: true },
-    sanitize_properties: sanitizeAnalyticsProperties,
+    // Wired via before_send, NOT sanitize_properties: posthog-js 1.404 still honours the latter
+    // but logs a deprecation error on EVERY captured event and is dropping it in a future major.
+    // A redaction step that both spams the console and is scheduled for removal is the wrong place
+    // for a security control. before_send is the supported hook and runs on the same path.
+    before_send: (event) => {
+      if (event?.properties) sanitizeAnalyticsProperties(event.properties);
+      return event;
+    },
     loaded: (ph) => {
       // Release + deployment metadata as SESSION super properties (registered once, carried on
       // every event automatically) — never threaded manually into individual track() calls.

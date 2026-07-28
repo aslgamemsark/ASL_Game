@@ -26,7 +26,7 @@ import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { getSignsDueForReview, pickReceptiveDistractors } from '@/data/spaced-repetition';
 import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
-import { track } from '@/analytics';
+import { track, trackFirstSignSuccess } from '@/analytics';
 
 type Mode = 'loading' | 'menu' | 'handcheck' | 'expressive' | 'receptive' | 'mixed' | 'done';
 type CardPhase = 'prompt' | 'result' | 'replay';
@@ -159,6 +159,16 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
         duration_ms: a.durationMs,
         attempt_number: a.attemptNumber,
       });
+      // Guests can reach Practice without ever opening a lesson, so activation is measured here
+      // too. The helper's once-per-browser guard means only whichever surface gets there first
+      // reports it.
+      if (a.finalPassed) {
+        trackFirstSignSuccess({
+          signId: a.signId,
+          msSinceLessonStart: a.durationMs,
+          attemptsTaken: a.attemptNumber,
+        });
+      }
       if (!user) return;
       void logAttempt({
         userId: user.id,
