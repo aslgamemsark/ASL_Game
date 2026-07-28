@@ -313,8 +313,18 @@ export function LessonPage({ lessonId, onExit }: Props) {
 
   const showCamera = phase === 'signing' || phase === 'success';
 
+  // What the always-mounted announcer below says for the current phase — '' for every phase that
+  // isn't a milestone (matches the text a sighted learner already sees on screen).
+  const phaseAnnouncement =
+    phase === 'success' ? `${successMsg} +10 XP`
+    : phase === 'complete' ? `${isFirstLessonComplete ? 'Your First Lesson!' : 'Lesson Complete!'} ${completeMsg} ${earnedXp} XP earned, ${correctCount} of ${signIds.length} correct`
+    : '';
+
   return (
     <div className="min-h-screen bg-z-bg flex flex-col">
+      {/* Always mounted, separate from the phase panels' own AnimatePresence — see DESIGN.md
+          "Status messages": a live region must already be in the DOM before its text appears. */}
+      <p className="sr-only" role="status" aria-live="polite">{phaseAnnouncement}</p>
       <AnimatePresence>
         {showOnboarding && phase === 'intro' && (
           <CameraOnboarding onContinue={handleOnboardingContinue} onCancel={onExit} />
@@ -564,6 +574,10 @@ export function LessonPage({ lessonId, onExit }: Props) {
         </AnimatePresence>
       </div>
 
+      {/* Always-mounted announcer, separate from the toast's own AnimatePresence-gated div — see
+          DESIGN.md "Status messages": a live region must already be in the DOM before its text
+          appears, or a screen reader may miss it. */}
+      <p className="sr-only" role="status" aria-live="polite">{skipMsg ?? ''}</p>
       <AnimatePresence>
         {skipMsg && (
           <motion.div

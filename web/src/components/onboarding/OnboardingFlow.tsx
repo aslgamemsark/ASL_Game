@@ -82,7 +82,15 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-z-bg flex items-center justify-center px-6">
+    // overflow-y-auto: previously relied entirely on the document's own scroll to reach content
+    // taller than the viewport. That worked (nothing blocked it), but on a short viewport — a
+    // landscape phone, or a browser window resized small — the welcome step's CTA button ended up
+    // partially or fully below the fold with zero visual cue that more content existed, since a
+    // centered block that overflows equally hides its own "more below" signal. Making the
+    // container's own scrollability explicit here is defensive; the height-scoped spacing below is
+    // the actual fix, closing the gap outright at common short heights (measured: cut off by 6px
+    // at 800x660, 56px at 800x568) rather than just making the resulting scroll more reliable.
+    <div className="min-h-screen bg-z-bg flex items-center justify-center px-6 py-6 overflow-y-auto">
       <AnimatePresence mode="wait">
         {step === 'welcome' && (
           <motion.div
@@ -93,7 +101,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
             exit={{ opacity: 0, y: -30, scale: 0.95 }}
             transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
-            <div className="mb-5 flex justify-center">
+            <div className="mb-5 [@media(max-height:700px)]:mb-2 flex justify-center">
               <Zippy expression="welcome" size="xl" float priority />
             </div>
 
@@ -103,7 +111,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
               Welcome to <span className="text-z-purple-light">QuickSign</span>
             </h1>
             <p className="text-z-purple-light/80 text-sm font-semibold tracking-wide uppercase mb-4">Beyond Words</p>
-            <p className="text-z-gray-300 text-lg mb-10">{ZIPPY_LINES.welcomeIntro[0]}</p>
+            <p className="text-z-gray-300 text-lg mb-10 [@media(max-height:700px)]:mb-4">{ZIPPY_LINES.welcomeIntro[0]}</p>
 
             <motion.button
               onClick={() => setStep(supabaseReady ? 'auth' : 'skill')}

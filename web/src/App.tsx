@@ -494,6 +494,19 @@ export default function App() {
           its own modal, with a guard against firing on the post-sign-in progress merge. */}
       <CelebrationHost />
 
+      {/* Always-mounted announcers for the two toasts below, kept separate from the toasts'
+          own AnimatePresence-gated divs — see DESIGN.md "Status messages": a live region must
+          already be in the DOM before its text appears, or a screen reader may not pick it up.
+          syncError is `polite` (non-urgent, can wait behind whatever's already being read);
+          the challenge is `assertive` because the Join button is only useful while the
+          inviter is still waiting, so it should interrupt rather than queue. */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {syncError ? "Couldn't sync your progress — check your connection" : ''}
+      </p>
+      <p className="sr-only" role="alert" aria-live="assertive">
+        {incomingChallenge ? `Challenge from ${incomingChallenge.from} — 1v1 Sign and Guess` : ''}
+      </p>
+
       {/* Sync failure indicator — non-blocking, visible anywhere in the app. Previously a failed
           write to Supabase was completely silent, so progress could appear to vanish with zero
           explanation. */}
@@ -510,7 +523,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Incoming challenge notification — visible anywhere in the app */}
+      {/* Incoming challenge notification — visible anywhere in the app. */}
       <AnimatePresence>
         {incomingChallenge && (
           <motion.div

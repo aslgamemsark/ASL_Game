@@ -116,8 +116,13 @@ Two rules for any live region added later:
 The decision of what to say is a pure function (`coachAnnouncement`) so it is testable without a
 camera; the DOM wiring around it is trivial by comparison.
 
-Still uncovered: the sync-error toast, the skip toast, the incoming-challenge notification, and
-lesson success/XP. All are status messages by the same definition.
+The sync-error toast, the skip toast (Practice and Lesson), the incoming-challenge notification,
+and lesson success/complete now follow the same two rules — an always-mounted `sr-only` region
+that mirrors the visible toast/phase text, kept separate from the toast's own AnimatePresence-
+gated div so the announcer never gets unmounted between messages. The challenge notification uses
+`role="alert"` (assertive) rather than `role="status"` (polite): the Join button is only useful
+while the inviter is still waiting, so it should interrupt rather than queue behind whatever a
+screen reader is already reading.
 
 ## Text over live video
 

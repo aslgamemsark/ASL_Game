@@ -716,6 +716,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
         </AnimatePresence>
       </div>
 
+      {/* Always-mounted announcer, separate from the toast's own AnimatePresence-gated div — see
+          DESIGN.md "Status messages": a live region must already be in the DOM before its text
+          appears, or a screen reader may miss it. */}
+      <p className="sr-only" role="status" aria-live="polite">{skipMsg ?? ''}</p>
       <AnimatePresence>
         {skipMsg && (
           <motion.div
