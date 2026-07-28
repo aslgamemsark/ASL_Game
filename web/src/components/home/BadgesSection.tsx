@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ALL_BADGES, getBadge, BADGE_RARITY_COLOR, type BadgeDef } from '@/data/badges';
 import { useUserStore } from '@/stores/useUserStore';
@@ -8,6 +9,12 @@ export function BadgesSection() {
   const { badges, activeBadge, showcaseBadges, setActiveBadge, toggleShowcaseBadge } =
     useUserStore();
   const [selected, setSelected] = useState<BadgeDef | null>(null);
+  // active: !!selected — the sheet is gated on `selected` inside an always-mounted component.
+  const dialog = useDialogA11y({
+    label: selected ? `${selected.title} badge` : 'Badge',
+    onClose: () => setSelected(null),
+    active: !!selected,
+  });
 
   const earned = ALL_BADGES.filter((b) => badges.includes(b.id));
   const locked = ALL_BADGES.filter((b) => !badges.includes(b.id));
@@ -120,7 +127,9 @@ export function BadgesSection() {
             onClick={() => setSelected(null)}
           >
             <motion.div
-              className="bg-z-card rounded-3xl p-6 w-full max-w-sm border border-white/10"
+              ref={dialog.ref}
+              {...dialog.props}
+              className="bg-z-card rounded-3xl p-6 w-full max-w-sm border border-white/10 outline-none"
               initial={{ y: 80, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 80, opacity: 0 }}

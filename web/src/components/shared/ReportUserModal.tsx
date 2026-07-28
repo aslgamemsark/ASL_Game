@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { safeTruncate } from '@/lib/text';
@@ -31,6 +32,7 @@ interface Props {
  * (see supabase/schema.sql's user_reports comment).
  */
 export function ReportUserModal({ reporterId, reportedId, reportedUsername, context, onClose }: Props) {
+  const dialog = useDialogA11y({ label: `Report @${reportedUsername}`, onClose });
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [note, setNote] = useState('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
@@ -68,7 +70,9 @@ export function ReportUserModal({ reporterId, reportedId, reportedUsername, cont
         onClick={onClose}
       >
         <motion.div
-          className="w-full max-w-sm bg-z-card border border-white/10 rounded-2xl p-5"
+          ref={dialog.ref}
+          {...dialog.props}
+          className="w-full max-w-sm bg-z-card border border-white/10 rounded-2xl p-5 outline-none"
           initial={{ opacity: 0, y: 20, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.97 }}

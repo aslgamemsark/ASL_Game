@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { SHOP_ITEMS, RARITY_COLOR, type ShopItem, type CosmeticType } from '@/data/shop';
@@ -23,6 +24,12 @@ export function ShopPage({ onExit }: Props) {
   const { gold, ownedCosmetics, equippedBorder, equippedAvatar, renameCards, streakFreezes, purchaseCosmetic, purchaseRenameCard, purchaseStreakFreeze, equipBorder, equipAvatar } = useUserStore();
   const { purchase, wrong } = useSounds();
   const [selected, setSelected] = useState<ShopItem | null>(null);
+  // active: !!selected — the detail sheet is gated on `selected` inside an always-mounted page.
+  const dialog = useDialogA11y({
+    label: selected ? selected.title : 'Shop item',
+    onClose: () => setSelected(null),
+    active: !!selected,
+  });
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -178,7 +185,9 @@ export function ShopPage({ onExit }: Props) {
               onClick={() => setSelected(null)}
             />
             <motion.div
-              className="fixed bottom-0 left-0 right-0 bg-z-surface border-t border-white/10 rounded-t-3xl p-6 z-50 max-w-lg mx-auto"
+              ref={dialog.ref}
+              {...dialog.props}
+              className="fixed bottom-0 left-0 right-0 bg-z-surface border-t border-white/10 rounded-t-3xl p-6 z-50 max-w-lg mx-auto outline-none"
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             >

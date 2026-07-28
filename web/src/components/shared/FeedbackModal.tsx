@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,6 +26,7 @@ interface Props {
  * same supabase.from(...).insert(...) pattern as ReportUserModal; reads are admin-only via RLS.
  */
 export function FeedbackModal({ page, onClose }: Props) {
+  const dialog = useDialogA11y({ label: 'Send feedback', onClose });
   const { user } = useAuth();
   const [category, setCategory] = useState<FeedbackCategory | null>(null);
   const [message, setMessage] = useState('');
@@ -70,14 +72,13 @@ export function FeedbackModal({ page, onClose }: Props) {
         onClick={onClose}
       >
         <motion.div
-          className="w-full max-w-sm bg-z-card border border-white/10 rounded-2xl p-5"
+          className="w-full max-w-sm bg-z-card border border-white/10 rounded-2xl p-5 outline-none"
           initial={{ opacity: 0, y: 20, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.97 }}
           onClick={(e) => e.stopPropagation()}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Send feedback"
+          ref={dialog.ref}
+          {...dialog.props}
         >
           {status === 'done' ? (
             <div className="text-center py-4">

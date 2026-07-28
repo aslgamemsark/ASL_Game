@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 
@@ -24,14 +25,13 @@ export function ClipEnlarge({ clipUrl, signName, open, onClose }: Props) {
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, onClose]);
+  // Escape and the focus trap both come from useDialogA11y now — this used to hand-roll only the
+  // Escape half, so a keyboard user could tab out of the enlarged clip into the page behind it.
+  const dialog = useDialogA11y({
+    label: `${signName.replace(/_/g, ' ')} demo, enlarged`,
+    onClose,
+    active: open,
+  });
 
   if (typeof document === 'undefined') return null;
 
@@ -44,9 +44,8 @@ export function ClipEnlarge({ clipUrl, signName, open, onClose }: Props) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${signName.replace(/_/g, ' ')} demo, enlarged`}
+          ref={dialog.ref}
+          {...dialog.props}
         >
           <motion.div
             className="relative w-full max-w-2xl aspect-square"

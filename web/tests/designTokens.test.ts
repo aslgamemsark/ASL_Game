@@ -147,3 +147,38 @@ describe('overlays on live video', () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Modal dialogs. A dialog needs four things a plain `<div>` does not get for free: `role="dialog"`
+ * + `aria-modal` so a screen reader announces it, focus moved inside on open, focus trapped while
+ * open, and Escape to dismiss. `useDialogA11y` supplies all four; `ModalShell` wraps it.
+ *
+ * Why a test (regression, 2026-07-28): ModalShell had this behaviour from the 2026-07-12 audit, but
+ * adoption stopped at the four auth modals it was extracted from. Of eleven dialogs in the app,
+ * EIGHT had no dialog semantics whatsoever — a keyboard user could tab straight through them into
+ * the page behind, and nothing announced that a dialog had opened. Three more had the aria
+ * attributes but no focus trap. axe cannot catch this: it has no way to know that a given div was
+ * meant to be a dialog, so the whole class was invisible to the automated sweep in e2e/a11y.spec.ts.
+ *
+ * The heuristic is `fixed inset-0`. Every full-viewport overlay in this app is a dialog, so the
+ * rule holds with no exemption list — and an exemption list is precisely where a real dialog would
+ * eventually get parked. If a genuine non-dialog full-screen overlay is ever added (a splash
+ * screen, say), that is the moment to reconsider the heuristic rather than to add an exception.
+ */
+describe('modal dialogs', () => {
+  it('every full-screen overlay routes through useDialogA11y or ModalShell', () => {
+    const missing = FILES.filter(
+      ({ source }) =>
+        /fixed inset-0/.test(source) &&
+        !/useDialogA11y|ModalShell/.test(source)
+    ).map(({ rel }) => rel);
+
+    expect(
+      missing,
+      `These render a full-screen overlay without dialog accessibility:\n${missing.join('\n')}\n` +
+        `Call useDialogA11y({ label, onClose }) and spread its props onto the dialog element, or ` +
+        `wrap the content in ModalShell. Pass \`active\` too if the component stays mounted and ` +
+        `gates its own content on an \`open\` flag, or the trap arms while the dialog is closed.`
+    ).toEqual([]);
+  });
+});

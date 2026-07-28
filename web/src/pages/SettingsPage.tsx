@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
+import { Toggle } from '@/components/shared/Toggle';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -54,133 +55,58 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
         {/* Appearance */}
         <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">Appearance</h2>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold">Dark theme</span>
-            <button
-              role="switch"
-              aria-checked={theme === 'dark'}
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="p-1.5 -m-1.5 shrink-0"
-            >
-              <span className={`relative block w-14 h-8 rounded-full transition-colors ${theme === 'dark' ? 'bg-z-purple' : 'bg-z-gray-500'}`}>
-                <motion.span
-                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
-                  animate={{ x: theme === 'dark' ? 24 : 0 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              </span>
-            </button>
-          </div>
+          <Toggle
+            label="Dark theme"
+            checked={theme === 'dark'}
+            onChange={(next) => setTheme(next ? 'dark' : 'light')}
+          />
         </motion.div>
 
         {/* Accessibility */}
         <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }}>
           <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">Accessibility</h2>
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-3">
-              <span className="text-xl">{soundEnabled ? '🔊' : '🔇'}</span>
-              <div>
-                <p className="font-semibold text-sm">Sound Effects</p>
-                <p className="text-xs text-z-gray-400">Audio cues for correct/wrong, level up, streaks</p>
-              </div>
-            </div>
-            <button
-              role="switch"
-              aria-checked={soundEnabled}
-              onClick={toggleSound}
-              className="p-1.5 -m-1.5 shrink-0"
-            >
-              <span className={`relative block w-14 h-8 rounded-full transition-colors ${soundEnabled ? 'bg-z-purple' : 'bg-z-gray-500'}`}>
-                <motion.span
-                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
-                  animate={{ x: soundEnabled ? 24 : 0 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              </span>
-            </button>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="text-xl">{vibrationEnabled ? '📳' : '🔕'}</span>
-              <div>
-                <p className="font-semibold text-sm">Vibrations</p>
-                <p className="text-xs text-z-gray-400">Haptic feedback for correct/wrong signs</p>
-              </div>
-            </div>
-            <button
-              role="switch"
-              aria-checked={vibrationEnabled}
-              onClick={toggleVibration}
-              className="p-1.5 -m-1.5 shrink-0"
-            >
-              <span className={`relative block w-14 h-8 rounded-full transition-colors ${vibrationEnabled ? 'bg-z-purple' : 'bg-z-gray-500'}`}>
-                <motion.span
-                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
-                  animate={{ x: vibrationEnabled ? 24 : 0 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              </span>
-            </button>
-          </div>
+          <Toggle
+            label="Sound Effects"
+            description="Audio cues for correct/wrong, level up, streaks"
+            icon={soundEnabled ? '🔊' : '🔇'}
+            checked={soundEnabled}
+            onChange={toggleSound}
+            className="mb-4"
+          />
+          <Toggle
+            label="Vibrations"
+            description="Haptic feedback for correct/wrong signs"
+            icon={vibrationEnabled ? '📳' : '🔕'}
+            checked={vibrationEnabled}
+            onChange={toggleVibration}
+          />
         </motion.div>
 
         {/* Privacy */}
         <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}>
           <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">Privacy</h2>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="font-semibold text-sm">Help improve the AI</p>
-              <p className="text-xs text-z-gray-400 mt-0.5 leading-relaxed">
-                Save hand-landmark coordinates (not video) from your attempts as future training data.
-              </p>
-            </div>
-            <button
-              role="switch"
-              aria-checked={collectTrainingData}
-              onClick={() => setCollectTrainingData(!collectTrainingData)}
-              className="p-1.5 -m-1.5 shrink-0"
-            >
-              <span className={`relative block w-14 h-8 rounded-full transition-colors ${collectTrainingData ? 'bg-z-purple' : 'bg-z-gray-500'}`}>
-                <motion.span
-                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
-                  animate={{ x: collectTrainingData ? 24 : 0 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              </span>
-            </button>
-          </div>
+          <Toggle
+            label="Help improve the AI"
+            description="Save hand-landmark coordinates (not video) from your attempts as future training data."
+            checked={collectTrainingData}
+            onChange={setCollectTrainingData}
+          />
 
           {/* Separate from the toggle above: this governs anonymous PRODUCT USAGE analytics
               (PostHog — which screens/features get used, never video, never landmarks), not
               training data. On by default (anonymous until sign-in, no session replay); this is
               the one switch that turns it off entirely. */}
-          <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-white/5">
-            <div>
-              <p className="font-semibold text-sm">Anonymous usage analytics</p>
-              <p className="text-xs text-z-gray-400 mt-0.5 leading-relaxed">
-                Helps us see which features get used and where people get stuck — never your video,
-                never sign data.
-              </p>
-            </div>
-            <button
-              role="switch"
-              aria-checked={!analyticsOptedOut}
-              onClick={() => {
-                const next = !analyticsOptedOut;
-                setAnalyticsOptedOutState(next);
-                setAnalyticsOptOut(next);
-              }}
-              className="p-1.5 -m-1.5 shrink-0"
-            >
-              <span className={`relative block w-14 h-8 rounded-full transition-colors ${!analyticsOptedOut ? 'bg-z-purple' : 'bg-z-gray-500'}`}>
-                <motion.span
-                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md"
-                  animate={{ x: !analyticsOptedOut ? 24 : 0 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              </span>
-            </button>
-          </div>
+          {/* `checked` is opt-IN while the stored flag is opt-OUT, so the two are inverted here. */}
+          <Toggle
+            label="Anonymous usage analytics"
+            description="Helps us see which features get used and where people get stuck — never your video, never sign data."
+            checked={!analyticsOptedOut}
+            onChange={(optedIn) => {
+              setAnalyticsOptedOutState(!optedIn);
+              setAnalyticsOptOut(!optedIn);
+            }}
+            className="mt-4 pt-4 border-t border-white/5"
+          />
         </motion.div>
 
         {/* Account */}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SignDef } from '@/types/signs';
 
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
+  const dialog = useDialogA11y({ label: sign.name.replace(/_/g, ' '), onClose });
   const [clipFailed, setClipFailed] = useState(false);
   const hasClip = sign.clip != null && !clipFailed;
   const displayName = sign.name.replace(/_/g, ' ');
@@ -27,7 +29,9 @@ export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
         />
 
         <motion.div
-          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-5 shadow-2xl"
+          ref={dialog.ref}
+          {...dialog.props}
+          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-5 shadow-2xl outline-none"
           initial={{ y: 40, opacity: 0, scale: 0.96 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: 40, opacity: 0, scale: 0.96 }}

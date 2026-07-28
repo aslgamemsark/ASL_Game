@@ -70,6 +70,30 @@ shipped CSS, AA asserted per theme) and `web/tests/designTokens.test.ts` (no lit
 component gradient; no undefined `bg-gradient-*` class, which Tailwind would otherwise drop
 silently and render as a transparent card with white text on it).
 
+## Dialogs
+
+Every modal dialog goes through `useDialogA11y({ label, onClose })` — spread its `props` onto the
+dialog element and attach its `ref` — or through `ModalShell`, which wraps it and adds the centred
+card chrome. The hook supplies the four things a plain `<div>` does not get for free: `role="dialog"`
++ `aria-modal` so a screen reader announces it, focus moved inside on open, focus trapped while
+open, and Escape to dismiss.
+
+Pass `active` as well when the component stays mounted and gates its own content on an `open` flag
+(`<AnimatePresence>{open && …}`). Without it the trap arms on first render, leaving a live Escape
+listener on a closed dialog and handing focus back to whatever was focused at app boot.
+`LogoutConfirm`, `CelebrationHost`, `ClipEnlarge`, `BadgesSection` and `ShopPage` all have that
+shape.
+
+**The behaviour is deliberately separate from the chrome.** It used to live inside `ModalShell`, and
+that is exactly why it did not spread: a bottom sheet, a full-screen first-run gate and a portal'd
+lightbox cannot be forced through one card wrapper, so seven dialogs simply went without. Of eleven
+dialogs, eight had no dialog semantics at all and three more had the aria attributes but no focus
+trap (2026-07-28).
+
+Enforced by `web/tests/designTokens.test.ts`: any file rendering a `fixed inset-0` overlay must
+reference the hook or the shell. Note this is invisible to axe — a rule engine cannot know a given
+div was meant to be a dialog, so `e2e/a11y.spec.ts` passed clean while all eight were broken.
+
 ## Text over live video
 
 The webcam mirror and the reference clips are the only surfaces whose background is unknown — it

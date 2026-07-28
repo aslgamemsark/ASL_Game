@@ -1,3 +1,4 @@
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion } from 'framer-motion';
 
 interface Props {
@@ -9,6 +10,10 @@ interface Props {
 }
 
 export function CameraOnboarding({ onContinue, onCancel }: Props) {
+  // Escape backs out rather than continuing — this gate asks for the camera, so the dismissive
+  // action is the safe one.
+  const dialog = useDialogA11y({ label: 'Camera access', onClose: onCancel });
+
   return (
     <motion.div
       className="fixed inset-0 z-50 bg-z-bg/95 backdrop-blur-sm flex items-center justify-center p-6"
@@ -17,7 +22,9 @@ export function CameraOnboarding({ onContinue, onCancel }: Props) {
       exit={{ opacity: 0 }}
     >
       <motion.div
-        className="max-w-sm w-full bg-z-card border border-white/10 rounded-3xl p-6 text-center"
+        ref={dialog.ref}
+        {...dialog.props}
+        className="max-w-sm w-full bg-z-card border border-white/10 rounded-3xl p-6 text-center outline-none"
         initial={{ scale: 0.9, y: 20 }}
         animate={{ scale: 1, y: 0 }}
       >

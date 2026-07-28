@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { pickZippyLine } from '@/data/zippy';
@@ -13,6 +14,9 @@ interface Props {
 // which doubles as an accidental-logout guard. Owns the signOut call so both entry points (the
 // Settings button and the side-nav item) just toggle `open`.
 export function LogoutConfirm({ open, onClose }: Props) {
+  // `active: open` — this component stays mounted and toggles its own content, so the trap must
+  // arm on open rather than on mount. See useDialogA11y's `active`.
+  const dialog = useDialogA11y({ label: 'Confirm log out', onClose, active: open });
   const { signOut } = useAuth();
   // Pick a line once per open (pickZippyLine advances a rotation counter, so calling it raw in
   // render would re-roll on every animation frame).
@@ -29,7 +33,9 @@ export function LogoutConfirm({ open, onClose }: Props) {
         >
           <motion.div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
           <motion.div
-            className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl text-center"
+            ref={dialog.ref}
+            {...dialog.props}
+            className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl text-center outline-none"
             initial={{ y: 40, opacity: 0, scale: 0.94 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 40, opacity: 0, scale: 0.94 }}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -107,6 +108,20 @@ export function CelebrationHost() {
 
   const dismiss = () => setQueue((q) => q.slice(1));
 
+  // `active: !!current` — this component is always mounted and shows whatever is at the head of the
+  // celebration queue, so the trap must arm when a celebration appears, not on app boot.
+  const dialog = useDialogA11y({
+    // Named per kind so a screen reader announces what was actually earned, not a generic
+    // "Celebration" — the union has no shared title field.
+    label:
+      current?.kind === 'level' ? `Level ${current.level} reached`
+      : current?.kind === 'badge' ? 'Badge earned'
+      : current?.kind === 'quest' ? `Quest complete: ${current.title}`
+      : 'Celebration',
+    onClose: dismiss,
+    active: !!current,
+  });
+
   const badge = current?.kind === 'badge' ? getBadge(current.badgeId) : null;
   // A badge id with no definition (e.g. removed in a later release) shouldn't strand a blank modal.
   if (current?.kind === 'badge' && !badge) {
@@ -126,7 +141,9 @@ export function CelebrationHost() {
         >
           <motion.div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={dismiss} />
           <motion.div
-            className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl text-center"
+            ref={dialog.ref}
+            {...dialog.props}
+            className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl text-center outline-none"
             initial={{ y: 40, opacity: 0, scale: 0.94 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 40, opacity: 0, scale: 0.94 }}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LetterDef } from '@/data/alphabet';
 import { ClipEnlarge } from '@/components/lesson/ClipEnlarge';
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
+  const dialog = useDialogA11y({ label: `Letter ${def.letter}`, onClose });
   const [imgFailed, setImgFailed] = useState(false);
   const [clipFailed, setClipFailed] = useState(false);
   const [enlarged, setEnlarged] = useState(false);
@@ -36,7 +38,9 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
         />
 
         <motion.div
-          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-5 shadow-2xl"
+          ref={dialog.ref}
+          {...dialog.props}
+          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-5 shadow-2xl outline-none"
           initial={{ y: 40, opacity: 0, scale: 0.96 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: 40, opacity: 0, scale: 0.96 }}

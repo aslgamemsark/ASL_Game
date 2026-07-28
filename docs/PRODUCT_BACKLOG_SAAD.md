@@ -470,6 +470,62 @@ over a blown-out frame using the shipped stylesheet.
 
 ---
 
+### QS-013
+Problem:
+Colour contrast was the only accessibility axis this project had ever measured. Operability —
+keyboard reachability, dialog semantics, accessible names — had never been checked at all. Two
+distinct classes of barrier were sitting in the app.
+
+Evidence (2026-07-28):
+- **Five unlabelled toggle switches on Settings.** `role="switch"` with `aria-checked` but no
+  accessible name, so a screen reader announced all five as "switch, on" with nothing to say which
+  setting had been toggled — including the two privacy controls (training-data collection and
+  analytics opt-out). axe `button-name`, critical. The markup was copy-pasted five times, which is
+  why all five shared the same omission.
+- **Eight of eleven dialogs had no dialog semantics whatsoever** — no `role="dialog"`, no
+  `aria-modal`, no Escape, no focus management. A keyboard user could tab straight through them
+  into the page behind, and nothing announced that a dialog had opened. Three more
+  (`ClipEnlarge`, `FeedbackModal`, `TermsModal`) had the aria attributes but no focus trap.
+  Affected: `CameraOnboarding` (the gate every learner passes before the camera opens),
+  `LogoutConfirm` (a destructive confirm), `CelebrationHost`, `LetterDetailModal`,
+  `SignDetailModal`, `ReportUserModal`, `BadgesSection`, `ShopPage`.
+
+Root cause:
+The same shape both times — a correct shared implementation existed and adoption stopped. The
+2026-07-12 audit fixed the four auth modals and extracted `ModalShell` with a full focus trap, but
+the behaviour was welded to that component's centred-card chrome, so bottom sheets, a full-screen
+first-run gate and a portal'd lightbox could not use it and simply went without.
+
+Fix shipped:
+- `Toggle` component with a REQUIRED `label`, wired through `aria-labelledby` to the visible text so
+  the two cannot drift. Five call sites collapsed into it; a sixth cannot be added unlabelled.
+- `useDialogA11y` hook carrying role, `aria-modal`, accessible name, focus-into, focus trap, focus
+  restore and Escape. Applied to all twelve dialogs; `ModalShell` now uses it too, so there is one
+  implementation rather than two. Takes `active` for the five components that stay mounted and gate
+  their own content on an `open` flag — without it the trap arms while the dialog is closed, which
+  was a real bug caught during this work, not a hypothetical.
+
+Also fixed in passing: **the e2e smoke suite had been red since the onboarding rework.** Both
+failing tests asserted a dominant-hand step that moved out of onboarding into PracticePage (it needs
+a live camera). Nobody noticed, which is its own finding — the suite is not in CI.
+
+Guarded by `e2e/a11y.spec.ts` (axe-core over 12 screens and states; contrast rules disabled there
+because axe cannot see through a canvas or video, and contrast is already owned by the unit tests)
+and a `designTokens.test.ts` rule requiring every `fixed inset-0` overlay to route through the hook
+or the shell. That second one matters because axe CANNOT catch missing dialog semantics — it has no
+way to know a div was meant to be a dialog, and it passed clean while all eight were broken.
+
+Status:
+Shipped 2026-07-28 — 681 unit tests + 15 e2e pass, `tsc -b` clean, oxlint 0 errors, production
+build clean.
+
+Remaining in this area (not blockers):
+- The a11y sweep runs at a phone viewport only; the desktop SideNav layout is a separate pass.
+- The Sign Coach checklist still conveys per-parameter pass/fail through colour and position with
+  no live-region announcement — worth doing, needs the camera, so it needs the fake-device harness.
+
+---
+
 ## ✅ Verified healthy (do not spend time here)
 
 - **Core Web Vitals.** LCP p75: Mobile 1,992 ms, Desktop 1,783 ms — both inside Google's "good"
