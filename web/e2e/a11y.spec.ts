@@ -120,3 +120,37 @@ test.describe('accessibility', () => {
     await scan(page, 'feedback dialog');
   });
 });
+
+/**
+ * The same sweep at desktop width. Worth its own block rather than a viewport parameter: above `lg`
+ * the app swaps BottomNav for SideNav — different markup, different labels ("Basic Signs" not
+ * "Basics", "Multiplayer" not "Duel") and screens the phone layout reaches differently. None of it
+ * had ever been scanned.
+ */
+test.describe('accessibility (desktop)', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  async function reachHomeDesktop(page: import('@playwright/test').Page) {
+    await page.goto('/');
+    await page.getByRole('button', { name: /get started/i }).click();
+    await page.getByRole('button', { name: /continue as guest/i }).click();
+    await page.getByRole('button', { name: /just starting/i }).click();
+    await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
+  }
+
+  test('home and the side-nav screens', async ({ page }) => {
+    await reachHomeDesktop(page);
+    await scan(page, 'desktop home');
+
+    for (const name of ['Basic Signs', 'Leaderboard', 'Friends', 'Settings']) {
+      const button = page.getByRole('button', { name: new RegExp(name) }).first();
+      await expect(button, `${name} must be reachable from the side nav`).toBeVisible();
+      await button.click();
+      await page.waitForTimeout(800);
+      await scan(page, `desktop ${name}`);
+
+      await page.goto('/');
+      await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
+    }
+  });
+});

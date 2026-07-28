@@ -519,10 +519,21 @@ Status:
 Shipped 2026-07-28 — 681 unit tests + 15 e2e pass, `tsc -b` clean, oxlint 0 errors, production
 build clean.
 
+Follow-up shipped the same day:
+- **Desktop sweep added.** Above `lg` the app swaps BottomNav for SideNav — different markup and
+  labels, never scanned. 5 more screens, clean.
+- **The Sign Coach now speaks.** `ParameterChecklist` carries a `role="status"` live region; the
+  app had no live region anywhere. It announces ONE correction at a time, only for a parameter the
+  coaching gate has marked `confident-fail`, and stays silent otherwise — three instructions read
+  aloud is noise, and 'neutral' is not worth interrupting for. The decision of what to say is a
+  pure function (`coachAnnouncement`) so it is unit-tested without a camera; mutation-checked to
+  confirm the one-at-a-time and silence-on-no-hint cases actually bite.
+
 Remaining in this area (not blockers):
-- The a11y sweep runs at a phone viewport only; the desktop SideNav layout is a separate pass.
-- The Sign Coach checklist still conveys per-parameter pass/fail through colour and position with
-  no live-region announcement — worth doing, needs the camera, so it needs the fake-device harness.
+- Other status messages still announce nothing: the sync-error toast, the skip toast, the
+  incoming-challenge notification, and lesson success/XP.
+- The e2e suite is not in CI. Three of this sprint's regressions would have been caught earlier by
+  tests that already existed — the smoke suite sat red for days without anyone noticing.
 
 ---
 

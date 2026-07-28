@@ -94,6 +94,31 @@ Enforced by `web/tests/designTokens.test.ts`: any file rendering a `fixed inset-
 reference the hook or the shell. Note this is invisible to axe — a rule engine cannot know a given
 div was meant to be a dialog, so `e2e/a11y.spec.ts` passed clean while all eight were broken.
 
+## Status messages
+
+Dynamic feedback needs a live region or a screen reader gets nothing from it. The app had none
+anywhere before 2026-07-28.
+
+The Sign Coach checklist (`ParameterChecklist`) now carries a `role="status" aria-live="polite"`
+region — it is the product's differentiator and everything it says was said in colour and position
+alone. What it announces is deliberately narrow: **one** correction at a time, only for a parameter
+the coaching gate has marked `confident-fail`, and silence otherwise. Three simultaneous
+instructions read aloud is noise, and 'neutral' ("still working on it") is not worth interrupting
+anyone for. The next correction announces itself as soon as the first clears.
+
+Two rules for any live region added later:
+- **Mount it always, fill it later.** A region inserted into the DOM at the same moment its text
+  appears is unreliably announced — assistive tech has to be observing the node beforehand. Empty
+  string means silence.
+- **Announce transitions, not values.** Re-rendering the same string does not re-announce, which is
+  what keeps a per-frame score display from spamming.
+
+The decision of what to say is a pure function (`coachAnnouncement`) so it is testable without a
+camera; the DOM wiring around it is trivial by comparison.
+
+Still uncovered: the sync-error toast, the skip toast, the incoming-challenge notification, and
+lesson success/XP. All are status messages by the same definition.
+
 ## Text over live video
 
 The webcam mirror and the reference clips are the only surfaces whose background is unknown — it

@@ -113,6 +113,28 @@ export function hintFor(param: ParamScore, sign?: Sign | null): string | null {
   return null;
 }
 
+/**
+ * What the coach should say out loud right now — the one actionable correction, or '' when there
+ * is nothing to say.
+ *
+ * Returns a SINGLE hint rather than every failing parameter on purpose. A sighted learner glances
+ * at the checklist and picks one thing to fix; read aloud, three instructions at once is noise, and
+ * the next one announces itself as soon as the first clears. Parameter order is the sign's own
+ * declaration order, so the announcement is stable rather than jumping around as scores wobble.
+ *
+ * Only `confident-fail` produces a hint — that gate already requires a sustained, clearly-below-
+ * threshold streak (see coachingGate.ts), which is what stops a noisy frame announcing a wrong
+ * instruction. 'neutral' deliberately says nothing: "still working on it" is not worth interrupting
+ * a screen reader for.
+ */
+export function coachAnnouncement(
+  entries: { param: ParamScore; status: GateState['status'] }[],
+  sign?: Sign | null
+): string {
+  const failing = entries.find((e) => e.status === 'confident-fail');
+  return failing ? hintFor(failing.param, sign) ?? '' : '';
+}
+
 interface Props {
   params: ParamScore[];
   sign?: Sign | null;
@@ -141,8 +163,23 @@ export function ParameterChecklist({ params, sign, holdProgress }: Props) {
     if (changed) setTick((t) => t + 1);
   }, [params]);
 
+  const announcement = coachAnnouncement(
+    params.map((p) => ({ param: p, status: (gatesRef.current[p.name] ?? initGateState()).status })),
+    sign
+  );
+
   return (
     <div className="space-y-2">
+      {/* The Sign Coach's feedback is otherwise carried entirely by colour and position, which a
+          screen reader gets nothing from — and this checklist IS the product's differentiator, so
+          "which parameter missed and how to fix it" is the one thing that must reach everyone.
+          WCAG 4.1.3 (Status Messages, AA), and the app had no live region anywhere before this.
+
+          Always mounted rather than rendered only when there's something to say: a live region
+          inserted into the DOM at the same moment its text appears is unreliably announced, since
+          assistive tech has to be observing the node beforehand. Empty string = silence. */}
+      <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
+
       {holdProgress != null && (
         <motion.div
           className="flex items-center gap-3 rounded-xl px-3 py-2.5 border bg-z-purple/10 border-z-purple/30"
