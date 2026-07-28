@@ -56,14 +56,24 @@ export function ClassifierDevPanel({ status, lastVote, result }: Props) {
           {!lastVote && <p className="text-gray-400">No AI vote yet — pass a sign to see gate output.</p>}
           {lastVote && (
             <>
-              <p className="text-purple-300 font-bold">AI veto layer</p>
+              <p className="text-purple-300 font-bold">AI veto layer{!lastVote.enforced && ' (SHADOW MODE)'}</p>
               <p><span className="text-gray-400">Prompted:</span> {lastVote.prompted}</p>
               <p><span className="text-gray-400">AI top:</span> {lastVote.vote ? `${lastVote.vote.topSign} (${(lastVote.vote.confidence * 100).toFixed(1)}%)` : '(no vote)'}</p>
               <p>
                 <span className="text-gray-400">Decision:</span>{' '}
-                <span className={lastVote.decision === 'veto' ? 'text-red-400 font-bold' : 'text-green-400 font-bold'}>
-                  {lastVote.decision === 'veto' ? 'VETOED ✗' : 'PASS ✓'}
-                </span>
+                {/* `lastVote.decision` is the MODEL'S opinion, not the learner's result — in shadow
+                    mode a 'veto' opinion still passes the learner. Showing bare "VETOED ✗" here
+                    would read as "this blocked you" when it did not (bug found 2026-07-27: the
+                    console logger got this shadow-mode distinction, this panel didn't). */}
+                {lastVote.decision === 'veto' && lastVote.enforced && (
+                  <span className="text-red-400 font-bold">VETOED ✗</span>
+                )}
+                {lastVote.decision === 'veto' && !lastVote.enforced && (
+                  <span className="text-yellow-300 font-bold">PASS ✓ (AI wanted to veto — shadow mode, not enforced)</span>
+                )}
+                {lastVote.decision === 'pass' && (
+                  <span className="text-green-400 font-bold">PASS ✓</span>
+                )}
               </p>
               {lastVote.topK.length > 0 && (
                 <p className="text-gray-400">
