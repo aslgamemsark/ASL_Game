@@ -53,9 +53,12 @@ function cardVariants(glowColor: string) {
 interface Props {
   onOpenLeaderboard: () => void;
   onOpenFriends: () => void;
+  onOpenMultiplayer: () => void;
+  onOpenShop: () => void;
+  onOpenSettings: () => void;
 }
 
-export function ProfileTab({ onOpenLeaderboard, onOpenFriends }: Props) {
+export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer, onOpenShop, onOpenSettings }: Props) {
   const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar, equipBorder } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user, username } = useAuth();
@@ -108,28 +111,42 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends }: Props) {
         )}
       </motion.div>
 
-      {/* Leaderboard and Friends live here because SideNav — their only other entry point — is
-          `hidden lg:flex`, leaving both screens unreachable on every phone. They belong on the
-          profile tab rather than in BottomNav, which already carries eight items at 375px wide. */}
+      {/* Everything that is not a Home learning tab. On a phone this is the ONLY entry point for
+          Leaderboard and Friends (SideNav, their only other caller, is `hidden lg:flex`), and the
+          primary one for Multiplayer and Settings since trimming BottomNav to five tabs.
+
+          Every destination is a labelled card, not an icon: an icon-only affordance is what made
+          Shop hard to find in the first place. Shop appears here as well as in the TopBar cart —
+          deliberate redundancy, because the cart is the one icon-only entry point left. */}
       <motion.div
-        className="grid grid-cols-2 gap-3 mb-5"
+        className="mb-5"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.03 }}
       >
-        {[
-          { label: 'Leaderboard', icon: '🏆', onClick: onOpenLeaderboard },
-          { label: 'Friends', icon: '🤝', onClick: onOpenFriends },
-        ].map((item) => (
-          <button
-            key={item.label}
-            onClick={item.onClick}
-            className="bg-z-card border border-white/5 rounded-2xl p-4 min-h-11 flex items-center gap-2.5 active:bg-white/5 transition-colors"
-          >
-            <span className="text-xl">{item.icon}</span>
-            <span className="font-bold text-sm text-z-gray-50">{item.label}</span>
-          </button>
-        ))}
+        <h2 className="text-xs font-bold uppercase tracking-wide text-z-gray-400 mb-2 px-1">Explore</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: 'Leaderboard', icon: '🏆', onClick: onOpenLeaderboard },
+            { label: 'Friends', icon: '🤝', onClick: onOpenFriends },
+            { label: 'Multiplayer', icon: '⚔️', onClick: onOpenMultiplayer },
+            { label: 'Shop', icon: '🛒', onClick: onOpenShop },
+            // Spans both columns: with an odd number of entries the last one would otherwise sit
+            // alone in a half-width cell and read as a layout mistake rather than a choice.
+            { label: 'Settings', icon: '⚙️', onClick: onOpenSettings, wide: true },
+          ].map((item) => (
+            <button
+              key={item.label}
+              onClick={item.onClick}
+              className={`bg-z-card border border-white/5 rounded-2xl p-4 min-h-11 flex items-center gap-2.5 active:bg-white/5 transition-colors ${
+                'wide' in item ? 'col-span-2' : ''
+              }`}
+            >
+              <span className="text-xl">{item.icon}</span>
+              <span className="font-bold text-sm text-z-gray-50">{item.label}</span>
+            </button>
+          ))}
+        </div>
       </motion.div>
 
       {/* Avatar + showcase */}

@@ -7,6 +7,39 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-29 (part 4) — BottomNav trimmed to five tabs; every relocated feature stays findable
+
+Follow-on from part 3, at the user's request ("make it same as the pc version", "do what u can so no
+feature is hard to find").
+
+- **BottomNav is now five tabs — Journey, Alphabets, Basics, Review, Me** (`BottomNav.tsx`,
+  `HomePage.tsx`, `ProfileTab.tsx`). **Why:** it had grown to eight items at 375px, ~44px each with
+  no breathing room, well past the 3-5 a bottom bar is designed for. Shop/Multiplayer/Settings were
+  also top-level *screens*, not Home sub-tabs — they never participated in `active`/`onChange`, so
+  they sat there as visually identical buttons that behaved differently. Order now matches SideNav
+  (learning progression first, Review last). `BottomNav`'s props dropped from five to two.
+- **Deliberately NOT a literal copy of desktop.** SideNav's seven items would still be too many for
+  a phone bar and would drop **Me** and **Settings** entirely. Copying the *philosophy* (learning in
+  the nav, utilities elsewhere) rather than the item list.
+- **Everything relocated lands in a labelled "Explore" hub on the profile tab** — Leaderboard,
+  Friends, Multiplayer, Shop, Settings. Cards with text labels, not icons: an icon-only affordance
+  is precisely what made Shop hard to find in the first place. **Shop appears in the hub AND the
+  TopBar cart** — deliberate redundancy, because the cart is the one icon-only entry point left.
+  This directly reverses the 2026-07-24 desktop-side reasoning ("the cart is enough"), which is
+  safe now only because the cart went 32px → 44px earlier in this same session.
+- **The parity test now asserts an upper bound too** (`web/e2e/mobile.spec.ts`):
+  `toHaveCount(5)` on the nav's buttons, plus all five hub destinations opening and closing. The bar
+  drifted to eight once, and "one more won't hurt" is exactly how that happened.
+- **Watch out — accessible names include the emoji.** The hub buttons render `<span>{icon}</span>`
+  next to `<span>{label}</span>`, so the accessible name is `"🏆Leaderboard"` with no space:
+  `/^Leaderboard$/` matches nothing. Anchor to the END (`/Leaderboard$/`), never the start. Also,
+  `MultiplayerHubPage` dismisses via `HeaderBackButton icon="close"` (`aria-label="Close"`), not
+  "Back" — a `/back/i` locator hangs there.
+- **Verified:** 687 unit + 79 e2e green across chromium/android/ios, `tsc -b` clean, zero lint
+  errors, screenshot-checked on WebKit at iPhone width.
+
+---
+
 ## 2026-07-29 (part 3) — Pre-launch A-Z audit: two screens were unreachable on every phone
 
 Final launch-readiness sweep across desktop + Android + iOS before shipping.

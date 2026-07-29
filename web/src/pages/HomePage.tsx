@@ -235,14 +235,20 @@ export function HomePage({
               exit={{ opacity: 0, x: -22, scale: 0.97 }}
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
-              <ProfileTab onOpenLeaderboard={onOpenLeaderboard} onOpenFriends={onOpenFriends} />
+              <ProfileTab
+                onOpenLeaderboard={onOpenLeaderboard}
+                onOpenFriends={onOpenFriends}
+                onOpenMultiplayer={onOpenMultiplayer}
+                onOpenShop={onOpenShop}
+                onOpenSettings={onSettings}
+              />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
       <div className="lg:hidden">
-        <BottomNav active={tab} onChange={setTab} onMultiplayer={onOpenMultiplayer} onShop={onOpenShop} onSettings={onSettings} />
+        <BottomNav active={tab} onChange={setTab} />
       </div>
     </div>
   );

@@ -91,9 +91,12 @@ test.describe('accessibility', () => {
   test('secondary screens', async ({ page }) => {
     await reachHome(page);
 
-    for (const name of ['Shop', 'Duel', 'Settings']) {
-      const button = page.getByRole('button', { name: new RegExp(name) }).first();
-      await expect(button, `${name} must be reachable from Home`).toBeVisible();
+    // Reached via the profile tab's "Explore" hub, not the bottom bar: BottomNav now carries only
+    // Home's five learning tabs (2026-07-29 — it had grown to eight items at 375px).
+    for (const name of ['Shop', 'Multiplayer', 'Settings']) {
+      await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first().click();
+      const button = page.getByRole('button', { name: new RegExp(`${name}$`) }).first();
+      await expect(button, `${name} must be reachable from the profile hub`).toBeVisible();
       await button.click();
       await page.waitForTimeout(800);
       await scan(page, name.toLowerCase());
@@ -114,7 +117,8 @@ test.describe('accessibility', () => {
    */
   test('an open dialog', async ({ page }) => {
     await reachHome(page);
-    await page.getByRole('button', { name: /Settings/ }).first().click();
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first().click();
+    await page.getByRole('button', { name: /Settings$/ }).first().click();
     await page.getByRole('button', { name: /send feedback/i }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await scan(page, 'feedback dialog');

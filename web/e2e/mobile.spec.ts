@@ -20,6 +20,18 @@ async function reachHome(page: Page) {
   await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
 }
 
+/**
+ * Opens a destination from the profile tab's "Explore" hub.
+ *
+ * BottomNav carries only Home's five learning tabs; Shop, Multiplayer and Settings moved to this
+ * hub when the bar was trimmed (it had grown to eight items at 375px). Tests go through the hub
+ * rather than a direct locator so they exercise the path a real phone user actually takes.
+ */
+async function openFromProfileHub(page: Page, label: string) {
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first().click();
+  await page.getByRole('button', { name: new RegExp(`${label}$`) }).first().click();
+}
+
 // The MediaPipe Tasks Vision wasm binary loads from a CDN (@mediapipe/tasks-vision, engine/
 // capture.ts) — unreachable from this sandboxed test environment regardless of app code, and
 // unrelated to any of the mobile fixes here. Every journey test below filters it out rather than
@@ -47,12 +59,12 @@ test.describe('mobile journeys', () => {
       await page.waitForTimeout(300);
     }
 
-    await page.getByRole('button', { name: /Shop/ }).first().click();
+    await openFromProfileHub(page, 'Shop');
     await expect(page.getByRole('heading', { name: 'Shop', exact: true })).toBeVisible();
     await page.goto('/');
     await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole('button', { name: /Settings/ }).first().click();
+    await openFromProfileHub(page, 'Settings');
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
     await page.goBack();
 
@@ -61,7 +73,7 @@ test.describe('mobile journeys', () => {
 
   test('Settings shows exactly one install state, matching this browser', async ({ page }, testInfo) => {
     await reachHome(page);
-    await page.getByRole('button', { name: /Settings/ }).first().click();
+    await openFromProfileHub(page, 'Settings');
     await expect(page.getByRole('heading', { name: 'App', exact: true })).toBeVisible();
 
     // No real `beforeinstallprompt` fires in a headless/automated context (Chrome gates it behind
@@ -91,17 +103,24 @@ test.describe('mobile journeys', () => {
     // "Test from Memory" card on the Alphabets tab matches /Me/ and precedes the nav in the DOM),
     // which would make these assertions pass without the nav containing anything at all.
     const nav = page.getByRole('navigation', { name: 'Main' });
-    for (const label of ['Journey', 'Review', 'Alphabets', 'Basics', 'Me', 'Shop', 'Duel', 'Settings']) {
+    for (const label of ['Journey', 'Alphabets', 'Basics', 'Review', 'Me']) {
       await expect(
         nav.getByRole('button', { name: new RegExp(label) }).first(),
         `"${label}" must be reachable from the bottom nav on a phone`
       ).toBeVisible();
     }
 
-    // Behind the Me tab, since BottomNav is already full.
+    // The bar carries Home's five learning tabs and nothing else. Asserted as an upper bound too:
+    // it drifted to eight items once, and "one more won't hurt" is exactly how that happened.
+    await expect(
+      nav.getByRole('button'),
+      'BottomNav must stay at five tabs — anything else belongs in the profile hub'
+    ).toHaveCount(5);
+
+    // Everything moved off the bar must still be findable, and must still work.
     await nav.getByRole('button', { name: /Me/ }).first().click();
-    for (const label of ['Leaderboard', 'Friends']) {
-      const entry = page.getByRole('button', { name: new RegExp(label) }).first();
+    for (const label of ['Leaderboard', 'Friends', 'Multiplayer', 'Shop', 'Settings']) {
+      const entry = page.getByRole('button', { name: new RegExp(`${label}$`) }).first();
       await expect(entry, `"${label}" must be reachable from the profile tab on a phone`).toBeVisible();
       await entry.click();
       await expect(
@@ -110,8 +129,9 @@ test.describe('mobile journeys', () => {
       ).toBeVisible({ timeout: 10_000 });
 
       // And it must be possible to get back out — these screens previously only ever rendered
-      // alongside a permanently-visible SideNav, so the phone has no other way home.
-      await page.getByRole('button', { name: /back/i }).first().click();
+      // alongside a permanently-visible SideNav, so the phone has no other way home. Back or
+      // Close: MultiplayerHubPage dismisses with a close icon, the rest with a back arrow.
+      await page.getByRole('button', { name: /back|close/i }).first().click();
       await expect(nav.getByRole('button', { name: /Journey/ }).first()).toBeVisible();
       await nav.getByRole('button', { name: /Me/ }).first().click();
     }
@@ -187,7 +207,7 @@ test.describe('mobile chaos', () => {
 
   test('opening and interrupting a dialog (rapid open/Escape) leaves no stuck overlay', async ({ page }) => {
     await reachHome(page);
-    await page.getByRole('button', { name: /Settings/ }).first().click();
+    await openFromProfileHub(page, 'Settings');
     const feedbackButton = page.getByRole('button', { name: /send feedback/i });
 
     for (let i = 0; i < 5; i++) {
@@ -253,7 +273,7 @@ test.describe('iOS input zoom guard', () => {
   test('every text input renders at >=16px to prevent iOS Safari auto-zoom', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'ios', 'iOS Safari-specific zoom behavior — only meaningful on the WebKit project');
     await reachHome(page);
-    await page.getByRole('button', { name: /Settings/ }).first().click();
+    await openFromProfileHub(page, 'Settings');
     await page.getByRole('button', { name: /send feedback/i }).click();
     const textarea = page.locator('textarea');
     await expect(textarea).toBeVisible();
