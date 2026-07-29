@@ -48,7 +48,11 @@ export function BottomNav({ active, onChange, onMultiplayer, onShop, onSettings 
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-z-bg/90 backdrop-blur-md border-t border-z-purple-deep/40">
+    // <nav>, not a bare <div>: this is the app's primary navigation on every phone, and without a
+    // landmark a screen-reader user has no way to jump to it — they must traverse the whole page.
+    // It also gives automated checks a way to distinguish the nav from same-named content (a "Test
+    // from Memory" card matched a naive search for the "Me" tab before this).
+    <nav aria-label="Main" className="fixed bottom-0 left-0 right-0 z-50 bg-z-bg/90 backdrop-blur-md border-t border-z-purple-deep/40 pb-safe">
       <div className="max-w-lg mx-auto flex items-center justify-around py-2.5">
         {tabs.map((tab) => {
           const isActive = active === tab.id;
@@ -181,6 +185,6 @@ export function BottomNav({ active, onChange, onMultiplayer, onShop, onSettings 
           </span>
         </motion.button>
       </div>
-    </div>
+    </nav>
   );
 }

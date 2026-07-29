@@ -55,6 +55,10 @@ export interface EventPayloads {
   password_reset_requested: Record<string, never>;
   password_recovery_completed: Record<string, never>;
 
+  // PWA install (see lib/pwaInstall.ts)
+  pwa_install_prompted: { source: 'banner' | 'settings' };
+  pwa_install_result: { source: 'banner' | 'settings'; outcome: 'accepted' | 'dismissed' };
+
   // Onboarding (components/onboarding/OnboardingFlow.tsx)
   onboarding_step_viewed: { step: 'welcome' | 'auth' | 'skill' | 'done' };
   onboarding_skill_selected: { skill_level: 'beginner' | 'intermediate' | 'advanced' };

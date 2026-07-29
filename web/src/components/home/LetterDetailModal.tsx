@@ -40,7 +40,7 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
         <motion.div
           ref={dialog.ref}
           {...dialog.props}
-          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-5 shadow-2xl outline-none"
+          className="relative w-full max-w-sm max-h-[85dvh] overflow-y-auto bg-z-card border border-white/10 rounded-3xl p-5 shadow-2xl outline-none"
           initial={{ y: 40, opacity: 0, scale: 0.96 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: 40, opacity: 0, scale: 0.96 }}
@@ -68,7 +68,7 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
             <button
               onClick={onClose}
               aria-label="Close"
-              className="text-z-gray-400 hover:text-z-gray-50 text-2xl leading-none -mt-1"
+              className="w-11 h-11 -mr-2.5 -mt-2.5 flex items-center justify-center text-z-gray-400 hover:text-z-gray-50 text-2xl leading-none shrink-0"
             >
               ×
             </button>

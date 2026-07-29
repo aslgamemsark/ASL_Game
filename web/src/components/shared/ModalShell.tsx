@@ -39,7 +39,14 @@ export function ModalShell({ children, ariaLabel, onClose }: Props) {
         <motion.div
           ref={dialog.ref}
           {...dialog.props}
-          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light"
+          // `--kb` (set by useDialogA11y from window.visualViewport while this dialog is active)
+          // shifts the card up by the keyboard's occluded height — on iOS the layout viewport this
+          // `fixed inset-0` sheet is positioned against does NOT shrink for the keyboard, so without
+          // this every text input in the app (all of them live inside a ModalShell) opens behind it.
+          // max-h + overflow-y-auto: no modal in the app had either, so any content taller than the
+          // viewport (long forms, CameraOnboarding's bullet list) was simply unreachable/unscrollable.
+          style={{ marginBottom: 'var(--kb, 0px)' }}
+          className="relative w-full max-w-sm max-h-[85dvh] overflow-y-auto bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light"
           initial={{ y: 40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 40, opacity: 0 }}

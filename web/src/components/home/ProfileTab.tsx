@@ -50,7 +50,12 @@ function cardVariants(glowColor: string) {
   };
 }
 
-export function ProfileTab() {
+interface Props {
+  onOpenLeaderboard: () => void;
+  onOpenFriends: () => void;
+}
+
+export function ProfileTab({ onOpenLeaderboard, onOpenFriends }: Props) {
   const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar, equipBorder } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user, username } = useAuth();
@@ -98,9 +103,33 @@ export function ProfileTab() {
               <p className="font-bold text-sm">Save your progress</p>
               <p className="text-z-gray-400 text-xs">Sign in to sync + join leaderboards</p>
             </div>
-            <button onClick={() => setShowAuth(true)} className="text-xs bg-z-purple text-white rounded-xl px-4 py-2 font-bold">Sign in</button>
+            <button onClick={() => setShowAuth(true)} className="text-xs bg-z-purple text-white rounded-xl px-4 min-h-11 font-bold">Sign in</button>
           </div>
         )}
+      </motion.div>
+
+      {/* Leaderboard and Friends live here because SideNav — their only other entry point — is
+          `hidden lg:flex`, leaving both screens unreachable on every phone. They belong on the
+          profile tab rather than in BottomNav, which already carries eight items at 375px wide. */}
+      <motion.div
+        className="grid grid-cols-2 gap-3 mb-5"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.03 }}
+      >
+        {[
+          { label: 'Leaderboard', icon: '🏆', onClick: onOpenLeaderboard },
+          { label: 'Friends', icon: '🤝', onClick: onOpenFriends },
+        ].map((item) => (
+          <button
+            key={item.label}
+            onClick={item.onClick}
+            className="bg-z-card border border-white/5 rounded-2xl p-4 min-h-11 flex items-center gap-2.5 active:bg-white/5 transition-colors"
+          >
+            <span className="text-xl">{item.icon}</span>
+            <span className="font-bold text-sm text-z-gray-50">{item.label}</span>
+          </button>
+        ))}
       </motion.div>
 
       {/* Avatar + showcase */}

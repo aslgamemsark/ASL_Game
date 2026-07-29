@@ -73,7 +73,7 @@ const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboa
 // auth-restore spinner above so a route-split navigation doesn't look like a different app state.
 function ScreenFallback() {
   return (
-    <div className="min-h-screen bg-z-bg flex items-center justify-center">
+    <div className="min-h-dvh bg-z-bg flex items-center justify-center overflow-y-auto">
       <div className="text-center">
         <Zippy expression="loading" size="lg" priority className="mb-4" />
         <p className="text-z-gray-500 text-sm">Loading…</p>
@@ -219,7 +219,7 @@ export default function App() {
   // Block render until auth session is restored so returning users never see the onboarding flash.
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-z-bg flex items-center justify-center">
+      <div className="min-h-dvh bg-z-bg flex items-center justify-center overflow-y-auto">
         <div className="text-center">
           <Zippy expression="loading" size="lg" priority className="mb-4" />
           <p className="text-z-gray-500 text-sm">Loading…</p>
@@ -256,7 +256,7 @@ export default function App() {
   // of the app — checked before onboarding/home so there's no flash of real content first.
   if (bannedReason) {
     return (
-      <div className="min-h-screen bg-z-bg flex items-center justify-center p-6">
+      <div className="min-h-dvh bg-z-bg flex items-center justify-center overflow-y-auto p-6">
         <div className="text-center max-w-sm">
           <p className="text-5xl mb-4">🚫</p>
           <h1 className="text-xl font-bold mb-2">Account suspended</h1>
@@ -359,6 +359,8 @@ export default function App() {
                 onOpenMultiplayer={() => setScreen({ type: 'multiplayer' })}
                 onRequireSignIn={() => setShowAuth(true)}
                 onSettings={() => setScreen({ type: 'settings' })}
+                onOpenLeaderboard={() => setScreen({ type: 'leaderboard' })}
+                onOpenFriends={() => setScreen({ type: 'friends' })}
                 tab={homeTab}
                 onTabChange={setHomeTab}
               />

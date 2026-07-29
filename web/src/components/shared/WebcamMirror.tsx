@@ -55,6 +55,16 @@ export function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const [overlayEnlarged, setOverlayEnlarged] = useState(false);
+  // The container previously forced a hardcoded 16:9 box (`aspect-video`) regardless of the
+  // stream's real shape. A phone held in portrait commonly delivers a portrait stream (e.g.
+  // 480x640), which `object-cover` into a 16:9 box then crops top-and-bottom — exactly where the
+  // signer's face and chest are, silently invalidating the frameGuide/handZones percentages below
+  // (found in mobile audit, 2026-07-28). Deriving the box from the stream's actual dimensions
+  // (already read every frame for the canvas draw below) means nothing is ever cropped, so those
+  // percentages stay valid on any orientation. Falls back to 16:9 only before the first frame
+  // lands, matching the previous default.
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  const lastAspectRef = useRef<number | null>(null);
 
   useEffect(() => {
     const draw = () => {
@@ -70,6 +80,13 @@ export function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed
           ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
           ctx.restore();
         }
+        if (video.videoWidth && video.videoHeight) {
+          const ratio = video.videoWidth / video.videoHeight;
+          if (lastAspectRef.current !== ratio) {
+            lastAspectRef.current = ratio;
+            setAspectRatio(ratio);
+          }
+        }
       }
       rafRef.current = requestAnimationFrame(draw);
     };
@@ -79,7 +96,8 @@ export function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed
 
   return (
     <div
-      className={`relative rounded-2xl overflow-hidden bg-z-surface aspect-video ${cosmeticBorderClasses ?? ''} ${
+      style={{ aspectRatio: aspectRatio ?? 16 / 9 }}
+      className={`relative rounded-2xl overflow-hidden bg-z-surface ${cosmeticBorderClasses ?? ''} ${
         activeTurn ? 'outline outline-2 outline-z-purple-light' : ''
       } ${
         passed === undefined ? '' : `border-2 transition-colors duration-200 ${passed ? 'border-z-green' : 'border-transparent'}`

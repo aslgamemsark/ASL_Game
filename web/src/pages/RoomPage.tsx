@@ -523,7 +523,7 @@ export function RoomPage({ onExit }: Props) {
   const timerPercent = turnArmed ? (timeLeft / turnSecondsRef.current) * 100 : 100;
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       <video ref={signaling.localVideoRef} style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }} muted playsInline autoPlay />
 
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
@@ -572,7 +572,7 @@ export function RoomPage({ onExit }: Props) {
                 <p className="text-center text-z-gray-400 text-sm mb-2">— or join with a code —</p>
                 <div className="flex gap-2">
                   <input value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setCodeError(''); }}
-                    placeholder="XXXXXX"
+                    placeholder="XXXXXX" maxLength={6} inputMode="text" autoCapitalize="characters" autoCorrect="off" spellCheck={false}
                     className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:outline-none focus:border-z-purple/60" />
                   <motion.button onClick={() => void joinRoom()} disabled={!joinCode.trim()}
                     className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"

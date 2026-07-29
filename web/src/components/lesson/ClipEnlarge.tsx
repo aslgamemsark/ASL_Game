@@ -48,7 +48,11 @@ export function ClipEnlarge({ clipUrl, signName, open, onClose }: Props) {
           {...dialog.props}
         >
           <motion.div
-            className="relative w-full max-w-2xl aspect-square"
+            // Sized off height as well as width now: at max-w-2xl (672px) wide, the square was
+            // exactly at the edge of a 375x667 phone rotated to landscape (667px viewport minus
+            // p-4) and overflowed on anything shorter (mobile audit, 2026-07-28). `h-full` +
+            // `max-h-[...]` bounds it by whichever dimension is actually tighter.
+            className="relative w-auto h-full max-w-2xl max-h-[calc(100dvh-2rem)] aspect-square mx-auto"
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.92, opacity: 0 }}

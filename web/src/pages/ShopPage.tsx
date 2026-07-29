@@ -70,7 +70,7 @@ export function ShopPage({ onExit }: Props) {
 
   if (shopDisabled) {
     return (
-      <div className="min-h-screen bg-z-bg flex flex-col">
+      <div className="min-h-dvh bg-z-bg flex flex-col">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
           <HeaderBackButton onClick={onExit} />
           <h1 className="font-bold text-lg flex-1">Shop</h1>
@@ -85,7 +85,7 @@ export function ShopPage({ onExit }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton onClick={onExit} />
@@ -187,7 +187,7 @@ export function ShopPage({ onExit }: Props) {
             <motion.div
               ref={dialog.ref}
               {...dialog.props}
-              className="fixed bottom-0 left-0 right-0 bg-z-surface border-t border-white/10 rounded-t-3xl p-6 z-50 max-w-lg mx-auto outline-none"
+              className="fixed bottom-0 left-0 right-0 bg-z-surface border-t border-white/10 rounded-t-3xl max-h-[85dvh] overflow-y-auto px-6 pt-6 pb-[calc(1.5rem+var(--sab))] z-50 max-w-lg mx-auto outline-none"
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             >

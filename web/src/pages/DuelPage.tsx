@@ -578,7 +578,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const timerPercent = turnArmed ? (timeLeft / turnSecondsRef.current) * 100 : 100;
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       <video ref={signaling.localVideoRef} style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }} muted playsInline autoPlay />
 
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
@@ -628,7 +628,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                 <p className="text-center text-z-gray-400 text-sm mb-2">— or join with a code —</p>
                 <div className="flex gap-2">
                   <input value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setCodeError(''); }}
-                    placeholder="XXXXXX"
+                    placeholder="XXXXXX" maxLength={6} inputMode="text" autoCapitalize="characters" autoCorrect="off" spellCheck={false}
                     className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:outline-none focus:border-z-purple/60" />
                   <motion.button onClick={() => joinRoom()} disabled={!joinCode.trim()}
                     className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
@@ -667,7 +667,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                 </p>
                 <p className="text-3xl font-bold text-z-purple-light">{SIGNS[matchState.currentSign]?.name.replace(/_/g, ' ') ?? matchState.currentSign}</p>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <WebcamMirror videoRef={signaling.localVideoRef} label="You" cosmeticBorderClasses={cosmeticBorderClasses} activeTurn turnLabel="YOUR TURN" timerPercent={timerPercent} />
                 <RemotePeerVideo stream={remoteStream} label={matchState.opponentUsername} connected={remoteConnected} cosmeticBorderClasses={opponentBorderClasses} />
               </div>
@@ -685,7 +685,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                 <RoundProgressDots total={totalRounds} current={matchState.round} />
                 <Scoreboard entries={[{ label: 'You', score: matchState.myScore, isYou: true }, { label: matchState.opponentUsername, score: matchState.opponentScore, isYou: false }]} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <RemotePeerVideo stream={remoteStream} label={`${matchState.opponentUsername} — signing`} connected={remoteConnected} cosmeticBorderClasses={opponentBorderClasses} activeTurn turnLabel={`${matchState.opponentUsername}'s turn`} timerPercent={timerPercent} onVideoReady={handleVideoReady} />
                 <WebcamMirror videoRef={signaling.localVideoRef} label="You" cosmeticBorderClasses={cosmeticBorderClasses} />
               </div>
@@ -806,7 +806,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
           ) : (
             <span className="text-sm font-semibold">{matchState.opponentUsername} disconnected — {reconnectLeft}s</span>
           )}
-          <button onClick={exit} className="text-xs text-z-gray-400 hover:text-z-gray-50">Leave</button>
+          <button onClick={exit} className="text-xs text-z-gray-400 hover:text-z-gray-50 min-h-11 px-2 -mx-2">Leave</button>
         </div>
       )}
 

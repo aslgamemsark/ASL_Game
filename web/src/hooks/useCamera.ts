@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { track, isKillSwitchOn, type ScreenName } from '@/analytics';
+import { setCameraLive } from '@/lib/cameraActivity';
 
 export type CameraStatus = 'idle' | 'requesting' | 'active' | 'denied' | 'error' | 'stalled';
 
@@ -64,6 +65,7 @@ export function useCamera(screen: ScreenName = 'onboarding') {
     if (streamRef.current) {
       attachStream();
       setStatus('active');
+      setCameraLive(true);
       scheduleStallCheck();
       return 'active';
     }
@@ -89,9 +91,21 @@ export function useCamera(screen: ScreenName = 'onboarding') {
           setStatus('stalled');
           track('camera_stalled', { screen, reason: 'track_ended' });
         };
+        // On iOS Safari, backgrounding the tab/PWA mutes the track rather than ending it — `onended`
+        // above never fires. Without this, the recognition loop (paused by the browser's own rAF
+        // throttling while hidden) resumes on foreground against a track that never unmuted, and the
+        // user sees a frozen mirror with no error and no retry (mobile audit, 2026-07-28). Muting is
+        // routine on backgrounding, so this only escalates to 'stalled' if the track is still muted
+        // after the same grace period a stalled *start* gets.
+        t.onmute = () => scheduleStallCheck();
+        t.onunmute = () => {
+          clearStallTimer();
+          setStatus('active'); // no-op if already 'active' — React bails on an identical value
+        };
       });
       attachStream();
       setStatus('active');
+      setCameraLive(true);
       track('camera_permission_granted', { screen });
       scheduleStallCheck();
       return 'active';
@@ -107,7 +121,7 @@ export function useCamera(screen: ScreenName = 'onboarding') {
         return 'error';
       }
     }
-  }, [attachStream, scheduleStallCheck, screen]);
+  }, [attachStream, clearStallTimer, scheduleStallCheck, screen]);
 
   const stop = useCallback(() => {
     clearStallTimer();
@@ -117,6 +131,7 @@ export function useCamera(screen: ScreenName = 'onboarding') {
       videoRef.current.srcObject = null;
     }
     setStatus('idle');
+    setCameraLive(false);
   }, [clearStallTimer]);
 
   useEffect(() => {
@@ -129,8 +144,30 @@ export function useCamera(screen: ScreenName = 'onboarding') {
     return () => {
       clearStallTimer();
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      // Unmounting ends the session as surely as calling stop() — without this, leaving a lesson
+      // by navigation (rather than the explicit stop) would leave a deferred SW reload waiting
+      // forever on a camera that is already gone.
+      setCameraLive(false);
     };
   }, [clearStallTimer]);
+
+  // Backgrounding the tab pauses the browser's own rAF scheduling (what drives the recognition
+  // loop and, via track mute above, the video element itself) — on resume, a track that unmuted
+  // but produced no frame yet, or one whose mute event we simply missed, would otherwise sit
+  // frozen forever with no error and no retry (mobile audit, 2026-07-28: `document.hidden` /
+  // `visibilitychange` had zero handling anywhere in the app). Re-arming the existing stall check
+  // on every foreground transition reuses the same detection the initial `start()` already has,
+  // rather than inventing a second failure path.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (!document.hidden && streamRef.current) {
+        attachStream();
+        scheduleStallCheck();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [attachStream, scheduleStallCheck]);
 
   // Live stream accessor for consumers that need the raw MediaStream (e.g. the attempt
   // recorder). A getter (not the ref) so callers can't mutate/stop tracks we own.

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
@@ -17,25 +17,77 @@ interface Props {
  * Small hover/focus popup showing a title + description. No codebase-wide tooltip primitive
  * existed before this (only bare native `title=` attributes), so this is deliberately minimal:
  * one shared component rather than another one-off per call site.
+ *
+ * Also opens on tap: hover/focus alone is unreachable on touch — tapping a div doesn't move focus
+ * on iOS Safari, so the tooltip (the only place several badge meanings are explained) was
+ * completely inert on a phone (mobile audit, 2026-07-28). A tap toggles it open; a second tap
+ * anywhere outside, or Escape, closes it — mirroring how a native title/popover behaves.
  */
 export function Tooltip({ title, description, placement = 'top', className = '', children }: Props) {
   const [show, setShow] = useState(false);
+  const [shiftX, setShiftX] = useState(0);
   const isTop = placement === 'top';
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!show) return;
+    const onOutside = (e: PointerEvent) => {
+      if (!wrapperRef.current?.contains(e.target as Node)) setShow(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShow(false);
+    };
+    document.addEventListener('pointerdown', onOutside);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onOutside);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [show]);
+
+  // The popup is centered on the trigger (`left-1/2 -translate-x-1/2`) at a fixed w-40 (160px),
+  // which clips off-screen on the first/last column of a grid. Clamp it back into the viewport
+  // with a horizontal shift rather than a fixed-position portal — good enough for the app's actual
+  // layouts (grids inside a max-w-lg column) without the complexity of a real popover primitive.
+  useEffect(() => {
+    if (!show || !popupRef.current) {
+      setShiftX(0);
+      return;
+    }
+    const rect = popupRef.current.getBoundingClientRect();
+    const margin = 8;
+    let shift = 0;
+    if (rect.left < margin) shift = margin - rect.left;
+    else if (rect.right > window.innerWidth - margin) shift = window.innerWidth - margin - rect.right;
+    if (shift !== 0) setShiftX(shift);
+  }, [show]);
 
   return (
     <div
+      ref={wrapperRef}
       className={`relative ${className}`}
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
       onFocus={() => setShow(true)}
       onBlur={() => setShow(false)}
+      onClick={(e) => {
+        // Only toggle when the trigger itself is a non-interactive wrapper (badge tiles, etc.) —
+        // if children already handle their own click (a real button), let that win and don't
+        // fight it by also toggling here.
+        if ((e.target as HTMLElement).closest('button, a, [role="button"]') === null) {
+          setShow((s) => !s);
+        }
+      }}
     >
       {children}
       <AnimatePresence>
         {show && (
           <motion.div
+            ref={popupRef}
             role="tooltip"
-            className={`absolute left-1/2 -translate-x-1/2 z-50 w-40 pointer-events-none ${
+            style={{ x: shiftX }}
+            className={`absolute left-1/2 -translate-x-1/2 z-50 w-40 ${
               isTop ? 'bottom-full mb-2' : 'top-full mt-2'
             }`}
             initial={{ opacity: 0, y: isTop ? 4 : -4, scale: 0.96 }}

@@ -35,7 +35,7 @@ export function LogoutConfirm({ open, onClose }: Props) {
           <motion.div
             ref={dialog.ref}
             {...dialog.props}
-            className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl text-center outline-none"
+            className="relative w-full max-w-sm max-h-[85dvh] overflow-y-auto bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl text-center outline-none"
             initial={{ y: 40, opacity: 0, scale: 0.94 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 40, opacity: 0, scale: 0.94 }}

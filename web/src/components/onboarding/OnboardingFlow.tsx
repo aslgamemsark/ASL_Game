@@ -90,7 +90,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
     // container's own scrollability explicit here is defensive; the height-scoped spacing below is
     // the actual fix, closing the gap outright at common short heights (measured: cut off by 6px
     // at 800x660, 56px at 800x568) rather than just making the resulting scroll more reliable.
-    <div className="min-h-screen bg-z-bg flex items-center justify-center px-6 py-6 overflow-y-auto">
+    <div className="min-h-dvh bg-z-bg flex items-center justify-center px-6 py-6 overflow-y-auto">
       <AnimatePresence mode="wait">
         {step === 'welcome' && (
           <motion.div

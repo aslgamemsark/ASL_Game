@@ -64,7 +64,7 @@ export default function AnalyticsTab({ showToast }: { showToast: (m: string) => 
     return (
       <div className="text-center py-10">
         <p className="text-z-gray-300 text-sm">Couldn't load analytics</p>
-        <button onClick={() => void load(days)} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+        <button onClick={() => void load(days)} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2">
           Try again
         </button>
       </div>
@@ -95,7 +95,7 @@ export default function AnalyticsTab({ showToast }: { showToast: (m: string) => 
         <button
           onClick={() => void load(days)}
           disabled={loading}
-          className="ml-auto text-xs font-semibold text-z-purple-light hover:underline disabled:opacity-50"
+          className="ml-auto text-xs font-semibold text-z-purple-light hover:underline disabled:opacity-50 py-2.5 -my-2.5 px-2 -mx-2"
         >
           {loading ? 'Refreshing…' : '↻ Refresh'}
         </button>

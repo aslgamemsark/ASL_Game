@@ -28,7 +28,7 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-z-bg flex items-center justify-center p-6">
+        <div className="min-h-dvh bg-z-bg flex items-center justify-center overflow-y-auto p-6">
           <div className="text-center max-w-sm">
             <div className="mb-4 flex justify-center">
               <Zippy expression="oops" size="lg" alt="Zippy looking puzzled" priority />

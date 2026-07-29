@@ -24,6 +24,10 @@ export const EVENTS = {
   password_reset_requested: 'password_reset_requested',
   password_recovery_completed: 'password_recovery_completed',
 
+  // PWA install
+  pwa_install_prompted: 'pwa_install_prompted',
+  pwa_install_result: 'pwa_install_result',
+
   // Onboarding
   onboarding_step_viewed: 'onboarding_step_viewed',
   onboarding_skill_selected: 'onboarding_skill_selected',

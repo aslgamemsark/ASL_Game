@@ -280,6 +280,25 @@
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+/* Safe-area insets (notch / Dynamic Island / home indicator). Real values only exist on-device —
+   `env()` falls back to 0px everywhere else, so this costs nothing on desktop or Android's
+   gesture-free devices. Exposed as custom props (not used inline via raw `env()` at each call
+   site) for two reasons: one definition to update, and a test can override them
+   (`document.documentElement.style.setProperty('--sat', '44px')`) to exercise the layout on a
+   platform that doesn't report real insets — see mobile.spec.ts's safe-area assertion. Requires
+   `viewport-fit=cover` in index.html's viewport meta, which is what actually extends the layout
+   viewport under the notch/indicator in the first place. */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+.pt-safe { padding-top: var(--sat); }
+.pb-safe { padding-bottom: var(--sab); }
+.pl-safe { padding-left: var(--sal); }
+.pr-safe { padding-right: var(--sar); }
+
 body {
   margin: 0;
   background-color: var(--rt-body-bg);
@@ -288,10 +307,40 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.2s ease, color 0.2s ease;
+  /* Modals are `fixed inset-0` with no separate scroll lock on most touch devices; without this,
+     scrolling inside one chains into the page behind it and can trigger Chrome Android's
+     pull-to-refresh mid-dialog. */
+  overscroll-behavior-y: contain;
+  /* Every tap on the ~479 interactive elements in the app otherwise flashes the browser's default
+     grey/blue highlight box on top of framer-motion's own whileTap animation — doubly visible on
+     BottomNav/SideNav rows. Focus rings (:focus-visible above... below) are unaffected; this only
+     suppresses the transient tap flash. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 *, *::before, *::after {
   box-sizing: border-box;
+}
+
+/* Removes the ~300ms tap delay and disables double-tap-to-zoom on interactive elements (the
+   26-cell alphabet grid was the original trigger — a double-tap on adjacent letters zoomed the
+   page instead of registering two taps). Left off non-interactive elements so pinch-zoom on
+   images/video still works where a user might want it. */
+button, a, [role="button"], input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* iOS Safari zooms the whole page when a focused input's computed font-size is under 16px, and
+   does not zoom back out on blur. Every text input in the app ships at Tailwind's text-sm (14px)
+   for visual consistency with surrounding UI, so the fix lives here — one rule for every input,
+   rather than bumping font-size at 20+ call sites and drifting from the design system. Scoped to
+   coarse pointers (touch) only, so desktop/mouse users keep the intended 14px sizing. `!important`
+   is required: Tailwind's `text-sm` utility is a class selector with equal specificity that would
+   otherwise win on source order. */
+@media (pointer: coarse) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
 }
 
 /* Keyboard focus was previously invisible (framer-motion buttons ship no focus style of their

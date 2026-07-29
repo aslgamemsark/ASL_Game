@@ -8,15 +8,37 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // Capped deliberately. Playwright defaults to half the core count (8 here), but each worker is a
+  // full browser engine driving React + framer-motion, and the axe sweeps pin a core for seconds at
+  // a time. At 8 the suite starved itself: a different test failed on each run, always WebKit,
+  // always "onboarding did not reach Home in 15s" rather than a real assertion — the signature of
+  // CPU contention, not a code path. It is not the app being slow: a cold load of the production
+  // bundle measures 130ms on WebKit (vs 1.8s on Chromium). At 4 the full suite passes repeatedly.
+  // A gate that cannot tell "app broken" from "machine busy" is not a gate.
+  workers: 4,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
+  // Playwright's 30s default was sized when this suite had one project. It now runs three device
+  // projects fully in parallel, so workers contend for CPU and the longest tests — the axe sweeps,
+  // which do four to five full page loads plus a scan each — exceed it. Measured uncontended on
+  // WebKit: 18.0s and 22.8s, already 60-76% of the old budget before any contention. This is not
+  // masking a slow app: a cold load of the production bundle measures 130ms on WebKit and 1.8s on
+  // Chromium, so page load is not the cost here — the axe scans are.
+  timeout: 60_000,
   use: {
     baseURL: 'http://localhost:4173',
     trace: 'on-first-retry',
   },
+  // Mobile parity audit (2026-07-28): every existing spec had only ever run on Desktop Chrome.
+  // `android` exercises real Android Chrome geometry/touch on the Chromium engine; `ios` runs on
+  // WebKit — the actual Safari engine, the only place the safe-area, 100vh->dvh, iOS 16px-input-
+  // zoom, and visualViewport-keyboard fixes in this codebase can be genuinely verified (no iOS
+  // Simulator exists on Windows/Linux CI, so this is the closest real coverage available).
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'android', use: { ...devices['Pixel 7'] } },
+    { name: 'ios', use: { ...devices['iPhone 14 Pro'] } },
   ],
   webServer: {
     // Production build + preview, not `npm run dev` — matches what actually ships, and avoids

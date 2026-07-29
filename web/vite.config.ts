@@ -25,7 +25,18 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'prompt',
+      // 'autoUpdate', not 'prompt' (changed 2026-07-29). Under 'prompt' the update is opt-in: the
+      // app showed a "A new version is ready / Refresh / Later" toast, and anyone who tapped Later
+      // or never saw it kept running their cached build forever. Measured on production traffic:
+      // 13 of 17 real users were still executing the 2026-07-24 bundle days after the S1 activation
+      // fixes shipped — including the AI-veto shadow-mode fix, so those users were still being
+      // rejected on correct signs by a gate that had already been turned off in the code.
+      // Shipping a fix nobody receives is the same as not shipping it.
+      //
+      // The forced `window.location.reload()` this normally implies is intercepted in
+      // InstallPrompt.tsx via `onNeedReload` — see lib/cameraActivity.ts for why a reload must
+      // never land mid-lesson.
+      registerType: 'autoUpdate',
       // Precache only the app shell (JS/CSS/HTML + icons). The heavy assets — sign demo clips
       // (~2.3MB), the MediaPipe/classifier models (~2.6MB), and reference poses — are runtime-
       // cached on first use instead, so installing the app doesn't force a multi-MB download.

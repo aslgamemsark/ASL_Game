@@ -65,6 +65,44 @@ export function useDialogA11y<E extends HTMLElement = HTMLDivElement>({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
+  // Body scroll lock: with no other guard, scrolling inside a `fixed inset-0` dialog on a touch
+  // device chains into the page behind it — `overscroll-behavior-y: contain` (index.css) stops the
+  // chaining but not the scroll position itself moving, which was still visible as the page
+  // shifting under the dialog. Locking the body's own scroll for the dialog's lifetime, restoring
+  // whatever it was on close, closes that gap without every dialog needing its own copy.
+  useEffect(() => {
+    if (!active) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [active]);
+
+  // On iOS the LAYOUT viewport does not shrink when the on-screen keyboard opens — only
+  // `window.visualViewport` reflects it — so a `fixed inset-0` sheet anchored to the layout
+  // viewport's bottom stays anchored behind the keyboard once it opens (mobile audit, 2026-07-28:
+  // every text input in the app sits inside a dialog with this shape). Publishing the keyboard's
+  // occluded height as a CSS custom prop lets `ModalShell` (and anything else) pull the sheet up
+  // by exactly that amount, without each dialog wiring its own listener. Falls back to inert 0px
+  // wherever `visualViewport` doesn't exist (older browsers, desktop where nothing overlaps).
+  useEffect(() => {
+    if (!active || typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const updateKeyboardInset = () => {
+      const occluded = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.documentElement.style.setProperty('--kb', `${occluded}px`);
+    };
+    updateKeyboardInset();
+    vv.addEventListener('resize', updateKeyboardInset);
+    vv.addEventListener('scroll', updateKeyboardInset);
+    return () => {
+      vv.removeEventListener('resize', updateKeyboardInset);
+      vv.removeEventListener('scroll', updateKeyboardInset);
+      document.documentElement.style.setProperty('--kb', '0px');
+    };
+  }, [active]);
+
   useEffect(() => {
     if (!active) return;
     previousFocusRef.current = document.activeElement as HTMLElement | null;

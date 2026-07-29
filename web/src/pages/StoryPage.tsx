@@ -218,7 +218,7 @@ export function StoryPage({ story, onExit }: Props) {
   const timeTaken = Math.round((Date.now() - startedAt) / 1000);
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       <video ref={videoRef} style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }} muted playsInline autoPlay />
 
       {/* Header */}

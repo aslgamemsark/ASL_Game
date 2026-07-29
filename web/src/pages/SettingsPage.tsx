@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { motion } from 'framer-motion';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { Toggle } from '@/components/shared/Toggle';
@@ -9,6 +9,7 @@ import { useUserStore } from '@/stores/useUserStore';
 import { LogoutConfirm } from '@/components/auth/LogoutConfirm';
 import { FeedbackModal } from '@/components/shared/FeedbackModal';
 import { isAnalyticsOptedOut, setAnalyticsOptOut } from '@/analytics';
+import { getSnapshot, isIos, promptInstall, subscribe } from '@/lib/pwaInstall';
 
 interface Props {
   onExit: () => void;
@@ -27,6 +28,7 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
   // PRODUCT USAGE events, not landmark data). Read once at mount; the toggle below writes through
   // setAnalyticsOptOut immediately, so there's no "opted out" state this component can miss.
   const [analyticsOptedOut, setAnalyticsOptedOutState] = useState(() => isAnalyticsOptedOut());
+  const { canInstall: installAvailable, installed } = useSyncExternalStore(subscribe, getSnapshot);
 
   const giveTestCredits = () => {
     addGold(10000);
@@ -45,7 +47,7 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-z-bg">
+    <div className="min-h-dvh bg-z-bg">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton onClick={onExit} />
         <h1 className="font-bold text-lg flex-1">Settings</h1>
@@ -60,6 +62,29 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
             checked={theme === 'dark'}
             onChange={(next) => setTheme(next ? 'dark' : 'light')}
           />
+        </motion.div>
+
+        {/* App — install offer. Always available here regardless of the open-app banner's
+            returning-visitor gate (InstallPrompt.tsx), so a first-run user who wants to install
+            immediately isn't forced to wait for a second session. */}
+        <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}>
+          <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">App</h2>
+          {installed ? (
+            <p className="text-sm text-z-gray-400">✓ Installed</p>
+          ) : installAvailable ? (
+            <button
+              onClick={() => void promptInstall('settings')}
+              className="w-full py-2.5 rounded-xl bg-z-purple/15 text-z-purple-light font-bold text-sm"
+            >
+              📲 Install QuickSign
+            </button>
+          ) : isIos() ? (
+            <p className="text-sm text-z-gray-400">
+              Tap <span className="inline-block align-middle">⬆️</span> Share, then "Add to Home Screen" to install.
+            </p>
+          ) : (
+            <p className="text-sm text-z-gray-400">Install isn't available in this browser yet.</p>
+          )}
         </motion.div>
 
         {/* Accessibility */}

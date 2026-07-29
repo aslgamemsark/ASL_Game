@@ -26,12 +26,12 @@ export function MultiplayerHubPage({ onExit, mode, autoHostRoomId, autoJoinCode,
 
   if (multiplayerDisabled) {
     return (
-      <div className="min-h-screen bg-z-bg flex flex-col">
+      <div className="min-h-dvh bg-z-bg flex flex-col">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
           <HeaderBackButton icon="close" onClick={onExit} />
           <h1 className="font-bold text-lg">Multiplayer</h1>
         </div>
-        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 flex flex-col items-center justify-center gap-4 text-center">
+        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 flex flex-col items-center justify-center gap-4 text-center overflow-y-auto">
           <span className="text-5xl">🛠️</span>
           <p className="font-bold text-lg">Multiplayer is briefly offline</p>
           <p className="text-z-gray-400 text-sm">We're fixing something — check back in a bit.</p>
@@ -46,12 +46,12 @@ export function MultiplayerHubPage({ onExit, mode, autoHostRoomId, autoJoinCode,
   // key off a real user id).
   if (!user) {
     return (
-      <div className="min-h-screen bg-z-bg flex flex-col">
+      <div className="min-h-dvh bg-z-bg flex flex-col">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
           <HeaderBackButton icon="close" onClick={onExit} />
           <h1 className="font-bold text-lg">Multiplayer</h1>
         </div>
-        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 flex flex-col items-center justify-center gap-4 text-center">
+        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 flex flex-col items-center justify-center gap-4 text-center overflow-y-auto">
           <span className="text-5xl">🔒</span>
           <div>
             <p className="font-bold text-lg">Sign in to play</p>
@@ -77,7 +77,7 @@ export function MultiplayerHubPage({ onExit, mode, autoHostRoomId, autoJoinCode,
   }
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton icon="close" onClick={onExit} />
         <h1 className="font-bold text-lg">Multiplayer</h1>

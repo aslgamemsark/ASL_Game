@@ -305,7 +305,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
 
   if (!lesson) {
     return (
-      <div className="min-h-screen bg-z-bg flex items-center justify-center text-z-gray-300">
+      <div className="min-h-dvh bg-z-bg flex items-center justify-center overflow-y-auto text-z-gray-300">
         Lesson not found.
       </div>
     );
@@ -321,7 +321,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
     : '';
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       {/* Always mounted, separate from the phase panels' own AnimatePresence — see DESIGN.md
           "Status messages": a live region must already be in the DOM before its text appears. */}
       <p className="sr-only" role="status" aria-live="polite">{phaseAnnouncement}</p>

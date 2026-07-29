@@ -43,6 +43,11 @@ interface Props {
   onOpenMultiplayer: () => void;
   onRequireSignIn: () => void;
   onSettings: () => void;
+  /** Leaderboard and Friends are top-level screens whose only other entry point is SideNav, which
+   *  is `hidden lg:flex` — so without these the two screens are unreachable on every phone. They
+   *  surface on the profile tab rather than in BottomNav, which is already at eight items. */
+  onOpenLeaderboard: () => void;
+  onOpenFriends: () => void;
   tab: Tab;
   onTabChange: (tab: Tab) => void;
 }
@@ -56,6 +61,8 @@ export function HomePage({
   onOpenMultiplayer,
   onRequireSignIn,
   onSettings,
+  onOpenLeaderboard,
+  onOpenFriends,
   tab,
   onTabChange: setTab,
 }: Props) {
@@ -87,9 +94,13 @@ export function HomePage({
   };
 
   return (
-    <div className="min-h-screen bg-z-bg">
+    <div className="min-h-dvh bg-z-bg">
       {/* Guest tapping the avatar gets the sign-in prompt; a signed-in user goes to their Me tab. */}
-      <TopBar onOpenShop={onOpenShop} onOpenProfile={() => (user ? setTab('profile') : onRequireSignIn())} />
+      <TopBar
+        onOpenShop={onOpenShop}
+        onOpenProfile={() => (user ? setTab('profile') : onRequireSignIn())}
+        profileLabel={user ? 'My Profile' : 'Sign in'}
+      />
 
       <div className="max-w-lg mx-auto px-4 pt-4">
         <AnimatePresence mode="wait">
@@ -224,7 +235,7 @@ export function HomePage({
               exit={{ opacity: 0, x: -22, scale: 0.97 }}
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
-              <ProfileTab />
+              <ProfileTab onOpenLeaderboard={onOpenLeaderboard} onOpenFriends={onOpenFriends} />
             </motion.div>
           )}
         </AnimatePresence>

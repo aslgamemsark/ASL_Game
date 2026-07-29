@@ -16,15 +16,20 @@ export function CameraOnboarding({ onContinue, onCancel }: Props) {
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 bg-z-bg/95 backdrop-blur-sm flex items-center justify-center p-6"
+      className="fixed inset-0 z-50 bg-z-bg/95 backdrop-blur-sm flex items-center justify-center px-6 pt-[calc(1.5rem+var(--sat))] pb-[calc(1.5rem+var(--sab))]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
+      {/* max-h/overflow-y-auto: the bullet list below measures ~650px tall — on an iPhone SE
+          (667px viewport minus this container's p-6) it previously overflowed a fixed, centered,
+          non-scrolling box, leaving the "Allow Camera" button off-screen with no way to reach it
+          (mobile audit, 2026-07-28). Same overflow-first fix OnboardingFlow.tsx already applies to
+          its welcome step. */}
       <motion.div
         ref={dialog.ref}
         {...dialog.props}
-        className="max-w-sm w-full bg-z-card border border-white/10 rounded-3xl p-6 text-center outline-none"
+        className="max-w-sm w-full max-h-full overflow-y-auto bg-z-card border border-white/10 rounded-3xl p-6 text-center outline-none"
         initial={{ scale: 0.9, y: 20 }}
         animate={{ scale: 1, y: 0 }}
       >

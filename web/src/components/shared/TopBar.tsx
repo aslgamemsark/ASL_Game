@@ -24,9 +24,19 @@ const fireVariants = {
 interface TopBarProps {
   onOpenShop?: () => void;
   onOpenProfile?: () => void;
+  /** What the profile chip actually does for the current user — "Sign in" for a guest (it opens
+   *  the auth modal), "My Profile" once signed in. On desktop this same distinction already exists
+   *  as separate labeled items in SideNav ("Sign in" vs "View profile"); on mobile the chip is the
+   *  ONLY entry point, so it needs the same distinction to give guests an accessible "Sign in"
+   *  control at all — its title/aria-label used to be hardcoded to "My Profile" regardless of auth
+   *  state, silently mislabeling the one guest sign-in affordance mobile has (found via e2e run on
+   *  mobile viewports, 2026-07-28 — smoke.spec.ts's `getByRole('button', {name: /sign in/i})` had
+   *  never run below the `lg` breakpoint before). Defaults to "My Profile" for any caller that
+   *  doesn't pass it, matching the previous hardcoded behavior. */
+  profileLabel?: string;
 }
 
-export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
+export function TopBar({ onOpenShop, onOpenProfile, profileLabel = 'My Profile' }: TopBarProps = {}) {
   // Selector + useShallow: TopBar is always mounted, so subscribing to the whole store (the
   // previous `useUserStore()` with no selector) re-rendered it on every unrelated field change
   // too — e.g. an XP tick during a lesson (production audit, 2026-07-12).
@@ -63,7 +73,7 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
   }, []);
 
   return (
-    <div className="sticky top-0 z-50 bg-z-bg/90 backdrop-blur-md border-b border-z-purple-deep/50">
+    <div className="sticky top-0 z-50 bg-z-bg/90 backdrop-blur-md border-b border-z-purple-deep/50 pt-safe">
       {/* `relative` anchors the cart button below — it's placed at top-full, i.e. right past this
           header's own bottom border (the divider), under the gold pill's column. */}
       <div ref={headerRef} className="relative max-w-lg mx-auto lg:max-w-none">
@@ -73,7 +83,8 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
               onClick={onOpenProfile}
               className="w-11 h-11 flex items-center justify-center cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light focus-visible:ring-offset-2 focus-visible:ring-offset-z-bg rounded-xl"
               whileTap={{ scale: 0.9 }}
-              title="My Profile"
+              aria-label={profileLabel}
+              title={profileLabel}
             >
               <motion.span
                 className={`w-8 h-8 rounded-xl overflow-hidden bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg ${borderClasses}`}
@@ -139,7 +150,7 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
             y: 8,
             opacity: cartCenter === null ? 0 : 1,
           }}
-          className="absolute top-full w-8 h-8 rounded-full bg-z-surface border border-z-yellow/30 shadow-lg flex items-center justify-center text-z-yellow"
+          className="absolute top-full w-11 h-11 rounded-full bg-z-surface border border-z-yellow/30 shadow-lg flex items-center justify-center text-z-yellow"
           whileHover={{ scale: 1.12, backgroundColor: 'rgba(250, 204, 21, 0.16)', transition: { duration: 0.15 } }}
           whileTap={{ scale: 0.9 }}
         >

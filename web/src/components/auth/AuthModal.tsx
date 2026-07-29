@@ -225,6 +225,9 @@ export function AuthModal({ onClose }: Props) {
                 maxLength={20}
                 required
                 autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
               {/* Status indicator */}
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none">

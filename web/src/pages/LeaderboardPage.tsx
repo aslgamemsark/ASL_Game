@@ -65,7 +65,7 @@ function BoardList({
         <p className="text-z-gray-300 font-semibold text-sm">Couldn't load the leaderboard</p>
         <p className="text-z-gray-500 text-xs mt-1">Check your connection and try again.</p>
         {onRetry && (
-          <button onClick={onRetry} className="text-z-purple-light text-xs mt-3 font-semibold hover:underline">
+          <button onClick={onRetry} className="text-z-purple-light text-xs mt-3 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2">
             Retry
           </button>
         )}
@@ -478,7 +478,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
   ];
 
   return (
-    <div className="min-h-screen bg-z-bg">
+    <div className="min-h-dvh bg-z-bg">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton onClick={onExit} />
@@ -551,7 +551,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
               <button
                 onClick={() => void retryDetectRegion()}
                 disabled={regionSaving}
-                className="text-xs text-z-purple-light hover:underline disabled:opacity-50"
+                className="text-xs text-z-purple-light hover:underline disabled:opacity-50 py-2.5 -my-2.5 px-2 -mx-2"
               >
                 {regionSaving ? 'Working…' : 'Try auto-detect again'}
               </button>
@@ -609,7 +609,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
               <p className="text-z-gray-300 font-semibold text-sm">Couldn't load your friends board</p>
               <button
                 onClick={() => setFriendReloadKey((k) => k + 1)}
-                className="text-z-purple-light text-xs mt-3 font-semibold hover:underline"
+                className="text-z-purple-light text-xs mt-3 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2"
               >
                 Retry
               </button>

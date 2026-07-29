@@ -296,12 +296,12 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
   // loading list.
   if (!user) {
     return (
-      <div className="min-h-screen bg-z-bg flex flex-col">
+      <div className="min-h-dvh bg-z-bg flex flex-col">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
           <HeaderBackButton onClick={onExit} />
           <h1 className="font-bold text-lg">Friends &amp; 1v1</h1>
         </div>
-        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 flex flex-col items-center justify-center gap-4 text-center">
+        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 flex flex-col items-center justify-center gap-4 text-center overflow-y-auto">
           <span className="text-5xl">🤝</span>
           <div>
             <p className="font-bold text-lg">Sign in to add friends</p>
@@ -322,7 +322,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
   }
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton onClick={onExit} />

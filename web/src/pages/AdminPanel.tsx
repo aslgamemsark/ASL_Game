@@ -95,18 +95,22 @@ export function AdminPanel({ onExit }: Props) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col lg:pl-64">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton onClick={onExit} />
         <h1 className="font-bold text-lg flex-1">🛠 Admin Panel</h1>
       </div>
 
-      <div className="flex bg-z-surface/50 mx-4 mt-4 rounded-xl p-1 max-w-2xl lg:mx-auto lg:w-full">
+      {/* Five flex-1 tabs at text-sm squeezed 5 of the app's longest labels ("Analytics", "Audit
+          Log") into ~67px each on a 375px phone with no wrap/scroll fallback (mobile audit,
+          2026-07-28). overflow-x-auto + shrink-0 lets them take their natural width and scroll
+          instead, matching how the rest of the app handles overflow (CohortGrid does the same). */}
+      <div className="flex bg-z-surface/50 mx-4 mt-4 rounded-xl p-1 max-w-2xl lg:mx-auto lg:w-full overflow-x-auto no-scrollbar">
         {(['beta', 'analytics', 'users', 'worlds', 'audit'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 py-2 rounded-lg text-sm font-bold capitalize transition-colors ${
+            className={`shrink-0 min-w-[20%] px-3 py-2 rounded-lg text-sm font-bold capitalize whitespace-nowrap transition-colors ${
               tab === t ? 'bg-z-purple text-white' : 'text-z-gray-400'
             }`}
           >
@@ -191,7 +195,7 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
     return (
       <div className="text-center py-10">
         <p className="text-z-gray-300 text-sm">Couldn't load beta metrics</p>
-        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2">
           Try again
         </button>
       </div>
@@ -684,7 +688,7 @@ function WorldsTab({ showToast }: { showToast: (m: string) => void }) {
     return (
       <div className="text-center py-10">
         <p className="text-z-gray-300 text-sm">Couldn't load world settings</p>
-        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2">
           Try again
         </button>
       </div>
@@ -762,7 +766,7 @@ function AuditTab() {
     return (
       <div className="text-center py-10">
         <p className="text-z-gray-300 text-sm">Couldn't load the audit log</p>
-        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2">
           Try again
         </button>
       </div>

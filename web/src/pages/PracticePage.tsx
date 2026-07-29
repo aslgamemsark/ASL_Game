@@ -402,7 +402,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   };
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       {/* Hidden video for MediaPipe */}
       <video
         ref={videoRef}

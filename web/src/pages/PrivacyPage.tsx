@@ -7,7 +7,7 @@ interface Props {
 
 export function PrivacyPage({ onExit }: Props) {
   return (
-    <div className="min-h-screen bg-z-bg lg:pl-64">
+    <div className="min-h-dvh bg-z-bg">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton onClick={onExit} />
         <h1 className="font-bold text-lg flex-1">Privacy &amp; Terms</h1>

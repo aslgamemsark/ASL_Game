@@ -269,7 +269,7 @@ export function SpeedChallengePage({ onExit }: Props) {
     : 100;
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       <video
         ref={videoRef}
         style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }}
@@ -437,7 +437,7 @@ export function SpeedChallengePage({ onExit }: Props) {
                     setCombo(0);
                     advanceSign(false);
                   }}
-                  className="text-xs text-z-gray-400 hover:text-z-gray-50 px-3 py-1.5 rounded-lg border border-z-gray-500/30"
+                  className="text-xs text-z-gray-400 hover:text-z-gray-50 min-h-11 px-3 rounded-lg border border-z-gray-500/30"
                 >
                   Skip
                 </button>
