@@ -49,6 +49,7 @@ import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal';
 import { Zippy } from '@/components/shared/Zippy';
 import { CelebrationHost } from '@/components/shared/CelebrationHost';
 import { useScreenView } from '@/analytics';
+import { useBackDismiss } from '@/hooks/useBackDismiss';
 
 type Screen =
   | { type: 'home' }
@@ -146,6 +147,17 @@ export default function App() {
   // on the very first render instead of flashing the real app for one frame first.
 
   const goHome = () => setScreen({ type: 'home' });
+
+  // Hardware/browser Back from any non-home, non-onboarding screen does exactly what that
+  // screen's own exit affordance already does (home for every screen except Privacy, which
+  // returns to Settings) instead of closing the app/tab — see useBackDismiss for why this was
+  // previously broken on every screen (zero pushState/popstate anywhere in the app). Onboarding is
+  // excluded deliberately: it's the true root on a fresh install, so Back from it should exit, the
+  // same as Back from Home.
+  useBackDismiss(
+    screen.type !== 'home' && screen.type !== 'onboarding',
+    screen.type === 'privacy' ? () => setScreen({ type: 'settings' }) : goHome
+  );
 
   // On finishing onboarding, route by self-reported skill: brand-new "beginner" learners land on
   // the Alphabets tab (letters first), everyone else lands on Basic Signs (greetings/courtesy

@@ -29,6 +29,12 @@ ships surprised. This is deliberately candid — every item is real and evidence
   price of privacy (no video leaves your device), but it means a slow first paint on poor networks.
 - **Not deeply tested across browsers/devices this pass.** iOS Safari camera + WebRTC in particular
   needs real-device verification before relying on it.
+- **Hardware/browser Back is wired for top-level screens, dialogs, and the multiplayer hub only**
+  (2026-07-30, `useBackDismiss`) — not for step machines *within* a screen. Pressing Back mid-way
+  through the onboarding flow's own steps, or while `AuthModal` is showing its "sign up" tab
+  instead of "sign in", exits that screen/dialog entirely rather than stepping back one internal
+  step. Each of those would need its own `useBackDismiss` adoption; not done broadly this pass
+  because it requires auditing every internal step flow app-wide, not just this one bug class.
 
 ## Accessibility
 - **Not yet WCAG-audited.** Keyboard navigation, screen-reader support, focus management, and

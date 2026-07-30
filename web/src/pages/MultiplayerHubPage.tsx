@@ -5,6 +5,7 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { DuelPage } from '@/pages/DuelPage';
 import { RoomPage } from '@/pages/RoomPage';
 import { useFeatureFlag } from '@/analytics';
+import { useBackDismiss } from '@/hooks/useBackDismiss';
 
 type Mode = 'hub' | 'duel' | 'room';
 
@@ -20,6 +21,10 @@ interface Props {
 export function MultiplayerHubPage({ onExit, mode, autoHostRoomId, autoJoinCode, onRequireSignIn }: Props) {
   const { user } = useAuth();
   const [active, setActive] = useState<Mode>(mode ?? 'hub');
+  // Hardware/browser Back from inside a Duel or Room returns to the hub first, one level at a
+  // time, instead of jumping straight to whatever App.tsx's own Back handling does (which would
+  // otherwise skip this level entirely and exit the match to Home in one press).
+  useBackDismiss(active !== 'hub', () => setActive('hub'));
   // Emergency remote kill switch — WebRTC/Realtime bugs under real concurrent load are exactly the
   // class of thing worth disabling instantly rather than waiting on a hotfix deploy.
   const multiplayerDisabled = useFeatureFlag('disable_multiplayer', false);

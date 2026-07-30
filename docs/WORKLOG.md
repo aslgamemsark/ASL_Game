@@ -7,6 +7,56 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-30 (part 2) — Phase 1: hardware/browser Back no longer exits the app from any screen
+
+`grep -rn "popstate|pushState" src/` returned **zero matches** before this change — nothing in the
+app ever touched browser history, so on Android (including the real TWA build in
+`android-app/`), the hardware Back button closed the app from any screen, mid-lesson included.
+This was the single largest "doesn't feel native" defect found in the 2026-07-30 audit, and it
+affects the platform prioritized as the primary mobile target.
+
+- **New `src/hooks/useBackDismiss.ts`** — a generic primitive: `useBackDismiss(active, onBack)`
+  pushes one history entry while `active` is true and runs `onBack` when the browser lands back
+  behind it; consumes its own entry if `active` turns false through some other path (a visible
+  exit button, Escape) so the real browser history depth never drifts out of sync with app state.
+  Nested instances (e.g. a dialog open on top of a non-home screen) compose correctly: each
+  instance tags the depth it pushed with a monotonic session counter and only reacts when the
+  browser lands on an entry *shallower* than its own, so closing an inner dialog never also
+  triggers the outer screen's handler. Considered and rejected a generic per-screen push/pop stack
+  (mirroring every `Screen` transition 1:1) — the app's actual navigation shape is flat (Home <->
+  any screen, always exiting back to Home) with exactly one exception (`Settings -> Privacy`), so
+  a binary "away from home" primitive matches the real graph instead of building infrastructure
+  for a hierarchy that doesn't exist.
+- **Wired at three call sites:** `App.tsx` (`screen.type !== 'home' && !== 'onboarding'`, dispatching
+  to `goHome` or, for Privacy, back to Settings — matching each screen's existing `onExit` prop
+  exactly, so Back and the visible exit button now do the identical thing); `useDialogA11y.ts`
+  (folded in alongside the existing Escape handling — all 11 adopting dialogs get Back-to-dismiss
+  for free, no per-dialog change needed); `MultiplayerHubPage.tsx` (`active !== 'hub'`, so Back
+  from inside a Duel/Room returns to the hub's mode picker first, one level at a time, instead of
+  App.tsx's own handler skipping straight to Home).
+- **Deliberately state-only — no URL change**, and onboarding is excluded from the App-level
+  instance (it's the true root on a fresh install, so Back from it should exit like Back from
+  Home, not "go somewhere before onboarding"). Known gap, documented in `KNOWN_LIMITATIONS.md`:
+  internal step machines within a screen (onboarding's own steps, `AuthModal`'s sign-in/sign-up
+  tab) are not wired this pass — each would need its own adoption, and auditing every internal
+  flow app-wide is a larger effort than this bug class required.
+- **Fixed two unrelated leaks found while touching the same "cleanup on every exit path" territory:**
+  `SpeedChallengePage.tsx`'s countdown `setInterval` was a plain local variable, invisible to the
+  unmount cleanup effect — exiting mid-countdown left a 1 Hz interval calling `setCountdown` on an
+  unmounted component forever. Now held in a ref and cleared on unmount too.
+  `useConfetti.ts`'s `bigCelebration` rAF loop had no cancel path at all; now tracked in a ref and
+  cancelled on unmount.
+- **New `e2e/navigation.spec.ts`** (5 tests): Back from a non-home screen, from Leaderboard, from
+  inside the multiplayer hub, closing a dialog over Home, and exhausting Back twice from Home
+  without crashing — run across chromium/android/ios, all green. Full suite (94 e2e + 687 unit)
+  confirmed no regressions from the new global `popstate` listeners.
+- **Not yet verified:** the real Android TWA build (`android-app/QuickSign.apk`) with the actual
+  hardware Back button, and iOS Safari's gesture-based back-swipe. Playwright's `goBack()` exercises
+  the same `popstate` path but is not a substitute for the physical device check — flagged for the
+  user rather than assumed.
+
+---
+
 ## 2026-07-30 — Phase 0 of production hardening pass: CI restored as a real safety net
 
 Full three-front audit (architecture, UI/UX/a11y, perf/build/config) found CI has been silently

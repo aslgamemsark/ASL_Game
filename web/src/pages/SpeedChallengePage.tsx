@@ -53,6 +53,7 @@ export function SpeedChallengePage({ onExit }: Props) {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const loopStartedRef = useRef<string | null>(null);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -221,6 +222,7 @@ export function SpeedChallengePage({ onExit }: Props) {
     return () => {
       clearInterval(timerRef.current);
       clearTimeout(advanceTimerRef.current);
+      clearInterval(countdownIntervalRef.current);
       stopCam();
       recognition.stopLoop();
     };
@@ -253,11 +255,12 @@ export function SpeedChallengePage({ onExit }: Props) {
     await startCam();
 
     let c = 3;
-    const cdInterval = setInterval(() => {
+    clearInterval(countdownIntervalRef.current);
+    countdownIntervalRef.current = setInterval(() => {
       c -= 1;
       setCountdown(c);
       if (c <= 0) {
-        clearInterval(cdInterval);
+        clearInterval(countdownIntervalRef.current);
         setTimeLeft(TIER_CONFIG[selectedTier].timePerSign);
         setPhase('playing');
       }

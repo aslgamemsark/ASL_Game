@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useBackDismiss } from '@/hooks/useBackDismiss';
 
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -64,6 +65,12 @@ export function useDialogA11y<E extends HTMLElement = HTMLDivElement>({
   // opened the dialog and restoring focus to something inside it instead.
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+
+  // Hardware/browser Back closes the dialog instead of leaving the screen underneath it — the
+  // same gap Escape already closed for keyboards. Composes correctly with the screen-level
+  // instance in App.tsx: each useBackDismiss instance only reacts to the popping of its own
+  // pushed entry, so dismissing this dialog never also navigates the screen behind it.
+  useBackDismiss(active, () => onCloseRef.current?.());
 
   // Body scroll lock: with no other guard, scrolling inside a `fixed inset-0` dialog on a touch
   // device chains into the page behind it — `overscroll-behavior-y: contain` (index.css) stops the
