@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <!-- Without this, the self-hosted brand font (index.css) is only discoverable after the CSS
+         itself finishes fetching and parsing, guaranteeing a swap flash on every load (found
+         2026-07-30). Only the `latin` subset is preloaded — the near-universal case for an
+         English-first product; `latin-ext` still loads normally, just not ahead of need. -->
+    <link rel="preload" href="/fonts/quicksand-latin.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>QuickSign — Learn ASL with Zippy</title>
     <meta name="description" content="Most apps ask you to recognize a sign. QuickSign watches you make it — and tells you exactly which part to fix. Free, in your browser, camera never leaves your device." />

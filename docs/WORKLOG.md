@@ -7,6 +7,107 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-30 (part 3) — Phase 2: first-load payload and the 28 Hz recognition re-render
+
+Product decision (with the user): drop the AI-classifier payload for everyone rather than sample
+it. Six mechanisms fixed, each verified with a real before/after build, not estimated:
+
+- **`CLASSIFIER_LOAD_ENABLED = false`** (new flag, `config/classifier.ts`) gates
+  `useClassifier.ts`'s `loadOnce()` before any network/WASM work — same pattern as the existing
+  `GATE_ENFORCED`, and reversible the same way. `App.tsx`'s app-wide warmup call is removed
+  entirely (the three pages that use the classifier for real still call the hook themselves).
+  Nothing else changed: `engine/classifier.ts`, the gate logic, `ClassifierDevPanel`, and the
+  `@tensorflow/tfjs` dependency are untouched — inert, not deleted, so shadow-mode collection is a
+  one-line flip to resume, not a rebuild. Left `public/models/signs/` (428 KB, a real trained ML
+  artifact referenced by 8+ docs) in the repo — nothing fetches it now, so its presence costs
+  nothing; deleting it would be destroying training output for no download-cost benefit.
+- **The PWA precache was silently re-downloading the very thing route-splitting was added to
+  avoid.** `vite-plugin-pwa`'s `globPatterns` globs the whole `dist/assets` output with no
+  awareness of which chunks are lazy — so `vendor-tfjs` (1.08 MB) and `AnalyticsTab`/recharts
+  (393 KB, admin-only) were being eagerly fetched by the service worker for every installed
+  user on every update, completely independent of whether the app ever calls them. This is a
+  bigger, previously-unmeasured mechanism than the runtime-call cost the original audit priced —
+  first-paint byte counts don't see background SW precache at all. Excluded both via
+  `globIgnores` (`vite.config.ts`). **Precache manifest: 59 entries / 4317 KiB → 52 / 1731 KiB.**
+- **`posthog-js` (73 KB gzip, larger than React) was a static import**, putting it in the same
+  blocking module graph as `main.tsx`'s `createRoot(...).render(...)` — the browser cannot paint
+  until every statically-imported chunk fetches and evaluates. Made the import dynamic
+  (`client.ts`), named its own `vendor-posthog` chunk. **Risk this introduces and how it's
+  closed:** events fired in the window before the dynamic import resolves would previously have
+  silently no-op'd — a real regression for top-of-funnel events (`landing_view`) that fire on
+  literally the first paint, which is exactly what this whole project's analytics process is
+  built around measuring. Added a small ready-queue (`whenAnalyticsReady` in `client.ts`,
+  consumed by `capture.ts`'s `track()`) so a pre-ready event is replayed once posthog loads,
+  never dropped. `main.tsx`'s `initAnalytics()` call is fire-and-forget with a `.catch` (not
+  bare — see `.claude/rules/concurrency/fire-and-forget-tasks.md`).
+- **~8 MB of dev-only avatar-rig assets were deployed to production** (`reference_poses/glb/*`,
+  `models/avatar/ybot.glb`) — already proven unreachable by any production code path (only
+  `src/avatar/tools/**`, a local CLI, reads them), already excluded from precache, but still
+  sitting in the actual deploy artifact. New `stripDevOnlyPublicAssets` Vite plugin
+  (`writeBundle` hook) deletes them from `dist/` post-build only — `public/` itself is untouched,
+  so local dev tooling that reads/writes there directly keeps working.
+- **~1.1 MB of unoptimized images.** `og-image.png` 342→78 KB, `pwa-512x512.png` 313→79 KB,
+  `pwa-192x192.png` 58→16 KB, `apple-touch-icon.png` 52→14 KB (recompressed in place, same
+  filenames — these are format-constrained: manifest icons and `og:image` need PNG for
+  cross-platform compatibility). Five landing-page screenshots converted PNG→WebP (no format
+  constraint, plain `<img>` tags): 103.9→24.7, 209.2→22.9, 46.2→12.4, 15.5→8.1, 40.6→21.6 KB;
+  `landing.html`'s `src` attributes updated to match. Deleted `shots/desktop-home.png` (153.5 KB)
+  — confirmed unreferenced anywhere in the repo. One-off script: `scripts/optimize-images.mjs`.
+- **The self-hosted brand font had no preload**, discoverable only after `index.css` finished
+  fetching and parsing — guaranteed swap flash on every load. Added
+  `<link rel="preload" as="font">` for the `latin` subset (the near-universal case) in
+  `index.html`.
+- **MediaPipe's WASM runtime was pinned to `@latest`** on the camera critical path — an
+  unpinned CDN tag can change under the app with no warning, and the JS wrapper (npm, pinned)
+  and the WASM binary it drives (CDN, unpinned) must be the same version or recognition bugs get
+  very confusing to trace. Pinned to `0.10.35`, matching `package.json`. Also: neither the WASM
+  nor the hand/pose/face `.task` model weights (Google-hosted) were covered by any
+  `runtimeCaching` rule — the existing rule only matches same-origin `/models/` paths, never
+  these absolute cross-origin URLs — so a cleared cache re-fetched several MB from two different
+  third parties every time. Added a `CacheFirst` rule keyed on hostname.
+- **`useRecognition.ts`'s `setResult`/`setHoldProgress` fired on every processed frame (28/sec),
+  each with a brand-new object** (`verify()` never returns the same reference twice) — and with
+  zero `React.memo` anywhere in the codebase, this force-rerendered the entire page (and every
+  animated child under it — 8-14 `motion.` nodes on the camera pages) 28 times a second for the
+  full duration of every lesson/practice/story/speed/multiplayer round. Unlike `framing` right
+  above it (already deduped by message equality, since it's a discrete signal), `result`/
+  `holdProgress` are continuous score streams with no natural "did it change" boundary — so the
+  fix is a rate throttle, not an equality check: both now publish at 10 Hz
+  (`RESULT_UPDATE_INTERVAL_MS`), chosen to match `ParameterChecklist`'s existing 100 ms
+  hold-bar transition so a new target arrives right as the previous one finishes. The synchronous
+  pass/fail logic in the same tick (`resultPassed`, `firePass`) still reads the fresh, unthrottled
+  `vr` every frame — only the React-visible publish is paced.
+- **`WebcamMirror` and `ParameterChecklist` wrapped in `React.memo`** — the first components in
+  the codebase to be. Verified their callers pass referentially stable props (`videoRef` from
+  `useCamera`, `frameGuide` either the hook's own `framing` state or the `null` literal, never a
+  fresh inline object) before wrapping, so memo actually pays off rather than doing nothing.
+- **`ParameterChecklist`'s two progress bars now animate `transform: scaleX()` on a fixed-width
+  track instead of `width`** — `width` is a layout property; at up to 10 retargets/sec (the hold
+  bar, during every static-sign hold) each one forced a reflow of the row, its siblings, and the
+  flex parent. Same visual result, composite-only cost.
+- **`AuthContext`'s Provider value was a fresh 18-key object with fresh function identities every
+  render**, consumed by 28 files via `useAuth()` — any one of them re-rendering for an unrelated
+  reason forced the identity to change and cascaded to the other 27. The 9 functions in
+  `AuthContextValue` (not the private `fetchUsername` helper, which isn't part of the public
+  value) are now `useCallback`, and the Provider value is `useMemo`'d over real auth-state
+  dependencies — the object now only gets a new identity when auth state actually changes.
+
+**Measured, not estimated:** `dist/` 18 MB → 8.4 MB. PWA precache 4317 KiB → 1731 KiB (52
+entries). `vendor-tfjs` (1.08 MB) and `AnalyticsTab` (393 KB) confirmed absent from
+`dist/sw.js`'s precache manifest by direct grep. `posthog-js` confirmed absent from
+`dist/index.html`'s `<link rel=modulepreload>` list (10 entries, down from 10 that previously
+included the bundled analytics chunk at 73 KB gzip — now a separately-named, non-preloaded
+`vendor-posthog` chunk). `tsc -b` clean throughout (strict mode, enabled Phase 0). 687 unit + 94
+e2e green across chromium/android/ios after every individual change in this list, not just at
+the end.
+
+**Not yet verified:** actual recognition accuracy on a real device with the 10 Hz UI throttle —
+the synchronous verifier logic is unchanged so this should be a pure rendering-frequency change,
+but only a real camera session can confirm nothing about the *feel* of the hold-to-pass
+interaction regressed. Flagged for the user rather than assumed.
+
+---
+
 ## 2026-07-30 (part 2) — Phase 1: hardware/browser Back no longer exits the app from any screen
 
 `grep -rn "popstate|pushState" src/` returned **zero matches** before this change — nothing in the

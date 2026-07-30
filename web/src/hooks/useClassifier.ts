@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { loadClassifier, type SignClassifier } from '@/engine/classifier';
 import type { GateDecision } from '@/engine/gate';
-import { MODEL_URL, CLASSES_URL, isClassifierDebugEnabled } from '@/config/classifier';
+import { MODEL_URL, CLASSES_URL, CLASSIFIER_LOAD_ENABLED, isClassifierDebugEnabled } from '@/config/classifier';
 import { track, isKillSwitchOn } from '@/analytics';
 
 export type ClassifierStatus = 'disabled' | 'loading' | 'ready';
@@ -30,6 +30,9 @@ function loadOnce(): Promise<LoadResult> {
   if (!cached) {
     const startedAt = performance.now();
     cached = (async () => {
+      // Master load switch (config/classifier.ts) — checked before any network/WASM work so
+      // flipping it off genuinely stops the download, not just the veto's effect.
+      if (!CLASSIFIER_LOAD_ENABLED) return { classifier: null, status: 'disabled' as const };
       // Emergency kill switch — same reasoning as useCamera's disable_camera. Falls back to the
       // rules-only path (identical to "no model deployed"), never breaks recognition outright.
       if (isKillSwitchOn('disable_classifier')) return { classifier: null, status: 'disabled' as const };

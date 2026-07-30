@@ -15,6 +15,25 @@ export const MODEL_URL = '/models/signs/model.json';
 export const CLASSES_URL = '/models/signs/classes.json';
 
 /**
+ * Master switch for LOADING the classifier at all — separate from, and upstream of,
+ * `GATE_ENFORCED`. While `GATE_ENFORCED` was already false (shadow mode), every returning user
+ * was still downloading the full model (~272 KB gzip TF.js + ~428 KB of weights) and paying a
+ * WebGL/WASM init on the camera critical path, purely to log shadow-mode votes for a veto that
+ * could not affect them. Product decision 2026-07-30: stop paying that cost for everyone.
+ *
+ * Setting this false makes `useClassifier`'s `loadOnce()` return the same `{classifier: null,
+ * status: 'disabled'}` shape used for "no model deployed" — every existing consumer (recognition
+ * gating, `ClassifierDevPanel`) already handles that shape correctly, so nothing downstream needed
+ * to change. Shadow-mode vote collection (`ai_prediction`/`ai_confidence`/`ai_vetoed` on
+ * `sign_attempts`) stops while this is false; the 808 `training_samples` + 442
+ * `sign_verification_log` rows already collected remain the basis for any future retrain.
+ *
+ * Flip back to true only as a deliberate decision to resume shadow-mode measurement (e.g. to
+ * validate a retrained model before considering `GATE_ENFORCED` again) — not as a quick undo.
+ */
+export const CLASSIFIER_LOAD_ENABLED = false;
+
+/**
  * Veto threshold: a rule-pass is rejected ONLY when the model is at least this confident that
  * the user signed a DIFFERENT sign. Higher = more conservative (fewer vetoes). Tuned high
  * because model_v1 is ~66% — we only want to catch confident mismatches, never second-guess a

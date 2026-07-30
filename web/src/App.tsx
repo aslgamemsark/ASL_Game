@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, lazy, Suspense, type ComponentType } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getSharedCapture } from '@/engine/capture';
-import { useClassifier } from '@/hooks/useClassifier';
 import { HomePage } from '@/pages/HomePage';
 import type { Tab } from '@/components/home/BottomNav';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
@@ -87,16 +86,16 @@ export default function App() {
   const { syncError } = useProgressSync();
   const { onboardingComplete } = useUserStore();
   const { user, username, needsUsernameSetup, needsTrainingConsent, passwordRecoveryMode, loading: authLoading, bannedReason, isAdmin } = useAuth();
-  // Warm the MediaPipe + AI-classifier caches once the user has actually reached the app (past
+  // Warm the MediaPipe hand/pose cache once the user has actually reached the app (past
   // onboarding, or a returning signed-in session that skips it) instead of the instant the page
-  // opens — both are module-level singletons (see getSharedCapture, useClassifier's loadOnce), so
-  // this download only ever happens once and whichever lesson/practice/story page mounts next
-  // picks up the already-loading/loaded result. Starting this multi-MB fetch + WASM/WebGL init
-  // immediately on first paint used to make the "Get Started" button feel frozen for several
-  // seconds on a fresh visit (impeccable audit, 2026-07-11) — new visitors shouldn't pay that
-  // cost before they've even started onboarding.
+  // opens — it's a module-level singleton (see getSharedCapture), so this download only ever
+  // happens once and whichever lesson/practice/story page mounts next picks up the
+  // already-loading/loaded result. Starting this multi-MB fetch + WASM init immediately on first
+  // paint used to make the "Get Started" button feel frozen for several seconds on a fresh visit
+  // (impeccable audit, 2026-07-11) — new visitors shouldn't pay that cost before they've even
+  // started onboarding. The AI-classifier warmup that used to sit alongside this was removed
+  // 2026-07-30 — see CLASSIFIER_LOAD_ENABLED in config/classifier.ts; it no longer loads at all.
   const readyForWarmup = onboardingComplete || !!user;
-  useClassifier(readyForWarmup);
   useEffect(() => {
     if (!readyForWarmup) return;
     void getSharedCapture();

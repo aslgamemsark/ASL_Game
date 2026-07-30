@@ -1,4 +1,4 @@
-import posthog, { type PostHog } from 'posthog-js';
+import type { PostHog } from 'posthog-js';
 import { isAnalyticsOptedOut } from './consent';
 
 /**
@@ -17,6 +17,19 @@ const DEV_OPT_IN = import.meta.env.VITE_ANALYTICS_DEV === '1';
 export const analyticsConfigured = Boolean(KEY) && (import.meta.env.PROD || DEV_OPT_IN);
 
 let initialized = false;
+let posthog: PostHog | null = null;
+
+// Callers that fire before the dynamic posthog-js import (below) resolves would otherwise
+// silently no-op forever under the old "not initialized yet" contract — a real risk for the very
+// first events of a session (landing_view, hero_cta_clicked), which are also the top-of-funnel
+// metrics this project's whole analytics process is built around. `whenAnalyticsReady` lets a
+// caller (capture.ts's `track`) queue exactly one retry instead of dropping the event.
+let readyCallbacks: (() => void)[] = [];
+export function whenAnalyticsReady(cb: () => void): void {
+  if (initialized) { cb(); return; }
+  if (!analyticsConfigured) return; // never becomes ready — nothing to queue
+  readyCallbacks.push(cb);
+}
 
 /**
  * Reduces $current_url/$referrer/$referring_domain to origin + path before PostHog ingests the
@@ -71,9 +84,19 @@ export function sanitizeAnalyticsProperties(properties: Record<string, unknown>)
  *   - respect_dnt — a browser's Do Not Track signal disables capture outright.
  *   - Web Vitals ARE captured (capture_performance) — that's product-quality telemetry, not
  *     behavioral tracking, and carries no PII.
+ *
+ * `posthog-js` (~73 KB gzip — larger than React itself) is loaded via a dynamic import rather
+ * than a static one, so the browser can paint the app shell without waiting on it (found
+ * 2026-07-30: a static top-level import puts a dependency in the SAME module graph as
+ * `main.tsx`'s `createRoot(...).render(...)`, which must wait for every statically-imported
+ * chunk to fetch+evaluate first). `whenAnalyticsReady` above is what keeps this safe for the
+ * events that fire in that now-real window before the import resolves.
  */
-export function initAnalytics(): void {
+export async function initAnalytics(): Promise<void> {
   if (initialized || !analyticsConfigured || !KEY) return;
+
+  const { default: ph } = await import('posthog-js');
+  posthog = ph;
   initialized = true;
 
   posthog.init(KEY, {
@@ -121,6 +144,9 @@ export function initAnalytics(): void {
 
   // Sync any previously-saved opt-out choice (Settings -> Privacy) before anything captures.
   if (isAnalyticsOptedOut()) posthog.opt_out_capturing();
+
+  // Replay events queued by track() while this import was in flight, in the order they fired.
+  readyCallbacks.splice(0).forEach((cb) => cb());
 }
 
 /** Internal accessor for the rest of analytics/ — returns null when analytics isn't configured

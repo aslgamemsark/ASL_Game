@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { TurnOverlay } from '@/components/shared/TurnOverlay';
 import { ClipEnlarge } from '@/components/lesson/ClipEnlarge';
@@ -51,7 +51,10 @@ interface Props {
  * (production audit, 2026-07-12). The camera stream and recognition loop were already correctly
  * shared via hooks (useCamera/useRecognition) — only this rendering piece was duplicated.
  */
-export function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones }: Props) {
+// memo: every caller passes stable references (videoRef from useCamera, frameGuide either the
+// recognition hook's own `framing` state or `null` — never a fresh literal) — see 2026-07-30
+// audit note on ParameterChecklist for why this matters (zero React.memo anywhere previously).
+export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const [overlayEnlarged, setOverlayEnlarged] = useState(false);
@@ -193,4 +196,4 @@ export function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed
       )}
     </div>
   );
-}
+});

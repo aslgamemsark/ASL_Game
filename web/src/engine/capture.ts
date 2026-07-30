@@ -12,6 +12,13 @@ import {
   POSE_MOUTH_RIGHT,
 } from './landmarks';
 
+// Pinned to the exact @mediapipe/tasks-vision version in package.json (was `@latest` — unpinned on
+// the camera critical path, found 2026-07-30: a CDN tag can change under the app at any time with
+// no warning, and the JS API wrapper (npm) and the WASM binary it drives (CDN) must be the same
+// version — a silent mismatch is exactly the kind of thing that produces confusing, hard-to-repro
+// recognition bugs. Bump this string whenever package.json's @mediapipe/tasks-vision version bumps.
+const MEDIAPIPE_WASM_VERSION = '0.10.35';
+
 export class Capture {
   private hand: HandLandmarker | null = null;
   private pose: PoseLandmarker | null = null;
@@ -34,7 +41,7 @@ export class Capture {
 
   async init(): Promise<void> {
     const vision = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+      `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_WASM_VERSION}/wasm`
     );
 
     // Devices without WebGL (older Android/tablets) throw when asked for a GPU delegate — retry

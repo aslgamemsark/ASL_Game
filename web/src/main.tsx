@@ -12,8 +12,11 @@ import { initAnalytics } from '@/analytics';
 import { AnalyticsIdentityBridge } from '@/analytics/AnalyticsIdentityBridge';
 
 installGlobalErrorReporting();
-initAnalytics();
-// Must run AFTER initAnalytics — it fires an analytics event and needs PostHog already live.
+// initAnalytics is async (dynamically imports posthog-js so the initial render below isn't stuck
+// behind fetching it — see client.ts). Not awaited: checkUnexpectedReload's track() call is
+// queue-safe now (whenAnalyticsReady in client.ts), and any load failure is still visible instead
+// of silently vanishing (see .claude/rules/concurrency/fire-and-forget-tasks.md).
+void initAnalytics().catch((e) => console.error('[QuickSign] analytics failed to load:', e));
 checkUnexpectedReload();
 
 createRoot(document.getElementById('root')!).render(

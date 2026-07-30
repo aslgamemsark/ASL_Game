@@ -1,8 +1,31 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import { rm } from 'fs/promises'
+
+// Vite copies `public/` into `dist/` verbatim with no exclusion mechanism of its own, so these
+// dev-tool-only assets (avatar rig authoring: src/avatar/tools/**, dead-code-eliminated from every
+// production code path — see App.tsx's /avatarlab guard) were being deployed to production for no
+// reason: ~8MB of GLBs + pose metadata that nothing but a local CLI script ever reads. Already
+// excluded from the PWA's precache manifest (vite.config.ts's globIgnores below), but that only
+// stops the service worker from *prefetching* them — they were still sitting on the deploy,
+// reachable by direct URL. Deleting them post-build (not from `public/` itself) keeps them
+// available for local dev tooling, which reads/writes this same `public/` directory directly via
+// `vite dev`'s static serving — only the production deploy artifact loses them.
+function stripDevOnlyPublicAssets(): Plugin {
+  return {
+    name: 'strip-dev-only-public-assets',
+    apply: 'build',
+    async writeBundle() {
+      await Promise.all([
+        rm(path.resolve(__dirname, 'dist/reference_poses'), { recursive: true, force: true }),
+        rm(path.resolve(__dirname, 'dist/models/avatar'), { recursive: true, force: true }),
+      ]);
+    },
+  };
+}
 
 // Release metadata for the analytics module (web/src/analytics/client.ts registers these as
 // PostHog session super properties, once per session, not threaded into every event manually).
@@ -40,9 +63,26 @@ export default defineConfig({
       // Precache only the app shell (JS/CSS/HTML + icons). The heavy assets — sign demo clips
       // (~2.3MB), the MediaPipe/classifier models (~2.6MB), and reference poses — are runtime-
       // cached on first use instead, so installing the app doesn't force a multi-MB download.
+      //
+      // That principle was being silently violated for two JS CHUNKS, found 2026-07-30:
+      // `globPatterns` globs the whole `dist/assets` output, so every `React.lazy()` route chunk —
+      // including `vendor-tfjs` (~1.08MB) and `AnalyticsTab`/recharts (~393KB, admin-only) — was
+      // being eagerly precached by the service worker for every installed user on every update,
+      // completely undoing App.tsx's own route-level code-splitting (its comment there explains
+      // route-splitting was added specifically so a first-time visitor wouldn't download all ~2MB
+      // of app JS before picking a lesson — precache was quietly re-downloading all of it anyway,
+      // just moved from "on first paint" to "in the background right after install"). vendor-tfjs
+      // is additionally now DEAD WEIGHT: CLASSIFIER_LOAD_ENABLED (config/classifier.ts) means the
+      // dynamic import that would fetch it is never reached at runtime at all — precaching it was
+      // pure waste. The other, smaller per-route page chunks (10-50KB) are deliberately still
+      // precached: they support the lesson/practice/story loop working offline, which is real,
+      // intentional behavior this project relies on (see KNOWN_LIMITATIONS.md).
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,woff,woff2}'],
-        globIgnores: ['**/clips/**', '**/models/**', '**/reference_poses/**', '**/dev/**'],
+        globIgnores: [
+          '**/clips/**', '**/models/**', '**/reference_poses/**', '**/dev/**',
+          '**/vendor-tfjs-*.js', '**/AnalyticsTab-*.js',
+        ],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         navigateFallback: 'index.html',
         // Never route cross-origin/API or direct asset requests through the SPA fallback.
@@ -64,6 +104,24 @@ export default defineConfig({
             options: {
               cacheName: 'signup-models',
               expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // MediaPipe's WASM runtime (jsdelivr) and hand/pose/face `.task` model weights
+            // (storage.googleapis.com) sit on the camera critical path on EVERY lesson/practice/
+            // story/speed/duel/room visit, but were covered by no runtimeCaching rule at all
+            // (found 2026-07-30) — the rule above only matches same-origin `/models/` and
+            // `/reference_poses/` paths, never these absolute cross-origin URLs. Without this,
+            // the SW leaves them to the browser's plain HTTP cache, which a private/incognito
+            // session or a cleared cache empties — re-fetching several MB from Google/jsdelivr
+            // every time that happens instead of once per app version.
+            urlPattern: ({ url }) =>
+              url.hostname === 'cdn.jsdelivr.net' || url.hostname === 'storage.googleapis.com',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'signup-mediapipe-cdn',
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 60 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
@@ -91,6 +149,7 @@ export default defineConfig({
         ],
       },
     }),
+    stripDevOnlyPublicAssets(),
   ],
   resolve: {
     alias: {
@@ -115,6 +174,11 @@ export default defineConfig({
           if (id.includes('node_modules/@supabase')) return 'vendor-supabase';
           if (id.includes('node_modules/@tensorflow')) return 'vendor-tfjs';
           if (id.includes('node_modules/@mediapipe')) return 'vendor-mediapipe';
+          // Named explicitly so it doesn't fall back to rolldown's generic `module-*` chunk name —
+          // posthog-js is dynamically imported (client.ts) specifically so it's NOT part of this
+          // list of eagerly-modulepreloaded chunks; naming it doesn't change that, just makes the
+          // build output legible.
+          if (id.includes('node_modules/posthog-js')) return 'vendor-posthog';
         },
       },
     },

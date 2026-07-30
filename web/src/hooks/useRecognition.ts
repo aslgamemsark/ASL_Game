@@ -240,6 +240,24 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       const MIN_FRAME_INTERVAL_MS = 1000 / 28;
       let lastProcessMs = 0;
 
+      // Throttle the REACT STATE publish of the per-frame verify() result to 10Hz — a continuous
+      // score stream (not a discrete message like `framing` above, which dedupes by equality
+      // instead) has no single "did it change" boundary, so the fix here is rate, not equality.
+      // 10Hz is not arbitrary: ParameterChecklist's hold-progress bar already animates with a
+      // 100ms linear transition, so a new target arrives right as the previous one finishes —
+      // smooth, continuous motion with no dead time. Found 2026-07-30: `setResult` was firing on
+      // every processed frame (28/sec) with a brand-new object every time (verify() never returns
+      // the same reference twice), forcing every page that reads `result` — and everything below
+      // it in the tree, since there is no React.memo anywhere in this codebase — to re-render the
+      // whole screen 28 times a second for the full duration of every lesson/practice/story/speed/
+      // multiplayer round. The synchronous pass/fail logic below (`resultPassed(vr)`, `firePass()`)
+      // still reads the FRESH untouched `vr` every tick — only the React-visible publish is paced.
+      const RESULT_UPDATE_INTERVAL_MS = 1000 / 10;
+      let lastResultUpdateMs = 0;
+      // Same throttle, tracked independently — holdProgress and result are two separate signals
+      // that happen to update in the same tick, not one derived from the other.
+      let lastHoldUpdateMs = 0;
+
       const tick = () => {
         if (!runningRef.current || !signRef.current) return;
 
@@ -275,7 +293,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           }
 
           const vr = verify(bufferRef.current, signRef.current);
-          setResult(vr);
+          if (nowMs - lastResultUpdateMs >= RESULT_UPDATE_INTERVAL_MS) {
+            lastResultUpdateMs = nowMs;
+            setResult(vr);
+          }
 
           // Log first few frames for debugging
           if (import.meta.env.DEV && frameCountRef.current <= 3) {
@@ -375,7 +396,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
             if (clearedEnough) {
               if (holdStartMs === null) holdStartMs = nowMs;
               const elapsedMs = nowMs - holdStartMs;
-              setHoldProgress(clip(elapsedMs / (STATIC_HOLD_SECONDS * 1000), 0, 1));
+              if (nowMs - lastHoldUpdateMs >= RESULT_UPDATE_INTERVAL_MS) {
+                lastHoldUpdateMs = nowMs;
+                setHoldProgress(clip(elapsedMs / (STATIC_HOLD_SECONDS * 1000), 0, 1));
+              }
               if (elapsedMs >= STATIC_HOLD_SECONDS * 1000) {
                 holdStartMs = null;
                 setHoldProgress(null);

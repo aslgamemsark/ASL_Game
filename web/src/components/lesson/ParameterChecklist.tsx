@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { ParamScore } from '@/engine/verifier';
 import { Anchor, PalmFacing, type Sign } from '@/engine/schema';
@@ -144,7 +144,12 @@ interface Props {
   holdProgress?: number | null;
 }
 
-export function ParameterChecklist({ params, sign, holdProgress }: Props) {
+// memo: `params` is a fresh array from the throttled (but still frequently updating) recognition
+// result, so this component correctly re-renders when it actually changes — memo instead saves it
+// from re-rendering on every OTHER unrelated state change in the parent page (camera pages here
+// hold 15-25+ pieces of useState each), which is otherwise unconditional with zero React.memo
+// anywhere in this codebase (2026-07-30 audit).
+export const ParameterChecklist = memo(function ParameterChecklist({ params, sign, holdProgress }: Props) {
   // Per-parameter confidence-gate state, keyed by param name, sustained across frames so a
   // single noisy frame can't flip a specific (possibly wrong) coaching tip on or off. See
   // engine/coachingGate.ts — 'cleared' is immediate, 'confident-fail' requires a sustained
@@ -191,9 +196,15 @@ export function ParameterChecklist({ params, sign, holdProgress }: Props) {
             <p className="text-xs text-z-gray-400 mt-0.5">Keep still while it locks in</p>
           </div>
           <div className="w-20 h-2 bg-z-surface rounded-full overflow-hidden">
+            {/* transform: scaleX(), not width — this bar re-targets up to 10x/sec while holding a
+                static sign (see useRecognition.ts's RESULT_UPDATE_INTERVAL_MS), and width is a
+                layout property: every retarget would force a reflow of this row, its siblings, and
+                the flex parent. scaleX is composite-only, same visual result on a fixed-width
+                track (found 2026-07-30). */}
             <motion.div
-              className="h-full rounded-full bg-z-purple-light"
-              animate={{ width: `${Math.round(holdProgress * 100)}%` }}
+              className="h-full w-full rounded-full bg-z-purple-light origin-left"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: holdProgress }}
               transition={{ duration: 0.1, ease: 'linear' }}
             />
           </div>
@@ -250,12 +261,13 @@ export function ParameterChecklist({ params, sign, holdProgress }: Props) {
             </div>
 
             <div className="w-20 h-2 bg-z-surface rounded-full overflow-hidden">
+              {/* transform: scaleX(), not width — see the hold-progress bar's comment above. */}
               <motion.div
-                className={`h-full rounded-full ${
+                className={`h-full w-full rounded-full origin-left ${
                   cleared ? 'bg-z-green' : confidentFail ? 'bg-z-red' : 'bg-z-purple-light'
                 }`}
-                initial={{ width: 0 }}
-                animate={{ width: `${pct}%` }}
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: pct / 100 }}
                 transition={{ duration: 0.3 }}
               />
             </div>
@@ -270,4 +282,4 @@ export function ParameterChecklist({ params, sign, holdProgress }: Props) {
       })}
     </div>
   );
-}
+});
