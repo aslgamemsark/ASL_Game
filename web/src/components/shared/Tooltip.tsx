@@ -97,7 +97,7 @@ export function Tooltip({ title, description, placement = 'top', className = '',
           >
             <div className="bg-z-card border border-white/10 rounded-xl px-3 py-2 text-center shadow-xl shadow-black/40">
               <p className="font-bold text-xs text-z-gray-50 leading-snug">{title}</p>
-              <p className="text-[10px] text-z-gray-400 leading-snug mt-0.5">{description}</p>
+              <p className="text-3xs text-z-gray-400 leading-snug mt-0.5">{description}</p>
             </div>
           </motion.div>
         )}

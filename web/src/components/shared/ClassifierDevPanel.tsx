@@ -24,7 +24,7 @@ export function ClassifierDevPanel({ status, lastVote, result }: Props) {
   if (!isClassifierDebugEnabled()) return null;
 
   return (
-    <div className="fixed bottom-2 right-2 z-debug font-mono text-[11px] max-w-xs">
+    <div className="fixed bottom-2 right-2 z-debug font-mono text-2xs max-w-xs">
       <button
         onClick={() => setCollapsed((c) => !c)}
         className="w-full text-left bg-black/85 text-white px-2.5 py-1.5 rounded-t-lg border border-purple-500/50 flex items-center justify-between gap-2"

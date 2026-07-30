@@ -142,7 +142,7 @@ export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUr
               <div key={side} className="flex-1 flex items-center justify-center p-[6%]">
                 <div className={`relative w-full h-[72%] rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-colors duration-100 ${box}`}>
                   <span className="text-4xl leading-none" role="img" aria-hidden>✋</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wide bg-video-plate text-white px-2 py-1 rounded-full">
+                  <span className="text-3xs font-bold uppercase tracking-wide bg-video-plate text-white px-2 py-1 rounded-full">
                     {side === 'left' ? 'Left hand' : 'Right hand'}
                   </span>
                   {isSelected && (
@@ -159,7 +159,7 @@ export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUr
         </div>
       )}
       <TurnOverlay active={!!activeTurn} label={turnLabel} timerPercent={timerPercent} />
-      {label && <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-video-plate text-white px-1.5 py-0.5 rounded-md">{label}</span>}
+      {label && <span className="absolute bottom-1.5 left-1.5 text-3xs font-semibold bg-video-plate text-white px-1.5 py-0.5 rounded-md">{label}</span>}
       {overlayClipUrl && (
         <>
           <button

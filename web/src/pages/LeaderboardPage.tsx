@@ -136,20 +136,20 @@ function BoardList({
               <p className="text-xs font-bold text-z-gray-400">{rank.name}</p>
               <p className="text-sm font-bold text-z-yellow tabular-nums">{row.total_xp.toLocaleString()} XP</p>
               {row.streak > 0 && (
-                <p className="text-[11px] text-z-gray-400">🔥 {row.streak}d</p>
+                <p className="text-2xs text-z-gray-400">🔥 {row.streak}d</p>
               )}
             </div>
 
             {/* Friend action — only for other users when signed in */}
             {userId && row.id !== userId && onAddFriend && (() => {
               const rel = relations?.get(row.id);
-              if (rel === 'accepted') return <span className="text-[11px] text-z-gray-400 shrink-0">Friends ✓</span>;
-              if (rel === 'pendingSent') return <span className="text-[11px] text-z-gray-400 shrink-0">Pending</span>;
-              if (rel === 'pendingReceived') return <span className="text-[11px] text-z-gray-400 shrink-0">Incoming</span>;
+              if (rel === 'accepted') return <span className="text-2xs text-z-gray-400 shrink-0">Friends ✓</span>;
+              if (rel === 'pendingSent') return <span className="text-2xs text-z-gray-400 shrink-0">Pending</span>;
+              if (rel === 'pendingReceived') return <span className="text-2xs text-z-gray-400 shrink-0">Incoming</span>;
               return (
                 <motion.button
                   onClick={() => onAddFriend(row.id, row.username)}
-                  className="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-z-purple/20 text-z-purple-light border border-z-purple/30"
+                  className="shrink-0 text-2xs font-bold px-2.5 py-1 rounded-lg bg-z-purple/20 text-z-purple-light border border-z-purple/30"
                   whileTap={{ scale: 0.94 }}
                 >
                   + Add
@@ -579,7 +579,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
                 </p>
                 <button
                   onClick={() => setMyRegion(null)}
-                  className="text-[11px] text-z-gray-400 hover:text-z-purple-light mt-0.5"
+                  className="text-2xs text-z-gray-400 hover:text-z-purple-light mt-0.5"
                 >
                   Change region
                 </button>

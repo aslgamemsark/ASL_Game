@@ -99,7 +99,7 @@ export function LessonNode({ node, index, unitColor, onSelect, skipCost, signsBa
 
       {isCurrent && (
         <motion.div
-          className="mt-1.5 px-3 py-1 rounded-lg text-[10px] font-bold text-white uppercase tracking-widest"
+          className="mt-1.5 px-3 py-1 rounded-lg text-3xs font-bold text-white uppercase tracking-widest"
           style={{ background: unitColor }}
           initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
@@ -121,13 +121,13 @@ export function LessonNode({ node, index, unitColor, onSelect, skipCost, signsBa
               >
                 <button
                   onClick={() => { onSkip!(node.id); setConfirmingSkip(false); }}
-                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-z-green/80 text-white"
+                  className="px-2.5 py-1 rounded-lg text-3xs font-bold bg-z-green/80 text-white"
                 >
                   Confirm
                 </button>
                 <button
                   onClick={() => setConfirmingSkip(false)}
-                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-z-surface/60 text-z-gray-300"
+                  className="px-2.5 py-1 rounded-lg text-3xs font-bold bg-z-surface/60 text-z-gray-300"
                 >
                   Cancel
                 </button>
@@ -137,7 +137,7 @@ export function LessonNode({ node, index, unitColor, onSelect, skipCost, signsBa
                 key="skip"
                 onClick={() => canAfford && setConfirmingSkip(true)}
                 disabled={!canAfford}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-lg text-3xs font-bold flex items-center gap-1 ${
                   canAfford
                     ? 'bg-z-surface/60 text-z-gray-200 hover:bg-z-surface/90 cursor-pointer'
                     : 'bg-z-surface/30 text-z-gray-400 cursor-not-allowed'

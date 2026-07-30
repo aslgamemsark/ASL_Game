@@ -7,6 +7,23 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 5) — Phase 4a (cont.): text-2xs/text-3xs type-scale tokens
+
+- **73 call sites used arbitrary `text-[11px]`/`text-[10px]`** — Tailwind's built-in scale stops at
+  `text-xs` (12px), so every badge/timestamp/pill-label/footnote below that size re-typed the same
+  two magic numbers instead of naming them (design-system audit, 2026-07-31; audited count via
+  `grep -rEon "text-\[[0-9]+px\]"`: 53×11px, 20×10px, plus 3×9px/1×8px left as genuine one-offs).
+  Added `--text-2xs: 11px` / `--text-3xs: 10px` to `index.css`'s `@theme` block — **deliberately no
+  paired `--text-2xs--line-height`**: confirmed against the compiled CSS that `text-[11px]` never
+  set a line-height (`.text-\[11px\]{font-size:11px}`, nothing else), and Tailwind only applies a
+  line-height companion when the theme key has one — adding one now would smuggle a real visual
+  change into what should be a pure rename. Verified before the bulk sed: built, compared
+  `.text-2xs{font-size:var(--text-2xs)}` against the original arbitrary-value output — same shape,
+  same behavior. Migrated all 73 sites (`sed`, all 21 files) after the single-site smoke test held.
+- **Verified:** `tsc -b` clean, 693 unit tests, `oxlint` clean, full Playwright suite (109 passed, 2
+  platform-conditional skips, 0 failures) — including the Settings/Friends/Multiplayer touch-target
+  tests that were the subject of the previous entry's stale-handle fix, now consistently green.
+
 ## 2026-07-31 (part 4) — Phase 4a (start): named z-index scale
 
 - **9 ad-hoc z-index values** (`z-10` through `z-[9999]`) had accumulated across 30+ files with no

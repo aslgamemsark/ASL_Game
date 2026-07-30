@@ -54,11 +54,11 @@ function SignChip({ id, name, accuracy, isWeak }: { id: string; name: string; ac
     >
       <p className="font-semibold text-xs truncate text-z-gray-100">{name.replace(/_/g, ' ')}</p>
       {accuracy !== null ? (
-        <p className={`text-[11px] mt-1 font-bold ${accuracy >= 70 ? 'text-z-green' : 'text-z-orange'}`}>
+        <p className={`text-2xs mt-1 font-bold ${accuracy >= 70 ? 'text-z-green' : 'text-z-orange'}`}>
           {accuracy}%
         </p>
       ) : (
-        <p className="text-[11px] mt-1 text-z-gray-400">—</p>
+        <p className="text-2xs mt-1 text-z-gray-400">—</p>
       )}
     </div>
   );

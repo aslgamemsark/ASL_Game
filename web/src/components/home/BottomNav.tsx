@@ -83,7 +83,7 @@ export function BottomNav({ active, onChange }: Props) {
                   </span>
                 ) : tab.icon}
               </motion.span>
-              <span className={`text-[10px] font-semibold tracking-wide ${
+              <span className={`text-3xs font-semibold tracking-wide ${
                 isActive ? 'text-z-purple-glow' : 'text-z-gray-400'
               }`}>
                 {tab.label}

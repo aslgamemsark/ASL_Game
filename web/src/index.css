@@ -150,6 +150,17 @@
   --color-z-surface-hover: var(--rt-z-surface-hover);
 
   --font-sans: 'Quicksand', sans-serif;
+
+  /* text-2xs/text-3xs — Tailwind's scale stops at text-xs (12px), but 73 call sites across the app
+     (badges, timestamps, pill labels, footnote-style UI text) needed something smaller and reached
+     for an arbitrary text-[11px]/text-[10px] value each time — 73 independent typos of the same
+     two numbers, not 73 independent design decisions (design-system audit, 2026-07-31). Named here
+     with NO paired `--text-2xs--line-height` deliberately: Tailwind only applies a line-height
+     companion when one exists, and text-[11px] arbitrary values never set one (verified against
+     the compiled CSS: `.text-\[11px\]{font-size:11px}`, nothing else) — adding one now would be a
+     real visual change smuggled into what should be a pure rename. */
+  --text-2xs: 11px;
+  --text-3xs: 10px;
 }
 
 /* ── Z-index scale ──────────────────────────────────────────────────────────────────────────

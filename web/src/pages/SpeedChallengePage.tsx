@@ -465,15 +465,15 @@ export function SpeedChallengePage({ onExit }: Props) {
               <div className="grid grid-cols-3 gap-3 w-full">
                 <div className="bg-z-card rounded-2xl p-4 text-center border border-white/5">
                   <p className="text-2xl font-bold text-z-yellow">{score}/{queue.length}</p>
-                  <p className="text-[11px] text-z-gray-400 mt-1">Score</p>
+                  <p className="text-2xs text-z-gray-400 mt-1">Score</p>
                 </div>
                 <div className="bg-z-card rounded-2xl p-4 text-center border border-white/5">
                   <p className="text-2xl font-bold text-z-orange">{maxCombo}×</p>
-                  <p className="text-[11px] text-z-gray-400 mt-1">Best combo</p>
+                  <p className="text-2xs text-z-gray-400 mt-1">Best combo</p>
                 </div>
                 <div className="bg-z-card rounded-2xl p-4 text-center border border-white/5">
                   <p className="text-xl font-bold text-z-purple-light">{totalSignsEarned}🤟</p>
-                  <p className="text-[11px] text-z-gray-400 mt-1">Signs earned</p>
+                  <p className="text-2xs text-z-gray-400 mt-1">Signs earned</p>
                 </div>
               </div>
 

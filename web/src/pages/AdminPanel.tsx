@@ -284,14 +284,14 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
               <div key={f.id} className="bg-z-surface rounded-xl p-3 text-sm">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-bold uppercase text-z-purple-light">{f.category}</span>
-                  {f.anonymous && <span className="text-[10px] text-z-gray-400">anon</span>}
-                  <span className="text-[10px] text-z-gray-400 ml-auto">
+                  {f.anonymous && <span className="text-3xs text-z-gray-400">anon</span>}
+                  <span className="text-3xs text-z-gray-400 ml-auto">
                     {formatAdminDate(f.created_at)}
                   </span>
                 </div>
                 <p className="text-z-gray-200 whitespace-pre-wrap break-words">{f.message}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  {f.page && <span className="text-[10px] text-z-gray-400">on {f.page}</span>}
+                  {f.page && <span className="text-3xs text-z-gray-400">on {f.page}</span>}
                   <select
                     value={f.status}
                     onChange={(e) => void setStatus(f.id, e.target.value)}
@@ -316,7 +316,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="bg-z-card border border-white/5 rounded-xl py-3">
       <p className="text-2xl font-bold">{value}</p>
-      <p className="text-[11px] text-z-gray-400 mt-0.5">{label}</p>
+      <p className="text-2xs text-z-gray-400 mt-0.5">{label}</p>
     </div>
   );
 }
@@ -610,7 +610,7 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
 
               <div>
                 <p className="text-xs font-bold text-z-gray-300 uppercase mb-2">Rename</p>
-                <p className="text-[11px] text-z-gray-400 mb-2">
+                <p className="text-2xs text-z-gray-400 mb-2">
                   Clears an offensive username (banning alone leaves it visible on leaderboards).
                 </p>
                 <div className="flex gap-2">

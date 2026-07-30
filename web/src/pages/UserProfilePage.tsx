@@ -198,11 +198,11 @@ export function UserProfilePage({ userId, onExit }: Props) {
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center">
                 <p className="text-2xl font-bold text-z-yellow tabular-nums">{row.total_xp.toLocaleString()}</p>
-                <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Total XP</p>
+                <p className="text-2xs text-z-gray-400 mt-0.5 tracking-wide">Total XP</p>
               </div>
               <div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center">
                 <p className="text-2xl font-bold text-z-orange tabular-nums">🔥 {row.streak}</p>
-                <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Day streak</p>
+                <p className="text-2xs text-z-gray-400 mt-0.5 tracking-wide">Day streak</p>
               </div>
             </div>
 

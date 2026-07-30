@@ -73,14 +73,14 @@ export function StreakCard() {
                   gradient, which does NOT invert with the theme, while z-yellow does (#5EEAD4 dark
                   -> #006B88 light). The light-theme value measured 1.95:1 here. */}
               {latestMilestone && (
-                <span className="text-[11px] font-bold text-white bg-white/15 px-2 py-0.5 rounded-full">
+                <span className="text-2xs font-bold text-white bg-white/15 px-2 py-0.5 rounded-full">
                   🏅 {latestMilestone}-day
                 </span>
               )}
               {/* Streak-protection cards on hand — auto-saves the streak on a missed day. */}
               {streakFreezes > 0 && (
                 <span
-                  className="text-[11px] font-bold text-white bg-white/15 px-2 py-0.5 rounded-full"
+                  className="text-2xs font-bold text-white bg-white/15 px-2 py-0.5 rounded-full"
                   title="Streak protection — auto-saves your streak if you miss too many days"
                 >
                   🛡️ {streakFreezes}

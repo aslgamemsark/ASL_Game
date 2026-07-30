@@ -58,7 +58,7 @@ export function InstallPrompt() {
             <img src="/pwa-192x192.png" alt="" className="w-11 h-11 rounded-xl shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm">Install QuickSign</p>
-              <p className="text-[11px] text-z-gray-400">Add it to your home screen for the full app.</p>
+              <p className="text-2xs text-z-gray-400">Add it to your home screen for the full app.</p>
             </div>
             <button
               onClick={install}
@@ -89,7 +89,7 @@ export function InstallPrompt() {
             <img src="/pwa-192x192.png" alt="" className="w-11 h-11 rounded-xl shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm">Install QuickSign</p>
-              <p className="text-[11px] text-z-gray-400">
+              <p className="text-2xs text-z-gray-400">
                 Tap <span className="inline-block align-middle">⬆️</span> Share, then “Add to Home Screen”.
               </p>
             </div>

@@ -65,7 +65,7 @@ export function RemotePeerVideo({ stream, label, connected, cosmeticBorderClasse
         </div>
       )}
       <TurnOverlay active={!!activeTurn} label={turnLabel} timerPercent={timerPercent} />
-      <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-video-plate text-white px-1.5 py-0.5 rounded-md">{label}</span>
+      <span className="absolute bottom-1.5 left-1.5 text-3xs font-semibold bg-video-plate text-white px-1.5 py-0.5 rounded-md">{label}</span>
     </div>
   );
 }

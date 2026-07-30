@@ -59,7 +59,7 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
                 {def.letter}
               </div>
               <div>
-                <p className="text-z-gray-400 text-[10px] uppercase tracking-widest leading-none mb-1">
+                <p className="text-z-gray-400 text-3xs uppercase tracking-widest leading-none mb-1">
                   Handshape
                 </p>
                 <p className="font-bold text-z-gray-50 text-sm leading-none">{def.handshape}</p>

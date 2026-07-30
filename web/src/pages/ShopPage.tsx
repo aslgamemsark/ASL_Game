@@ -146,11 +146,11 @@ export function ShopPage({ onExit }: Props) {
                         <div className="text-3xl mb-2">{item.icon}</div>
                       )}
                       <p className="font-bold text-sm leading-tight">{item.title}</p>
-                      <p className="text-[11px] text-z-gray-400 mt-0.5 leading-tight">{item.description}</p>
+                      <p className="text-2xs text-z-gray-400 mt-0.5 leading-tight">{item.description}</p>
 
                       <div className="mt-3 flex items-center justify-between">
                         {owned ? (
-                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${
+                          <span className={`text-2xs font-bold px-2 py-0.5 rounded-lg ${
                             equipped ? 'bg-z-purple/30 text-z-purple-light' : 'bg-z-green/20 text-z-green'
                           }`}>
                             {equipped ? '✓ Equipped' : 'Owned'}
@@ -161,7 +161,7 @@ export function ShopPage({ onExit }: Props) {
                           </span>
                         )}
                         {isConsumable && consumableCount > 0 && (
-                          <span className="text-[11px] font-bold bg-z-purple/20 text-z-purple-light px-2 py-0.5 rounded-lg">
+                          <span className="text-2xs font-bold bg-z-purple/20 text-z-purple-light px-2 py-0.5 rounded-lg">
                             ×{consumableCount}
                           </span>
                         )}

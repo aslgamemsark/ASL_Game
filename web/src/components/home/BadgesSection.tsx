@@ -47,7 +47,7 @@ export function BadgesSection() {
       {/* Earned badges */}
       {earned.length > 0 && (
         <>
-          <p className="text-[11px] font-bold text-z-gray-400 uppercase tracking-widest mb-2">
+          <p className="text-2xs font-bold text-z-gray-400 uppercase tracking-widest mb-2">
             Earned · {earned.length}/{ALL_BADGES.length}
           </p>
           <div className="grid grid-cols-4 gap-2 mb-4">
@@ -84,7 +84,7 @@ export function BadgesSection() {
       {/* Locked badges */}
       {locked.length > 0 && (
         <>
-          <p className="text-[11px] font-bold text-z-gray-400 uppercase tracking-widest mb-2">
+          <p className="text-2xs font-bold text-z-gray-400 uppercase tracking-widest mb-2">
             Locked
           </p>
           <div className="grid grid-cols-4 gap-2">

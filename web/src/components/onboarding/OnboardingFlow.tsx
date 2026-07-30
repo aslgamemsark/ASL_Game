@@ -190,7 +190,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                 account is the legally meaningful moment; a guest gets notice, not a contract.
                 Camera/landmark disclosure is separate and lives at the camera itself
                 (CameraOnboarding), which is where it is actually actionable. */}
-            <p className="text-[11px] text-z-gray-400 mt-5 leading-relaxed">
+            <p className="text-2xs text-z-gray-400 mt-5 leading-relaxed">
               By creating an account you agree to our Terms &amp; Privacy Policy — readable any time
               in Settings → Privacy &amp; Terms. Your camera video never leaves your device.
             </p>

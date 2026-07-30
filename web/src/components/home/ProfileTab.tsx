@@ -189,14 +189,14 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
                 <span className="text-2xl">{rank.emoji}</span>
                 <div>
                   <p className="font-bold text-sm">{rank.name}</p>
-                  <p className="text-[11px] text-z-gray-400">{xp.toLocaleString()} XP total</p>
+                  <p className="text-2xs text-z-gray-400">{xp.toLocaleString()} XP total</p>
                 </div>
               </div>
               {next && (
                 <div className="text-right">
-                  <p className="text-[11px] text-z-gray-400">Next rank</p>
+                  <p className="text-2xs text-z-gray-400">Next rank</p>
                   <p className="text-xs font-bold text-z-gray-300">{next.emoji} {next.name}</p>
-                  <p className="text-[10px] text-z-gray-400">{(next.minXp - xp).toLocaleString()} XP away</p>
+                  <p className="text-3xs text-z-gray-400">{(next.minXp - xp).toLocaleString()} XP away</p>
                 </div>
               )}
             </div>
@@ -208,7 +208,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
                 transition={{ duration: 0.8, ease: 'easeOut' }}
               />
             </div>
-            {!next && <p className="text-[11px] text-z-yellow text-center mt-2 font-bold">Max rank reached! 🌟</p>}
+            {!next && <p className="text-2xs text-z-yellow text-center mt-2 font-bold">Max rank reached! 🌟</p>}
           </motion.div>
         );
       })()}
@@ -236,7 +236,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
               <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center cursor-default" initial="rest" animate="rest" whileHover="hover" variants={cardVariants('rgba(94,234,212,0.22)')}>
                 <motion.span className="text-2xl inline-block" variants={{ rest: SPARKLE_REST, hover: SPARKLE_HOVER }}>✨</motion.span>
                 <p className="text-2xl font-bold mt-1 text-z-yellow">{xp}</p>
-                <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Total XP</p>
+                <p className="text-2xs text-z-gray-400 mt-0.5 tracking-wide">Total XP</p>
               </motion.div>
             </motion.div>
 
@@ -244,7 +244,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
               <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center cursor-default" initial="rest" animate="rest" whileHover="hover" onHoverStart={() => setLevelBurst((b) => b + 1)} variants={cardVariants('rgba(250,204,21,0.32)')}>
                 <TrophyIcon burst={levelBurst} />
                 <p className="text-2xl font-bold mt-1 text-z-orange">{level}</p>
-                <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Level</p>
+                <p className="text-2xs text-z-gray-400 mt-0.5 tracking-wide">Level</p>
               </motion.div>
             </motion.div>
 
@@ -252,7 +252,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
               <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center cursor-default" initial="rest" animate="rest" whileHover="hover" variants={cardVariants('rgba(249,115,22,0.22)')}>
                 <motion.span className="text-2xl inline-block" variants={{ rest: FIRE_REST, hover: FIRE_HOVER }}>🔥</motion.span>
                 <p className="text-2xl font-bold mt-1 text-z-orange-bright">{streak}d</p>
-                <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Streak</p>
+                <p className="text-2xs text-z-gray-400 mt-0.5 tracking-wide">Streak</p>
               </motion.div>
             </motion.div>
 
@@ -260,7 +260,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
               <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center cursor-default" initial="rest" animate="rest" whileHover="hover" variants={cardVariants('rgba(96,165,250,0.32)')}>
                 <motion.span className="text-2xl inline-block" variants={{ rest: { y: 0, rotate: 0, transition: { duration: 0.25 } }, hover: { y: -5, rotate: [0, -7, 6, -4, 0], transition: { duration: 0.55 } } }}>📖</motion.span>
                 <p className="text-2xl font-bold mt-1 text-z-purple-light">{completedLessons.length}</p>
-                <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Completed</p>
+                <p className="text-2xs text-z-gray-400 mt-0.5 tracking-wide">Completed</p>
               </motion.div>
             </motion.div>
           </div>
@@ -269,19 +269,19 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
           <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 mb-5 flex justify-around" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
             <div className="text-center">
               <p className="text-xl font-bold text-z-purple-light">🤟 {signs}</p>
-              <p className="text-[11px] text-z-gray-400 mt-0.5">Signs</p>
+              <p className="text-2xs text-z-gray-400 mt-0.5">Signs</p>
             </div>
             <div className="w-px bg-z-gray-500/40" />
             <div className="text-center">
               <p className="text-xl font-bold text-z-yellow">🪙 {gold}</p>
-              <p className="text-[11px] text-z-gray-400 mt-0.5">Gold</p>
+              <p className="text-2xs text-z-gray-400 mt-0.5">Gold</p>
             </div>
             {bestSpeed && (
               <>
                 <div className="w-px bg-z-gray-500/40" />
                 <div className="text-center">
                   <p className="text-xl font-bold text-z-blue">⚡ {bestSpeed.score}</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">Best speed</p>
+                  <p className="text-2xs text-z-gray-400 mt-0.5">Best speed</p>
                 </div>
               </>
             )}
@@ -314,7 +314,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
                 </div>
 
                 {items.length === 0 ? (
-                  <p className="text-[11px] text-z-gray-400">
+                  <p className="text-2xs text-z-gray-400">
                     No {cosmeticTab === 'avatar' ? 'avatars' : 'borders'} owned yet — check the Shop!
                   </p>
                 ) : (
@@ -348,7 +348,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
                   </div>
                 )}
                 {isEquippedId && items.length > 0 && (
-                  <p className="text-[11px] text-z-gray-400 mt-2">Tap your equipped {cosmeticTab} to unequip</p>
+                  <p className="text-2xs text-z-gray-400 mt-2">Tap your equipped {cosmeticTab} to unequip</p>
                 )}
               </motion.div>
             );
@@ -372,7 +372,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
                 }
                 return (
                   <div key={i} className="flex flex-col items-center gap-1.5">
-                    <span className="text-[10px] text-z-gray-400 font-semibold">{day}</span>
+                    <span className="text-3xs text-z-gray-400 font-semibold">{day}</span>
                     <div className={`relative w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
                       isToday && lastPracticeDate === todayStr()
                         ? 'bg-z-purple text-white shadow-md shadow-z-purple/40'

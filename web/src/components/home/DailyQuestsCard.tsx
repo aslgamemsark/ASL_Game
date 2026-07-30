@@ -65,7 +65,7 @@ export function DailyQuestsCard() {
               transition={{ delay: 0.18 + i * 0.07 }}
             >
               <div className="flex items-center gap-2 mb-1">
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${style.bg} ${style.text}`}>
+                <span className={`px-2 py-0.5 rounded-full text-3xs font-bold uppercase ${style.bg} ${style.text}`}>
                   {quest.difficulty}
                 </span>
                 <p className="font-semibold text-sm text-z-gray-50 flex-1 truncate">{quest.title}</p>
@@ -116,13 +116,13 @@ export function DailyQuestsCard() {
                     transition={{ duration: 0.65, ease: 'easeOut', delay: 0.2 + i * 0.07 }}
                   />
                 </div>
-                <span className="text-[11px] text-z-gray-400 whitespace-nowrap tabular-nums">
+                <span className="text-2xs text-z-gray-400 whitespace-nowrap tabular-nums">
                   {quest.progress}/{quest.target}
                 </span>
-                <span className="text-[11px] text-z-yellow whitespace-nowrap">
+                <span className="text-2xs text-z-yellow whitespace-nowrap">
                   +{quest.xpReward} XP
                 </span>
-                <span className="text-[11px] text-z-purple-glow whitespace-nowrap">
+                <span className="text-2xs text-z-purple-glow whitespace-nowrap">
                   +{quest.signsReward} 🤟
                 </span>
               </div>

@@ -405,15 +405,15 @@ export function StoryPage({ story, onExit }: Props) {
               <div className="grid grid-cols-3 gap-3 w-full max-w-xs">
                 <div className="bg-z-card rounded-2xl p-3 text-center border border-white/5">
                   <p className="text-xl font-bold text-z-yellow">{earnedXp}</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">XP earned</p>
+                  <p className="text-2xs text-z-gray-400 mt-0.5">XP earned</p>
                 </div>
                 <div className="bg-z-card rounded-2xl p-3 text-center border border-white/5">
                   <p className="text-xl font-bold text-z-purple-light">{earnedSigns}🤟</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">Signs</p>
+                  <p className="text-2xs text-z-gray-400 mt-0.5">Signs</p>
                 </div>
                 <div className="bg-z-card rounded-2xl p-3 text-center border border-white/5">
                   <p className="text-xl font-bold text-z-yellow">{storyGold}🪙</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">Gold</p>
+                  <p className="text-2xs text-z-gray-400 mt-0.5">Gold</p>
                 </div>
               </div>
 

@@ -117,7 +117,7 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
                 {statusMsg}
               </p>
             )}
-            <p className="text-[10px] text-z-gray-400 mt-1.5 px-1">
+            <p className="text-3xs text-z-gray-400 mt-1.5 px-1">
               3–20 characters · letters, numbers, underscores only
             </p>
           </div>

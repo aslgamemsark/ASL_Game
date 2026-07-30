@@ -45,7 +45,7 @@ export function RoomRulesPanel({ rules, onChange, roundsOptions, roundsLabel = '
 
   return (
     <div className="w-full bg-z-card border border-white/10 rounded-2xl p-3 flex flex-col gap-2.5">
-      <p className="text-[11px] uppercase tracking-widest text-z-gray-400 font-bold">Room rules</p>
+      <p className="text-2xs uppercase tracking-widest text-z-gray-400 font-bold">Room rules</p>
       {row(roundsLabel, roundsOptions.map((n) => ({ id: n, label: String(n) })), rules.rounds, (rounds) => onChange({ ...rules, rounds }))}
       {row('Seconds', TURN_SECONDS_OPTIONS.map((n) => ({ id: n, label: `${n}s` })), rules.turnSeconds, (turnSeconds) => onChange({ ...rules, turnSeconds }))}
       {row('Signs', SIGN_SETS, rules.signSet, (signSet) => onChange({ ...rules, signSet }))}

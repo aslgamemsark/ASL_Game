@@ -268,10 +268,10 @@ export function AuthModal({ onClose }: Props) {
                 {usernameMsg}
               </p>
             )}
-            <p className="text-[10px] text-z-gray-400 mt-1 px-1">
+            <p className="text-3xs text-z-gray-400 mt-1 px-1">
               3–20 characters · letters, numbers, underscores only · unique
             </p>
-            <p className="text-[10px] text-z-gray-600 mt-1 px-1">
+            <p className="text-3xs text-z-gray-600 mt-1 px-1">
               ⚠️ Choose carefully — future changes require a Rename Card from the Shop (🪙 150)
             </p>
           </div>
