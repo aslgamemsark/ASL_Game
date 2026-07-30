@@ -446,13 +446,13 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                   <div className="flex gap-2">
                     <motion.button onClick={() => handleAccept(entry)}
                       disabled={busyIds.has(entry.other.id)}
-                      className="text-xs px-3 py-1.5 rounded-xl font-bold bg-z-purple text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="text-xs px-3 min-h-11 rounded-xl font-bold bg-z-purple text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       whileTap={{ scale: 0.96 }}>
                       {busyIds.has(entry.other.id) ? '…' : 'Accept'}
                     </motion.button>
                     <motion.button onClick={() => handleDecline(entry)}
                       disabled={busyIds.has(entry.other.id)}
-                      className="text-xs px-3 py-1.5 rounded-xl font-bold border border-white/15 text-z-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="text-xs px-3 min-h-11 rounded-xl font-bold border border-white/15 text-z-gray-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       whileTap={{ scale: 0.96 }}>
                       Decline
                     </motion.button>

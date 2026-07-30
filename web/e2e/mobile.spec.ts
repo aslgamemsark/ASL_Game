@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { waitForAnimationsToSettle } from './helpers';
 
 /**
  * Mobile-parity coverage (2026-07-28 mobile audit). Runs on all three projects
@@ -243,6 +244,29 @@ test.describe('safe-area regression', () => {
   });
 });
 
+async function assertNoTinyTouchTargets(page: Page) {
+  // Without this, a handle collected mid-entrance-animation can be detached from the DOM by the
+  // time its turn in the loop below comes up, hanging boundingBox() until the test times out —
+  // see helpers.ts for the full mechanism (found here 2026-07-31 via exactly that timeout).
+  await waitForAnimationsToSettle(page);
+  const handles = await page.locator('button:visible, a:visible, [role="button"]:visible').all();
+
+  const tooSmall: string[] = [];
+  for (const el of handles) {
+    const box = await el.boundingBox();
+    if (!box) continue;
+    // A hit target only needs to meet 44px on the axis where taps are commonly imprecise; several
+    // in-row icon buttons are intentionally narrower than 44px while still tall enough (e.g. the
+    // BottomNav items, ~40px wide with generous gaps) — flag only genuinely small targets on BOTH
+    // axes, which is what the WCAG/Apple HIG minimum actually protects against.
+    if (box.width < 44 && box.height < 44) {
+      const label = (await el.getAttribute('aria-label')) ?? (await el.textContent())?.trim().slice(0, 30) ?? '(unlabeled)';
+      tooSmall.push(`${label} (${Math.round(box.width)}x${Math.round(box.height)})`);
+    }
+  }
+  expect(tooSmall, `touch targets under 44x44 on both axes: ${tooSmall.join(', ')}`).toEqual([]);
+}
+
 test.describe('touch targets', () => {
   // Pinned to a phone width for the same reason as the safe-area block above — BottomNav (the
   // densest cluster of small targets in the app) doesn't render at all above `lg`.
@@ -250,23 +274,19 @@ test.describe('touch targets', () => {
 
   test('every visible interactive element on Home meets the 44x44 minimum', async ({ page }) => {
     await reachHome(page);
-    const handles = await page.locator('button:visible, a:visible, [role="button"]:visible').all();
-
-    const tooSmall: string[] = [];
-    for (const el of handles) {
-      const box = await el.boundingBox();
-      if (!box) continue;
-      // A hit target only needs to meet 44px on the axis where taps are commonly imprecise; several
-      // in-row icon buttons are intentionally narrower than 44px while still tall enough (e.g. the
-      // BottomNav items, ~40px wide with generous gaps) — flag only genuinely small targets on BOTH
-      // axes, which is what the WCAG/Apple HIG minimum actually protects against.
-      if (box.width < 44 && box.height < 44) {
-        const label = (await el.getAttribute('aria-label')) ?? (await el.textContent())?.trim().slice(0, 30) ?? '(unlabeled)';
-        tooSmall.push(`${label} (${Math.round(box.width)}x${Math.round(box.height)})`);
-      }
-    }
-    expect(tooSmall, `touch targets under 44x44 on both axes: ${tooSmall.join(', ')}`).toEqual([]);
+    await assertNoTinyTouchTargets(page);
   });
+
+  // Camera-dependent screens (Lesson/Practice/Story/Speed/Duel mid-call) stay out of scope — same
+  // reasoning as the rest of this file's header comment. These are every other reachable,
+  // non-camera top-level screen.
+  for (const label of ['Shop', 'Settings', 'Leaderboard', 'Friends', 'Multiplayer'] as const) {
+    test(`every visible interactive element on ${label} meets the 44x44 minimum`, async ({ page }) => {
+      await reachHome(page);
+      await openFromProfileHub(page, label);
+      await assertNoTinyTouchTargets(page);
+    });
+  }
 });
 
 test.describe('iOS input zoom guard', () => {

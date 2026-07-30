@@ -4,6 +4,7 @@ import { validateUsername } from '@/lib/username';
 import { supabaseReady } from '@/lib/supabase';
 import { EMAIL_SIGNUP_ENABLED } from '@/config/auth';
 import { ModalShell } from '@/components/shared/ModalShell';
+import { nextTabIndex } from '@/lib/tabListNav';
 
 interface Props {
   onClose: () => void;
@@ -11,6 +12,10 @@ interface Props {
 
 type Tab = 'signin' | 'signup' | 'reset';
 type UsernameStatus = 'idle' | 'checking' | 'ok' | 'error';
+const AUTH_TABS: { id: Tab; label: string }[] = [
+  { id: 'signin', label: 'Sign in' },
+  { id: 'signup', label: 'Sign up' },
+];
 
 export function AuthModal({ onClose }: Props) {
   const { signInWithEmail, signUpWithEmail, signInWithGoogle, requestPasswordReset } = useAuth();
@@ -27,6 +32,7 @@ export function AuthModal({ onClose }: Props) {
   const [done, setDone] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const authTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Debounced username availability check
   useEffect(() => {
@@ -187,16 +193,30 @@ export function AuthModal({ onClose }: Props) {
       {/* Tab switcher — only meaningful while email signup exists. With it withdrawn, a
           two-tab switcher offering one reachable tab is pure noise. */}
       {EMAIL_SIGNUP_ENABLED ? (
-        <div className="flex rounded-xl bg-white/5 p-1 mb-5">
-          {(['signin', 'signup'] as Tab[]).map((t) => (
+        <div role="tablist" aria-label="Sign in or sign up" className="flex rounded-xl bg-white/5 p-1 mb-5">
+          {AUTH_TABS.map((t, i) => (
             <button
-              key={t}
+              key={t.id}
+              ref={(el) => { authTabRefs.current[i] = el; }}
+              role="tab"
+              id={`auth-tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls="auth-panel"
+              tabIndex={tab === t.id ? 0 : -1}
               className={`flex-1 py-1.5 rounded-lg text-sm font-bold transition-colors ${
-                tab === t ? 'bg-z-purple text-white' : 'text-z-gray-300'
+                tab === t.id ? 'bg-z-purple text-white' : 'text-z-gray-300'
               }`}
-              onClick={() => { setTab(t); setError(null); setUsernameStatus('idle'); setUsernameMsg(''); }}
+              onClick={() => { setTab(t.id); setError(null); setUsernameStatus('idle'); setUsernameMsg(''); }}
+              onKeyDown={(e) => {
+                const next = nextTabIndex(e.key, i, AUTH_TABS.length);
+                if (next === null) return;
+                e.preventDefault();
+                setTab(AUTH_TABS[next].id);
+                setError(null); setUsernameStatus('idle'); setUsernameMsg('');
+                authTabRefs.current[next]?.focus();
+              }}
             >
-              {t === 'signin' ? 'Sign in' : 'Sign up'}
+              {t.label}
             </button>
           ))}
         </div>
@@ -210,7 +230,13 @@ export function AuthModal({ onClose }: Props) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-3"
+        role={EMAIL_SIGNUP_ENABLED ? 'tabpanel' : undefined}
+        id={EMAIL_SIGNUP_ENABLED ? 'auth-panel' : undefined}
+        aria-labelledby={EMAIL_SIGNUP_ENABLED ? `auth-tab-${tab}` : undefined}
+      >
         {tab === 'signup' && (
           <div>
             <label htmlFor="auth-username" className="sr-only">Username</label>

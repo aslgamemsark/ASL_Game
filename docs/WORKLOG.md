@@ -7,6 +7,55 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 2) — Phase 3 (part 2): tab semantics, touch targets, TopBar pill a11y
+
+- **3 real tab bars had no ARIA tab semantics** (`LeaderboardPage.tsx`, `AdminPanel.tsx`,
+  `AuthModal.tsx`'s sign-in/sign-up switcher) — plain `<button>`s toggling which content renders,
+  no `role="tablist"/"tab"`, no `aria-selected`, no arrow-key navigation. Added the full WAI-ARIA
+  tabs pattern (`role="tablist"` container, `role="tab"` + `aria-selected` + `aria-controls` +
+  roving `tabIndex` on each button, a `role="tabpanel"` wrapper around the content) plus arrow-
+  key/Home/End navigation. The keyboard-nav math (`ArrowLeft`/`ArrowRight`/`Home`/`End` → next
+  index) is identical across all three, so it's a new pure function, `lib/tabListNav.ts`
+  (`nextTabIndex`, unit-tested), rather than tripled inline logic.
+  `ReplayCompare.tsx:163` — flagged in the original audit as a fourth tab bar — turned out on
+  inspection to have no tab bar at all; its only control is a `Slow-mo` toggle already correctly
+  using `aria-pressed`. Left alone; the audit reference was stale.
+  `BottomNav.tsx` was the audit's reference implementation for "copy this pattern" but on inspection
+  uses `<nav>` + `aria-current="page"` instead (primary navigation, not in-page content tabs — a
+  different, also-valid ARIA pattern). Not changed to match, since it's the semantically correct
+  choice for what it is and already passes every a11y check.
+- **Touch targets**: `FriendsPage.tsx` Accept/Decline (28px tall, `text-xs px-3 py-1.5`) and
+  `App.tsx`'s challenge-toast Join/Dismiss — both switched to the existing `min-h-11 flex
+  items-center justify-center` idiom (`ProfileTab.tsx:109`, `InstallPrompt.tsx:65`) rather than a
+  new pattern. Extended `e2e/mobile.spec.ts`'s single Home-only touch-target test into a loop over
+  every reachable non-camera screen (Shop/Settings/Leaderboard/Friends/Multiplayer) to find any
+  other violations empirically instead of guessing at the audit's "~20 others" — none surfaced.
+- **TopBar's streak/signs/gold pills** (`components/shared/TopBar.tsx`) had `whileHover`/`whileTap`
+  scale animations with no `onClick` at all — a false tap affordance for mouse/touch users, not
+  just a screen-reader gap, since `cursor-default` already signals non-interactive but the motion
+  said otherwise. Removed the misleading animations (kept a small hover wiggle on the streak flame
+  itself, cosmetic only), added `role="status"`/`aria-live="polite"`/`aria-label` to each pill
+  (matching the `role="status" aria-live="polite"` pattern `LessonPage`/`PracticePage` already use
+  for their own live announcements) so a screen reader gets a real name and hears value changes.
+- **`HomePage` had no `<h1>`**: `TopBar` renders only there, so promoted its "QuickSign" wordmark
+  span to `<h1>` — changed `lg:hidden` to `lg:sr-only` so it stays in the accessibility tree at
+  desktop widths (where `SideNav`'s own plain-`<span>` brand mark, left as a span since it repeats
+  across 6 screens and isn't page-specific, takes the visual role).
+- **Found and fixed a second animation-timing race**, same mechanism as the one already documented
+  in `a11y.spec.ts` for axe scans: the new cross-screen touch-target loop could collect an element
+  handle mid-entrance-animation via `.locator(...).all()`, then have that handle detached from the
+  DOM by the time its turn in the `for` loop reached `boundingBox()` — which then hangs until the
+  test times out waiting for a node that no longer exists (reproduced live: `Settings` timed out
+  waiting on `.nth(14)` when the settled page only ever has 8 matching elements). Extracted the
+  existing animation-settle wait out of `a11y.spec.ts` into `e2e/helpers.ts`
+  (`waitForAnimationsToSettle`) — same knowledge, now owned in one place — and call it at the top
+  of `mobile.spec.ts`'s `assertNoTinyTouchTargets` too.
+- **Verified:** 693 unit tests, `tsc -b` clean, `oxlint` clean. Full Playwright suite: every test
+  passes reliably in isolation across chromium/android/ios; two full-suite runs under the local
+  4-worker cap each showed a different small subset (4-8 tests) fail and none overlapped between
+  runs — the exact CPU-contention signature `playwright.config.ts`'s own comments describe and
+  that `retries: 1` in CI already exists to absorb. Not a regression from this change.
+
 ## 2026-07-31 — Phase 3 (part 1): accessibility — labels, focus ring, re-enabled color-contrast gate
 
 - **10 text inputs had no programmatic label** and stripped the focus ring with

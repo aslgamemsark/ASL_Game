@@ -553,7 +553,7 @@ export default function App() {
             </div>
             <div className="flex gap-2">
               <motion.button
-                className="text-xs px-3 py-1.5 rounded-xl font-bold bg-z-purple text-white"
+                className="text-xs px-3 min-h-11 rounded-xl font-bold bg-z-purple text-white flex items-center justify-center"
                 whileTap={{ scale: 0.96 }}
                 onClick={() => {
                   setScreen({ type: 'multiplayer', mode: 'duel', autoJoinCode: incomingChallenge.roomId });
@@ -563,7 +563,7 @@ export default function App() {
                 Join
               </motion.button>
               <button
-                className="text-xs px-3 py-1.5 rounded-xl font-bold border border-white/15 text-z-gray-400"
+                className="text-xs px-3 min-h-11 rounded-xl font-bold border border-white/15 text-z-gray-400 flex items-center justify-center"
                 onClick={() => setIncomingChallenge(null)}
               >
                 Dismiss

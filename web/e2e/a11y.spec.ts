@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { waitForAnimationsToSettle } from './helpers';
 
 /**
  * Automated accessibility sweep over every screen reachable without a camera device.
@@ -33,19 +34,10 @@ async function scan(page: import('@playwright/test').Page, label: string) {
   // the UI audit's inventory of ~22 `repeat: Infinity` animations), so "wait for every animation to
   // stop" never resolves on those screens and hangs the whole scan.
   //
-  // The short delay first closes a real race: immediately after a navigation, framer-motion hasn't
-  // registered its entrance animation on the browser's animation timeline yet, so
-  // `document.getAnimations()` is momentarily EMPTY — `[].every(...)` is vacuously true, so the
-  // wait below would resolve before the fade-in even starts rather than after it ends. Found
-  // 2026-07-30 the hard way: a direct `page.goto('/')` -> scan() reproduced a stale-opacity
-  // violation that an extra manual wait (giving the animation time to register first) did not.
-  await page.waitForTimeout(50);
-  await page.waitForFunction(
-    () => document.getAnimations()
-      .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
-      .every((a) => a.playState !== 'running'),
-    { timeout: 5000 }
-  ).catch(() => {}); // best-effort — an animation that never settles is a separate, real bug axe should still catch
+  // Found 2026-07-30 the hard way: a direct `page.goto('/')` -> scan() reproduced a stale-opacity
+  // violation that an extra manual wait (giving the animation time to register first) did not —
+  // see helpers.ts for the full mechanism (also needed by mobile.spec.ts's touch-target sweep).
+  await waitForAnimationsToSettle(page);
   const { violations } = await new AxeBuilder({ page }).analyze();
 
   // Compared as compact strings, not as the raw violation objects: axe's node objects are enormous

@@ -104,36 +104,51 @@ export function TopBar({ onOpenShop, onOpenProfile, profileLabel = 'My Profile' 
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
-            {/* Streak */}
-            <motion.div
+            {/* These three pills are informational, not controls — none has an onClick (the shop
+                entry point is the cart button below). `whileHover`/`whileTap` were removed from
+                streak/signs: a scale-on-tap response with nothing to tap is a false affordance for
+                mouse/touch users, not just a screen-reader gap. `role="status"`/`aria-live="polite"`
+                (the same pattern LessonPage/PracticePage use for their own live announcements) means
+                a screen-reader user is told when a value changes without needing to focus anything;
+                `aria-label` gives each pill a real name instead of reading as a bare digit. */}
+            <div
               className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default"
-              initial="rest"
-              whileHover="blaze"
-              whileTap={{ scale: 0.92 }}
-              variants={{
-                rest:  { scale: 1, backgroundColor: 'rgba(34, 21, 72, 0.6)' },
-                blaze: { scale: 1.1, backgroundColor: 'rgba(249, 115, 22, 0.16)', transition: { duration: 0.2 } },
-              }}
+              role="status"
+              aria-live="polite"
+              aria-label={`Streak: ${streak} day${streak === 1 ? '' : 's'}`}
             >
-              <motion.span className="text-sm inline-block" variants={fireVariants}>🔥</motion.span>
-              <span className="font-bold text-xs text-z-orange">{streak}</span>
-            </motion.div>
+              <motion.span
+                className="text-sm inline-block"
+                aria-hidden="true"
+                initial="rest"
+                whileHover="blaze"
+                variants={fireVariants}
+              >🔥</motion.span>
+              <span className="font-bold text-xs text-z-orange" aria-hidden="true">{streak}</span>
+            </div>
 
             {/* Signs 🤟 */}
-            <motion.div
+            <div
               className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default"
-              whileHover={{ scale: 1.08, backgroundColor: 'rgba(124, 58, 237, 0.18)', transition: { duration: 0.2 } }}
-              whileTap={{ scale: 0.92 }}
+              role="status"
+              aria-live="polite"
+              aria-label={`Signs learned: ${signs}`}
             >
-              <span className="text-sm">🤟</span>
-              <span className="font-bold text-xs text-z-purple-light">{signs}</span>
-            </motion.div>
+              <span className="text-sm" aria-hidden="true">🤟</span>
+              <span className="font-bold text-xs text-z-purple-light" aria-hidden="true">{signs}</span>
+            </div>
 
             {/* Gold 🪙 — plain display; the shop entry point is the cart button below (see the
                 absolutely-positioned button after this row), not the pill itself. */}
-            <div ref={goldRef} className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default">
-              <span className="text-sm">🪙</span>
-              <span className="font-bold text-xs text-z-yellow">{gold}</span>
+            <div
+              ref={goldRef}
+              className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default"
+              role="status"
+              aria-live="polite"
+              aria-label={`Gold: ${gold}`}
+            >
+              <span className="text-sm" aria-hidden="true">🪙</span>
+              <span className="font-bold text-xs text-z-yellow" aria-hidden="true">{gold}</span>
             </div>
           </div>
         </div>

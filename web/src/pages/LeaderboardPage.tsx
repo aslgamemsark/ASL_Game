@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
@@ -11,6 +11,7 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { Zippy } from '@/components/shared/Zippy';
 import { ZIPPY_LINES } from '@/data/zippy';
 import { countryName, detectCountryCode, COUNTRY_CODES } from '@/lib/geolocation';
+import { nextTabIndex } from '@/lib/tabListNav';
 
 interface Props {
   onExit: () => void;
@@ -476,6 +477,8 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
     { id: 'region', label: 'Region', icon: '📍' },
     { id: 'friends', label: 'Friends', icon: '🤝' },
   ];
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const activeIndex = TABS.findIndex((t) => t.id === tab);
 
   return (
     <div className="min-h-dvh bg-z-bg">
@@ -488,11 +491,24 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
 
       <div className="max-w-lg mx-auto px-4 pt-5 pb-24">
         {/* Tab bar */}
-        <div className="flex bg-z-surface/50 rounded-xl p-1 mb-5 gap-1">
-          {TABS.map((t) => (
+        <div role="tablist" aria-label="Leaderboard scope" className="flex bg-z-surface/50 rounded-xl p-1 mb-5 gap-1">
+          {TABS.map((t, i) => (
             <button
               key={t.id}
+              ref={(el) => { tabRefs.current[i] = el; }}
+              role="tab"
+              id={`board-tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls={`board-panel-${t.id}`}
+              tabIndex={tab === t.id ? 0 : -1}
               onClick={() => setTab(t.id)}
+              onKeyDown={(e) => {
+                const next = nextTabIndex(e.key, activeIndex, TABS.length);
+                if (next === null) return;
+                e.preventDefault();
+                setTab(TABS[next].id);
+                tabRefs.current[next]?.focus();
+              }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-bold rounded-lg transition-colors ${
                 tab === t.id ? 'bg-z-card text-z-gray-50' : 'text-z-gray-400 hover:text-z-gray-200'
               }`}
@@ -504,6 +520,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
         </div>
 
         {/* Content */}
+        <div role="tabpanel" id={`board-panel-${tab}`} aria-labelledby={`board-tab-${tab}`}>
         {tab === 'world' && (
           <BoardList
             rows={worldRows}
@@ -630,6 +647,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
             />
           )
         )}
+        </div>
       </div>
 
       {user && reportTarget && (

@@ -1,16 +1,18 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { supabase } from '@/lib/supabase';
 import { SHOP_ITEMS } from '@/data/shop';
 import { WORLDS } from '@/data/worlds';
 import { formatAdminDate, formatAdminTimestamp } from '@/lib/formatTimestamp';
+import { nextTabIndex } from '@/lib/tabListNav';
 
 interface Props {
   onExit: () => void;
 }
 
 type AdminTab = 'beta' | 'analytics' | 'users' | 'worlds' | 'audit';
+const ADMIN_TABS: AdminTab[] = ['beta', 'analytics', 'users', 'worlds', 'audit'];
 
 // Lazy so the recharts bundle only loads when the admin actually opens the Analytics tab, never
 // for the rest of the app.
@@ -89,6 +91,7 @@ interface AuditRow {
 export function AdminPanel({ onExit }: Props) {
   const [tab, setTab] = useState<AdminTab>('users');
   const [toast, setToast] = useState<string | null>(null);
+  const adminTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
@@ -105,11 +108,24 @@ export function AdminPanel({ onExit }: Props) {
           Log") into ~67px each on a 375px phone with no wrap/scroll fallback (mobile audit,
           2026-07-28). overflow-x-auto + shrink-0 lets them take their natural width and scroll
           instead, matching how the rest of the app handles overflow (CohortGrid does the same). */}
-      <div className="flex bg-z-surface/50 mx-4 mt-4 rounded-xl p-1 max-w-2xl lg:mx-auto lg:w-full overflow-x-auto no-scrollbar">
-        {(['beta', 'analytics', 'users', 'worlds', 'audit'] as const).map((t) => (
+      <div role="tablist" aria-label="Admin section" className="flex bg-z-surface/50 mx-4 mt-4 rounded-xl p-1 max-w-2xl lg:mx-auto lg:w-full overflow-x-auto no-scrollbar">
+        {ADMIN_TABS.map((t, i) => (
           <button
             key={t}
+            ref={(el) => { adminTabRefs.current[i] = el; }}
+            role="tab"
+            id={`admin-tab-${t}`}
+            aria-selected={tab === t}
+            aria-controls={`admin-panel-${t}`}
+            tabIndex={tab === t ? 0 : -1}
             onClick={() => setTab(t)}
+            onKeyDown={(e) => {
+              const next = nextTabIndex(e.key, i, ADMIN_TABS.length);
+              if (next === null) return;
+              e.preventDefault();
+              setTab(ADMIN_TABS[next]);
+              adminTabRefs.current[next]?.focus();
+            }}
             className={`shrink-0 min-w-[20%] px-3 py-2 rounded-lg text-sm font-bold capitalize whitespace-nowrap transition-colors ${
               tab === t ? 'bg-z-purple text-white' : 'text-z-gray-400'
             }`}
@@ -119,7 +135,7 @@ export function AdminPanel({ onExit }: Props) {
         ))}
       </div>
 
-      <div className="flex-1 max-w-2xl mx-auto w-full px-4 pt-6 pb-24">
+      <div role="tabpanel" id={`admin-panel-${tab}`} aria-labelledby={`admin-tab-${tab}`} className="flex-1 max-w-2xl mx-auto w-full px-4 pt-6 pb-24">
         {tab === 'beta' && <BetaTab showToast={showToast} />}
         {tab === 'analytics' && (
           <Suspense fallback={<p className="text-sm text-z-gray-400">Loading…</p>}>
