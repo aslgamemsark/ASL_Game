@@ -73,7 +73,7 @@ export function BasicSignsTab({ onStartSignsPractice, onTestMemory }: Props) {
               whileTap={{ scale: 0.97 }}
             >
               <span>{sign.name.replace(/_/g, ' ')}</span>
-              <span className="text-z-gray-500 text-sm">→</span>
+              <span className="text-z-gray-400 text-sm">→</span>
             </motion.button>
           );
         })}

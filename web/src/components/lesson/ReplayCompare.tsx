@@ -155,7 +155,7 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
       )}
 
       <div className="flex items-center justify-between">
-        <p className="text-[11px] text-z-gray-500">
+        <p className="text-[11px] text-z-gray-400">
           Replay stays on your device and is deleted when you continue.
         </p>
         <button

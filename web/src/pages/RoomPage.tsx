@@ -571,9 +571,10 @@ export function RoomPage({ onExit }: Props) {
               <div className="w-full max-w-xs">
                 <p className="text-center text-z-gray-400 text-sm mb-2">— or join with a code —</p>
                 <div className="flex gap-2">
-                  <input value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setCodeError(''); }}
+                  <label htmlFor="room-join-code" className="sr-only">Room code</label>
+                  <input id="room-join-code" value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setCodeError(''); }}
                     placeholder="XXXXXX" maxLength={6} inputMode="text" autoCapitalize="characters" autoCorrect="off" spellCheck={false}
-                    className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:outline-none focus:border-z-purple/60" />
+                    className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:border-z-purple/60" />
                   <motion.button onClick={() => void joinRoom()} disabled={!joinCode.trim()}
                     className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
                     whileTap={{ scale: 0.96 }}>
@@ -624,7 +625,7 @@ export function RoomPage({ onExit }: Props) {
               </div>
               <div className="bg-z-card border border-z-purple/30 rounded-2xl p-4 text-center">
                 <p className="text-xs text-z-gray-400 mb-1">
-                  SIGN THIS · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-500">waiting for everyone's camera…</span>}
+                  SIGN THIS · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-400">waiting for everyone's camera…</span>}
                 </p>
                 <p className="text-3xl font-bold text-z-purple-light">{SIGNS[currentSignId]?.name.replace(/_/g, ' ') ?? currentSignId}</p>
               </div>
@@ -654,7 +655,7 @@ export function RoomPage({ onExit }: Props) {
                 onVideoReady={handleVideoReady}
               />
               <p className="text-center font-bold">
-                {turnArmed ? 'What are they signing?' : <span className="text-z-gray-500 font-normal text-sm">connecting…</span>}
+                {turnArmed ? 'What are they signing?' : <span className="text-z-gray-400 font-normal text-sm">connecting…</span>}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {guessOptions.map((s) => (

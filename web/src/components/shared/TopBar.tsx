@@ -93,9 +93,14 @@ export function TopBar({ onOpenShop, onOpenProfile, profileLabel = 'My Profile' 
                 <AvatarGlyph avatarId={equippedAvatar} badgeId={activeBadge} />
               </motion.span>
             </motion.button>
-            <span
-              className="font-bold text-xl tracking-tight lg:hidden text-gradient-brand"
-            >QuickSign</span>
+            {/* TopBar renders only on HomePage, so this doubles as the page's <h1> — the
+                individual tabs (Worlds, Basic Signs, Review, Explore) already carry their own
+                <h2>, leaving no other page-level heading. `lg:sr-only` (not `lg:hidden`) so it
+                stays in the accessibility tree at desktop widths, where SideNav's own brand
+                mark takes over the visual role. */}
+            <h1
+              className="font-bold text-xl tracking-tight lg:sr-only text-gradient-brand"
+            >QuickSign</h1>
           </div>
 
           <div className="flex items-center gap-2 ml-auto">

@@ -87,7 +87,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
                   <p className="font-bold text-sm">@{username ?? '…'}</p>
                   <button
                     onClick={() => setShowSetUsername(true)}
-                    className="text-z-gray-500 hover:text-z-gray-300 transition-colors"
+                    className="text-z-gray-400 hover:text-z-gray-300 transition-colors"
                     title="Change username"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -196,7 +196,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
                 <div className="text-right">
                   <p className="text-[11px] text-z-gray-400">Next rank</p>
                   <p className="text-xs font-bold text-z-gray-300">{next.emoji} {next.name}</p>
-                  <p className="text-[10px] text-z-gray-500">{(next.minXp - xp).toLocaleString()} XP away</p>
+                  <p className="text-[10px] text-z-gray-400">{(next.minXp - xp).toLocaleString()} XP away</p>
                 </div>
               )}
             </div>
@@ -314,7 +314,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
                 </div>
 
                 {items.length === 0 ? (
-                  <p className="text-[11px] text-z-gray-500">
+                  <p className="text-[11px] text-z-gray-400">
                     No {cosmeticTab === 'avatar' ? 'avatars' : 'borders'} owned yet — check the Shop!
                   </p>
                 ) : (
@@ -378,8 +378,8 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
                         ? 'bg-z-purple text-white shadow-md shadow-z-purple/40'
                         : isToday ? 'bg-z-purple/30 text-z-purple-light border border-z-purple/40'
                         : practiced ? 'bg-z-green/20 text-z-green'
-                        : isFuture ? 'bg-transparent text-z-gray-500 border border-z-gray-500/20'
-                        : 'bg-z-surface/40 text-z-gray-500'
+                        : isFuture ? 'bg-transparent text-z-gray-400 border border-z-gray-500/20'
+                        : 'bg-z-surface/40 text-z-gray-400'
                     }`}>
                       {practiced || (isToday && lastPracticeDate === todayStr()) ? '✓' : isToday ? '●' : ''}
                       {isToday && (

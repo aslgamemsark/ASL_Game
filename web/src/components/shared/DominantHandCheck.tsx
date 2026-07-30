@@ -145,7 +145,7 @@ export function DominantHandCheck({ videoRef, onConfirm, onSkip }: Props) {
           videoRef={videoRef}
           handZones={{ active: zone === 'left' || zone === 'right' ? zone : null, selected: detected }}
         />
-        {!detected && <p className="text-xs text-z-gray-500 mt-2 h-4">{hint}</p>}
+        {!detected && <p className="text-xs text-z-gray-400 mt-2 h-4">{hint}</p>}
       </div>
 
       {detected && (

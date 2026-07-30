@@ -627,9 +627,10 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
               <div className="w-full max-w-xs">
                 <p className="text-center text-z-gray-400 text-sm mb-2">— or join with a code —</p>
                 <div className="flex gap-2">
-                  <input value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setCodeError(''); }}
+                  <label htmlFor="duel-join-code" className="sr-only">Room code</label>
+                  <input id="duel-join-code" value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setCodeError(''); }}
                     placeholder="XXXXXX" maxLength={6} inputMode="text" autoCapitalize="characters" autoCorrect="off" spellCheck={false}
-                    className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:outline-none focus:border-z-purple/60" />
+                    className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:border-z-purple/60" />
                   <motion.button onClick={() => joinRoom()} disabled={!joinCode.trim()}
                     className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
                     whileTap={{ scale: 0.96 }}>
@@ -663,7 +664,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
               </div>
               <div className="bg-z-card border border-z-purple/30 rounded-2xl p-4 text-center">
                 <p className="text-xs text-z-gray-400 mb-1">
-                  SIGN THIS · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-500">waiting for {matchState.opponentUsername}'s camera…</span>}
+                  SIGN THIS · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-400">waiting for {matchState.opponentUsername}'s camera…</span>}
                 </p>
                 <p className="text-3xl font-bold text-z-purple-light">{SIGNS[matchState.currentSign]?.name.replace(/_/g, ' ') ?? matchState.currentSign}</p>
               </div>
@@ -690,7 +691,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                 <WebcamMirror videoRef={signaling.localVideoRef} label="You" cosmeticBorderClasses={cosmeticBorderClasses} />
               </div>
               <p className="text-center font-bold">
-                What are they signing? · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red' : 'text-z-gray-400'}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-500 font-normal text-sm">connecting…</span>}
+                What are they signing? · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red' : 'text-z-gray-400'}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-400 font-normal text-sm">connecting…</span>}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {guessOptions.map((s) => (
@@ -728,14 +729,14 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                   <h2 className="text-xl font-bold text-center">You've been disconnected</h2>
                   <p className="text-z-gray-400 text-sm text-center">Reconnecting automatically…</p>
                   <p className="text-4xl font-bold text-z-purple-light">{reconnectLeft}s</p>
-                  <p className="text-z-gray-500 text-xs text-center">If reconnecting fails, use the button below.</p>
+                  <p className="text-z-gray-400 text-xs text-center">If reconnecting fails, use the button below.</p>
                 </>
               ) : (
                 <>
                   <h2 className="text-xl font-bold text-center">{matchState.opponentUsername} disconnected</h2>
                   <p className="text-z-gray-400 text-sm text-center">Waiting for them to reconnect — the match is still on.</p>
                   <p className="text-4xl font-bold text-z-purple-light">{reconnectLeft}s</p>
-                  <p className="text-z-gray-500 text-xs text-center">If they don't come back, you win.</p>
+                  <p className="text-z-gray-400 text-xs text-center">If they don't come back, you win.</p>
                 </>
               )}
             </motion.div>
@@ -760,7 +761,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                     <p className="text-3xl font-bold text-z-purple-light">{matchState.myScore}</p>
                     <p className="text-xs text-z-gray-400 mt-0.5">You</p>
                   </div>
-                  <span className="text-z-gray-500 font-bold">vs</span>
+                  <span className="text-z-gray-400 font-bold">vs</span>
                   <div className="text-center">
                     <p className="text-3xl font-bold text-z-gray-200">{matchState.opponentScore}</p>
                     <p className="text-xs text-z-gray-400 mt-0.5">{matchState.opponentUsername}</p>
@@ -776,7 +777,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                 Back to Home
               </motion.button>
               <button onClick={() => setReportOpen(true)}
-                className="text-xs text-z-gray-500 hover:text-z-red transition-colors">
+                className="text-xs text-z-gray-400 hover:text-z-red transition-colors">
                 🚩 Report {matchState.opponentUsername}
               </button>
             </motion.div>

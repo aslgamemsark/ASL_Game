@@ -175,7 +175,7 @@ export function BadgesSection() {
                     showcaseBadges.includes(selected.id)
                       ? 'bg-z-orange/20 border-z-orange text-z-orange'
                       : showcaseBadges.length >= 3
-                        ? 'border-white/5 text-z-gray-500 cursor-not-allowed'
+                        ? 'border-white/5 text-z-gray-400 cursor-not-allowed'
                         : 'border-white/10 text-z-gray-300 hover:border-white/20'
                   }`}
                   disabled={!showcaseBadges.includes(selected.id) && showcaseBadges.length >= 3}

@@ -504,7 +504,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                 <label className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-z-card border border-white/5 cursor-pointer">
                   <span className="text-sm text-z-gray-200">
                     Record my attempts for replay
-                    <span className="block text-[11px] text-z-gray-500">Stays on your device, never uploaded</span>
+                    <span className="block text-[11px] text-z-gray-400">Stays on your device, never uploaded</span>
                   </span>
                   <input
                     type="checkbox"
@@ -699,7 +699,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                 )}
               </div>
               {bonusGoldOnPerfect != null && goldAwarded === 0 && (
-                <p className="text-z-gray-500 text-xs -mt-2">
+                <p className="text-z-gray-400 text-xs -mt-2">
                   Pass every letter without skipping to earn {bonusGoldOnPerfect} gold 🪙
                 </p>
               )}

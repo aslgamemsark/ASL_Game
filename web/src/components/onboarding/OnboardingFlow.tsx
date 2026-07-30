@@ -110,7 +110,12 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
             <h1 className="text-4xl font-bold mb-1 text-z-gray-50">
               Welcome to <span className="text-z-purple-light">QuickSign</span>
             </h1>
-            <p className="text-z-purple-light/80 text-sm font-semibold tracking-wide uppercase mb-4">Beyond Words</p>
+            {/* Full opacity, not /80 (found 2026-07-30): the 80%-alpha version measured 3.37:1 in
+                the light theme and only 4.91:1 in dark — a thin-enough margin that it flickered
+                between pass/fail across engines. Reducing contrast via text alpha is the same
+                mechanism as a token tuned to exactly the AA floor (see index.css's z-yellow/
+                z-gray-400 comments) — it has no headroom for anything. */}
+            <p className="text-z-purple-light text-sm font-semibold tracking-wide uppercase mb-4">Beyond Words</p>
             <p className="text-z-gray-300 text-lg mb-10 [@media(max-height:700px)]:mb-4">{ZIPPY_LINES.welcomeIntro[0]}</p>
 
             <motion.button
@@ -185,7 +190,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                 account is the legally meaningful moment; a guest gets notice, not a contract.
                 Camera/landmark disclosure is separate and lives at the camera itself
                 (CameraOnboarding), which is where it is actually actionable. */}
-            <p className="text-[11px] text-z-gray-500 mt-5 leading-relaxed">
+            <p className="text-[11px] text-z-gray-400 mt-5 leading-relaxed">
               By creating an account you agree to our Terms &amp; Privacy Policy — readable any time
               in Settings → Privacy &amp; Terms. Your camera video never leaves your device.
             </p>
@@ -235,7 +240,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                       <p className="font-bold text-z-gray-50">{s.title}</p>
                       <p className="text-z-gray-400 text-sm">{s.subtitle}</p>
                     </div>
-                    <svg className="w-4 h-4 text-z-gray-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <svg className="w-4 h-4 text-z-gray-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M9 18l6-6-6-6" />
                     </svg>
                   </div>

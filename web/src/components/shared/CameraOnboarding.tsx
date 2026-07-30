@@ -75,7 +75,7 @@ export function CameraOnboarding({ onContinue, onCancel }: Props) {
           Not now
         </button>
 
-        <p className="text-[11px] text-z-gray-500 mt-1">
+        <p className="text-[11px] text-z-gray-400 mt-1">
           You can revoke camera access anytime in your browser settings. Full details in
           Settings → Privacy &amp; Terms.
         </p>

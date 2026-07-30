@@ -108,7 +108,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
               key={item.id}
               onClick={handlers[item.id]}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                isActive ? 'bg-z-purple/20 text-z-purple' : 'text-z-gray-300 hover:bg-white/5'
+                isActive ? 'bg-z-purple/20 text-z-purple-light' : 'text-z-gray-300 hover:bg-white/5'
               }`}
               whileHover={{ x: 2 }}
               whileTap={{ scale: 0.98 }}
@@ -122,7 +122,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
         <motion.button
           onClick={onProfile}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-            active === 'profile' ? 'bg-z-purple/20 text-z-purple' : 'text-z-gray-300 hover:bg-white/5'
+            active === 'profile' ? 'bg-z-purple/20 text-z-purple-light' : 'text-z-gray-300 hover:bg-white/5'
           }`}
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
@@ -137,7 +137,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
         <motion.button
           onClick={onSettings}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-            active === 'settings' ? 'bg-z-purple/20 text-z-purple' : 'text-z-gray-300 hover:bg-white/5'
+            active === 'settings' ? 'bg-z-purple/20 text-z-purple-light' : 'text-z-gray-300 hover:bg-white/5'
           }`}
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
@@ -145,7 +145,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
         >
           {/* Explicit SVG (not the ⚙️ emoji): that glyph's default silver/gray color scheme reads
               as washed-out against the light theme's surfaces. currentColor ties it to this
-              button's existing text-z-purple/text-z-gray-300 state instead. */}
+              button's existing text-z-purple-light/text-z-gray-300 state instead. */}
           <svg className="w-[18px] h-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />

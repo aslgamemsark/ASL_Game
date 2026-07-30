@@ -174,7 +174,7 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
         {isAdmin && (
           <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
             <h2 className="font-bold text-sm mb-1 text-z-gray-300 uppercase tracking-wide">Admin</h2>
-            <p className="text-xs text-z-gray-500 mb-4">Owner-only tools</p>
+            <p className="text-xs text-z-gray-400 mb-4">Owner-only tools</p>
             <div className="space-y-2">
               <button
                 onClick={giveTestCredits}

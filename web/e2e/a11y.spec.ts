@@ -9,11 +9,12 @@ import AxeBuilder from '@axe-core/playwright';
  * semantics, accessible names, heading order — was never measured at all. A one-off manual audit
  * of that surface rots the moment a new screen ships; a rule engine run in CI does not.
  *
- * Scope note: contrast rules are DISABLED here. They cannot see through a canvas or a video
- * element, and the two surfaces that matter most on this app (the webcam mirror, the reference
- * clips) are exactly that — axe would report the plate as a solid colour and miss the point
- * entirely. Contrast is owned by the unit tests, which compute it from the shipped stylesheet
- * against both frame extremes. This spec owns everything else.
+ * Contrast: re-enabled 2026-07-30 (was blanket-disabled — see WORKLOG for how that let a
+ * genuinely broken light-theme focus ring ship for days). tests/tokenContrast.test.ts still owns
+ * the webcam mirror / reference clip overlays specifically (computed against both frame
+ * extremes, which axe cannot do for a live video/canvas background) — this scan covers
+ * everything else, and is the mechanical backstop for exactly the kind of drift the token test's
+ * hand-picked pairs can't see (a token used somewhere new, or hardcoded instead of using one).
  */
 
 /** Serious/critical only. Minor + moderate findings are logged but do not fail — this is a gate
@@ -21,9 +22,31 @@ import AxeBuilder from '@axe-core/playwright';
 const BLOCKING_IMPACTS = new Set(['serious', 'critical']);
 
 async function scan(page: import('@playwright/test').Page, label: string) {
-  const { violations } = await new AxeBuilder({ page })
-    .disableRules(['color-contrast'])
-    .analyze();
+  // Wait for in-flight FINITE entrance animations (framer-motion opacity/transform fades, several
+  // screens use staggered `transition={{ delay: i * 0.04 }}` per list item) to finish before
+  // scanning. Found 2026-07-30, re-enabling color-contrast: axe was catching cards mid-fade-in at
+  // partial opacity — a real but TRANSIENT reduction in contrast during an entrance animation, not
+  // the settled state WCAG 1.4.3 actually governs.
+  //
+  // Deliberately excludes INFINITE animations (`iterations === Infinity`) — Home's current-lesson
+  // node bob and several hover-glow effects loop forever by design (real, intentional motion, see
+  // the UI audit's inventory of ~22 `repeat: Infinity` animations), so "wait for every animation to
+  // stop" never resolves on those screens and hangs the whole scan.
+  //
+  // The short delay first closes a real race: immediately after a navigation, framer-motion hasn't
+  // registered its entrance animation on the browser's animation timeline yet, so
+  // `document.getAnimations()` is momentarily EMPTY — `[].every(...)` is vacuously true, so the
+  // wait below would resolve before the fade-in even starts rather than after it ends. Found
+  // 2026-07-30 the hard way: a direct `page.goto('/')` -> scan() reproduced a stale-opacity
+  // violation that an extra manual wait (giving the animation time to register first) did not.
+  await page.waitForTimeout(50);
+  await page.waitForFunction(
+    () => document.getAnimations()
+      .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+      .every((a) => a.playState !== 'running'),
+    { timeout: 5000 }
+  ).catch(() => {}); // best-effort — an animation that never settles is a separate, real bug axe should still catch
+  const { violations } = await new AxeBuilder({ page }).analyze();
 
   // Compared as compact strings, not as the raw violation objects: axe's node objects are enormous
   // and a `toEqual([])` on them buries the actual finding under hundreds of lines of diff.

@@ -63,7 +63,7 @@ function BoardList({
       <div className="text-center py-16 flex flex-col items-center">
         <p className="text-4xl mb-3">⚠️</p>
         <p className="text-z-gray-300 font-semibold text-sm">Couldn't load the leaderboard</p>
-        <p className="text-z-gray-500 text-xs mt-1">Check your connection and try again.</p>
+        <p className="text-z-gray-400 text-xs mt-1">Check your connection and try again.</p>
         {onRetry && (
           <button onClick={onRetry} className="text-z-purple-light text-xs mt-3 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2">
             Retry
@@ -77,7 +77,7 @@ function BoardList({
       <div className="text-center py-16 flex flex-col items-center">
         <Zippy expression="teaching" size="md" />
         <p className="text-z-gray-300 font-semibold text-sm mt-3">No one here yet</p>
-        <p className="text-z-gray-500 text-xs mt-1 max-w-[16rem]">{ZIPPY_LINES.emptyLeaderboard[0]}</p>
+        <p className="text-z-gray-400 text-xs mt-1 max-w-[16rem]">{ZIPPY_LINES.emptyLeaderboard[0]}</p>
       </div>
     );
   }
@@ -142,9 +142,9 @@ function BoardList({
             {/* Friend action — only for other users when signed in */}
             {userId && row.id !== userId && onAddFriend && (() => {
               const rel = relations?.get(row.id);
-              if (rel === 'accepted') return <span className="text-[11px] text-z-gray-500 shrink-0">Friends ✓</span>;
-              if (rel === 'pendingSent') return <span className="text-[11px] text-z-gray-500 shrink-0">Pending</span>;
-              if (rel === 'pendingReceived') return <span className="text-[11px] text-z-gray-500 shrink-0">Incoming</span>;
+              if (rel === 'accepted') return <span className="text-[11px] text-z-gray-400 shrink-0">Friends ✓</span>;
+              if (rel === 'pendingSent') return <span className="text-[11px] text-z-gray-400 shrink-0">Pending</span>;
+              if (rel === 'pendingReceived') return <span className="text-[11px] text-z-gray-400 shrink-0">Incoming</span>;
               return (
                 <motion.button
                   onClick={() => onAddFriend(row.id, row.username)}
@@ -161,7 +161,7 @@ function BoardList({
               <button
                 onClick={() => onReport(row.id, row.username)}
                 aria-label={`Report ${row.username}`}
-                className="shrink-0 text-z-gray-500 hover:text-z-red transition-colors p-1"
+                className="shrink-0 text-z-gray-400 hover:text-z-red transition-colors p-1"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
@@ -522,7 +522,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
           <div className="text-center py-20">
             <p className="text-5xl mb-4">📍</p>
             <p className="text-z-gray-200 font-bold text-base">Sign in to see your region</p>
-            <p className="text-z-gray-500 text-sm mt-2">Compare your progress with signers near you.</p>
+            <p className="text-z-gray-400 text-sm mt-2">Compare your progress with signers near you.</p>
           </div>
         )}
 
@@ -530,7 +530,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
           <div className="text-center py-16">
             <p className="text-5xl mb-4">📍</p>
             <p className="text-z-gray-200 font-bold text-base">Pick your region</p>
-            <p className="text-z-gray-500 text-sm mt-2 max-w-xs mx-auto leading-relaxed">
+            <p className="text-z-gray-400 text-sm mt-2 max-w-xs mx-auto leading-relaxed">
               We couldn't detect it automatically. Choose your country to see signers near you.
             </p>
             <div className="mt-5 flex flex-col items-center gap-3">
@@ -568,7 +568,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
                 </p>
                 <button
                   onClick={() => setMyRegion(null)}
-                  className="text-[11px] text-z-gray-500 hover:text-z-purple-light mt-0.5"
+                  className="text-[11px] text-z-gray-400 hover:text-z-purple-light mt-0.5"
                 >
                   Change region
                 </button>
@@ -592,7 +592,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
           <div className="text-center py-20">
             <p className="text-5xl mb-4">🤝</p>
             <p className="text-z-gray-200 font-bold text-base">Sign in to see friends</p>
-            <p className="text-z-gray-500 text-sm mt-2">Add friends to compare your progress.</p>
+            <p className="text-z-gray-400 text-sm mt-2">Add friends to compare your progress.</p>
           </div>
         )}
 
@@ -618,7 +618,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
             <div className="text-center py-20 flex flex-col items-center">
               <Zippy expression="welcome" size="md" />
               <p className="text-z-gray-200 font-bold text-base mt-3">No friends yet</p>
-              <p className="text-z-gray-500 text-sm mt-2 max-w-[18rem]">{ZIPPY_LINES.emptyFriends[0]}</p>
+              <p className="text-z-gray-400 text-sm mt-2 max-w-[18rem]">{ZIPPY_LINES.emptyFriends[0]}</p>
             </div>
           ) : (
             <BoardList

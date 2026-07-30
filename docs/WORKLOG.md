@@ -7,6 +7,55 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 — Phase 3 (part 1): accessibility — labels, focus ring, re-enabled color-contrast gate
+
+- **10 text inputs had no programmatic label** and stripped the focus ring with
+  `focus:outline-none` (`AuthModal.tsx`, `ResetPasswordModal.tsx`, `SetUsernameModal.tsx`,
+  `FriendsPage.tsx`, `DuelPage.tsx`, `RoomPage.tsx`). Added a real `<label>` (visible or `sr-only`
+  to match the existing placeholder-driven layout) with a matching `id`, and removed
+  `focus:outline-none` from all 10 — it out-specified the global `:focus-visible` ring, so none of
+  these inputs showed any focus indicator at all.
+- **The focus ring was hardcoded to the dark theme's value** (`#A78BFA`) in `index.css`, giving
+  2.04:1 contrast against the light theme's background — WCAG 1.4.11 needs 3:1 for non-text UI.
+  Switched to `var(--color-z-purple-light)`, which is per-theme. Added a
+  `describe.each(['dark','light'])('%s theme focus ring', ...)` case to
+  `tests/tokenContrast.test.ts` (new `AA_NON_TEXT = 3.0` constant) so this can't silently regress.
+- **Re-enabled axe's `color-contrast` rule** in `e2e/a11y.spec.ts` (`.disableRules(['color-contrast'])`
+  removed) — it had been off for all four prior polish passes, which is how the following survived:
+  - `--rt-z-yellow` and `--rt-z-gray-400` (light theme, `index.css`) were tuned to exactly the
+    4.5:1 AA floor with zero margin — any translucent card tint compositing under them dropped
+    below 4.5:1. Darkened both (`#006B88`→`#00566D`, `#625B71`→`#534D60`) for real headroom.
+  - **`text-z-gray-500` was misused as a text color in 29 files** (App.tsx, most of
+    `components/{admin,auth,home,lesson,multiplayer,onboarding,pwa,shared}/`, most of `pages/`) —
+    that token is calibrated for borders/dividers, not text, and fails contrast when read as text.
+    Bulk-replaced with `text-z-gray-400` (word-boundary sed, `border-z-gray-500` left untouched —
+    verified by grep before and after).
+  - `SideNav.tsx` (3 sites) and `ShopPage.tsx` (equipped badge) used the bare `text-z-purple`
+    token for text; replaced with `text-z-purple-light`, the token actually calibrated for
+    text-on-surface use.
+  - `OnboardingFlow.tsx`'s "Beyond Words" tagline used `text-z-purple-light/80` — the 80%-alpha
+    version measured 3.37:1 in the light theme (broken) and 4.91:1 in dark (thin enough to flip
+    pass/fail across engines, which is what first surfaced this as an intermittent WebKit-only e2e
+    failure). Removed the opacity modifier. Confirmed by grep it was the only such
+    `text-z-*/opacity` instance in the codebase.
+  - Root-caused a second, unrelated flake in the same suite: axe was scanning mid-entrance-animation
+    (ShopPage's staggered card `delay: i * 0.04`) and catching transient partial-opacity text. Fixed
+    the scan helper to wait for `document.getAnimations()` (filtered to `iterations !== Infinity`,
+    so intentional infinite-repeat animations like the lesson-node bob don't block the wait forever)
+    to settle, with a small pre-poll delay since framer-motion doesn't always register an animation
+    on the timeline in the same tick as navigation.
+- **`HomePage` (the app's primary screen) had no `<h1>`** — its own content only went as low as
+  `<h3>`. `TopBar`'s "QuickSign" wordmark renders only on `HomePage`, so promoted it to `<h1>`;
+  changed its desktop-hidden class from `lg:hidden` to `lg:sr-only` so it stays in the
+  accessibility tree at desktop widths (where `SideNav`'s own brand mark — a plain `<span>`, left
+  as-is since it repeats identically across 6 screens and isn't page-specific content) takes over
+  the visual role. Checked `FriendsPage`/`ShopPage`/`MultiplayerHubPage`'s multiple `<h1>` sites
+  flagged as a possible duplicate-heading defect: each pair is a mutually-exclusive early-return
+  branch (guest-gate vs. signed-in), never both in the DOM at once — not a real bug, left alone.
+- **Verified:** 689 unit tests, `tsc -b` clean, `oxlint` clean (pre-existing warnings only), full
+  Playwright suite (94 passed / 2 platform-conditional skips / 0 failures) across
+  chromium/android/ios, including the a11y spec's `color-contrast` rule now enabled everywhere.
+
 ## 2026-07-30 (part 3) — Phase 2: first-load payload and the 28 Hz recognition re-render
 
 Product decision (with the user): drop the AI-classifier payload for everyone rather than sample

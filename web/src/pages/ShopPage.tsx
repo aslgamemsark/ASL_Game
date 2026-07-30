@@ -151,7 +151,7 @@ export function ShopPage({ onExit }: Props) {
                       <div className="mt-3 flex items-center justify-between">
                         {owned ? (
                           <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${
-                            equipped ? 'bg-z-purple/30 text-z-purple' : 'bg-z-green/20 text-z-green'
+                            equipped ? 'bg-z-purple/30 text-z-purple-light' : 'bg-z-green/20 text-z-green'
                           }`}>
                             {equipped ? '✓ Equipped' : 'Owned'}
                           </span>

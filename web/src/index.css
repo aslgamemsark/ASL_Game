@@ -73,7 +73,14 @@
   --rt-z-teal: #005766;
   --rt-z-teal-dark: #004E5C;
   --rt-z-teal-light: #006B88; /* was #4CD7F6 at 1.27:1 on z-bg */
-  --rt-z-yellow: #006B88;     /* XP colour, aliased to teal-light. was #4CD7F6 at 1.27:1 on z-bg */
+  /* Darkened from #006B88 (2026-07-30): that value was tuned to land EXACTLY at 4.54:1 on pure
+     z-bg — the AA floor with zero margin. Any translucent tint composited over a surface (e.g.
+     ShopPage's owned/equipped card tints, bg-z-purple/15) pushes the EFFECTIVE background just
+     enough that the same token drops under AA on it (measured 3.53:1) even though it clears fine
+     on the three pure surface tokens tokenContrast.test.ts checks. Real margin (6.16:1 on z-bg)
+     holds up under compositing generally, not just this one site — the fix that "do not fix this
+     at the call site" (see this file's own gradient-surface comment) already argues for. */
+  --rt-z-yellow: #00566D;     /* XP colour, aliased to teal-light. was #4CD7F6 at 1.27:1 on z-bg */
 
   --rt-z-green: #007147; /* pass/success — the app's most important feedback colour.
                             was #059669 at 2.82:1 on z-bg */
@@ -86,7 +93,11 @@
   --rt-z-gray-100: #3A2354;
   --rt-z-gray-200: #4A4455;
   --rt-z-gray-300: #665F73; /* WCAG AA floor against z-bg (was #6B6478 at 4.23:1) */
-  --rt-z-gray-400: #625B71; /* WCAG AA 4.5:1 floor against both bg and card (was #7B7487 at 4.25/4.06:1) */
+  /* Darkened from #625B71 (2026-07-30): same margin problem as z-yellow above — a value tuned to
+     exactly the AA floor against pure surfaces (4.83:1 on z-bg) dropped under AA (3.75:1) once
+     composited under a translucent card tint (ShopPage's owned/equipped state). 6.05:1 on z-bg
+     gives real headroom instead of a razor's edge. */
+  --rt-z-gray-400: #534D60; /* WCAG AA 4.5:1 floor against both bg and card (was #7B7487 at 4.25/4.06:1) */
   --rt-z-gray-500: #CCC3D8;
 
   /* card/surface must read as visibly LIGHTER than bg (sidebar + cards float above the page),
@@ -344,9 +355,13 @@ button, a, [role="button"], input, select, textarea {
 }
 
 /* Keyboard focus was previously invisible (framer-motion buttons ship no focus style of their
-   own). :focus-visible only — mouse/touch taps stay clean, keyboard users get a real ring. */
+   own). :focus-visible only — mouse/touch taps stay clean, keyboard users get a real ring.
+   Theme-aware token, not a hardcoded hex (found 2026-07-30): this was `#A78BFA`, the DARK theme's
+   z-purple-light value hardcoded — 2.04:1 against the light theme's z-bg, well under WCAG 1.4.11's
+   3:1 minimum, so every keyboard focus ring was effectively invisible in light theme. The token
+   resolves to the correct per-theme value (dark #A78BFA / light #7834E8, 5.04:1) automatically. */
 :focus-visible {
-  outline: 2px solid #A78BFA;
+  outline: 2px solid var(--color-z-purple-light);
   outline-offset: 2px;
   border-radius: 8px;
 }

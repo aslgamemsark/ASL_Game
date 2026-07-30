@@ -140,7 +140,7 @@ export function LessonNode({ node, index, unitColor, onSelect, skipCost, signsBa
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
                   canAfford
                     ? 'bg-z-surface/60 text-z-gray-200 hover:bg-z-surface/90 cursor-pointer'
-                    : 'bg-z-surface/30 text-z-gray-500 cursor-not-allowed'
+                    : 'bg-z-surface/30 text-z-gray-400 cursor-not-allowed'
                 }`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

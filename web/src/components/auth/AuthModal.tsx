@@ -149,8 +149,10 @@ export function AuthModal({ onClose }: Props) {
         <p className="font-bold text-base mb-1">Reset your password</p>
         <p className="text-z-gray-400 text-xs mb-4">We'll email you a link to set a new one.</p>
         <form onSubmit={handleSubmit} className="space-y-3">
+          <label htmlFor="auth-reset-email" className="sr-only">Email</label>
           <input
-            className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+            id="auth-reset-email"
+            className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:border-z-purple transition-colors"
             type="email"
             placeholder="Email"
             value={email}
@@ -211,9 +213,11 @@ export function AuthModal({ onClose }: Props) {
       <form onSubmit={handleSubmit} className="space-y-3">
         {tab === 'signup' && (
           <div>
+            <label htmlFor="auth-username" className="sr-only">Username</label>
             <div className="relative">
               <input
-                className={`w-full bg-white/5 border rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none transition-colors pr-10 ${
+                id="auth-username"
+                className={`w-full bg-white/5 border rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 transition-colors pr-10 ${
                   usernameStatus === 'error' ? 'border-z-red/60 focus:border-z-red' :
                   usernameStatus === 'ok'    ? 'border-z-green/60 focus:border-z-green' :
                   'border-z-gray-400/30 focus:border-z-purple'
@@ -241,7 +245,7 @@ export function AuthModal({ onClose }: Props) {
                 {usernameMsg}
               </p>
             )}
-            <p className="text-[10px] text-z-gray-500 mt-1 px-1">
+            <p className="text-[10px] text-z-gray-400 mt-1 px-1">
               3–20 characters · letters, numbers, underscores only · unique
             </p>
             <p className="text-[10px] text-z-gray-600 mt-1 px-1">
@@ -250,8 +254,10 @@ export function AuthModal({ onClose }: Props) {
           </div>
         )}
 
+        <label htmlFor="auth-email" className="sr-only">Email</label>
         <input
-          className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+          id="auth-email"
+          className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:border-z-purple transition-colors"
           type="email"
           placeholder="Email"
           value={email}
@@ -260,8 +266,10 @@ export function AuthModal({ onClose }: Props) {
           autoComplete="email"
           maxLength={254}
         />
+        <label htmlFor="auth-password" className="sr-only">Password</label>
         <input
-          className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+          id="auth-password"
+          className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:border-z-purple transition-colors"
           type="password"
           placeholder="Password"
           value={password}

@@ -154,7 +154,7 @@ export default function AnalyticsTab({ showToast }: { showToast: (m: string) => 
         </div>
       </Section>
 
-      <p className="text-[11px] text-z-gray-500 text-center">
+      <p className="text-[11px] text-z-gray-400 text-center">
         Registered users only · updated {formatAdminTimestamp(data.generated_at)}
       </p>
     </div>

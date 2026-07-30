@@ -135,7 +135,7 @@ function ChestItem({ chest, onOpened }: ChestItemProps) {
           className={`text-xs px-3 py-1.5 rounded-xl font-bold disabled:cursor-default ${
             ready
               ? 'bg-z-purple text-white disabled:opacity-70'
-              : 'bg-z-surface/50 text-z-gray-500'
+              : 'bg-z-surface/50 text-z-gray-400'
           }`}
           whileTap={ready && !opening ? { scale: 0.95 } : {}}
         >

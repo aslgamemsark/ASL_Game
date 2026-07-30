@@ -342,16 +342,17 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
 
         {/* Search */}
         <div>
-          <p className="text-xs text-z-gray-400 uppercase tracking-widest mb-2">Find Players</p>
+          <label htmlFor="friend-search" className="text-xs text-z-gray-400 uppercase tracking-widest mb-2 block">Find Players</label>
           <div className="flex gap-2">
             <input
+              id="friend-search"
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="Search by username…"
               maxLength={20}
-              className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:border-z-purple/60 placeholder:text-z-gray-500"
+              className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm focus:border-z-purple/60 placeholder:text-z-gray-400"
             />
             <motion.button
               onClick={handleSearch}
@@ -370,7 +371,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                 initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
               >
                 <p className="text-z-red text-sm font-semibold">Search failed</p>
-                <p className="text-z-gray-500 text-xs mt-1">Check your connection and try again.</p>
+                <p className="text-z-gray-400 text-xs mt-1">Check your connection and try again.</p>
               </motion.div>
             )}
             {!searchError && !searching && hasSearched && searchResults.length === 0 && (
@@ -410,7 +411,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                       )}
                       <button onClick={() => setReportTarget({ id: p.id, username: p.username })}
                         aria-label={`Report ${p.username}`}
-                        className="w-11 h-11 -mr-2 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors shrink-0">
+                        className="w-11 h-11 -mr-2 flex items-center justify-center text-z-gray-400 hover:text-z-red transition-colors shrink-0">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
                           <line x1="4" y1="22" x2="4" y2="15" />
@@ -494,7 +495,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
             <div className="text-center py-10">
               <p className="text-4xl mb-3">🤝</p>
               <p className="text-z-gray-300 text-sm">No friends yet</p>
-              <p className="text-z-gray-500 text-xs mt-1">Search for players by username above</p>
+              <p className="text-z-gray-400 text-xs mt-1">Search for players by username above</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -523,7 +524,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                     )}
                     <button onClick={() => setReportTarget({ id: entry.other.id, username: entry.other.username })}
                       aria-label={`Report ${entry.other.username}`}
-                      className="w-11 h-11 -mx-1 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors">
+                      className="w-11 h-11 -mx-1 flex items-center justify-center text-z-gray-400 hover:text-z-red transition-colors">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
                         <line x1="4" y1="22" x2="4" y2="15" />
@@ -531,7 +532,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                     </button>
                     <button onClick={() => handleRemove(entry)}
                       disabled={busyIds.has(entry.other.id)}
-                      className="w-11 h-11 -ml-1 -mr-2 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                      className="w-11 h-11 -ml-1 -mr-2 flex items-center justify-center text-z-gray-400 hover:text-z-red transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M18 6L6 18M6 6l12 12" />
                       </svg>

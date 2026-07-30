@@ -24,6 +24,9 @@ import { fileURLToPath } from 'node:url';
  */
 
 const AA_NORMAL_TEXT = 4.5;
+/** WCAG 1.4.11 (Non-text Contrast) — UI components like a focus indicator need only 3:1, not the
+ *  4.5:1 required for text. */
+const AA_NON_TEXT = 3.0;
 
 // Lives in tests/ rather than src/ so the app's `tsc -b` build never type-checks it: it reads the
 // filesystem, and node: builtins aren't in the app tsconfig's types (see .claude/rules/file-placement.md).
@@ -263,5 +266,31 @@ describe('text over live video', () => {
       expect(Number(ratio.toFixed(2)), `white on bg-z-purple is ${ratio.toFixed(2)}:1 in ${themeName}`)
         .toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
     });
+  });
+});
+
+/**
+ * The global `:focus-visible` ring (regression, 2026-07-30): it was a hardcoded `#A78BFA` — the
+ * DARK theme's z-purple-light value — so every keyboard focus ring in the LIGHT theme was
+ * 2.04:1 against z-bg, well under the 3:1 WCAG 1.4.11 needs for a UI indicator. Nothing caught it
+ * because `e2e/a11y.spec.ts` disables axe's color-contrast rule (still does — it flags the
+ * intentional gradient wordmark as a false positive) and this file had no case for the ring
+ * itself, only for text tokens. Now reads the real token (`var(--color-z-purple-light)` in
+ * index.css) rather than a second hardcoded copy, so it can't drift from what ships.
+ */
+describe.each([
+  ['dark', ':root,\n.dark'],
+  ['light', '.light {'],
+])('%s theme focus ring', (themeName, selector) => {
+  const tokens = themeTokens(selector);
+
+  it('focus-visible ring (z-purple-light) clears 3:1 against z-bg', () => {
+    const ratio = contrastRatio(tokens['z-purple-light'], tokens['z-bg']);
+    expect(
+      Number(ratio.toFixed(2)),
+      `z-purple-light (${tokens['z-purple-light']}) on z-bg (${tokens['z-bg']}) is ` +
+        `${ratio.toFixed(2)}:1 in the ${themeName} theme — below the 3:1 WCAG 1.4.11 needs for ` +
+        `a focus indicator.`
+    ).toBeGreaterThanOrEqual(AA_NON_TEXT);
   });
 });

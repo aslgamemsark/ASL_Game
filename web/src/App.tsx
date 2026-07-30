@@ -76,7 +76,7 @@ function ScreenFallback() {
     <div className="min-h-dvh bg-z-bg flex items-center justify-center overflow-y-auto">
       <div className="text-center">
         <Zippy expression="loading" size="lg" priority className="mb-4" />
-        <p className="text-z-gray-500 text-sm">Loading…</p>
+        <p className="text-z-gray-400 text-sm">Loading…</p>
       </div>
     </div>
   );
@@ -233,7 +233,7 @@ export default function App() {
       <div className="min-h-dvh bg-z-bg flex items-center justify-center overflow-y-auto">
         <div className="text-center">
           <Zippy expression="loading" size="lg" priority className="mb-4" />
-          <p className="text-z-gray-500 text-sm">Loading…</p>
+          <p className="text-z-gray-400 text-sm">Loading…</p>
         </div>
       </div>
     );

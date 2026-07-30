@@ -58,7 +58,7 @@ function SignChip({ id, name, accuracy, isWeak }: { id: string; name: string; ac
           {accuracy}%
         </p>
       ) : (
-        <p className="text-[11px] mt-1 text-z-gray-500">—</p>
+        <p className="text-[11px] mt-1 text-z-gray-400">—</p>
       )}
     </div>
   );

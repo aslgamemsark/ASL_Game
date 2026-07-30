@@ -133,7 +133,7 @@ export function FeedbackModal({ page, onClose }: Props) {
                     : 'Tell us more…'
                 }
                 rows={4}
-                className="w-full bg-z-surface border border-z-gray-400/30 rounded-xl px-3 py-2 text-sm text-z-gray-50 placeholder:text-z-gray-500 resize-none"
+                className="w-full bg-z-surface border border-z-gray-400/30 rounded-xl px-3 py-2 text-sm text-z-gray-50 placeholder:text-z-gray-400 resize-none"
               />
 
               {user && (

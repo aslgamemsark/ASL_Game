@@ -203,7 +203,7 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                         <p className="text-xs text-z-gray-400">{node.description}</p>
                       </div>
                       {status === 'completed' && <span className="ml-auto text-z-green">✓</span>}
-                      {status === 'locked' && <span className="ml-auto text-z-gray-500">🔒</span>}
+                      {status === 'locked' && <span className="ml-auto text-z-gray-400">🔒</span>}
                     </motion.button>
                   );
                 }

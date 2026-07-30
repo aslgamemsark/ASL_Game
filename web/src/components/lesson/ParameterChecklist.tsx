@@ -256,7 +256,7 @@ export const ParameterChecklist = memo(function ParameterChecklist({ params, sig
                 <p className="text-xs text-z-gray-300 mt-0.5">{hint}</p>
               )}
               {!cleared && !confidentFail && param.required && (
-                <p className="text-xs text-z-gray-500 mt-0.5">Keep trying…</p>
+                <p className="text-xs text-z-gray-400 mt-0.5">Keep trying…</p>
               )}
             </div>
 
