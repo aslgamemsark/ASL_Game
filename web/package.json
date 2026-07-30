@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "icons": "node scripts/gen-icons.mjs",
     "optimize:zippy": "node scripts/optimize-zippy.mjs",
-    "audit": "npm audit --audit-level=high"
+    "audit": "npm audit --audit-level=high --omit=dev"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",

@@ -97,12 +97,6 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  // Strip console.log/.debug from PRODUCTION bundles only (marking them pure lets the minifier
-  // drop the unused calls). Dev keeps them. console.error/.warn are intentionally NOT listed —
-  // real error reporting (lib/errorReporting.ts) must survive in production.
-  esbuild: {
-    pure: ['console.log', 'console.debug'],
-  },
   // tfjs is only reached via a lazy dynamic import in engine/classifier.ts, which Vite's dep
   // scanner doesn't always pre-bundle — list it so the dev server can serve the optimized dep
   // on demand (prod build already code-splits it correctly).
