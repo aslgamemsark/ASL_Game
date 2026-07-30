@@ -7,6 +7,23 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 6) — Phase 4a (close): motion token module
+
+- **`src/motion/tokens.ts`** (new) — 62 distinct `transition` literals, 25 durations, 11 spring
+  pairs and 10 `whileTap` scale values across 57 files, audited the same way as the z-index/type
+  audits above. Unlike those two, **not migrated in place**: a `transition` object is almost always
+  mixed with component-specific `delay`/`repeat` values that don't belong in a shared constant, so
+  a mass rename here would touch the same 57 files this module exists to stop growing, for little
+  benefit before the components that will actually consume it exist. Named 4 durations, 1 easing
+  curve, 3 spring configs and 2 tap-scale values from the clusters the audit found (e.g.
+  `SPRING_DEFAULT` = stiffness 300/damping 25, already the majority case). Adoption happens as each
+  UI category is rebuilt as a primitive (Phase 4b onward), not as a standalone migration pass.
+- **Deferred to Phase 4b**: the dev-only component gallery route + Linux-only Playwright visual
+  baselines. An empty gallery has nothing to show yet — standing it up now would be scaffolding
+  built ahead of the thing it's meant to showcase. Building it alongside the first real primitive
+  (Button) gives it actual content from the start.
+- **Verified:** `tsc -b` clean, `oxlint` clean (pure additive file, zero current consumers).
+
 ## 2026-07-31 (part 5) — Phase 4a (cont.): text-2xs/text-3xs type-scale tokens
 
 - **73 call sites used arbitrary `text-[11px]`/`text-[10px]`** — Tailwind's built-in scale stops at
