@@ -7,6 +7,56 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-30 — Phase 0 of production hardening pass: CI restored as a real safety net
+
+Full three-front audit (architecture, UI/UX/a11y, perf/build/config) found CI has been silently
+broken since 2026-07-24 — 30/30 recorded runs failed, and 12 commits landed since with zero
+automated verification. Root-caused to two independent bugs, both fixed:
+
+- **`npm run audit` gated the build job on a live advisory feed** (`.github/workflows/ci.yml`).
+  A `high` advisory published upstream for an already-installed transitive dep can turn the build
+  red for a commit that changed nothing — exactly what happened. Moved to a weekly scheduled
+  workflow (`audit.yml`) and scoped `web/package.json`'s `audit` script to `--omit=dev`: the 8
+  remaining high-severity advisories are entirely inside `vite-plugin-pwa`'s **build-time** tool
+  chain (jake → ejs → filelist), confirmed absent from the shipped bundle
+  (`npm audit --omit=dev` → 0 vulnerabilities). `fast-uri` and `postcss` were real production-dep
+  issues, fixed via plain `npm audit fix`.
+- **`ci.yml` installed only the `chromium` Playwright browser**, but `playwright.config.ts`
+  declares an `ios` project on `devices['iPhone 14 Pro']` — WebKit, not Chromium — added
+  2026-07-28, four days after CI last ran. That project could never execute in CI. Now installs
+  every engine (`npx playwright install --with-deps`, no browser arg).
+
+Also landed in the same phase, each independently low-risk:
+- **`tsconfig.app.json` now sets `"strict": true`.** Measured zero new errors before committing —
+  the app was already strict-clean under `tsc --strict`, it just wasn't gated on staying that way.
+  (Measured separately: `noUncheckedIndexedAccess` would add 549 errors — not attempted this pass.)
+- **`vitest.config.ts`'s include glob now collects `*.test.tsx`** — it was typo'd to `*.test.ts`
+  only, so a component test in a `.tsx` file was silently never run. (No `.tsx` tests exist yet;
+  this just stops the trap for whoever writes the first one.)
+- **Deleted the root `vercel.json`.** Confirmed dead by diffing its CSP against the live
+  production header on `aslgame.vercel.app` — it matched `web/vercel.json` byte-for-byte, and the
+  root file was missing origins (`us.i.posthog.com`, `ipapi.co`) the app actually calls. Two
+  divergent configs where exactly one is real is a trap for the next deploy-config edit.
+- **Removed `vite.config.ts`'s `esbuild.pure` console-stripping config.** It has been inert since
+  Vite 8 switched its production bundler to rolldown — confirmed by finding the `[AI-DEBUG]`
+  template literal from `useClassifier.ts` present verbatim in shipped `dist/assets/index-*.js`.
+  The remaining `console.log` call sites were checked individually: all are already gated by
+  `import.meta.env.DEV` (build-time eliminated regardless) or the runtime
+  `isClassifierDebugEnabled()` flag (deliberately runtime per its own comment) — nothing left to
+  strip.
+- **Added tracked `.githooks/pre-push`** (`tsc -b && oxlint && vitest`), activated locally via
+  `git config core.hooksPath .githooks`. Needs the same one-time `git config` on any other clone
+  (mine did not carry over automatically — noting this so the teammate isn't surprised it isn't
+  already active on their machine).
+
+**Verified:** `tsc -b` clean, `oxlint` exit 0 (pre-existing `react-hooks/exhaustive-deps` warnings
+unchanged — not introduced by this phase, several already on this session's list for Phase 2/3),
+687 unit tests pass, production build clean.
+
+**Not yet pushed** — CI green status will be confirmed once this branch's PR opens.
+
+---
+
 ## 2026-07-29 (part 4) — BottomNav trimmed to five tabs; every relocated feature stays findable
 
 Follow-on from part 3, at the user's request ("make it same as the pc version", "do what u can so no
