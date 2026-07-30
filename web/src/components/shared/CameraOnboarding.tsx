@@ -16,7 +16,7 @@ export function CameraOnboarding({ onContinue, onCancel }: Props) {
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 bg-z-bg/95 backdrop-blur-sm flex items-center justify-center px-6 pt-[calc(1.5rem+var(--sat))] pb-[calc(1.5rem+var(--sab))]"
+      className="fixed inset-0 z-overlay bg-z-bg/95 backdrop-blur-sm flex items-center justify-center px-6 pt-[calc(1.5rem+var(--sat))] pb-[calc(1.5rem+var(--sab))]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

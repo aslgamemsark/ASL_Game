@@ -30,7 +30,7 @@ export function TermsModal({ onAccept, onAcceptLater }: Props) {
   const dialog = useDialogA11y({ label: 'Terms and Conditions' });
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+    <div className="fixed inset-0 z-takeover bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
       <motion.div
         ref={dialog.ref}
         {...dialog.props}

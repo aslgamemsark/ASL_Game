@@ -795,7 +795,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
           player's presence actually returns, resumeAfterReconnect() re-attempts the WebRTC
           handshake automatically from the staying player's side. */}
       {phase === 'waiting-reconnect' && matchState && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-z-card border border-z-purple/40 rounded-2xl px-5 py-3 shadow-xl flex items-center gap-4">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-overlay bg-z-card border border-z-purple/40 rounded-2xl px-5 py-3 shadow-xl flex items-center gap-4">
           {iAmDisconnected ? (
             <>
               <span className="text-sm font-semibold">You're disconnected — {reconnectLeft}s</span>

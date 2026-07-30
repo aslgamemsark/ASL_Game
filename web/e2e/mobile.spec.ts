@@ -245,15 +245,26 @@ test.describe('safe-area regression', () => {
 });
 
 async function assertNoTinyTouchTargets(page: Page) {
-  // Without this, a handle collected mid-entrance-animation can be detached from the DOM by the
-  // time its turn in the loop below comes up, hanging boundingBox() until the test times out —
-  // see helpers.ts for the full mechanism (found here 2026-07-31 via exactly that timeout).
+  // waitForAnimationsToSettle closes the common case: a handle collected mid-entrance-animation
+  // detaching before its turn in the loop below, hanging boundingBox() until the test times out —
+  // see helpers.ts for that mechanism (found here 2026-07-31). It does not close every case: a
+  // handle can still go stale from something outside "animations" entirely (a toast timing out, a
+  // conditional re-render) in the gap between `.all()` capturing it and its turn in the loop —
+  // confirmed 2026-07-31 by instrumenting this exact query on Settings/iOS: it reproduced a hang
+  // waiting on an element beyond the handle count of every settled snapshot taken moments later,
+  // but reproduced clean far more often than not, meaning whatever transient element caused it
+  // exists only in a narrow, not-reliably-catchable window. Rather than chase that further, bound
+  // the actual failure mode directly: a boundingBox() with its own short timeout, on a handle that
+  // no longer resolves, means "this element is no longer meaningfully present" — skip it, don't
+  // let it consume the whole test's budget. Holds for any future transient element here, not just
+  // this one site.
+  const STALE_HANDLE_TIMEOUT_MS = 2000;
   await waitForAnimationsToSettle(page);
   const handles = await page.locator('button:visible, a:visible, [role="button"]:visible').all();
 
   const tooSmall: string[] = [];
   for (const el of handles) {
-    const box = await el.boundingBox();
+    const box = await el.boundingBox({ timeout: STALE_HANDLE_TIMEOUT_MS }).catch(() => null);
     if (!box) continue;
     // A hit target only needs to meet 44px on the axis where taps are commonly imprecise; several
     // in-row icon buttons are intentionally narrower than 44px while still tall enough (e.g. the

@@ -180,14 +180,14 @@ export function ShopPage({ onExit }: Props) {
         {selected && (
           <>
             <motion.div
-              className="fixed inset-0 bg-black/50 z-40"
+              className="fixed inset-0 bg-black/50 z-chrome"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setSelected(null)}
             />
             <motion.div
               ref={dialog.ref}
               {...dialog.props}
-              className="fixed bottom-0 left-0 right-0 bg-z-surface border-t border-white/10 rounded-t-3xl max-h-[85dvh] overflow-y-auto px-6 pt-6 pb-[calc(1.5rem+var(--sab))] z-50 max-w-lg mx-auto outline-none"
+              className="fixed bottom-0 left-0 right-0 bg-z-surface border-t border-white/10 rounded-t-3xl max-h-[85dvh] overflow-y-auto px-6 pt-6 pb-[calc(1.5rem+var(--sab))] z-overlay max-w-lg mx-auto outline-none"
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             >
@@ -260,7 +260,7 @@ export function ShopPage({ onExit }: Props) {
       <AnimatePresence>
         {toast && (
           <motion.div
-            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-50"
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-overlay"
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
           >
             {toast}

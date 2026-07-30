@@ -48,7 +48,7 @@ export function BottomNav({ active, onChange }: Props) {
     // landmark a screen-reader user has no way to jump to it — they must traverse the whole page.
     // It also gives automated checks a way to distinguish the nav from same-named content (a "Test
     // from Memory" card matched a naive search for the "Me" tab before this).
-    <nav aria-label="Main" className="fixed bottom-0 left-0 right-0 z-50 bg-z-bg/90 backdrop-blur-md border-t border-z-purple-deep/40 pb-safe">
+    <nav aria-label="Main" className="fixed bottom-0 left-0 right-0 z-overlay bg-z-bg/90 backdrop-blur-md border-t border-z-purple-deep/40 pb-safe">
       <div className="max-w-lg mx-auto flex items-center justify-around py-2.5">
         {tabs.map((tab) => {
           const isActive = active === tab.id;

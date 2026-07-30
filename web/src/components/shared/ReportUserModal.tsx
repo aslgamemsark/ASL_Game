@@ -63,7 +63,7 @@ export function ReportUserModal({ reporterId, reportedId, reportedUsername, cont
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[100] bg-black/60 flex items-end sm:items-center justify-center p-4"
+        className="fixed inset-0 z-nested-modal bg-black/60 flex items-end sm:items-center justify-center p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

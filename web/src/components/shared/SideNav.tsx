@@ -69,7 +69,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
   return (
     // <nav>, not <aside>: this is primary navigation, not complementary content — same landmark
     // reasoning as BottomNav, which owns the equivalent role below the `lg` breakpoint.
-    <nav aria-label="Main" className="hidden lg:flex fixed left-0 top-0 h-dvh w-64 flex-col py-6 px-4 bg-z-card border-r border-white/5 z-40">
+    <nav aria-label="Main" className="hidden lg:flex fixed left-0 top-0 h-dvh w-64 flex-col py-6 px-4 bg-z-card border-r border-white/5 z-chrome">
       <div className="flex items-center gap-2 px-2 mb-8 shrink-0">
         <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
           <img src="/pwa-192x192.png" alt="" className="w-full h-full object-cover" />

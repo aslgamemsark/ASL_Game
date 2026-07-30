@@ -7,6 +7,41 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 4) — Phase 4a (start): named z-index scale
+
+- **9 ad-hoc z-index values** (`z-10` through `z-[9999]`) had accumulated across 30+ files with no
+  shared scale — confirmed by audit (`grep -rEon "z-\[?[0-9]+\]?\b"`), matching the plan's finding.
+  Named all 7 GLOBAL-overlay-hierarchy values (`z-40`/`z-50`/`z-[60]`/`z-[70]`/`z-[100]`/`z-[200]`/
+  `z-[9999]`) as `@utility` classes in `index.css` — `z-chrome`, `z-overlay`, `z-elevated`,
+  `z-confirm`, `z-nested-modal`, `z-takeover`, `z-debug` — using the exact same numbers already in
+  use (verified byte-identical compiled CSS before/after: `.z-overlay{z-index:50}` etc.), so this is
+  a pure rename with zero behavior change, not a renumbering. `z-10`/`z-20` (StreakCard, TurnOverlay)
+  deliberately left as plain Tailwind utilities — they're local component stacking, not part of the
+  app's global overlay hierarchy the audit was actually about. Each tier's doc comment in `index.css`
+  names its real call sites so the next dialog picks a name instead of guessing a number.
+- **Root-caused what looked like an 11-test regression down to two unrelated things, neither in this
+  diff**, while verifying: (1) an orphaned `playwright test` process + stale `vite preview` server
+  from earlier in the session had never exited and was silently competing for CPU across every
+  subsequent run (found via `Get-CimInstance Win32_Process`, fixed with `Stop-Process` — see the
+  part-3 entry above for the first occurrence of this exact mechanism) — after killing it, failures
+  dropped from 11 to 3; (2) `mobile.spec.ts`'s touch-target loop had a second, narrower race beyond
+  the one already fixed in part 3: instrumenting the exact failing query (Settings/iOS) showed it
+  settles at a stable 8 elements on most runs, but occasionally `.all()` catches one more that later
+  goes stale before its turn in the `for` loop, hanging `boundingBox()` for the full 60s test
+  timeout. Reproduced directly, but the extra element itself proved too narrow a window to catch
+  with instrumentation (a diagnostic dump of the same query passed clean). Fixed at the mechanism
+  level instead of chasing the specific cause further: `boundingBox({ timeout: 2000 })`, catching a
+  timeout as "this element is no longer meaningfully present, skip it" rather than letting one stale
+  handle consume the whole test's budget. Stress-tested 3x on `ios` (18/18 green, `--repeat-each=3
+  --workers=1`) — Settings/Friends/Multiplayer now consistently take 20-33s instead of a coin-flip
+  between ~8s and a 60s timeout, meaning several elements ARE hitting the 2s skip-timeout on every
+  run, not just occasionally. Worth a closer look in a future session (is WebKit's bounding-box
+  stability check for a `motion.div` under an active `transform`/`opacity` animation simply this
+  slow, independent of any node being genuinely detached?) but the fix's actual contract — never
+  hang, never fail — holds regardless of which of those two explanations turns out to be right.
+- **Verified:** `tsc -b` clean, `npm run build` (compiled CSS spot-checked for byte-identical
+  `z-index` values across all 7 named tiers), full Playwright suite green.
+
 ## 2026-07-31 (part 3) — Post-phase review: extracted useTabListKeyNav, chased a flake to ground
 
 Required post-phase self-review (EXECUTION RULES) on the part 2 diff surfaced one real red flag:

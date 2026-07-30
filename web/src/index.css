@@ -152,6 +152,35 @@
   --font-sans: 'Quicksand', sans-serif;
 }
 
+/* ── Z-index scale ──────────────────────────────────────────────────────────────────────────
+   9 ad-hoc values (z-10 through z-[9999]) had accumulated across 30+ files with no shared scale —
+   each new dialog picked a number bigger than whatever it needed to beat, correct only by
+   accident (design-system audit, 2026-07-31). Named here with the SAME numbers already in use
+   (zero behavior change) so the next dialog picks a name that states its intent instead of
+   guessing a magic number. Uses `@utility` (not a `--z-index-*` `@theme` key) to match this
+   file's own `bg-gradient-primary`/`text-gradient-brand` pattern above.
+
+   z-chrome    (40) — persistent app chrome: SideNav, and a sheet's own backdrop layer.
+   z-overlay   (50) — the standard layer: header, bottom nav, tooltips, and the vast majority of
+                      modals/toasts. Start here; only reach for a higher tier if this one is
+                      provably not enough (a nested dialog, a takeover, a dev tool).
+   z-elevated  (60) — banners/celebrations that must beat the standard overlay layer even while
+                      one is open (InstallPrompt, CelebrationHost's confetti).
+   z-confirm   (70) — a confirmation dialog that must always beat persistent chrome, regardless of
+                      DOM order (LogoutConfirm).
+   z-nested-modal (100) — a modal that can be triggered from within another already-open surface
+                      (FeedbackModal, ReportUserModal).
+   z-takeover  (200) — a full-viewport media/document takeover that must beat any nested modal
+                      (ClipEnlarge, TermsModal).
+   z-debug     (9999) — dev-only overlays. Always on top; never shipped user-facing. */
+@utility z-chrome { z-index: 40; }
+@utility z-overlay { z-index: 50; }
+@utility z-elevated { z-index: 60; }
+@utility z-confirm { z-index: 70; }
+@utility z-nested-modal { z-index: 100; }
+@utility z-takeover { z-index: 200; }
+@utility z-debug { z-index: 9999; }
+
 /* Primary CTA gradient — the app's single most-repeated inline style (17+ call sites had drifted
    into two near-duplicate hex pairs: #7C3AED/#A78BFA matching the z-purple tokens, and an
    off-token #7B2FBE/#A855F7). Consolidated to one utility on the canonical token values so future

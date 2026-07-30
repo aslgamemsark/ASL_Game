@@ -87,7 +87,7 @@ export function Tooltip({ title, description, placement = 'top', className = '',
             ref={popupRef}
             role="tooltip"
             style={{ x: shiftX }}
-            className={`absolute left-1/2 -translate-x-1/2 z-50 w-40 ${
+            className={`absolute left-1/2 -translate-x-1/2 z-overlay w-40 ${
               isTop ? 'bottom-full mb-2' : 'top-full mt-2'
             }`}
             initial={{ opacity: 0, y: isTop ? 4 : -4, scale: 0.96 }}

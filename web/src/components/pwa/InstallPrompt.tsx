@@ -49,7 +49,7 @@ export function InstallPrompt() {
       <AnimatePresence>
         {showInstall && (
           <motion.div
-            className="fixed bottom-[calc(6rem+var(--sab))] left-1/2 -translate-x-1/2 z-[60] w-[min(92vw,26rem)] flex items-center gap-3 bg-z-card border border-white/10 rounded-2xl px-4 py-3 shadow-2xl shadow-z-purple/20"
+            className="fixed bottom-[calc(6rem+var(--sab))] left-1/2 -translate-x-1/2 z-elevated w-[min(92vw,26rem)] flex items-center gap-3 bg-z-card border border-white/10 rounded-2xl px-4 py-3 shadow-2xl shadow-z-purple/20"
             initial={{ opacity: 0, y: 24, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
@@ -81,7 +81,7 @@ export function InstallPrompt() {
       <AnimatePresence>
         {showIos && (
           <motion.div
-            className="fixed bottom-[calc(6rem+var(--sab))] left-1/2 -translate-x-1/2 z-[60] w-[min(92vw,26rem)] flex items-center gap-3 bg-z-card border border-white/10 rounded-2xl px-4 py-3 shadow-2xl shadow-z-purple/20"
+            className="fixed bottom-[calc(6rem+var(--sab))] left-1/2 -translate-x-1/2 z-elevated w-[min(92vw,26rem)] flex items-center gap-3 bg-z-card border border-white/10 rounded-2xl px-4 py-3 shadow-2xl shadow-z-purple/20"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 24 }}

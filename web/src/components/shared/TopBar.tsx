@@ -73,7 +73,7 @@ export function TopBar({ onOpenShop, onOpenProfile, profileLabel = 'My Profile' 
   }, []);
 
   return (
-    <div className="sticky top-0 z-50 bg-z-bg/90 backdrop-blur-md border-b border-z-purple-deep/50 pt-safe">
+    <div className="sticky top-0 z-overlay bg-z-bg/90 backdrop-blur-md border-b border-z-purple-deep/50 pt-safe">
       {/* `relative` anchors the cart button below — it's placed at top-full, i.e. right past this
           header's own bottom border (the divider), under the gold pill's column. */}
       <div ref={headerRef} className="relative max-w-lg mx-auto lg:max-w-none">

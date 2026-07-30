@@ -526,7 +526,7 @@ export default function App() {
       <AnimatePresence>
         {syncError && (
           <motion.div
-            className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-z-red/15 border border-z-red/40 text-z-red text-xs font-semibold px-4 py-2 rounded-full shadow-lg"
+            className="fixed top-3 left-1/2 -translate-x-1/2 z-overlay bg-z-red/15 border border-z-red/40 text-z-red text-xs font-semibold px-4 py-2 rounded-full shadow-lg"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
@@ -540,7 +540,7 @@ export default function App() {
       <AnimatePresence>
         {incomingChallenge && (
           <motion.div
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-z-card border border-z-purple/40 rounded-2xl px-5 py-4 shadow-2xl shadow-z-purple/20 min-w-[280px]"
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-overlay flex items-center gap-3 bg-z-card border border-z-purple/40 rounded-2xl px-5 py-4 shadow-2xl shadow-z-purple/20 min-w-[280px]"
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
