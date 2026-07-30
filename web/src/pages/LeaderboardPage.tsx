@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseReady } from '@/lib/supabase';
@@ -11,7 +11,7 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { Zippy } from '@/components/shared/Zippy';
 import { ZIPPY_LINES } from '@/data/zippy';
 import { countryName, detectCountryCode, COUNTRY_CODES } from '@/lib/geolocation';
-import { nextTabIndex } from '@/lib/tabListNav';
+import { useTabListKeyNav } from '@/hooks/useTabListKeyNav';
 
 interface Props {
   onExit: () => void;
@@ -477,8 +477,8 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
     { id: 'region', label: 'Region', icon: '📍' },
     { id: 'friends', label: 'Friends', icon: '🤝' },
   ];
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const activeIndex = TABS.findIndex((t) => t.id === tab);
+  const TAB_IDS = TABS.map((t) => t.id);
+  const { refFor, onKeyDown } = useTabListKeyNav(TAB_IDS, setTab);
 
   return (
     <div className="min-h-dvh bg-z-bg">
@@ -495,20 +495,14 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
           {TABS.map((t, i) => (
             <button
               key={t.id}
-              ref={(el) => { tabRefs.current[i] = el; }}
+              ref={refFor(i)}
               role="tab"
               id={`board-tab-${t.id}`}
               aria-selected={tab === t.id}
               aria-controls={`board-panel-${t.id}`}
               tabIndex={tab === t.id ? 0 : -1}
               onClick={() => setTab(t.id)}
-              onKeyDown={(e) => {
-                const next = nextTabIndex(e.key, activeIndex, TABS.length);
-                if (next === null) return;
-                e.preventDefault();
-                setTab(TABS[next].id);
-                tabRefs.current[next]?.focus();
-              }}
+              onKeyDown={(e) => onKeyDown(e, i)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-bold rounded-lg transition-colors ${
                 tab === t.id ? 'bg-z-card text-z-gray-50' : 'text-z-gray-400 hover:text-z-gray-200'
               }`}

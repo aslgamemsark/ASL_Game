@@ -4,7 +4,7 @@ import { validateUsername } from '@/lib/username';
 import { supabaseReady } from '@/lib/supabase';
 import { EMAIL_SIGNUP_ENABLED } from '@/config/auth';
 import { ModalShell } from '@/components/shared/ModalShell';
-import { nextTabIndex } from '@/lib/tabListNav';
+import { useTabListKeyNav } from '@/hooks/useTabListKeyNav';
 
 interface Props {
   onClose: () => void;
@@ -12,10 +12,11 @@ interface Props {
 
 type Tab = 'signin' | 'signup' | 'reset';
 type UsernameStatus = 'idle' | 'checking' | 'ok' | 'error';
-const AUTH_TABS: { id: Tab; label: string }[] = [
+const AUTH_TABS: { id: 'signin' | 'signup'; label: string }[] = [
   { id: 'signin', label: 'Sign in' },
   { id: 'signup', label: 'Sign up' },
 ];
+const AUTH_TAB_IDS = AUTH_TABS.map((t) => t.id);
 
 export function AuthModal({ onClose }: Props) {
   const { signInWithEmail, signUpWithEmail, signInWithGoogle, requestPasswordReset } = useAuth();
@@ -32,7 +33,10 @@ export function AuthModal({ onClose }: Props) {
   const [done, setDone] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const authTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const selectAuthTab = (t: 'signin' | 'signup') => {
+    setTab(t); setError(null); setUsernameStatus('idle'); setUsernameMsg('');
+  };
+  const { refFor, onKeyDown } = useTabListKeyNav(AUTH_TAB_IDS, selectAuthTab);
 
   // Debounced username availability check
   useEffect(() => {
@@ -197,7 +201,7 @@ export function AuthModal({ onClose }: Props) {
           {AUTH_TABS.map((t, i) => (
             <button
               key={t.id}
-              ref={(el) => { authTabRefs.current[i] = el; }}
+              ref={refFor(i)}
               role="tab"
               id={`auth-tab-${t.id}`}
               aria-selected={tab === t.id}
@@ -206,15 +210,8 @@ export function AuthModal({ onClose }: Props) {
               className={`flex-1 py-1.5 rounded-lg text-sm font-bold transition-colors ${
                 tab === t.id ? 'bg-z-purple text-white' : 'text-z-gray-300'
               }`}
-              onClick={() => { setTab(t.id); setError(null); setUsernameStatus('idle'); setUsernameMsg(''); }}
-              onKeyDown={(e) => {
-                const next = nextTabIndex(e.key, i, AUTH_TABS.length);
-                if (next === null) return;
-                e.preventDefault();
-                setTab(AUTH_TABS[next].id);
-                setError(null); setUsernameStatus('idle'); setUsernameMsg('');
-                authTabRefs.current[next]?.focus();
-              }}
+              onClick={() => selectAuthTab(t.id)}
+              onKeyDown={(e) => onKeyDown(e, i)}
             >
               {t.label}
             </button>

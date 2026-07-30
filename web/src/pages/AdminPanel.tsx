@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { supabase } from '@/lib/supabase';
 import { SHOP_ITEMS } from '@/data/shop';
 import { WORLDS } from '@/data/worlds';
 import { formatAdminDate, formatAdminTimestamp } from '@/lib/formatTimestamp';
-import { nextTabIndex } from '@/lib/tabListNav';
+import { useTabListKeyNav } from '@/hooks/useTabListKeyNav';
 
 interface Props {
   onExit: () => void;
@@ -91,7 +91,7 @@ interface AuditRow {
 export function AdminPanel({ onExit }: Props) {
   const [tab, setTab] = useState<AdminTab>('users');
   const [toast, setToast] = useState<string | null>(null);
-  const adminTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const { refFor, onKeyDown } = useTabListKeyNav(ADMIN_TABS, setTab);
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
@@ -112,20 +112,14 @@ export function AdminPanel({ onExit }: Props) {
         {ADMIN_TABS.map((t, i) => (
           <button
             key={t}
-            ref={(el) => { adminTabRefs.current[i] = el; }}
+            ref={refFor(i)}
             role="tab"
             id={`admin-tab-${t}`}
             aria-selected={tab === t}
             aria-controls={`admin-panel-${t}`}
             tabIndex={tab === t ? 0 : -1}
             onClick={() => setTab(t)}
-            onKeyDown={(e) => {
-              const next = nextTabIndex(e.key, i, ADMIN_TABS.length);
-              if (next === null) return;
-              e.preventDefault();
-              setTab(ADMIN_TABS[next]);
-              adminTabRefs.current[next]?.focus();
-            }}
+            onKeyDown={(e) => onKeyDown(e, i)}
             className={`shrink-0 min-w-[20%] px-3 py-2 rounded-lg text-sm font-bold capitalize whitespace-nowrap transition-colors ${
               tab === t ? 'bg-z-purple text-white' : 'text-z-gray-400'
             }`}

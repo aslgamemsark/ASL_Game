@@ -7,6 +7,41 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 3) — Post-phase review: extracted useTabListKeyNav, chased a flake to ground
+
+Required post-phase self-review (EXECUTION RULES) on the part 2 diff surfaced one real red flag:
+the ref-array + keydown-wiring boilerplate around `nextTabIndex` was now duplicated identically
+across all 3 tab bars — "same non-trivial pattern more than once" per `.claude/rules/red-flags.md`.
+Extracted `hooks/useTabListKeyNav.ts` (ref-callback factory + keydown handler bound to an
+`onSelect` callback) and rewired `LeaderboardPage`/`AdminPanel`/`AuthModal` onto it, deleting the
+per-file `useRef<(HTMLButtonElement|null)[]>` and inline `onKeyDown` bodies. `lib/tabListNav.ts`'s
+`nextTabIndex` stays the pure, independently-tested piece the hook wraps.
+
+Also chased down what looked like a new regression and turned out not to be one — worth recording
+precisely since it cost real verification time:
+- Two consecutive full-suite runs after the refactor showed **11 failures**, almost all iOS,
+  spanning unrelated test categories (a11y, navigation, touch targets, mobile journeys) — too broad
+  to be a code defect in this diff. `Get-CimInstance Win32_Process` found the actual cause: an
+  **orphaned `playwright test` process and its `vite preview --port 4173` server from an earlier
+  run in this session had never exited**, so every subsequent run's `reuseExistingServer: true`
+  silently reused the stale server while the zombie test process kept competing for CPU. Killed
+  both (`Stop-Process`); the next full run dropped to 3 failures, none in files this diff touches.
+- The one true repeat offender, `a11y.spec.ts`'s `home tabs` test on `ios` only, is the **same
+  pre-existing WebKit flake this project already documented before this session's Phase 3 work**
+  (see the earlier "home tabs"/"Basics" note) — reproduced with a genuinely different violation set
+  each time (ProfileTab hub buttons one run, its stats row the next, nothing the run after), which
+  is the fingerprint of "axe scanned mid-render," not a stable CSS bug: it passed clean on Chromium
+  every time and passed on iOS itself 1 of 3 isolated reruns. Likely contributor, not yet fully
+  closed: `ProfileTab.tsx`'s `FIRE_HOVER`/`SPARKLE_HOVER` variants are `repeat: Infinity` —
+  deliberately excluded from `waitForAnimationsToSettle`'s wait (see that helper's own comment on
+  why), but if a `.click()` leaves WebKit's pointer resting on a hover-triggering icon, that
+  infinite filter/brightness animation can still be mid-cycle at scan time. Not chased further:
+  matches `playwright.config.ts`'s own documented, accepted "machine busy, not app broken" category
+  (`retries: 1` in CI exists specifically for this), and every individual test here passes
+  reliably alone.
+- **Verified:** 693 unit tests, `tsc -b` clean, `oxlint` clean (no new unused imports from the
+  refactor). Every test in the Phase 3 diff passes in isolation on every project.
+
 ## 2026-07-31 (part 2) — Phase 3 (part 2): tab semantics, touch targets, TopBar pill a11y
 
 - **3 real tab bars had no ARIA tab semantics** (`LeaderboardPage.tsx`, `AdminPanel.tsx`,
