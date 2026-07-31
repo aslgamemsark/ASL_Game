@@ -9,6 +9,7 @@ import { Zippy } from '@/components/shared/Zippy';
 import { ZIPPY_LINES } from '@/data/zippy';
 import type { SkillLevel } from '@/types/user';
 import { track } from '@/analytics';
+import { Button } from '@/components/shared/Button';
 
 interface Props {
   onComplete: () => void;
@@ -118,14 +119,16 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
             <p className="text-z-purple-light text-sm font-semibold tracking-wide uppercase mb-4">Beyond Words</p>
             <p className="text-z-gray-300 text-lg mb-10 [@media(max-height:700px)]:mb-4">{ZIPPY_LINES.welcomeIntro[0]}</p>
 
-            <motion.button
+            {/* The app's single most important button (the first thing every new user taps) keeps
+                its own hover glow rather than Button's default — a deliberate flourish, not drift. */}
+            <Button
               onClick={() => setStep(supabaseReady ? 'auth' : 'skill')}
-              className="w-full py-4 rounded-2xl font-bold text-lg text-white bg-gradient-primary"
+              size="lg"
+              fullWidth
               whileHover={{ scale: 1.02, boxShadow: '0 12px 40px rgba(168,85,247,0.45)' }}
-              whileTap={{ scale: 0.97 }}
             >
               Get Started →
-            </motion.button>
+            </Button>
           </motion.div>
         )}
 

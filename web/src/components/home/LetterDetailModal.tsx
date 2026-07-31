@@ -3,6 +3,7 @@ import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LetterDef } from '@/data/alphabet';
 import { ClipEnlarge } from '@/components/lesson/ClipEnlarge';
+import { Button } from '@/components/shared/Button';
 
 // All 26 letters now ship a StudioGalt-archive-rendered demo clip in /public/clips
 // (LETTER_<letter>.mp4) — independent of whether the letter also has a camera-recognizable
@@ -138,19 +139,18 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
           </div>
 
           {/* Try Yourself */}
-          <motion.button
+          <Button
             onClick={() => canPractice && onTryYourself(def.signId!)}
             disabled={!canPractice}
-            className="w-full rounded-2xl py-3 font-bold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-primary"
-            whileHover={canPractice ? { scale: 1.02 } : undefined}
-            whileTap={canPractice ? { scale: 0.97 } : undefined}
+            size="sm"
+            fullWidth
           >
             {canPractice ? (
               <>📷 Try Yourself</>
             ) : (
               <>Camera practice coming soon</>
             )}
-          </motion.button>
+          </Button>
         </motion.div>
       </motion.div>
     </AnimatePresence>

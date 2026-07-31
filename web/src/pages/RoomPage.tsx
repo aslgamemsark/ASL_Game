@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/shared/Button';
 import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
@@ -554,11 +555,9 @@ export function RoomPage({ onExit }: Props) {
                     🌐 Public
                   </button>
                 </div>
-                <motion.button onClick={() => void createRoom()}
-                  className="w-full py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                <Button onClick={() => void createRoom()} fullWidth>
                   Create Room
-                </motion.button>
+                </Button>
               </div>
 
               <motion.button onClick={() => void searchForMatch()} disabled={searching}
@@ -607,11 +606,9 @@ export function RoomPage({ onExit }: Props) {
                 </div>
               </div>
               {isHostRef.current && (
-                <motion.button onClick={startGame} disabled={roster.length < 2}
-                  className="px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary disabled:opacity-40 disabled:cursor-not-allowed"
-                  whileTap={{ scale: 0.97 }}>
+                <Button onClick={startGame} disabled={roster.length < 2}>
                   Start Game
-                </motion.button>
+                </Button>
               )}
             </motion.div>
           )}
@@ -697,11 +694,9 @@ export function RoomPage({ onExit }: Props) {
                   </div>
                 ))}
               </div>
-              <motion.button onClick={exit}
-                className="px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                whileTap={{ scale: 0.97 }}>
+              <Button onClick={exit}>
                 Back to Home
-              </motion.button>
+              </Button>
             </motion.div>
           )}
 

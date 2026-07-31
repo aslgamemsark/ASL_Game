@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SignDef } from '@/types/signs';
+import { Button } from '@/components/shared/Button';
 
 interface Props {
   sign: SignDef;
@@ -91,14 +92,9 @@ export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
           </div>
 
           {/* Try Yourself */}
-          <motion.button
-            onClick={() => onTryYourself(sign.name)}
-            className="w-full rounded-2xl py-3 font-bold text-white text-sm flex items-center justify-center gap-2 bg-gradient-primary"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-          >
+          <Button onClick={() => onTryYourself(sign.name)} size="sm" fullWidth>
             📷 Try Yourself
-          </motion.button>
+          </Button>
         </motion.div>
       </motion.div>
     </AnimatePresence>

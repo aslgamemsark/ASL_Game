@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/shared/Button';
 import { useCamera } from '@/hooks/useCamera';
 import { useAttemptRecorder } from '@/hooks/useAttemptRecorder';
 import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
@@ -703,14 +704,9 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                   Pass every letter without skipping to earn {bonusGoldOnPerfect} gold 🪙
                 </p>
               )}
-              <motion.button
-                onClick={onExit}
-                className="mt-4 px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
+              <Button onClick={onExit} className="mt-4">
                 Back to Home
-              </motion.button>
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>

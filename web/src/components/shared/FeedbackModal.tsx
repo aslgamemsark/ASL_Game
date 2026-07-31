@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { buildFeedbackPayload, MAX_FEEDBACK_LEN, type FeedbackCategory } from '@/lib/feedback';
 import { safeTruncate } from '@/lib/text';
 import { track } from '@/analytics';
+import { Button } from '@/components/shared/Button';
 
 const CATEGORIES: { id: FeedbackCategory; label: string; icon: string; hint: string }[] = [
   { id: 'bug', label: 'Report a bug', icon: '🐞', hint: "Something broke or didn't work" },
@@ -157,13 +158,14 @@ export function FeedbackModal({ page, onClose }: Props) {
                 >
                   Cancel
                 </button>
-                <button
+                <Button
                   onClick={submit}
                   disabled={!category || !message.trim() || status === 'submitting'}
-                  className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-gradient-primary text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  size="sm"
+                  className="flex-1"
                 >
                   {status === 'submitting' ? 'Sending…' : 'Send feedback'}
-                </button>
+                </Button>
               </div>
             </>
           )}

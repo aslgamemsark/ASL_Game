@@ -33,3 +33,7 @@ export const SPRING_BOUNCY = { type: 'spring' as const, stiffness: 260, damping:
 // confirm) where a slightly bigger dip reads as "this did something."
 export const TAP_SCALE_DEFAULT = 0.97;
 export const TAP_SCALE_FIRM = 0.94;
+
+// whileHover scale for a button-shaped element's hover lift. 1.03 and 1.02 were both in use for
+// the same visual intent (imperceptibly different at these magnitudes) — one value, not two.
+export const HOVER_SCALE_DEFAULT = 1.03;

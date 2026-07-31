@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/shared/Button';
 import { useCamera } from '@/hooks/useCamera';
 import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
 import { useClassifier } from '@/hooks/useClassifier';
@@ -262,11 +263,9 @@ export function StoryPage({ story, onExit }: Props) {
               {recognition.status === 'loading' && (
                 <p className="text-sm text-z-gray-400 animate-pulse">Loading camera model…</p>
               )}
-              <motion.button onClick={handleStart} disabled={recognition.status === 'loading'}
-                className="mt-2 px-8 py-3 rounded-2xl font-bold text-white text-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-primary"
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <Button onClick={handleStart} disabled={recognition.status === 'loading'} size="lg" className="mt-2">
                 Start
-              </motion.button>
+              </Button>
             </motion.div>
           )}
 
@@ -433,11 +432,9 @@ export function StoryPage({ story, onExit }: Props) {
                 </div>
               </div>
 
-              <motion.button onClick={onExit}
-                className="mt-2 px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <Button onClick={onExit} className="mt-2">
                 Back to Home
-              </motion.button>
+              </Button>
             </motion.div>
           )}
 

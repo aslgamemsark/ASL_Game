@@ -7,6 +7,45 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 7) — Phase 4b: Button primitive
+
+- **`components/shared/Button.tsx`** (new) — 22 `bg-gradient-primary` call sites agreed on the
+  visual language (gradient, bold white text, `rounded-2xl`) and disagreed on everything else:
+  **5 different paddings, 4 different text sizes with 9 more left unset** (inheriting whatever was
+  ambient), and **disabled styling present at only 3 of 22** — so 19 primary CTAs had no visual
+  disabled state at all despite several being genuinely disable-able (`LessonPage`'s Start while
+  the camera model loads, `RoomPage`'s Start Game under 2 players). Placed in `shared/` alongside
+  `Toggle`/`ModalShell`/`HeaderBackButton` rather than a new `ui/` directory — same category of
+  thing, and a parallel directory for it would be the split this pass exists to remove.
+  Three `size` values (sm/md/lg) cover all 5 previous paddings; `min-h-11` guarantees the 44px
+  touch-target floor regardless of size (`sm`'s padding alone lands at ~42px). **No `variant`
+  prop** — only the gradient variant exists today, and one gets added the day a second actually
+  ships, not speculatively.
+- **Hover/tap scale was drifting too**: every migrated site already used `whileTap: 0.97`, but
+  hover was split between `1.02` and `1.03` for the same intent (imperceptibly different at that
+  magnitude). Added `HOVER_SCALE_DEFAULT` to the motion tokens and baked both into the primitive —
+  the first real consumer of `motion/tokens.ts`, as planned in part 6.
+- **Migrated 19 sites across 17 files.** Three deliberate non-migrations, each commented at the
+  site: `PracticePage.tsx:475` (a full card with `p-5 text-left`, not a button shape — sharing the
+  gradient is not sharing the component), the 3 progress-bar fills + 1 quest pill (same gradient,
+  different element entirely), and **`ErrorBoundary.tsx`** — kept as a plain `<button>` because it
+  is the app's last line of defense against a crash anywhere in the tree, so its fallback UI must
+  not take on a framer-motion dependency that could itself be implicated in a future crash.
+  `OnboardingFlow`'s "Get Started" keeps its custom hover glow via prop override — the app's single
+  most-tapped button, a deliberate flourish rather than drift.
+- **A measurement trap worth recording:** an ad-hoc spot-check script reported the migrated
+  `sm` button at 42.5px, looking like a real touch-target regression. It was not — the script
+  measured while `LetterDetailModal`'s entrance animation (`scale: 0.96 → 1`) was still running, so
+  the box was 96% of its settled size. `getComputedStyle` read a clean `min-height: 44px` /
+  `height: 44px` at the same moment. Same class as the two stale-handle races already fixed this
+  session: **any DOM measurement taken without waiting for animations to settle is measuring a
+  transient**, and a scale transform makes it silently wrong rather than obviously wrong. The real
+  suite was never affected — `e2e/helpers.ts`'s `waitForAnimationsToSettle` already covers it.
+- **Verified:** `tsc -b` clean, 693 unit tests, `oxlint` clean, `npm run build` clean, full
+  Playwright suite 106 passed / 2 platform-conditional skips / 3 iOS a11y flakes that each pass
+  clean in isolation (`--workers=1`: 5/5 green) — the CPU-contention pattern documented in parts 3
+  and 4 above, not a regression from this change.
+
 ## 2026-07-31 (part 6) — Phase 4a (close): motion token module
 
 - **`src/motion/tokens.ts`** (new) — 62 distinct `transition` literals, 25 durations, 11 spring

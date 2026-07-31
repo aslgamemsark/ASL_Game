@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/shared/Button';
 import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
@@ -610,11 +611,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                     🌐 Public
                   </button>
                 </div>
-                <motion.button onClick={() => createRoom()}
-                  className="w-full py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                <Button onClick={() => createRoom()} fullWidth>
                   Create Room
-                </motion.button>
+                </Button>
               </div>
 
               <motion.button onClick={() => void searchForMatch()} disabled={searching}
@@ -771,11 +770,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
               {iWon && (
                 <p className="text-z-yellow font-bold">+200 🤟 Signs · +10 🪙 Gold</p>
               )}
-              <motion.button onClick={exit}
-                className="px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                whileTap={{ scale: 0.97 }}>
+              <Button onClick={exit}>
                 Back to Home
-              </motion.button>
+              </Button>
               <button onClick={() => setReportOpen(true)}
                 className="text-xs text-z-gray-400 hover:text-z-red transition-colors">
                 🚩 Report {matchState.opponentUsername}

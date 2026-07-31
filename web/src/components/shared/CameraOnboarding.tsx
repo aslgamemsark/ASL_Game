@@ -1,5 +1,6 @@
 import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion } from 'framer-motion';
+import { Button } from '@/components/shared/Button';
 
 interface Props {
   onContinue: () => void;
@@ -59,14 +60,9 @@ export function CameraOnboarding({ onContinue, onCancel }: Props) {
           </div>
         </div>
 
-        <motion.button
-          onClick={onContinue}
-          className="w-full py-3 rounded-2xl font-bold text-white text-base bg-gradient-primary"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-        >
+        <Button onClick={onContinue} fullWidth>
           Allow Camera
-        </motion.button>
+        </Button>
 
         <button
           onClick={onCancel}

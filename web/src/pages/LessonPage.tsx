@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/shared/Button';
 import { useCamera } from '@/hooks/useCamera';
 import { useAttemptRecorder } from '@/hooks/useAttemptRecorder';
 import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
@@ -382,15 +383,14 @@ export function LessonPage({ lessonId, onExit }: Props) {
                 </p>
               )}
 
-              <motion.button
+              <Button
                 onClick={handleStart}
                 disabled={recognition.status === 'loading'}
-                className="mt-4 px-8 py-3 rounded-2xl font-bold text-white text-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-primary"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+                size="lg"
+                className="mt-4"
               >
                 {camStatus === 'idle' ? 'Start Signing' : 'Continue'}
-              </motion.button>
+              </Button>
 
               {camStatus === 'denied' && (
                 <p className="text-z-red text-sm text-center max-w-xs">
@@ -561,14 +561,9 @@ export function LessonPage({ lessonId, onExit }: Props) {
                 </div>
               </div>
 
-              <motion.button
-                onClick={onExit}
-                className="mt-6 px-8 py-3 rounded-2xl font-bold text-white text-lg bg-gradient-primary"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
+              <Button onClick={onExit} size="lg" className="mt-6">
                 Continue
-              </motion.button>
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>

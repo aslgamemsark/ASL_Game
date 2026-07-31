@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { ReportUserModal } from '@/components/shared/ReportUserModal';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
+import { Button } from '@/components/shared/Button';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -308,13 +309,9 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
             <p className="text-z-gray-400 text-sm mt-1">Create an account so you can find players, send requests, and challenge friends to 1v1.</p>
           </div>
           {onRequireSignIn && (
-            <motion.button
-              onClick={onRequireSignIn}
-              className="px-6 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            >
+            <Button onClick={onRequireSignIn}>
               Sign In
-            </motion.button>
+            </Button>
           )}
         </div>
       </div>

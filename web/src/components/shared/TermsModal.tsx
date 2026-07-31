@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useDialogA11y } from '@/hooks/useDialogA11y';
+import { Button } from '@/components/shared/Button';
 
 interface Props {
   onAccept: () => void;
@@ -102,13 +103,9 @@ export function TermsModal({ onAccept, onAcceptLater }: Props) {
         </div>
 
         <div className="px-6 pt-4 pb-6 shrink-0 flex flex-col gap-2">
-          <motion.button
-            onClick={onAccept}
-            className="w-full py-4 rounded-2xl font-bold text-base bg-gradient-primary text-white shadow-lg shadow-z-purple/30"
-            whileTap={{ scale: 0.97 }}
-          >
+          <Button onClick={onAccept} size="lg" fullWidth className="shadow-lg shadow-z-purple/30">
             Accept &amp; Continue
-          </motion.button>
+          </Button>
           <button
             onClick={onAcceptLater}
             className="w-full py-3 rounded-2xl font-semibold text-sm border border-z-gray-400/30 text-z-gray-200 hover:border-z-gray-400/50 transition-colors"

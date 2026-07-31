@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { DuelPage } from '@/pages/DuelPage';
+import { Button } from '@/components/shared/Button';
 import { RoomPage } from '@/pages/RoomPage';
 import { useFeatureFlag } from '@/analytics';
 import { useBackDismiss } from '@/hooks/useBackDismiss';
@@ -62,13 +63,9 @@ export function MultiplayerHubPage({ onExit, mode, autoHostRoomId, autoJoinCode,
             <p className="font-bold text-lg">Sign in to play</p>
             <p className="text-z-gray-400 text-sm mt-1">Multiplayer needs an account so your friends can find you and your wins count.</p>
           </div>
-          <motion.button
-            onClick={onRequireSignIn}
-            className="px-6 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          >
+          <Button onClick={onRequireSignIn}>
             Sign In
-          </motion.button>
+          </Button>
         </div>
       </div>
     );
