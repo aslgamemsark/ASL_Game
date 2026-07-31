@@ -7,6 +7,79 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 19) — Phase 6 (close): multiplayer integration suite on a local Supabase stack
+
+- **Resolved the infrastructure decision flagged in part 16, by taking the option that does not
+  weaken production.** Three were available: a hosted throwaway test project (costs money, needs CI
+  credentials, still a network dependency one copy-pasted URL from production), an e2e-only auth
+  bypass in the app (rejected outright — a "skip authentication" branch in shipped code is not a
+  trade worth making at any price), or a **local Supabase stack**. Chose the local stack:
+  `supabase/config.toml` added, migrations already lived in-repo, so `supabase start` gives the real
+  schema, the real `join_multiplayer_room` RPC, real RLS and real Realtime on `127.0.0.1`.
+  **Production code is untouched** — the app is pointed at the stack purely by build-time env in
+  `web/playwright.multiplayer.config.ts`, and the browser tests sign in through the real form
+  against real GoTrue.
+- **20 integration tests** (`web/e2e/multiplayer.spec.ts`), split by where failures actually live:
+  **Part A** drives the RPCs directly (the join race is a `for update` row lock, not a UI concern —
+  racing two browsers would test the same lock slower and less deterministically): simultaneous
+  joins for the last slot, idempotent duplicate join, reconnect into an in-progress match, room
+  destruction, leave-frees-slot, public/private search visibility, brute-force throttle, and two RLS
+  checks (nobody can create a room owned by someone else, or close someone else's room).
+  **Part B** drives two real browser contexts with fake media devices: create→join→both enter the
+  match over real Realtime+WebRTC, wrong code refused without breaking the lobby, public room via
+  Search, double-tapped Join, background/foreground via `visibilitychange`, network interruption via
+  `setOffline` (asserting the Phase 5 offline banner), and a phone-width lobby touch-target check.
+- **Found and fixed a real production defect while writing them** — migration
+  `20260731120000_idempotent_room_rejoin.sql`. `join_multiplayer_room` treated every call as a NEW
+  participant: it incremented `participant_count` unconditionally while the member insert was
+  `on conflict do nothing`, so count and membership could disagree. Three user-visible consequences,
+  all on the reconnect path: **(1) reconnect was impossible** — once the host started the match the
+  room is `in_progress`, so a player whose phone slept or whose network blipped got
+  "room already started" and had no way back into a game they were still a member of;
+  **(2) a double-tapped Join burned the last slot**, filling a 2-player duel with one human and then
+  refusing the real opponent; **(3) `participant_count` drifted above the true headcount**, also
+  mis-filtering public search. Fix: check membership inside the same lock and return the room
+  unchanged for an existing member — the project's own "define errors out of existence" rule; a
+  re-entry is a no-op that should succeed, not an error to report. Guard ordering is deliberate:
+  after the `closed` check (a destroyed room stays closed to everyone) but before `in_progress` and
+  `room full` (those exist to keep NEW players out). Throttle still runs first, so re-entry cannot
+  bypass the brute-force limit.
+- **The suite skips, loudly, rather than lying.** No Docker on this machine, so `probeStack()`
+  distinguishes "stack unreachable" (skip, with the reason named) from "stack up but keys rejected
+  or migrations unapplied" (**fail**) — a misconfigured setup must never look like a green run, which
+  is exactly how this repo previously shipped a CI job that had never once executed. `assertLocalOnly()`
+  additionally refuses to run against any non-localhost host unless explicitly overridden: the suite
+  deletes rows, so pointing it at production by accident must be impossible, not just unlikely.
+- **It runs for real in CI**, which is the point: a new `multiplayer` job in `.github/workflows/ci.yml`
+  starts the stack on `ubuntu-latest` (which has Docker), applies migrations, and executes the suite
+  on every PR touching `web/**` or `supabase/**` — added to the path filters, which had omitted
+  `supabase/**` entirely, so migration changes previously triggered no CI at all.
+- **Verified:** `tsc -b` clean, `oxlint` clean, suite collects all 20 tests and skips cleanly here.
+  **Not executed** — no Docker on this machine; CI is where it first runs. Documented in
+  `docs/MULTIPLAYER_TESTING.md` along with the one manual step (install Docker Desktop).
+
+## 2026-07-31 (part 18) — e2e suite was never typechecked; a reduced-motion test was a false green
+
+- **`e2e/` was in no tsconfig at all.** `tsconfig.app.json` includes only `src`, `tsconfig.node.json`
+  only `vite.config.ts` — so the entire Playwright suite, the thing guarding every other guarantee
+  in this codebase, had zero type checking. Added `tsconfig.e2e.json` and wired it into the project
+  references, with `noUncheckedIndexedAccess` enabled (declined for the app at 549 errors; the e2e
+  tree is small and new, so it is affordable there and catches fixture-indexing mistakes that would
+  otherwise surface as confusing mid-test errors).
+- **It found a real defect on the first run, and the defect was a test that had never tested
+  anything.** `e2e/chest.spec.ts`'s "reward chest (reduced motion)" block passed
+  `reducedMotion: 'reduce'` as a top-level `test.use()` key. Playwright declares no such test option
+  — it is a `browser.newContext` option — and `reducedMotion` appears **nowhere in playwright/lib**,
+  so the runtime silently discarded it. Proved rather than assumed: a throwaway probe measured
+  `matchMedia('(prefers-reduced-motion: reduce)').matches` under both forms — **`false` for the
+  top-level key, `true` via `contextOptions`**. Every assertion in that block had been running with
+  motion fully ENABLED and passing anyway, which is worse than having no test, because it read as
+  coverage. Fixed to `contextOptions: { reducedMotion: 'reduce' }`; the block now passes with
+  reduced motion genuinely applied, so the product code was right all along — only the test was
+  fictional.
+- **Verified:** `tsc -b` clean across all four projects, `chest.spec.ts` 3/3 green with real reduced
+  motion.
+
 ## 2026-07-31 (part 17) — Pass complete: final release report
 
 - **Production-quality hardening pass closes.** `docs/RELEASE_REPORT_2026-07-31_prod-quality-pass.md`
