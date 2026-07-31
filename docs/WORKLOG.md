@@ -7,6 +7,26 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 13) — Phase 5 (cont.): SpeedChallengePage camera-failure gap
+
+- **`SpeedChallengePage.startGame` `await`ed `startCam()` and never checked its result.** `useCamera`
+  never throws — a denied/failed camera resolves normally and is reported only via its `status`
+  state (`'denied'`/`'error'`/`'stalled'`) — so the 3-2-1 countdown ran to completion and the timed
+  round started regardless, with no active camera and `recognition.status` never reaching `'ready'`.
+  The player watched every sign's timer expire with zero explanation and no way out short of
+  navigating away entirely (audited alongside offline handling: the failure mode — "the state is
+  technically fine, nothing tells the user why nothing is happening" — is the same class of bug).
+  Verified `ShopPage`/`SettingsPage`, also named in the same audit line, have no async operations
+  of their own to add error handling to on direct inspection — both are local-state-only; the
+  audit's "8 zero-catch bare Loading… nodes" finding from part 10 already covers what needed
+  covering. `useProgressSync` (the actual network path behind "progress sync") already has
+  thorough `{ error }` handling with its own prior-fix comment — nothing to add there either.
+- Fixed by reusing `LessonPage`'s exact established remediation for the identical failure: a
+  camera-status-gated error card with a recovery action, checked ahead of both the `countdown` and
+  `playing` phases so it takes over immediately rather than letting the round run out first.
+- **Verified:** `tsc -b` clean, 696 unit tests, `oxlint` clean, build clean, full Playwright suite
+  (111 passed, 2 skips, 1 iOS a11y flake that passes clean in isolation — same established pattern).
+
 ## 2026-07-31 (part 12) — Phase 5 (start): offline handling
 
 - **`navigator.onLine`/`online`/`offline` had zero consumers anywhere in the app** (audit,

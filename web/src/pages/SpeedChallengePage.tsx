@@ -353,7 +353,48 @@ export function SpeedChallengePage({ onExit }: Props) {
           )}
 
           {/* COUNTDOWN */}
-          {phase === 'countdown' && (
+          {/* Camera failure during countdown/playing — `startGame` awaits startCam() but never
+              checked its result (found in the design-system audit, 2026-07-31): a denied/failed
+              camera let the countdown run out and the timed round start anyway, with no active
+              camera and no recognition ever going 'ready', leaving the player stuck watching a
+              timer expire on every sign with no explanation. Same remediation LessonPage already
+              uses for the identical failure. */}
+          {(camStatus === 'denied' || camStatus === 'error' || camStatus === 'stalled') && (phase === 'countdown' || phase === 'playing') && (
+            <motion.div
+              key="cam-error"
+              className="flex-1 flex flex-col items-center justify-center gap-3 px-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center max-w-xs">
+                <p className="text-sm font-bold text-z-red">
+                  {camStatus === 'denied'
+                    ? 'Camera access denied'
+                    : camStatus === 'stalled'
+                      ? "Camera feed isn't showing"
+                      : 'Camera unavailable'}
+                </p>
+                <p className="text-xs text-z-gray-300 mt-1">
+                  {camStatus === 'denied'
+                    ? 'Speed Challenge needs your camera. Allow camera access in your browser settings, then try again.'
+                    : camStatus === 'stalled'
+                      ? "Your camera is on but no picture is coming through. Try again, or check that no other app is using it."
+                      : 'Something went wrong starting the camera. Try again, or check that no other app is using it.'}
+                </p>
+                {/* stopCam() before startCam(): forces a fresh getUserMedia() call instead of
+                    reattaching the same (possibly dead) stream — required for 'stalled'. */}
+                <button
+                  onClick={() => { setPhase('tier-select'); stopCam(); }}
+                  className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
+                >
+                  Back to tier select
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {phase === 'countdown' && camStatus !== 'denied' && camStatus !== 'error' && camStatus !== 'stalled' && (
             <motion.div
               key="countdown"
               className="flex-1 flex flex-col items-center justify-center gap-3"
@@ -378,7 +419,7 @@ export function SpeedChallengePage({ onExit }: Props) {
           )}
 
           {/* PLAYING */}
-          {phase === 'playing' && currentSignData && (
+          {phase === 'playing' && currentSignData && camStatus !== 'denied' && camStatus !== 'error' && camStatus !== 'stalled' && (
             <motion.div
               key={`play-${queueIdx}`}
               className="flex-1 flex flex-col gap-4 pt-4"
