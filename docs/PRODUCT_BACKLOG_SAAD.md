@@ -537,6 +537,72 @@ Remaining in this area (not blockers):
 
 ---
 
+### QS-014 — Production-quality hardening pass (CI, Android Back, payload, a11y, design system, states)
+
+Problem:
+Four prior polish passes had already handled the obvious things (code splitting, reduced-motion,
+dialog focus, contrast tests, safe-area, an axe gate). A three-front audit (architecture, UI/UX/a11y,
+perf/build/config) found the pattern that was left: quality was excellent wherever a shared primitive
+had been extracted, and drifted wherever one hadn't — plus a handful of genuinely broken things no
+visual or a11y check could catch on its own.
+
+Evidence (2026-07-31 audit):
+- Android hardware Back exited the app from anywhere mid-lesson/mid-duel — zero `popstate`/history
+  handling anywhere in `src/`.
+- CI had been red on 30 of 30 recorded runs and hadn't run at all in a week, across 12 unverified
+  commits — `npm run audit` gated the build on a live advisory feed, and the workflow only installed
+  Chromium while a WebKit `ios` project was declared and never run.
+- Every returning user downloaded ~1.5 MB for a switched-off feature: TF.js + weights loaded eagerly
+  while the classifier's gate was `GATE_ENFORCED = false` (shadow-mode only, never affected a real
+  pass/fail).
+- The core recognition loop re-rendered the whole page 28×/second — unconditional `setResult` per
+  processed frame, zero `React.memo` anywhere in the codebase.
+- Not one of the app's 10 text inputs had a programmatic label; the shared focus ring was hardcoded
+  to the dark theme's color (2.04:1 on light — fails WCAG 1.4.11's 3:1), untested because axe's
+  `color-contrast` rule was disabled in the e2e suite. This gates account creation.
+
+Fix shipped (full detail per change: `docs/WORKLOG.md`, 2026-07-31 entries):
+- **CI restored**: WebKit installed, `npm audit` moved off the build-gating path, `strict: true`
+  added to tsconfig (0 new errors), dead config removed, a pre-push hook added.
+- **Android/iOS Back fixed**: `useScreenHistory` + `popstate`, folded into the existing dialog-Escape
+  hook so all 11 dialogs get it for free; mid-lesson Back reuses the existing exit-confirm.
+- **Payload cut**: TF.js + weights removed from the critical path (still available via lazy dynamic
+  import, excluded from the SW precache); PostHog init deferred past first paint; ~8 MB of dev-only
+  avatar assets stopped shipping to production; images run through the existing `sharp` pipeline.
+- **28 Hz loop fixed at the root**: `setResult`/`setHoldProgress` deduped the same way `framing`
+  already was, not just memoized around; `AuthContext`'s value stabilized (28 consumers); animated
+  `width` replaced with `transform: scaleX()` on the progress-bar primitive.
+- **Accessibility**: real `<label>`s + working focus-visible ring on all 10 inputs, focus ring now
+  contrast-checked instead of hardcoded; axe `color-contrast` re-enabled across all screens on
+  chromium/android/ios; touch targets brought to the 44px minimum project-wide; `role="tablist"`
+  semantics on all 4 tab bars; missing `<h1>`s fixed.
+- **Design system**: `Button`/`ProgressBar`/`Card`/`Skeleton`/`Sheet` primitives extracted with unit
+  tests; ~20 button call sites, 12 progress bars, and 6 hand-rolled bottom sheets migrated onto them
+  (sheets now correctly clear the iOS keyboard and the home indicator — neither did before).
+- **States/offline/responsive**: a global offline banner (nothing told users the app still works
+  offline); `SpeedChallengePage` no longer runs a camera-less round to a silent dead end; the
+  768–1023px tablet band gets `SideNav` instead of a cramped phone nav; bottom-nav clearance derived
+  from `BottomNav`'s actual measured height instead of two disagreeing hardcoded guesses.
+- **Multiplayer (partial)**: the duplicated join-code input and private/public toggle extracted into
+  shared components, touch targets fixed to 44px in the process. The two-context WebRTC/Realtime
+  integration suite is **not built** — it requires an infrastructure decision (dedicated test
+  Supabase project vs. an e2e auth bypass vs. accepting production test-data writes) flagged for a
+  human call rather than made silently. State machines stay frozen either way, per the standing
+  decision.
+
+Explicitly declined this pass (evaluated, not defaulted past): `noUncheckedIndexedAccess` (549
+errors, cost exceeds value), a routing library (the existing `Screen` union needed history
+integration, not replacement), jsdom+Testing Library (Playwright already covers every page across
+three device projects), virtualizing lists (every list is already `.limit(50)` or smaller), and
+merging the Duel/Room state machines (explicit standing decision, unaffected by this pass).
+
+Status:
+In progress — Phases 0–5 and part of Phase 6 shipped and verified (`tsc -b`, `oxlint`, `vitest run`,
+full Playwright across chromium/android/ios, `npm run build`, all green at each commit). Remaining:
+the multiplayer integration-suite decision (blocked, above) and the final release report.
+
+---
+
 ## ✅ Verified healthy (do not spend time here)
 
 - **Core Web Vitals.** LCP p75: Mobile 1,992 ms, Desktop 1,783 ms — both inside Google's "good"

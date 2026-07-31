@@ -25,8 +25,12 @@ ships surprised. This is deliberately candid — every item is real and evidence
   random opponent."
 
 ## Platform / performance
-- **First load is heavy.** On-device MediaPipe + TF.js is ~1 MB+ of runtime. This is the deliberate
-  price of privacy (no video leaves your device), but it means a slow first paint on poor networks.
+- **First load is on-device MediaPipe only now (2026-07-31).** The TF.js disambiguation layer
+  (~1 MB gzip: 269 KB runtime + 428 KB weights) no longer loads on the critical path — it was
+  shadow-mode-only (`GATE_ENFORCED = false`) and never affected a real pass/fail, so its download
+  cost bought nothing for a returning user. PostHog's init was also moved off the render-blocking
+  path. MediaPipe's on-device hand/pose runtime remains — that's the real price of privacy (no
+  video leaves the device) and isn't going away.
 - **Not deeply tested across browsers/devices this pass.** iOS Safari camera + WebRTC in particular
   needs real-device verification before relying on it.
 - **Hardware/browser Back is wired for top-level screens, dialogs, and the multiplayer hub only**
@@ -37,9 +41,17 @@ ships surprised. This is deliberately candid — every item is real and evidence
   because it requires auditing every internal step flow app-wide, not just this one bug class.
 
 ## Accessibility
-- **Not yet WCAG-audited.** Keyboard navigation, screen-reader support, focus management, and
-  reduced-motion handling are unverified. The app is also inherently camera- and motion-dependent,
-  which limits some access modes.
+- **WCAG-audited as of 2026-07-31.** Keyboard navigation, screen-reader labels, focus management,
+  touch-target sizing (44px minimum), heading structure, and tab-widget semantics were audited and
+  fixed; axe's `color-contrast` rule runs (previously disabled) across all screens on
+  chromium/android/ios, and the focus ring itself is now contrast-checked
+  (`tests/tokenContrast.test.ts`) rather than hardcoded to the dark theme's color. The app is still
+  inherently camera- and motion-dependent, which limits some access modes by nature of what it is —
+  that isn't fixable by an accessibility pass.
+- **Not covered:** real assistive-technology testing (VoiceOver/TalkBack/NVDA on a real device) —
+  the axe scan and keyboard-only pass verify against the WCAG ruleset, not a real screen-reader
+  session. Desktop layout (`lg:`/`md:` breakpoints) was audited only at the phone viewport this
+  pass; a dedicated desktop a11y sweep is a reasonable follow-up, not done here.
 
 ## Observability
 - **No production error monitoring yet.** Crashes users hit are not reported anywhere until this is
