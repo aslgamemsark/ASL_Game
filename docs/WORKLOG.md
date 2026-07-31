@@ -7,6 +7,25 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 9) — Phase 4d: Google-icon dedup; Card primitive (available, not migrated)
+
+- **`components/shared/GoogleIcon.tsx`** (new) — the 4-path Google "G" glyph was duplicated
+  verbatim, down to the exact path data, between `AuthModal.tsx` and `OnboardingFlow.tsx`'s
+  "Continue with Google" buttons, disagreeing only on pixel size (16 vs 18, now a `size` prop).
+  Confirmed via `grep` on the path data that no third copy existed.
+- **`components/shared/Card.tsx`** (new) — ~30 sites already agree on one exact shell
+  (`bg-z-card border border-white/5 rounded-2xl`, usually wrapped in the same fade-up entrance).
+  Unlike Button/ProgressBar, **this is not migrated wholesale**: those two had a real bug or
+  accessibility gap driving the diff (missing disabled states, missing `role="progressbar"`); the
+  card shell has neither — it's already consistent, so forcing 30 files through a mechanical
+  rename buys DRY-ness at the cost of diff size for no correctness or a11y gain. Built and
+  available for new call sites and for whichever future pass touches those files for its own
+  reason (the same "adoption happens as each area is touched" approach already used for the motion
+  tokens in part 6).
+- **Verified:** `tsc -b` clean, 696 unit tests, `oxlint` clean, build clean, full Playwright suite
+  (107 passed, 2 skips, 2 iOS a11y flakes that pass clean in isolation — same pattern as parts
+  3/4/7/8 above).
+
 ## 2026-07-31 (part 8) — Phase 4c: ProgressBar primitive
 
 - **`components/shared/ProgressBar.tsx`** (new) — 12 hand-rolled bars used 4 heights, 5 track
