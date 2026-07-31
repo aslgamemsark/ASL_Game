@@ -10,6 +10,7 @@ import { Zippy } from '@/components/shared/Zippy';
 import { ReportUserModal } from '@/components/shared/ReportUserModal';
 import { Tooltip } from '@/components/shared/Tooltip';
 import { ProgressBar } from '@/components/shared/ProgressBar';
+import { Skeleton } from '@/components/shared/Skeleton';
 
 interface Props {
   userId: string;
@@ -137,9 +138,9 @@ export function UserProfilePage({ userId, onExit }: Props) {
       <div className="max-w-lg mx-auto px-4 pt-6 pb-24">
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-16">
-            <div className="w-24 h-24 rounded-full bg-z-card animate-pulse" />
-            <div className="h-4 w-32 bg-z-card rounded animate-pulse" />
-            <div className="h-3 w-20 bg-z-card rounded animate-pulse" />
+            <Skeleton className="w-24 h-24 rounded-full" />
+            <Skeleton className="h-4 w-32 rounded" />
+            <Skeleton className="h-3 w-20 rounded" />
           </div>
         ) : fetchError ? (
           <div className="text-center py-16 flex flex-col items-center">

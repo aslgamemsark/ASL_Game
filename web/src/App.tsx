@@ -45,7 +45,7 @@ import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
 import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal';
-import { Zippy } from '@/components/shared/Zippy';
+import { LoadingScreen } from '@/components/shared/LoadingScreen';
 import { CelebrationHost } from '@/components/shared/CelebrationHost';
 import { useScreenView } from '@/analytics';
 import { useBackDismiss } from '@/hooks/useBackDismiss';
@@ -68,19 +68,6 @@ type Screen =
 
 // Focused-task screens suppress the side nav (matches hiding chrome during a lesson).
 const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboard', 'settings', 'multiplayer'];
-
-// Shared fallback while a lazy-loaded screen's chunk downloads — same visual language as the
-// auth-restore spinner above so a route-split navigation doesn't look like a different app state.
-function ScreenFallback() {
-  return (
-    <div className="min-h-dvh bg-z-bg flex items-center justify-center overflow-y-auto">
-      <div className="text-center">
-        <Zippy expression="loading" size="lg" priority className="mb-4" />
-        <p className="text-z-gray-400 text-sm">Loading…</p>
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   const { syncError } = useProgressSync();
@@ -229,14 +216,7 @@ export default function App() {
 
   // Block render until auth session is restored so returning users never see the onboarding flash.
   if (authLoading) {
-    return (
-      <div className="min-h-dvh bg-z-bg flex items-center justify-center overflow-y-auto">
-        <div className="text-center">
-          <Zippy expression="loading" size="lg" priority className="mb-4" />
-          <p className="text-z-gray-400 text-sm">Loading…</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   // REMOVED 2026-07-27: this used to `return <TermsModal/>` here, blocking onboarding, sign-in and
@@ -292,7 +272,7 @@ export default function App() {
   // branch out of production entirely.
   if (import.meta.env.DEV && window.location.pathname === '/avatarlab') {
     return (
-      <Suspense fallback={<ScreenFallback />}>
+      <Suspense fallback={<LoadingScreen />}>
         <AvatarLabPage />
       </Suspense>
     );
@@ -302,7 +282,7 @@ export default function App() {
   // --calibrate) — same reasoning as /avatarlab above: a separate tool, not a game screen.
   if (import.meta.env.DEV && window.location.pathname === '/calibrate') {
     return (
-      <Suspense fallback={<ScreenFallback />}>
+      <Suspense fallback={<LoadingScreen />}>
         <CalibrationPage />
       </Suspense>
     );
@@ -315,7 +295,7 @@ export default function App() {
   // COFFEE bug shipped). Same dead-code-elimination guarantee as /avatarlab above.
   if (import.meta.env.DEV && window.location.pathname === '/test-signs') {
     return (
-      <Suspense fallback={<ScreenFallback />}>
+      <Suspense fallback={<LoadingScreen />}>
         <PracticePage
           onExit={() => { window.location.pathname = '/'; }}
           filterSignIds={Object.keys(SIGNS)}
@@ -351,7 +331,7 @@ export default function App() {
         />
       )}
       <div className={showSideNav ? 'lg:pl-64' : ''}>
-        <Suspense fallback={<ScreenFallback />}>
+        <Suspense fallback={<LoadingScreen />}>
         <AnimatePresence mode="wait">
           {screen.type === 'onboarding' && (
             <ScreenTransition key="onboarding">

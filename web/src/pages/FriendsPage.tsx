@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { ReportUserModal } from '@/components/shared/ReportUserModal';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { Button } from '@/components/shared/Button';
+import { Skeleton } from '@/components/shared/Skeleton';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -469,10 +470,10 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
             <div className="space-y-2">
               {[0,1,2].map((i) => (
                 <div key={i} className="flex items-center gap-3 bg-z-card border border-white/8 rounded-2xl px-4 py-3 opacity-40">
-                  <div className="w-10 h-10 rounded-xl bg-z-surface animate-pulse" />
+                  <Skeleton className="w-10 h-10 rounded-xl" />
                   <div className="flex-1 space-y-1.5">
-                    <div className="h-3 w-28 bg-z-surface rounded animate-pulse" />
-                    <div className="h-2 w-20 bg-z-surface rounded animate-pulse" />
+                    <Skeleton className="h-3 w-28 rounded" />
+                    <Skeleton className="h-2 w-20 rounded" />
                   </div>
                 </div>
               ))}

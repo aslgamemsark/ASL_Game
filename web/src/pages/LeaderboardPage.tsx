@@ -12,6 +12,7 @@ import { Zippy } from '@/components/shared/Zippy';
 import { ZIPPY_LINES } from '@/data/zippy';
 import { countryName, detectCountryCode, COUNTRY_CODES } from '@/lib/geolocation';
 import { useTabListKeyNav } from '@/hooks/useTabListKeyNav';
+import { Skeleton } from '@/components/shared/Skeleton';
 
 interface Props {
   onExit: () => void;
@@ -54,7 +55,7 @@ function BoardList({
     return (
       <div className="flex flex-col gap-2">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-14 bg-z-card rounded-2xl animate-pulse" />
+          <Skeleton key={i} className="h-14 rounded-2xl" />
         ))}
       </div>
     );
@@ -611,7 +612,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
           friendLoading ? (
             <div className="flex flex-col gap-2">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-14 bg-z-card rounded-2xl animate-pulse" />
+                <Skeleton key={i} className="h-14 rounded-2xl" />
               ))}
             </div>
           ) : friendError ? (

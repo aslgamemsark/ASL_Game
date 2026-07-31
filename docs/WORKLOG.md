@@ -7,6 +7,29 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 10) — Phase 4e: LoadingScreen + Skeleton primitives
+
+- **`components/shared/LoadingScreen.tsx`** (new) — `App.tsx` hand-wrote the identical full-page
+  Zippy-plus-"Loading…" markup twice: the auth-restore gate every returning user blocks on at cold
+  start, and the lazy-route `Suspense` fallback every code-split navigation shows. Deduped into one
+  component; also deleted `App.tsx`'s `ScreenFallback` wrapper, which after the dedup was a
+  pass-through function calling the new component with no changes of its own (red-flags.md).
+- **`components/shared/Skeleton.tsx`** (new) — 3 hand-rolled pulse-block placeholders
+  (`FriendsPage`, `LeaderboardPage`, `UserProfilePage`) agreed on `animate-pulse` and disagreed on
+  colour (`bg-z-surface` vs `bg-z-card`); consolidated to `bg-z-surface`, the token other
+  "recessed, not-yet-real" surfaces already use (e.g. `ProgressBar`'s default track).
+  `aria-hidden="true"`: the pulse itself carries no information a screen reader should read node by
+  node — the loading *region* is what needs announcing, wherever the page already does that.
+  The two remaining `animate-pulse` sites (`LessonPage`, `StoryPage`) are pulsing *text* — "Loading
+  camera model…" — a different pattern (a status message drawing attention to itself, not a shape
+  standing in for not-yet-loaded content) and correctly left alone.
+  AdminPanel's 5 bare `<p>Loading…</p>` fallbacks were not touched: unlike the two primitives
+  above, all 5 already agree byte-for-byte with each other — there's no drift to fix, and a
+  wrapper around one unchanging `<p>` would be a pass-through component in the other direction.
+- **Verified:** `tsc -b` clean, 696 unit tests, `oxlint` clean, build clean, full Playwright suite
+  (105 passed, 2 skips, 4 iOS flakes — 3 the by-now-familiar a11y pattern plus one chest-reward
+  test seen flake here for the first time — all 4 pass clean in isolation, `--workers=1`).
+
 ## 2026-07-31 (part 9) — Phase 4d: Google-icon dedup; Card primitive (available, not migrated)
 
 - **`components/shared/GoogleIcon.tsx`** (new) — the 4-path Google "G" glyph was duplicated
