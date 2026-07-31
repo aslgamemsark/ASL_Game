@@ -7,6 +7,43 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 16) — Phase 6 (partial): multiplayer lobby dedup; integration-suite blocked on a real decision
+
+- **Extracted the two verbatim-duplicated lobby pieces** from `DuelPage.tsx`/`RoomPage.tsx` into
+  `web/src/components/multiplayer/`: `RoomVisibilityToggle.tsx` (private/public segmented control)
+  and `RoomJoinByCode.tsx` (join-code label/input/button trio). Same extraction pattern as the
+  already-shared `RoomRulesPanel.tsx` — one component, both pages consume it, can't drift apart
+  the way the inline copies already had (Duel's `codeError` handling and Room's differed subtly in
+  nothing functionally, but any future edit to one and not the other would have started a real
+  divergence).
+- **Folded in the Phase 3 touch-target fix while extracting, per the plan.** Both pieces measured
+  under the 44px minimum: the visibility toggle's `py-1.5` came to ~28px tall, the Join button's
+  `py-2.5` to ~40px. Grown to `py-3.5`/`py-3` respectively (44px each) — a real visual size change,
+  not a hit-area-only trick, since (unlike `Toggle.tsx`'s switch) the visible pill and the button
+  element are the same node here, so the invisible-padding technique isn't available without
+  restructuring the DOM. Added `aria-pressed` to the visibility toggle's two buttons, which had
+  been keyboard-operable but not exposing selected state to assistive tech.
+- **Verified:** `tsc -b` clean, `oxlint` clean (no new warnings), 696 unit tests, `npm run build`
+  clean. **Not verified by e2e** — no existing Playwright spec reaches these lobby screens; every
+  multiplayer test today stops at `MultiplayerHubPage`'s own guest sign-in wall
+  (`mobile.spec.ts`'s Multiplayer touch-target check never gets past it). Confirmed by reading the
+  markup directly: the extraction is a faithful 1:1 lift with no logic change beyond the touch
+  targets and `aria-pressed`.
+- **The integration test suite is NOT built — genuinely blocked, not skipped.** Reaching `DuelPage`/
+  `RoomPage` at all requires a signed-in user (`MultiplayerHubPage`'s own guest gate, by design —
+  multiplayer keys off a real user id). This project's e2e suite runs against the **real production
+  Supabase project** (`.env.local`'s `VITE_SUPABASE_URL`) with no local/test Supabase stack and no
+  e2e auth bypass — every existing spec deliberately stays guest-only rather than write real
+  accounts into production (confirmed: zero `signUp`/`signIn` calls anywhere under `e2e/`). A
+  two-Playwright-context host/client suite (fake media devices, real Supabase Realtime, real
+  WebRTC signaling) means either creating real throwaway accounts/rooms in the production database
+  on every CI run, or standing up a dedicated test Supabase project/local stack, or adding an
+  e2e-only auth bypass — each a real infrastructure decision with real consequences, not something
+  to pick silently. Flagging for the user rather than choosing one. Until decided, this piece of
+  Phase 6 stays open; the dedup above is unaffected by it and ships on its own.
+- **Next:** Phase 7 (documentation + final release report) proceeds now, since it's unblocked; the
+  multiplayer state machines stay frozen either way per the standing decision at the top of the plan.
+
 ## 2026-07-31 (part 15) — Phase 5 (close): bottom-nav clearance derivation; TopBar cart pop-in investigated (not a bug)
 
 - **`pb-24`/`pb-32` was a flat guess, not a derived clearance.** 14 scrollable pages padded their

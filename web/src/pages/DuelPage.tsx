@@ -10,6 +10,8 @@ import { useMultiplayerSignaling } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
 import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_DUEL_RULES, DUEL_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
 import { RoomRulesPanel } from '@/components/multiplayer/RoomRulesPanel';
+import { RoomVisibilityToggle } from '@/components/multiplayer/RoomVisibilityToggle';
+import { RoomJoinByCode } from '@/components/multiplayer/RoomJoinByCode';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
@@ -601,16 +603,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
 
               <div className="w-full max-w-xs flex flex-col gap-2">
                 <RoomRulesPanel rules={rules} onChange={setRules} roundsOptions={DUEL_ROUNDS_OPTIONS} />
-                <div className="flex bg-z-card border border-white/10 rounded-2xl p-1">
-                  <button onClick={() => setVisibility('private')}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'private' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
-                    🔒 Private
-                  </button>
-                  <button onClick={() => setVisibility('public')}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'public' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
-                    🌐 Public
-                  </button>
-                </div>
+                <RoomVisibilityToggle visibility={visibility} onChange={setVisibility} />
                 <Button onClick={() => createRoom()} fullWidth>
                   Create Room
                 </Button>
@@ -623,20 +616,12 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
               </motion.button>
               {codeError && <p className="text-center text-z-red text-xs -mt-3">{codeError}</p>}
 
-              <div className="w-full max-w-xs">
-                <p className="text-center text-z-gray-400 text-sm mb-2">— or join with a code —</p>
-                <div className="flex gap-2">
-                  <label htmlFor="duel-join-code" className="sr-only">Room code</label>
-                  <input id="duel-join-code" value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setCodeError(''); }}
-                    placeholder="XXXXXX" maxLength={6} inputMode="text" autoCapitalize="characters" autoCorrect="off" spellCheck={false}
-                    className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:border-z-purple/60" />
-                  <motion.button onClick={() => joinRoom()} disabled={!joinCode.trim()}
-                    className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                    whileTap={{ scale: 0.96 }}>
-                    Join
-                  </motion.button>
-                </div>
-              </div>
+              <RoomJoinByCode
+                id="duel-join-code"
+                value={joinCode}
+                onChange={(v) => { setJoinCode(v); setCodeError(''); }}
+                onJoin={() => joinRoom()}
+              />
             </motion.div>
           )}
 

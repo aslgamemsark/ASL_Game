@@ -10,6 +10,8 @@ import { useMultiplayerSignaling } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
 import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_ROOM_RULES, ROOM_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
 import { RoomRulesPanel } from '@/components/multiplayer/RoomRulesPanel';
+import { RoomVisibilityToggle } from '@/components/multiplayer/RoomVisibilityToggle';
+import { RoomJoinByCode } from '@/components/multiplayer/RoomJoinByCode';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
@@ -545,16 +547,7 @@ export function RoomPage({ onExit }: Props) {
               </div>
               <div className="w-full max-w-xs flex flex-col gap-2">
                 <RoomRulesPanel rules={rules} onChange={setRules} roundsOptions={ROOM_ROUNDS_OPTIONS} roundsLabel="Rounds each" />
-                <div className="flex bg-z-card border border-white/10 rounded-2xl p-1">
-                  <button onClick={() => setVisibility('private')}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'private' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
-                    🔒 Private
-                  </button>
-                  <button onClick={() => setVisibility('public')}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'public' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
-                    🌐 Public
-                  </button>
-                </div>
+                <RoomVisibilityToggle visibility={visibility} onChange={setVisibility} />
                 <Button onClick={() => void createRoom()} fullWidth>
                   Create Room
                 </Button>
@@ -567,20 +560,12 @@ export function RoomPage({ onExit }: Props) {
               </motion.button>
               {codeError && <p className="text-center text-z-red text-xs -mt-3">{codeError}</p>}
 
-              <div className="w-full max-w-xs">
-                <p className="text-center text-z-gray-400 text-sm mb-2">— or join with a code —</p>
-                <div className="flex gap-2">
-                  <label htmlFor="room-join-code" className="sr-only">Room code</label>
-                  <input id="room-join-code" value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setCodeError(''); }}
-                    placeholder="XXXXXX" maxLength={6} inputMode="text" autoCapitalize="characters" autoCorrect="off" spellCheck={false}
-                    className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:border-z-purple/60" />
-                  <motion.button onClick={() => void joinRoom()} disabled={!joinCode.trim()}
-                    className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                    whileTap={{ scale: 0.96 }}>
-                    Join
-                  </motion.button>
-                </div>
-              </div>
+              <RoomJoinByCode
+                id="room-join-code"
+                value={joinCode}
+                onChange={(v) => { setJoinCode(v); setCodeError(''); }}
+                onJoin={() => void joinRoom()}
+              />
             </motion.div>
           )}
 
