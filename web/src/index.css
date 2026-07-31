@@ -302,6 +302,13 @@
 @utility bg-gradient-urgent {
   background: linear-gradient(90deg, var(--color-z-red), var(--color-z-orange));
 }
+/* Streak progress bar FILL (distinct from bg-gradient-streak, which is that card's background).
+   Was the codebase's last inline `style={{ background: linear-gradient(...) }}` — named here so
+   every gradient lives in one file and the ProgressBar primitive can take it as a class like
+   every other fill. */
+@utility bg-gradient-flame {
+  background: linear-gradient(90deg, var(--color-z-orange), var(--color-z-orange-bright));
+}
 @utility bg-gradient-locked {
   background: linear-gradient(135deg,
     color-mix(in srgb, var(--color-z-purple-deep) 60%, black),

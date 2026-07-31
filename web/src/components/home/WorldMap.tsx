@@ -5,6 +5,7 @@ import { WORLDS, WORLD_UNLOCK_GOLD_COST } from '@/data/worlds';
 import { LESSON_UNITS, LESSON_SKIP_COST } from '@/data/lessons';
 import { STORIES } from '@/data/stories';
 import { Zippy } from '@/components/shared/Zippy';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 
 // Maps a world's unlockCondition (a raw story/lesson id like "coffee-story") to a real display
 // title. The previous code did `unlockCondition.replace(/-/g, ' ')`, which for "greetings-story"
@@ -136,14 +137,13 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
               <span>{done}/{total} lessons</span>
               <span>{total > 0 ? Math.round((done / total) * 100) : 0}%</span>
             </div>
-            <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-white/70"
-                initial={{ width: 0 }}
-                animate={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
-              />
-            </div>
+            <ProgressBar
+              value={done / total}
+              label={`${selectedWorld.title}: ${done} of ${total} lessons complete`}
+              size="xs"
+              fillClassName="bg-white/70"
+              trackClassName="bg-black/30"
+            />
           </div>
         </motion.div>
 
@@ -327,14 +327,14 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                   <span>{done} of {total} lessons</span>
                   <span>{Math.round(pct)}%</span>
                 </div>
-                <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full bg-white/65"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={{ duration: 0.8, ease: 'easeOut', delay: i * 0.1 + 0.2 }}
-                  />
-                </div>
+                <ProgressBar
+                  value={pct / 100}
+                  label={`${world.title}: ${done} of ${total} lessons complete`}
+                  size="xs"
+                  fillClassName="bg-white/65"
+                  trackClassName="bg-black/30"
+                  transition={{ duration: 0.8, ease: 'easeOut', delay: i * 0.1 + 0.2 }}
+                />
               </div>
             </motion.button>
           );

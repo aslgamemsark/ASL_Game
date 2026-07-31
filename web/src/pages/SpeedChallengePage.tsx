@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 import { useCamera } from '@/hooks/useCamera';
 import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
 import { useSounds } from '@/hooks/useSounds';
@@ -393,16 +394,18 @@ export function SpeedChallengePage({ onExit }: Props) {
                     {timeLeft.toFixed(1)}s
                   </span>
                 </div>
-                <div className="h-2.5 bg-z-surface rounded-full overflow-hidden">
-                  <motion.div
-                    // Reuses the tier's own gradient class so the timer bar and the tier card that
-                    // launched it are the same colour by construction, then switches to the shared
-                    // urgency gradient under 40%.
-                    className={`h-full rounded-full ${timerPercent > 40 ? config.gradient : 'bg-gradient-urgent'}`}
-                    style={{ width: `${timerPercent}%` }}
-                    transition={{ duration: 0.08 }}
-                  />
-                </div>
+                {/* Reuses the tier's own gradient class so the timer bar and the tier card that
+                    launched it are the same colour by construction, then switches to the shared
+                    urgency gradient under 40%. Was a plain `style={{ width }}` — updated on every
+                    countdown tick with no animation (transition had no effect on a style prop) and
+                    forced a layout reflow each time; ProgressBar's scaleX fixes both. */}
+                <ProgressBar
+                  value={timerPercent / 100}
+                  label={`Time remaining: ${timeLeft.toFixed(1)} seconds`}
+                  size="md"
+                  fillClassName={timerPercent > 40 ? config.gradient : 'bg-gradient-urgent'}
+                  transition={{ duration: 0.08 }}
+                />
               </div>
 
               {/* Sign prompt */}

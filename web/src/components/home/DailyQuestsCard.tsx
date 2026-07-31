@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUserStore } from '@/stores/useUserStore';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 
 const DIFF_STYLE = {
   easy:   { text: 'text-z-green',  bg: 'bg-z-green/15'  },
@@ -108,14 +109,15 @@ export function DailyQuestsCard() {
 
               {/* Progress row */}
               <div className="flex items-center gap-3">
-                <div className="flex-1 h-1.5 bg-z-gray-500/40 rounded-full overflow-hidden">
-                  <motion.div
-                    className={`h-full rounded-full ${quest.claimed ? 'bg-z-green' : 'bg-gradient-primary'}`}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct * 100}%` }}
-                    transition={{ duration: 0.65, ease: 'easeOut', delay: 0.2 + i * 0.07 }}
-                  />
-                </div>
+                <ProgressBar
+                  value={pct}
+                  label={`${quest.title}: ${quest.progress} of ${quest.target}`}
+                  size="xs"
+                  fillClassName={quest.claimed ? 'bg-z-green' : 'bg-gradient-primary'}
+                  trackClassName="bg-z-gray-500/40"
+                  transition={{ duration: 0.65, ease: 'easeOut', delay: 0.2 + i * 0.07 }}
+                  className="flex-1"
+                />
                 <span className="text-2xs text-z-gray-400 whitespace-nowrap tabular-nums">
                   {quest.progress}/{quest.target}
                 </span>

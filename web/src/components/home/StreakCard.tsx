@@ -1,6 +1,7 @@
 import { useUserStore, todayStr } from '@/stores/useUserStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zippy } from '@/components/shared/Zippy';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 
 const MILESTONES = [7, 30, 100];
 
@@ -113,15 +114,14 @@ export function StreakCard() {
               {todaysMinutes}/{dailyGoalMinutes} min
             </span>
           </div>
-          <div className="h-2.5 bg-white/15 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full rounded-full"
-              style={{ background: 'linear-gradient(90deg, var(--color-z-orange), var(--color-z-orange-bright))' }}
-              initial={{ width: 0 }}
-              animate={{ width: `${progress * 100}%` }}
-              transition={{ duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.3 }}
-            />
-          </div>
+          <ProgressBar
+            value={progress}
+            label={`Today's goal: ${todaysMinutes} of ${dailyGoalMinutes} minutes`}
+            size="md"
+            fillClassName="bg-gradient-flame"
+            trackClassName="bg-white/15"
+            transition={{ duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.3 }}
+          />
         </div>
 
         {/* Footer: next milestone */}

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import type { ParamScore } from '@/engine/verifier';
 import { Anchor, PalmFacing, type Sign } from '@/engine/schema';
 import { advanceGateState, initGateState, type GateState } from '@/engine/coachingGate';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 
 const FRIENDLY_NAMES: Record<string, string> = {
   handshape_dominant: 'Hand shape',
@@ -195,19 +196,18 @@ export const ParameterChecklist = memo(function ParameterChecklist({ params, sig
             <p className="text-sm font-semibold text-z-purple-light">Hold the pose…</p>
             <p className="text-xs text-z-gray-400 mt-0.5">Keep still while it locks in</p>
           </div>
-          <div className="w-20 h-2 bg-z-surface rounded-full overflow-hidden">
-            {/* transform: scaleX(), not width — this bar re-targets up to 10x/sec while holding a
-                static sign (see useRecognition.ts's RESULT_UPDATE_INTERVAL_MS), and width is a
-                layout property: every retarget would force a reflow of this row, its siblings, and
-                the flex parent. scaleX is composite-only, same visual result on a fixed-width
-                track (found 2026-07-30). */}
-            <motion.div
-              className="h-full w-full rounded-full bg-z-purple-light origin-left"
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: holdProgress }}
-              transition={{ duration: 0.1, ease: 'linear' }}
-            />
-          </div>
+          {/* transform: scaleX(), not width — this bar re-targets up to 10x/sec while holding a
+              static sign (see useRecognition.ts's RESULT_UPDATE_INTERVAL_MS), and width is a
+              layout property: every retarget would force a reflow of this row, its siblings, and
+              the flex parent. ProgressBar always animates scaleX (found 2026-07-30). */}
+          <ProgressBar
+            value={holdProgress}
+            label="Hold progress"
+            size="sm"
+            fillClassName="bg-z-purple-light"
+            transition={{ duration: 0.1, ease: 'linear' }}
+            className="w-20"
+          />
           <span className="text-xs font-mono w-8 text-right text-z-purple-light">
             {Math.round(holdProgress * 100)}%
           </span>
@@ -260,17 +260,15 @@ export const ParameterChecklist = memo(function ParameterChecklist({ params, sig
               )}
             </div>
 
-            <div className="w-20 h-2 bg-z-surface rounded-full overflow-hidden">
-              {/* transform: scaleX(), not width — see the hold-progress bar's comment above. */}
-              <motion.div
-                className={`h-full w-full rounded-full origin-left ${
-                  cleared ? 'bg-z-green' : confidentFail ? 'bg-z-red' : 'bg-z-purple-light'
-                }`}
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: pct / 100 }}
-                transition={{ duration: 0.3 }}
-              />
-            </div>
+            {/* transform: scaleX(), not width — see the hold-progress bar's comment above. */}
+            <ProgressBar
+              value={pct / 100}
+              label={`${FRIENDLY_NAMES[param.name] || param.name} score`}
+              size="sm"
+              fillClassName={cleared ? 'bg-z-green' : confidentFail ? 'bg-z-red' : 'bg-z-purple-light'}
+              transition={{ duration: 0.3 }}
+              className="w-20"
+            />
 
             <span className={`text-xs font-mono w-8 text-right ${
               cleared ? 'text-z-green' : 'text-z-gray-400'

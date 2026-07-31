@@ -7,6 +7,30 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 8) — Phase 4c: ProgressBar primitive
+
+- **`components/shared/ProgressBar.tsx`** (new) — 12 hand-rolled bars used 4 heights, 5 track
+  colours, **zero** `role="progressbar"`, and animated `width` in 9 of 12 (a layout property —
+  every retarget reflows the bar, its siblings, and its flex parent; `SpeedChallengePage`'s timer
+  bar retargeted on every countdown tick via a plain `style={{ width }}`, where the `transition`
+  prop next to it had never actually done anything — `style` isn't tweened by framer-motion, only
+  `animate` is). One component fixes both: always `scaleX` on a fixed-size track (the mechanism
+  `ParameterChecklist` already used for its two bars, generalized), always a real accessible name
+  and `aria-valuenow`. Colour is a caller-owned prop, not a `variant` enum — it's genuinely semantic
+  per site (red for a failure rate, green for a claimed quest), not drift to consolidate.
+  `clampProgress` (exported, unit-tested) treats non-finite input — a `0/0` from an empty
+  denominator, which several call sites were already manually guarding with a ternary — as empty
+  rather than letting `scaleX: NaN` reach the DOM, where it renders the bar invisible, not empty.
+- **Migrated all 12 sites.** One had the codebase's last inline-`style` gradient
+  (`StreakCard.tsx`); named it `bg-gradient-flame` in `index.css` alongside the other gradient
+  utilities rather than leaving one bar as the sole exception to "gradients are named classes."
+  `UserProfilePage.tsx`'s purple gradient is genuinely distinct from `bg-gradient-primary` (90°
+  vs 135°, different stops) and stays as its own `fillClassName` — not everything sharing a
+  gradient-adjacent look is drift.
+- **Verified:** `tsc -b` clean, 696 unit tests (+3 for `clampProgress`), `oxlint` clean, build
+  clean, full Playwright suite (108 passed, 2 skips, 1 chromium a11y flake that passes clean in
+  isolation — same CPU-contention pattern as parts 3/4/7 above, not a regression).
+
 ## 2026-07-31 (part 7) — Phase 4b: Button primitive
 
 - **`components/shared/Button.tsx`** (new) — 22 `bg-gradient-primary` call sites agreed on the

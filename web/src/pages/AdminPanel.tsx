@@ -6,6 +6,7 @@ import { SHOP_ITEMS } from '@/data/shop';
 import { WORLDS } from '@/data/worlds';
 import { formatAdminDate, formatAdminTimestamp } from '@/lib/formatTimestamp';
 import { useTabListKeyNav } from '@/hooks/useTabListKeyNav';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 
 interface Props {
   onExit: () => void;
@@ -251,12 +252,13 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
             {metrics.top_failed_signs.map((s) => (
               <div key={s.sign_id} className="flex items-center gap-2 text-sm">
                 <span className="font-mono font-semibold w-24 shrink-0">{s.sign_id}</span>
-                <div className="flex-1 h-2 bg-z-surface rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-z-red/70 rounded-full"
-                    style={{ width: `${Math.round(s.fail_rate * 100)}%` }}
-                  />
-                </div>
+                <ProgressBar
+                  value={s.fail_rate}
+                  label={`${s.sign_id} fail rate: ${Math.round(s.fail_rate * 100)}%`}
+                  size="sm"
+                  fillClassName="bg-z-red/70"
+                  className="flex-1"
+                />
                 <span className="text-xs text-z-gray-400 w-28 text-right shrink-0">
                   {Math.round(s.fail_rate * 100)}% · {s.failures}/{s.attempts}
                 </span>

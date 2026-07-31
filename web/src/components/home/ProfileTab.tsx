@@ -7,6 +7,7 @@ import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { BadgesSection } from '@/components/home/BadgesSection';
 import { getBadge } from '@/data/badges';
 import { Tooltip } from '@/components/shared/Tooltip';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 import { getRankProgress } from '@/data/ranks';
 import { SHOP_ITEMS, getShopItem } from '@/data/shop';
 import { AvatarGlyph } from '@/components/shared/AvatarGlyph';
@@ -200,14 +201,11 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
                 </div>
               )}
             </div>
-            <div className="h-2 bg-z-surface rounded-full overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-gradient-primary"
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.round(progress * 100)}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
-              />
-            </div>
+            <ProgressBar
+              value={progress}
+              label={next ? `Rank progress: ${rank.name} toward ${next.name}` : `Rank: ${rank.name}, max rank reached`}
+              size="sm"
+            />
             {!next && <p className="text-2xs text-z-yellow text-center mt-2 font-bold">Max rank reached! 🌟</p>}
           </motion.div>
         );

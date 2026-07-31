@@ -9,6 +9,7 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { Zippy } from '@/components/shared/Zippy';
 import { ReportUserModal } from '@/components/shared/ReportUserModal';
 import { Tooltip } from '@/components/shared/Tooltip';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 
 interface Props {
   userId: string;
@@ -184,14 +185,13 @@ export function UserProfilePage({ userId, onExit }: Props) {
                 <span className="text-z-gray-400">{rank.emoji} {rank.name}</span>
                 {next && <span className="text-z-gray-400">{next.emoji} {next.name}</span>}
               </div>
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-z-purple to-z-purple-light"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.round(progress * 100)}%` }}
-                  transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-                />
-              </div>
+              <ProgressBar
+                value={progress}
+                label={next ? `Rank progress: ${rank.name} toward ${next.name}` : `Rank: ${rank.name}, max rank reached`}
+                size="sm"
+                fillClassName="bg-gradient-to-r from-z-purple to-z-purple-light"
+                trackClassName="bg-white/10"
+              />
             </div>
 
             {/* Stats */}
