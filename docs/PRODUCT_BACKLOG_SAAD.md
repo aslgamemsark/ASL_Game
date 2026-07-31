@@ -597,9 +597,11 @@ three device projects), virtualizing lists (every list is already `.limit(50)` o
 merging the Duel/Room state machines (explicit standing decision, unaffected by this pass).
 
 Status:
-In progress — Phases 0–5 and part of Phase 6 shipped and verified (`tsc -b`, `oxlint`, `vitest run`,
-full Playwright across chromium/android/ios, `npm run build`, all green at each commit). Remaining:
-the multiplayer integration-suite decision (blocked, above) and the final release report.
+Shipped 2026-07-31 (Phases 0–5 in full, Phase 6 UI dedup, Phase 7 docs) — 696 unit tests + 118 e2e
+pass across chromium/android/ios, `tsc -b` clean, oxlint clean, production build clean, all green at
+every commit. Full report: `docs/RELEASE_REPORT_2026-07-31_prod-quality-pass.md`. Open: the
+multiplayer integration-suite infrastructure decision (blocked on a human call, see report) and the
+real-device/assistive-tech verification items the report lists — neither blocks this pass shipping.
 
 ---
 

@@ -7,6 +7,21 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 17) — Pass complete: final release report
+
+- **Production-quality hardening pass closes.** `docs/RELEASE_REPORT_2026-07-31_prod-quality-pass.md`
+  written — executive summary, per-phase detail, the three items investigated and correctly declined
+  (TopBar cart pop-in, `ReplayCompare`'s phantom tab bar, `ShopPage`/`SettingsPage`'s absent async
+  ops), what was explicitly evaluated and declined project-wide (`noUncheckedIndexedAccess`, a
+  routing library, jsdom+Testing Library, list virtualization), verification summary, and the open
+  decisions left for the user (multiplayer integration-test infrastructure, a desktop a11y sweep,
+  real-device/AT verification).
+- **`docs/PRODUCT_BACKLOG_SAAD.md` QS-014 Status updated** from "in progress" to "Shipped
+  2026-07-31," pointing at the release report.
+- **Final state:** 23 commits (`00dfdf3`..`a36dcff`) on `prod-quality-pass`, 124 files changed,
+  +2,805/-820 lines. 696 unit tests, 118 e2e tests (chromium/android/ios), `tsc -b`, `oxlint`, and
+  `npm run build` all clean as of the last commit on this branch.
+
 ## 2026-07-31 (part 16) — Phase 6 (partial): multiplayer lobby dedup; integration-suite blocked on a real decision
 
 - **Extracted the two verbatim-duplicated lobby pieces** from `DuelPage.tsx`/`RoomPage.tsx` into
