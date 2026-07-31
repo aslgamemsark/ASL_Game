@@ -7,6 +7,35 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 11) — Phase 4f (close): Sheet primitive; Phase 4 complete
+
+- **`components/shared/Sheet.tsx`** (new) — `FeedbackModal`, `ReportUserModal`, and
+  `LogoutConfirm` each hand-rolled the exact same small-dialog chrome and, unlike `ModalShell`
+  (the pattern for the app's 4 larger auth modals), had neither correctness fix: no `--kb` margin,
+  so `FeedbackModal`'s `<textarea>` and `ReportUserModal`'s form opened *behind* the iOS keyboard;
+  no bottom safe-area padding, so `LogoutConfirm`'s confirm button sat under the home indicator.
+  Both custom properties were already published by `useDialogA11y` while a dialog is active —
+  nothing needed new plumbing, only two lines reading it, same as `ModalShell` already did for
+  `--kb`. Verified against the compiled styles directly (not just visually): with an injected
+  `--sab: 34px`, the sheet's computed `padding-bottom` is `58px` (24px base + 34px inset), correctly
+  additive rather than replacing the base padding — see the `pb-safe`-vs-`p-6` cascade trap noted
+  in `Sheet.tsx`'s own comment, caught before it shipped by checking `ModalShell` had the identical
+  gap while building this.
+  **`ModalShell` got the same bottom-padding fix in the same commit** — same mechanism, same bug,
+  found while confirming `Sheet`'s design was consistent with it.
+- **A real behavioral difference between the three, caught before merging**: `FeedbackModal`/
+  `ReportUserModal` are conditionally mounted by their *parent* (`{show && <FeedbackModal/>}`),
+  which unmounts them instantly regardless of what's inside — their close "animation" was already
+  inert. `LogoutConfirm` is deliberately always-mounted with `open` as an internal prop specifically
+  so `AnimatePresence` can run its exit transition (its own pre-existing comment says so). `Sheet`
+  therefore takes an `open` prop (default `true`) rather than assuming the parent-conditional
+  pattern universally — a naive migration would have silently killed `LogoutConfirm`'s close
+  animation for every user.
+- **Phase 4 (design system primitives) is now complete**: Button, ProgressBar, Card, Skeleton
+  (+ LoadingScreen), Sheet, plus the z-index/type-scale/motion token modules from 4a.
+- **Verified:** `tsc -b` clean, 696 unit tests, `oxlint` clean, build clean, full Playwright suite
+  (105 passed, 2 skips, 4 iOS a11y flakes — same established pattern, pass clean in isolation).
+
 ## 2026-07-31 (part 10) — Phase 4e: LoadingScreen + Skeleton primitives
 
 - **`components/shared/LoadingScreen.tsx`** (new) — `App.tsx` hand-wrote the identical full-page

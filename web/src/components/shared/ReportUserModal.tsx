@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { useDialogA11y } from '@/hooks/useDialogA11y';
-import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { safeTruncate } from '@/lib/text';
+import { Sheet } from '@/components/shared/Sheet';
 
 export type ReportContext = 'leaderboard' | 'friends' | 'multiplayer' | 'profile';
 
@@ -32,7 +31,6 @@ interface Props {
  * (see supabase/schema.sql's user_reports comment).
  */
 export function ReportUserModal({ reporterId, reportedId, reportedUsername, context, onClose }: Props) {
-  const dialog = useDialogA11y({ label: `Report @${reportedUsername}`, onClose });
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [note, setNote] = useState('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
@@ -61,89 +59,71 @@ export function ReportUserModal({ reporterId, reportedId, reportedUsername, cont
   };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-nested-modal bg-black/60 flex items-end sm:items-center justify-center p-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-      >
-        <motion.div
-          ref={dialog.ref}
-          {...dialog.props}
-          className="w-full max-w-sm bg-z-card border border-white/10 rounded-2xl p-5 outline-none"
-          initial={{ opacity: 0, y: 20, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 20, scale: 0.97 }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {status === 'done' ? (
-            <div className="text-center py-4">
-              <p className="text-3xl mb-2">✅</p>
-              <p className="font-bold text-sm">Report submitted</p>
-              <p className="text-z-gray-400 text-xs mt-1">Thanks — we'll take a look.</p>
+    <Sheet ariaLabel={`Report @${reportedUsername}`} onClose={onClose}>
+      {status === 'done' ? (
+        <div className="text-center py-4">
+          <p className="text-3xl mb-2">✅</p>
+          <p className="font-bold text-sm">Report submitted</p>
+          <p className="text-z-gray-400 text-xs mt-1">Thanks — we'll take a look.</p>
+          <button
+            onClick={onClose}
+            className="mt-4 w-full py-2.5 rounded-xl font-bold text-sm bg-z-purple/20 text-z-purple-light"
+          >
+            Close
+          </button>
+        </div>
+      ) : (
+        <>
+          <p className="font-bold text-base">Report @{reportedUsername}</p>
+          <p className="text-z-gray-400 text-xs mt-1 mb-4">
+            Tell us what's wrong with this username. We review reports manually.
+          </p>
+
+          <div className="flex flex-col gap-2 mb-3">
+            {REASONS.map((r) => (
               <button
-                onClick={onClose}
-                className="mt-4 w-full py-2.5 rounded-xl font-bold text-sm bg-z-purple/20 text-z-purple-light"
+                key={r.id}
+                onClick={() => setReason(r.id)}
+                className={`text-left text-sm px-3 py-2.5 rounded-xl border transition-colors ${
+                  reason === r.id
+                    ? 'border-z-purple bg-z-purple/20 text-z-gray-50'
+                    : 'border-z-gray-400/30 text-z-gray-300 hover:border-z-gray-400/50'
+                }`}
               >
-                Close
+                {r.label}
               </button>
-            </div>
-          ) : (
-            <>
-              <p className="font-bold text-base">Report @{reportedUsername}</p>
-              <p className="text-z-gray-400 text-xs mt-1 mb-4">
-                Tell us what's wrong with this username. We review reports manually.
-              </p>
+            ))}
+          </div>
 
-              <div className="flex flex-col gap-2 mb-3">
-                {REASONS.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => setReason(r.id)}
-                    className={`text-left text-sm px-3 py-2.5 rounded-xl border transition-colors ${
-                      reason === r.id
-                        ? 'border-z-purple bg-z-purple/20 text-z-gray-50'
-                        : 'border-z-gray-400/30 text-z-gray-300 hover:border-z-gray-400/50'
-                    }`}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(safeTruncate(e.target.value, MAX_NOTE_LEN))}
+            placeholder="Optional details…"
+            rows={2}
+            className="w-full bg-z-surface border border-z-gray-400/30 rounded-xl px-3 py-2 text-sm text-z-gray-50 placeholder:text-z-gray-400 resize-none"
+          />
 
-              <textarea
-                value={note}
-                onChange={(e) => setNote(safeTruncate(e.target.value, MAX_NOTE_LEN))}
-                placeholder="Optional details…"
-                rows={2}
-                className="w-full bg-z-surface border border-z-gray-400/30 rounded-xl px-3 py-2 text-sm text-z-gray-50 placeholder:text-z-gray-400 resize-none"
-              />
-
-              {status === 'error' && (
-                <p className="text-z-red text-xs mt-2">{errorMsg}</p>
-              )}
-
-              <div className="flex gap-2 mt-4">
-                <button
-                  onClick={onClose}
-                  className="flex-1 py-2.5 rounded-xl font-bold text-sm border border-z-gray-400/30 text-z-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={submit}
-                  disabled={!reason || status === 'submitting'}
-                  className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-z-red/80 text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {status === 'submitting' ? 'Submitting…' : 'Submit report'}
-                </button>
-              </div>
-            </>
+          {status === 'error' && (
+            <p className="text-z-red text-xs mt-2">{errorMsg}</p>
           )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl font-bold text-sm border border-z-gray-400/30 text-z-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submit}
+              disabled={!reason || status === 'submitting'}
+              className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-z-red/80 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {status === 'submitting' ? 'Submitting…' : 'Submit report'}
+            </button>
+          </div>
+        </>
+      )}
+    </Sheet>
   );
 }

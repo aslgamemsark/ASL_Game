@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { useDialogA11y } from '@/hooks/useDialogA11y';
-import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { buildFeedbackPayload, MAX_FEEDBACK_LEN, type FeedbackCategory } from '@/lib/feedback';
 import { safeTruncate } from '@/lib/text';
 import { track } from '@/analytics';
 import { Button } from '@/components/shared/Button';
+import { Sheet } from '@/components/shared/Sheet';
 
 const CATEGORIES: { id: FeedbackCategory; label: string; icon: string; hint: string }[] = [
   { id: 'bug', label: 'Report a bug', icon: '🐞', hint: "Something broke or didn't work" },
@@ -27,7 +26,6 @@ interface Props {
  * same supabase.from(...).insert(...) pattern as ReportUserModal; reads are admin-only via RLS.
  */
 export function FeedbackModal({ page, onClose }: Props) {
-  const dialog = useDialogA11y({ label: 'Send feedback', onClose });
   const { user } = useAuth();
   const [category, setCategory] = useState<FeedbackCategory | null>(null);
   const [message, setMessage] = useState('');
@@ -64,23 +62,7 @@ export function FeedbackModal({ page, onClose }: Props) {
   };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-nested-modal bg-black/60 flex items-end sm:items-center justify-center p-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-      >
-        <motion.div
-          className="w-full max-w-sm bg-z-card border border-white/10 rounded-2xl p-5 outline-none"
-          initial={{ opacity: 0, y: 20, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 20, scale: 0.97 }}
-          onClick={(e) => e.stopPropagation()}
-          ref={dialog.ref}
-          {...dialog.props}
-        >
+    <Sheet ariaLabel="Send feedback" onClose={onClose}>
           {status === 'done' ? (
             <div className="text-center py-4">
               <p className="text-3xl mb-2">🙌</p>
@@ -169,8 +151,6 @@ export function FeedbackModal({ page, onClose }: Props) {
               </div>
             </>
           )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    </Sheet>
   );
 }

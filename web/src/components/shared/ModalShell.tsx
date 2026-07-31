@@ -45,8 +45,12 @@ export function ModalShell({ children, ariaLabel, onClose }: Props) {
           // this every text input in the app (all of them live inside a ModalShell) opens behind it.
           // max-h + overflow-y-auto: no modal in the app had either, so any content taller than the
           // viewport (long forms, CameraOnboarding's bullet list) was simply unreachable/unscrollable.
+          // pb-[calc(...+var(--sab))], not plain `pb-safe`: this card sits flush to the bottom edge
+          // below `sm` (`items-end`), so its own confirm/submit buttons can land under the home
+          // indicator without it — added to the base 1.5rem rather than replacing it (found while
+          // building Sheet.tsx, which shares this exact shape; see that file's longer comment).
           style={{ marginBottom: 'var(--kb, 0px)' }}
-          className="relative w-full max-w-sm max-h-[85dvh] overflow-y-auto bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light"
+          className="relative w-full max-w-sm max-h-[85dvh] overflow-y-auto bg-z-card border border-white/10 rounded-3xl p-6 pb-[calc(1.5rem+var(--sab))] shadow-2xl outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light"
           initial={{ y: 40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 40, opacity: 0 }}
