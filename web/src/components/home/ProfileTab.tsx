@@ -113,7 +113,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
       </motion.div>
 
       {/* Everything that is not a Home learning tab. On a phone this is the ONLY entry point for
-          Leaderboard and Friends (SideNav, their only other caller, is `hidden lg:flex`), and the
+          Leaderboard and Friends (SideNav, their only other caller, is `hidden md:flex`), and the
           primary one for Multiplayer and Settings since trimming BottomNav to five tabs.
 
           Every destination is a labelled card, not an icon: an icon-only affordance is what made

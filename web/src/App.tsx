@@ -331,7 +331,9 @@ export default function App() {
           onSignIn={() => setShowAuth(true)}
         />
       )}
-      <div className={showSideNav ? 'lg:pl-64' : ''}>
+      {/* md:, matching SideNav's own breakpoint (see SideNav.tsx's comment) — must switch at the
+          exact same width the nav itself does, or content sits under empty space (or the nav). */}
+      <div className={showSideNav ? 'md:pl-64' : ''}>
         <Suspense fallback={<LoadingScreen />}>
         <AnimatePresence mode="wait">
           {screen.type === 'onboarding' && (

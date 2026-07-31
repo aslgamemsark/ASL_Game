@@ -235,7 +235,7 @@ test.describe('mobile chaos', () => {
 });
 
 test.describe('safe-area regression', () => {
-  // Pinned to a phone width regardless of project: BottomNav only renders below the `lg` breakpoint
+  // Pinned to a phone width regardless of project: BottomNav only renders below the `md` breakpoint
   // (App.tsx swaps it for SideNav above that), so the desktop `chromium` project's default viewport
   // would otherwise hide the exact element this test needs — matching a11y.spec.ts's precedent.
   test.use({ viewport: { width: 390, height: 844 } });
@@ -255,6 +255,24 @@ test.describe('safe-area regression', () => {
     const after = await nav.evaluate((el) => el.getBoundingClientRect().height);
 
     expect(after, 'BottomNav should grow by the injected safe-area inset').toBeGreaterThan(before);
+  });
+});
+
+test.describe('tablet layout', () => {
+  // 820x1180: iPad Air portrait — squarely in the 768-1023px band that used to fall through to
+  // BottomNav (SideNav was `hidden lg:flex`, a 1024px floor) despite comfortably fitting SideNav's
+  // own w-64 content. Fixed 2026-07-31 by moving the switch to `md:` (768px) on both SideNav and
+  // its two dependents (HomePage's BottomNav wrapper, TopBar's wordmark visibility) — this locks
+  // that in.
+  test.use({ viewport: { width: 820, height: 1180 } });
+
+  test('SideNav renders instead of BottomNav in the tablet band (768-1023px)', async ({ page }) => {
+    await reachHome(page);
+    await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible();
+    // BottomNav is the OTHER "Main" nav landmark and stays mounted in the DOM (its wrapper is
+    // `md:hidden`, a CSS display:none — not conditional rendering), so a presence check
+    // (toHaveCount) can't distinguish them; assert visibility instead.
+    await expect(page.locator('[class*="fixed bottom-0"]')).toBeHidden();
   });
 });
 

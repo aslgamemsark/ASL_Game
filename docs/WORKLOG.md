@@ -7,6 +7,29 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 14) — Phase 5 (cont.): tablet layout — the 768-1023px dead zone
+
+- **Tablets in portrait landed on the phone nav.** `SideNav` was `hidden lg:flex` (1024px floor);
+  every device from 768px up to just under 1024px — most iPads short of an old-format 12.9" Pro,
+  which is already ≥1024px — fell through to `BottomNav`, clustering its content into a ~512px
+  island inside a much wider bar (design-system audit, 2026-07-31). `SideNav`'s own content
+  (`w-64`, 256px) fits comfortably at 768px; the constraint was the breakpoint choice, not the
+  layout. Moved the switch to `md:` (768px) on `SideNav` itself.
+- **Two dependents had to move with it, or the fix creates a worse bug than it fixes**:
+  `App.tsx`'s `lg:pl-64` page-padding class (main content would sit under empty space, or under
+  `SideNav` itself, in the gap between the two breakpoints if left at `lg:`), and `TopBar`'s
+  `lg:sr-only` wordmark visibility — at `lg:`, both `TopBar`'s "QuickSign" wordmark and `SideNav`'s
+  own brand mark would render **visibly at once** across the whole 768-1023px band. Both moved to
+  `md:` in the same commit as `SideNav`, verified together rather than shipped one at a time.
+  Updated 3 now-stale code comments (`ProfileTab.tsx`, `HomePage.tsx`, `mobile.spec.ts`) that
+  still said `hidden lg:flex` after the breakpoint moved.
+- **New e2e test** (`mobile.spec.ts`, `820x1180` — iPad Air portrait) locks in the fix: asserts
+  `SideNav` visible and `BottomNav` hidden in the tablet band. First attempt asserted `toHaveCount(0)`
+  on `BottomNav`'s DOM node and failed — `md:hidden` is a CSS `display:none` on the wrapper, not
+  conditional unmounting, so the node is still present; fixed to assert `toBeHidden()` instead.
+- **Verified:** `tsc -b` clean, 696 unit tests, `oxlint` clean, build clean, full Playwright suite
+  (113 passed, 2 skips, 2 iOS a11y flakes that pass clean in isolation — same established pattern).
+
 ## 2026-07-31 (part 13) — Phase 5 (cont.): SpeedChallengePage camera-failure gap
 
 - **`SpeedChallengePage.startGame` `await`ed `startCam()` and never checked its result.** `useCamera`

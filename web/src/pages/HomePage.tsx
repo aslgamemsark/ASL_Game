@@ -44,7 +44,7 @@ interface Props {
   onRequireSignIn: () => void;
   onSettings: () => void;
   /** Leaderboard and Friends are top-level screens whose only other entry point is SideNav, which
-   *  is `hidden lg:flex` — so without these the two screens are unreachable on every phone. They
+   *  is `hidden md:flex` — so without these the two screens are unreachable on every phone. They
    *  surface on the profile tab rather than in BottomNav, which is already at eight items. */
   onOpenLeaderboard: () => void;
   onOpenFriends: () => void;
@@ -247,7 +247,9 @@ export function HomePage({
         </AnimatePresence>
       </div>
 
-      <div className="lg:hidden">
+      {/* md:, matching SideNav's own breakpoint (see that file's comment) — the two must switch at
+          the exact same width or there's a band where neither renders, or both do. */}
+      <div className="md:hidden">
         <BottomNav active={tab} onChange={setTab} />
       </div>
     </div>

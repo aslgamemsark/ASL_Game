@@ -68,8 +68,14 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
 
   return (
     // <nav>, not <aside>: this is primary navigation, not complementary content — same landmark
-    // reasoning as BottomNav, which owns the equivalent role below the `lg` breakpoint.
-    <nav aria-label="Main" className="hidden lg:flex fixed left-0 top-0 h-dvh w-64 flex-col py-6 px-4 bg-z-card border-r border-white/5 z-chrome">
+    // reasoning as BottomNav, which owns the equivalent role below the `md` breakpoint.
+    //
+    // `md:` (768px), not `lg:` (1024px): tablets in portrait (768-1023px — most iPads short of an
+    // old-format 12.9" Pro, which is already >=1024px) were landing on the phone BottomNav instead,
+    // its 8 items clustered into a ~512px island inside a much wider bar (768-1024px dead zone,
+    // design-system audit 2026-07-31). This nav's own content (w-64, 256px) fits comfortably at
+    // 768px — the constraint was the arbitrary breakpoint choice, not the layout itself.
+    <nav aria-label="Main" className="hidden md:flex fixed left-0 top-0 h-dvh w-64 flex-col py-6 px-4 bg-z-card border-r border-white/5 z-chrome">
       <div className="flex items-center gap-2 px-2 mb-8 shrink-0">
         <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
           <img src="/pwa-192x192.png" alt="" className="w-full h-full object-cover" />

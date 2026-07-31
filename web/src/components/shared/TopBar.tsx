@@ -95,11 +95,12 @@ export function TopBar({ onOpenShop, onOpenProfile, profileLabel = 'My Profile' 
             </motion.button>
             {/* TopBar renders only on HomePage, so this doubles as the page's <h1> — the
                 individual tabs (Worlds, Basic Signs, Review, Explore) already carry their own
-                <h2>, leaving no other page-level heading. `lg:sr-only` (not `lg:hidden`) so it
-                stays in the accessibility tree at desktop widths, where SideNav's own brand
-                mark takes over the visual role. */}
+                <h2>, leaving no other page-level heading. `md:sr-only` (not `md:hidden`) so it
+                stays in the accessibility tree once SideNav takes over the visual role — `md:`,
+                matching SideNav's own breakpoint (see SideNav.tsx's comment), not `lg:`: at `lg:`
+                both brand marks would render visibly at once across the 768-1023px tablet band. */}
             <h1
-              className="font-bold text-xl tracking-tight lg:sr-only text-gradient-brand"
+              className="font-bold text-xl tracking-tight md:sr-only text-gradient-brand"
             >QuickSign</h1>
           </div>
 
