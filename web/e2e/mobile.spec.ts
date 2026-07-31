@@ -256,6 +256,26 @@ test.describe('safe-area regression', () => {
 
     expect(after, 'BottomNav should grow by the injected safe-area inset').toBeGreaterThan(before);
   });
+
+  // 14 scrollable pages padded their last row with a flat pb-24/pb-32 guess (design-system audit,
+  // 2026-07-31) — pb-24 (96px) covered BottomNav's 80px rest height but not its safe-area-grown
+  // 114px, under-clearing by 18px on exactly the home-indicator phones it was meant to protect.
+  // Both replaced with index.css's derived `pb-nav-clear`; this locks the derivation in.
+  test('pb-nav-clear covers BottomNav\'s actual (safe-area-grown) height', async ({ page }) => {
+    await reachHome(page);
+    await page.evaluate(() => document.documentElement.style.setProperty('--sab', '34px'));
+    await page.waitForTimeout(100);
+
+    const navHeight = await page.locator('[class*="fixed bottom-0"]').first()
+      .evaluate((el) => el.getBoundingClientRect().height);
+
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first().click();
+    const paddingBottom = await page.locator('.pb-nav-clear').first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).paddingBottom));
+
+    expect(paddingBottom, 'pb-nav-clear must clear the safe-area-grown BottomNav, not just its rest height')
+      .toBeGreaterThanOrEqual(navHeight);
+  });
 });
 
 test.describe('tablet layout', () => {

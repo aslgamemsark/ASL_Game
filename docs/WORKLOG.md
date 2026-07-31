@@ -7,6 +7,50 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 15) — Phase 5 (close): bottom-nav clearance derivation; TopBar cart pop-in investigated (not a bug)
+
+- **`pb-24`/`pb-32` was a flat guess, not a derived clearance.** 14 scrollable pages padded their
+  last row with one of two hardcoded values against `BottomNav`'s actual footprint. Measured
+  `BottomNav` directly: 80px rest height, growing to 114px with a safe-area inset injected
+  (`--sab: 34px`, matching a home-indicator phone). `pb-24` (96px) covers the 80px rest case but
+  under-clears the safe-area-grown 114px case by 18px — on exactly the devices (home-indicator
+  phones) the padding existed to protect. `pb-32` (128px) happened to cover the worst case for no
+  derived reason, and disagreed with `pb-24` for no reason either — same bar, two different guesses.
+- **Fix: one derived CSS value, sharing the same safe-area primitive `BottomNav` itself reads**
+  (`index.css`): `--bottom-nav-height: 80px` (named, with a comment stating it's measured against
+  the shipped markup and must be updated if `BottomNav`'s own icon/label/padding sizing changes)
+  plus `.pb-nav-clear { padding-bottom: calc(var(--bottom-nav-height) + var(--sab)); }`. Reading
+  `--sab` — the same custom property `BottomNav`'s own `pb-safe` reads — means the two can't drift
+  apart from having two independent guesses about the safe-area component; if the device's inset
+  changes, both `BottomNav`'s height and the page's clearance grow together automatically.
+  Bulk-migrated all 14 sites (`AlphabetTab.tsx`, `BasicSignsTab.tsx`, `PracticeTab.tsx`,
+  `ProfileTab.tsx`, `WorldMap.tsx` ×2, `AdminPanel.tsx`, `FriendsPage.tsx`, `LeaderboardPage.tsx`,
+  `PrivacyPage.tsx`, `SettingsPage.tsx`, `ShopPage.tsx`, `UserProfilePage.tsx`) from `pb-24`/`pb-32`
+  to `pb-nav-clear`; confirmed no stragglers via `grep -rn "pb-24\|pb-32" src`.
+- **New permanent e2e regression** (`mobile.spec.ts`, `safe-area regression` block): injects
+  `--sab: 34px`, measures `BottomNav`'s actual rendered height, then asserts `pb-nav-clear`'s
+  computed `padding-bottom` is `>= navHeight` on a page using it — locks in the derivation itself,
+  not just today's pixel values, so a future change to `BottomNav`'s markup that grows its height
+  without updating `--bottom-nav-height` fails the test instead of silently under-clearing again.
+  Verified via a throwaway debug script before writing the permanent test: computed
+  `padding-bottom` = 114px, exactly matching `BottomNav`'s measured worst-case height.
+- **Investigated, not a bug: TopBar cart pop-in.** The plan's original audit claimed the cart
+  button (`TopBar.tsx`) "pops in after first paint" because its horizontal position is JS-measured
+  (`useLayoutEffect` + `ResizeObserver` reading `goldRef`/`headerRef`) and gated at `opacity: 0`
+  until that measurement lands. Sampled `getComputedStyle(el).opacity` every ~60ms from the first
+  interactive frame, both on cold start and after `BottomNav` tab navigation (two separate debug
+  scripts): opacity was `1` on every single sample in both cases, no flash observed. `useLayoutEffect`
+  runs synchronously before the browser paints, which is exactly why: the measurement is already
+  resolved before anything is shown, so the described failure mode doesn't hold under direct
+  measurement. No code change made. Matches this session's established pattern of verifying plan
+  items empirically before touching code (cf. `ReplayCompare`'s phantom 4th tab bar,
+  `ShopPage`/`SettingsPage`'s absent async operations, both part 13/12).
+- **Verified:** `tsc -b` clean, `oxlint` clean, 696 unit tests, `npm run build` clean, full
+  Playwright suite — 118 passed, 2 skipped, exit 0, zero flakes this run.
+- **Phase 5 is now closed.** Next: Phase 6 (multiplayer UI dedup — join-code input and
+  private/public segmented control duplicated verbatim between `DuelPage.tsx`/`RoomPage.tsx` — then
+  the multiplayer integration test suite; state machines stay frozen per the standing decision).
+
 ## 2026-07-31 (part 14) — Phase 5 (cont.): tablet layout — the 768-1023px dead zone
 
 - **Tablets in portrait landed on the phone nav.** `SideNav` was `hidden lg:flex` (1024px floor);

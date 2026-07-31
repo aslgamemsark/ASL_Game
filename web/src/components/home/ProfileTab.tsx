@@ -74,7 +74,7 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
   const bestSpeed = Object.entries(speedHighScores).reduce<{ tier: string; score: number } | null>((best, [tier, hs]) => (!best || hs.score > best.score) ? { tier, score: hs.score } : best, null);
 
   return (
-    <div className="px-4 pb-24">
+    <div className="px-4 pb-nav-clear">
       {/* Auth banner */}
       <motion.div className="mb-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         {user ? (

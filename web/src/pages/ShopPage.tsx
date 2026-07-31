@@ -97,7 +97,7 @@ export function ShopPage({ onExit }: Props) {
       </div>
 
       {/* Category sections */}
-      <div className="flex-1 max-w-3xl mx-auto w-full px-4 pt-6 pb-24 overflow-y-auto">
+      <div className="flex-1 max-w-3xl mx-auto w-full px-4 pt-6 pb-nav-clear overflow-y-auto">
         {SECTIONS.map((section) => {
           const items = SHOP_ITEMS.filter((i) => i.type === section.type);
           if (items.length === 0) return null;

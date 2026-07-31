@@ -29,7 +29,7 @@ export function AlphabetTab({ onStartLettersPractice, onTestMemory }: Props) {
   const quizSize = Math.min(QUIZ_SIZE, PRACTICEABLE_LETTER_IDS.length);
 
   return (
-    <div className="px-4 pb-24">
+    <div className="px-4 pb-nav-clear">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <h2 className="text-2xl font-bold mb-1 tracking-tight">Alphabet</h2>
         <p className="text-z-gray-300 text-sm mb-4">

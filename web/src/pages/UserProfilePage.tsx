@@ -135,7 +135,7 @@ export function UserProfilePage({ userId, onExit }: Props) {
         )}
       </div>
 
-      <div className="max-w-lg mx-auto px-4 pt-6 pb-24">
+      <div className="max-w-lg mx-auto px-4 pt-6 pb-nav-clear">
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-16">
             <Skeleton className="w-24 h-24 rounded-full" />

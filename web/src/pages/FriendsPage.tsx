@@ -336,7 +336,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
         )}
       </div>
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-4 pt-4 pb-24 space-y-6">
+      <div className="flex-1 max-w-lg mx-auto w-full px-4 pt-4 pb-nav-clear space-y-6">
 
         {/* Search */}
         <div>

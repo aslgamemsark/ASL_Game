@@ -14,7 +14,7 @@ export function PrivacyPage({ onExit }: Props) {
       </div>
 
       <motion.div
-        className="max-w-lg mx-auto px-4 pt-6 pb-24 space-y-6 text-sm text-z-gray-300 leading-relaxed"
+        className="max-w-lg mx-auto px-4 pt-6 pb-nav-clear space-y-6 text-sm text-z-gray-300 leading-relaxed"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
       >

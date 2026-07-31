@@ -16,7 +16,7 @@ export function BasicSignsTab({ onStartSignsPractice, onTestMemory }: Props) {
   const sounds = useSounds();
 
   return (
-    <div className="px-4 pb-24">
+    <div className="px-4 pb-nav-clear">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <h2 className="text-2xl font-bold mb-1 tracking-tight">Basic Signs</h2>
         <p className="text-z-gray-300 text-sm mb-4">

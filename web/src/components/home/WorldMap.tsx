@@ -106,7 +106,7 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
     const { done, total } = getWorldProgress(selectedWorld);
 
     return (
-      <div className="pb-32">
+      <div className="pb-nav-clear">
         {/* Back + world header */}
         <motion.div
           className="mb-6"
@@ -228,7 +228,7 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
   }
 
   return (
-    <div className="pb-32">
+    <div className="pb-nav-clear">
       <AnimatePresence>
         <motion.div
           initial={{ opacity: 0, y: 10 }}

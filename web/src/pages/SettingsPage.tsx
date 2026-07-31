@@ -53,7 +53,7 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
         <h1 className="font-bold text-lg flex-1">Settings</h1>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 pt-6 pb-24 space-y-5">
+      <div className="max-w-lg mx-auto px-4 pt-6 pb-nav-clear space-y-5">
         {/* Appearance */}
         <motion.div className="bg-z-card border border-white/5 rounded-2xl p-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <h2 className="font-bold text-sm mb-4 text-z-gray-300 uppercase tracking-wide">Appearance</h2>

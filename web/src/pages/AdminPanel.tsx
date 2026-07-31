@@ -130,7 +130,7 @@ export function AdminPanel({ onExit }: Props) {
         ))}
       </div>
 
-      <div role="tabpanel" id={`admin-panel-${tab}`} aria-labelledby={`admin-tab-${tab}`} className="flex-1 max-w-2xl mx-auto w-full px-4 pt-6 pb-24">
+      <div role="tabpanel" id={`admin-panel-${tab}`} aria-labelledby={`admin-tab-${tab}`} className="flex-1 max-w-2xl mx-auto w-full px-4 pt-6 pb-nav-clear">
         {tab === 'beta' && <BetaTab showToast={showToast} />}
         {tab === 'analytics' && (
           <Suspense fallback={<p className="text-sm text-z-gray-400">Loading…</p>}>

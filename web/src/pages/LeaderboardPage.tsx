@@ -490,7 +490,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
         <span className="text-2xl">🏆</span>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 pt-5 pb-24">
+      <div className="max-w-lg mx-auto px-4 pt-5 pb-nav-clear">
         {/* Tab bar */}
         <div role="tablist" aria-label="Leaderboard scope" className="flex bg-z-surface/50 rounded-xl p-1 mb-5 gap-1">
           {TABS.map((t, i) => (

@@ -357,6 +357,22 @@
 .pl-safe { padding-left: var(--sal); }
 .pr-safe { padding-right: var(--sar); }
 
+/* BottomNav's rendered content height (icon + label + its own vertical padding) — measured
+   2026-07-31 against the shipped markup, not itself derived from a formula, since icon size/
+   label line-height/gap aren't expressed as named tokens. 14 scrollable pages padded their last
+   row with a flat `pb-24`/`pb-32` guess at "enough to clear the bar" (design-system audit,
+   2026-07-31): `pb-24` (96px) covers BottomNav's 80px rest height but not its safe-area-grown
+   114px (80px + a 34px inset, via the bar's own `pb-safe`) — under-clearing by 18px on exactly
+   the devices (home-indicator phones) this was supposed to protect. `pb-32` (128px) happened to
+   cover the worst case but for no derived reason. One named clearance value, combined with the
+   SAME --sab BottomNav's own pb-safe already reads, so the two can't drift apart from having two
+   independent guesses about the safe-area component. Update this number if BottomNav's own
+   padding/icon/label sizing changes. */
+:root {
+  --bottom-nav-height: 80px;
+}
+.pb-nav-clear { padding-bottom: calc(var(--bottom-nav-height) + var(--sab)); }
+
 body {
   margin: 0;
   background-color: var(--rt-body-bg);

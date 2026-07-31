@@ -129,7 +129,7 @@ export function PracticeTab({ onStartPractice, onStartWeakPractice }: Props) {
     .map(([id]) => id);
 
   return (
-    <div className="px-4 pb-24">
+    <div className="px-4 pb-nav-clear">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
