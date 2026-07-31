@@ -7,6 +7,36 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 12) — Phase 5 (start): offline handling
+
+- **`navigator.onLine`/`online`/`offline` had zero consumers anywhere in the app** (audit,
+  2026-07-31) despite the PWA shell being precached: offline, the app loads and renders perfectly,
+  then every network feature (Leaderboard, Friends, progress sync, ...) fails as a generic,
+  unexplained error — while the lesson/practice/story loop, whose recognition models are
+  `CacheFirst`, genuinely still works, which the same undifferentiated error obscures.
+  Added `useOnlineStatus()` (`useSyncExternalStore` over the two DOM events) and a single
+  `OfflineBanner`, mounted once near `App.tsx`'s root, answering "why is everything broken?" for
+  the whole app in one place rather than each screen inventing its own guess.
+- **A real ARIA accessible-name gotcha, caught by the e2e test rather than assumed away**:
+  `role="status"` is a live-region role, and per the accname spec its accessible NAME is not
+  computed from text content the way an interactive element's is — `getByRole('status', {name:
+  /offline/i})` reported "element(s) not found" even with the banner's exact text confirmed present
+  via `.allTextContents()`. Diagnosed by comparing a raw text dump against the role-query failure,
+  not by guessing; fixed with an explicit (redundant-looking but load-bearing) `aria-label`,
+  matching the same pattern `TopBar`'s pills already use for the same reason.
+  Also found mid-debugging: `context.setOffline()` genuinely flips `navigator.onLine` and fires the
+  real DOM events itself in Chromium — confirmed directly rather than assumed, since an earlier
+  draft of the test dispatched a redundant synthetic `Event('offline')` that turned out unnecessary.
+- **Per-surface offline UX** (auto-retry when back online, disabling retry buttons while offline)
+  for Leaderboard/Friends/UserProfile/Duel/Room is **not done in this pass** — the global banner is
+  the higher-leverage fix the audit's own reasoning points at ("nothing tells the user *why*"), and
+  those screens already have their own generic error+retry UI that remains functionally correct
+  once the banner explains the cause. A natural follow-up, not scoped into this commit.
+- **Verified:** `tsc -b` clean, 696 unit tests, `oxlint` clean, build clean. New e2e test
+  (`mobile.spec.ts`) asserts the banner appears on `context.setOffline(true)` and clears on
+  `setOffline(false)`, stress-tested 3x. Full suite: 108 passed, 2 skips, 4 a11y flakes (chromium +
+  iOS) that all pass clean in isolation — the same established pattern.
+
 ## 2026-07-31 (part 11) — Phase 4f (close): Sheet primitive; Phase 4 complete
 
 - **`components/shared/Sheet.tsx`** (new) — `FeedbackModal`, `ReportUserModal`, and

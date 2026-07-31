@@ -206,6 +206,20 @@ test.describe('mobile chaos', () => {
     }
   });
 
+  test('offline banner appears while offline and clears once back online', async ({ page, context }) => {
+    await reachHome(page);
+    await expect(page.getByRole('status', { name: /offline/i })).not.toBeVisible();
+    // context.setOffline flips navigator.onLine and fires the real online/offline events itself —
+    // confirmed directly (2026-07-31): no synthetic dispatch needed or wanted.
+    await context.setOffline(true);
+    try {
+      await expect(page.getByRole('status', { name: /offline/i })).toBeVisible();
+    } finally {
+      await context.setOffline(false);
+    }
+    await expect(page.getByRole('status', { name: /offline/i })).not.toBeVisible();
+  });
+
   test('opening and interrupting a dialog (rapid open/Escape) leaves no stuck overlay', async ({ page }) => {
     await reachHome(page);
     await openFromProfileHub(page, 'Settings');

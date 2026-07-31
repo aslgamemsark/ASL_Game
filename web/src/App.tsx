@@ -47,6 +47,7 @@ import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
 import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal';
 import { LoadingScreen } from '@/components/shared/LoadingScreen';
 import { CelebrationHost } from '@/components/shared/CelebrationHost';
+import { OfflineBanner } from '@/components/shared/OfflineBanner';
 import { useScreenView } from '@/analytics';
 import { useBackDismiss } from '@/hooks/useBackDismiss';
 
@@ -486,6 +487,8 @@ export default function App() {
       {/* Level-up + badge-earned celebrations. Self-contained: watches the progress store and shows
           its own modal, with a guard against firing on the post-sign-in progress merge. */}
       <CelebrationHost />
+
+      <OfflineBanner />
 
       {/* Always-mounted announcers for the two toasts below, kept separate from the toasts'
           own AnimatePresence-gated divs — see DESIGN.md "Status messages": a live region must
