@@ -31,7 +31,16 @@ const AvatarLabPage = lazy<ComponentType>(() =>
     ? import('@/avatar/viewer/AvatarLabPage').then((m) => ({ default: m.AvatarLabPage as ComponentType }))
     : Promise.resolve({ default: (() => null) as ComponentType })
 );
-const CalibrationPage = lazy(() => import('@/pages/CalibrationPage').then((m) => ({ default: m.CalibrationPage })));
+// Same DEV-only treatment as AvatarLabPage above, and for the same reason. Its render branch is
+// already `import.meta.env.DEV`-gated, but that only eliminates the BRANCH — a plain
+// `lazy(() => import(...))` still emits the chunk, and the PWA plugin then precached it, so every
+// production user downloaded a calibration harness no production code path can reach (found in the
+// 2026-07-31 fresh-eyes audit, one line below the comment explaining this exact failure).
+const CalibrationPage = lazy<ComponentType>(() =>
+  import.meta.env.DEV
+    ? import('@/pages/CalibrationPage').then((m) => ({ default: m.CalibrationPage as ComponentType }))
+    : Promise.resolve({ default: (() => null) as ComponentType })
+);
 import { SideNav, type SideNavScreen } from '@/components/shared/SideNav';
 import { ScreenTransition } from '@/components/shared/ScreenTransition';
 import { STORIES } from '@/data/stories';

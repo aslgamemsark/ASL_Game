@@ -1,5 +1,26 @@
 # Avatar Engine — Architecture
 
+> **Scope note (2026-07-31):** this document covers the **Avatar Engine only** — the dev-only 3D
+> signing avatar under `web/src/avatar/`. It is not, and has never been, the architecture of the
+> shipped app. That is deliberate but was not stated anywhere, so a reader opening the repo's only
+> file called `ARCHITECTURE.md` reasonably expected the whole system and found one subsystem.
+>
+> For the shipped app: `docs/vault/00-Index.md` is the map (an Obsidian vault — open `docs/` as the
+> vault root). For how the recognition engine is structured and the invariants it must hold, the
+> root `CLAUDE.md` is authoritative. For test architecture — what runs where, and why the
+> multiplayer suite needs its own stack — see `docs/MULTIPLAYER_TESTING.md`.
+>
+> **Verification topology, in one place**, since it now spans four runners:
+> - `npx tsc -b` — four TS projects: app, node (vite config), **e2e** (added 2026-07-31; the
+>   Playwright suite had never been typechecked), avatar-tools.
+> - `npm run test` — Vitest: recognition/engine math, design-token and contrast invariants, and
+>   guards on things a comment used to be responsible for (e.g. the MediaPipe WASM version pin).
+> - `npm run test:e2e` — Playwright across chromium / android / ios, against a production build.
+> - `npm run test:multiplayer` — Playwright against a **local Supabase stack**; separate config,
+>   separate port, fake media devices. Skips (loudly, with a reason) without Docker; runs for real
+>   in CI.
+> - `.githooks/pre-push` runs the first three before anything leaves the machine.
+
 The Avatar Engine lives inside the existing React/TS web app at `web/src/avatar/`, not as a separate
 repo or service. It imports nothing from React — the engine is pure data/logic, and
 `web/src/avatar/viewer/` is the only layer that touches React/Three.js, consuming the engine the same

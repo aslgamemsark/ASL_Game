@@ -17,6 +17,24 @@ import type { Page } from '@playwright/test';
  *  `document.getAnimations()` is momentarily EMPTY — `[].every(...)` is vacuously true, so the
  *  wait below would resolve before the fade-in even starts rather than after it ends. */
 export async function waitForAnimationsToSettle(page: Page): Promise<void> {
+  // Wait for in-flight NETWORK work first, then for animations.
+  //
+  // Animation-settling alone is not enough on any screen whose content arrives from Supabase
+  // (Leaderboard, Friends, profiles). The ordering is: navigate -> nothing is animating yet ->
+  // this helper returns -> the fetch resolves -> rows mount and start their staggered
+  // `delay: i * 0.04` entrance -> the caller's axe scan catches them at partial opacity and
+  // reports a contrast violation that is a transient, not the settled state.
+  //
+  // That is the failure mode this project's own event-ordering rule describes: a quiescence check
+  // that watches one signal (the animation timeline) while something else relevant (an in-flight
+  // request) is still running. It was masked by a `waitForTimeout(800)` at the call site, which is
+  // enough in isolation and not enough under the 4-worker parallel load — so the desktop
+  // Leaderboard scan failed on chromium AND webkit in a full run and passed on every rerun,
+  // looking exactly like the CPU-contention flake it was not (found 2026-07-31).
+  //
+  // Best-effort: a screen that legitimately holds a long-poll open must not hang the scan, and
+  // the animation wait below is still a meaningful barrier on its own.
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
   await page.waitForTimeout(50);
   await page.waitForFunction(
     () => document.getAnimations()

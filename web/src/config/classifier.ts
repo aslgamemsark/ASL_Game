@@ -46,9 +46,17 @@ export const GATE_CONFIDENCE = 0.7;
 /**
  * Master switch for veto ENFORCEMENT ("shadow mode" when false).
  *
- * When false the classifier still loads, still runs inference on every attempt, and every vote is
- * still recorded to `sign_attempts` (ai_prediction / ai_confidence / ai_vetoed) — it simply cannot
- * reject a rule-pass. That keeps the measurement while removing the user-facing harm.
+ * CURRENTLY INERT — and will stay inert until CLASSIFIER_LOAD_ENABLED above is turned back on.
+ * With the model not loaded there is no vote to enforce or record, so flipping this alone changes
+ * nothing. The two flags are a sequence, not alternatives: load first, measure, then enforce.
+ * (Corrected 2026-07-31: this block previously described shadow mode as live — "the classifier
+ * still loads, still runs inference on every attempt, and every vote is still recorded" — which
+ * stopped being true on 2026-07-30 when the load was switched off. A comment that confidently
+ * describes behaviour the code no longer has is worse than no comment.)
+ *
+ * When shadow mode IS live (load enabled, this false), the classifier runs inference on every
+ * attempt and every vote is recorded to `sign_attempts` (ai_prediction / ai_confidence /
+ * ai_vetoed), but cannot reject a rule-pass — measurement without the user-facing harm.
  *
  * Set to FALSE on 2026-07-27 because production data proved the veto was rejecting correct signs:
  *   HELLO — 240 attempts, rule verifier passed 231 (96.3%), users saw 61 pass (25.4%).

@@ -1,8 +1,13 @@
 # QuickSign — Production-Quality Hardening Pass — Release Report
 
-**Branch:** `prod-quality-pass` · **Date:** 2026-07-31 · **Commits:** `00dfdf3`..`a36dcff` (23 commits)
-**Scope:** 124 files changed, +2,805 / -820 lines (excludes the earlier mobile-parity/nav work
-already on this branch before the pass started).
+**Branch:** `prod-quality-pass` · **Date:** 2026-07-31
+**Scope:** all 7 planned phases complete, plus a fresh-eyes re-audit of the entire repository.
+
+> **Superseded sections:** this document was first written when Phase 6 was partial. Phase 6 is now
+> complete (see "Phase 6" below, rewritten), and a subsequent adversarial audit found seven further
+> defects — five in the app, two in the test infrastructure — documented in the new sections at the
+> end. The Ship/No-Ship assessment is in
+> `docs/RELEASE_REPORT_FINAL_2026-07-31.md`.
 
 ---
 
@@ -91,16 +96,36 @@ The verbatim-duplicated join-code input and private/public toggle in `DuelPage`/
 extracted into shared components (`RoomVisibilityToggle`, `RoomJoinByCode`), matching the pattern
 already used for `RoomRulesPanel`. Touch targets fixed in the same commit (28px → 44px, 40px → 44px).
 
-**Not shipped, and why:** the two-Playwright-context host/client integration suite the plan called
-for. Reaching `DuelPage`/`RoomPage` at all requires a signed-in user, and this project's e2e suite
-runs against the **real production Supabase project** with no local test stack and no e2e auth
-bypass — every existing spec deliberately stays guest-only rather than write real accounts into
-production. Building the suite means choosing one of: a dedicated test Supabase project, an e2e-only
-auth bypass, or accepting production test-data writes on every CI run. That's an infrastructure
-decision with real, lasting consequences, and it isn't mine to make silently — flagged in
-`docs/WORKLOG.md` (2026-07-31, part 16) and `docs/PRODUCT_BACKLOG_SAAD.md` (QS-014) for a real
-decision. The state machines themselves stay frozen either way, per the standing decision made at
-the start of this pass.
+**The integration suite is built** — 20 tests, `web/e2e/multiplayer.spec.ts`. Reaching
+`DuelPage`/`RoomPage` requires a signed-in user, and the main e2e suite runs against the real
+production project, so this needed an infrastructure decision. Three options; the local Supabase
+stack won because it is the only one that puts nothing test-shaped into production: a hosted
+throwaway project costs money, needs CI credentials and is one copy-pasted URL from production, and
+an e2e-only auth bypass would mean shipping a "skip authentication" branch in real code. Migrations
+already lived in-repo, so `supabase/config.toml` was enough to get the real schema, real RPCs, real
+RLS and real Realtime on `127.0.0.1`. The app is pointed at it purely by build-time env; the browser
+tests sign in through the real form against real GoTrue.
+
+The suite is split by where failures actually live. **Part A** drives the RPCs directly — the join
+race is a `for update` row lock, so racing two browsers would test the same lock slower and less
+deterministically: simultaneous joins for the last slot, idempotent duplicate join, reconnect into
+an in-progress match, room destruction, leave-frees-slot, public/private search visibility,
+brute-force throttle, and two RLS checks. **Part B** drives two real browser contexts with fake
+media devices: create → join → both enter the match over real Realtime + WebRTC, wrong code refused,
+public room via Search, double-tapped Join, background/foreground, network interruption, and a
+phone-width touch-target check.
+
+**Writing it found a real production defect**, fixed in migration `20260731120000`.
+`join_multiplayer_room` treated every call as a new participant, incrementing `participant_count`
+unconditionally while the member insert was `on conflict do nothing` — so count and membership could
+disagree. Three user-visible consequences, all on the reconnect path multiplayer depends on most:
+**reconnect was impossible** (an in-progress room told a returning member "room already started",
+with no way back into a game they were still in); **a double-tapped Join burned the last slot**,
+filling a 2-player duel with one human and then refusing the real opponent; and `participant_count`
+drifted above the true headcount, mis-filtering public search.
+
+The state machines themselves stay frozen, per the standing decision — this suite is the
+precondition for revisiting that, not the thing that does it.
 
 ### Phase 7 — Documentation
 `docs/WORKLOG.md` was appended in the same turn as every verified change (23 dated entries this
@@ -185,3 +210,81 @@ one passed clean in isolation, confirming CPU contention rather than a real regr
 
 Full per-change rationale (mechanism, not symptom, per `.claude/rules/fixes.md`) is in
 `docs/WORKLOG.md`'s 2026-07-31 entries — this report summarizes; WORKLOG is the source of record.
+
+---
+
+## Addendum — fresh-eyes re-audit (2026-07-31, after all 7 phases)
+
+The whole repository was re-audited from scratch, treating everything above as a **claim to be
+verified rather than a record to be trusted**. Most claims held (listed below). Seven did not.
+
+### Defects found and fixed
+
+1. **Dev-only tooling shipped to production and was precached.** `AvatarLabPage` uses a
+   `import.meta.env.DEV ? import(...) : Promise.resolve(...)` pattern so the bundler can drop it,
+   with a comment explaining why. `CalibrationPage` — declared one line below, gated the same way at
+   its render site — used a plain `lazy(() => import(...))`. Gating the *render* eliminates only the
+   branch; the chunk is still emitted, and the PWA plugin precached it, so every user downloaded a
+   calibration harness no production code path can reach. **Precache: 52 → 50 entries.**
+2. **505 kB of unfetchable assets in the deploy.** `models/signs/` (421 kB of classifier weights,
+   unreachable with `CLASSIFIER_LOAD_ENABLED = false`) and `dev/landmarks/` (84 kB of Avatar Lab
+   fixtures). Phase 2's plan had called for the first and it never happened. Both now stripped.
+3. **A comment describing behaviour the code no longer had.** `GATE_ENFORCED`'s block still read
+   "the classifier still loads, still runs inference on every attempt" — untrue since 2026-07-30,
+   and Phase 2 had explicitly listed correcting it.
+4. **The MediaPipe WASM pin had no mechanism, only a request.** `capture.ts` pins the CDN WASM
+   version in a string while `package.json` carries a caret range, so a routine `npm install` can
+   move the JS wrapper forward and leave the WASM behind — the two halves of the recognition runtime
+   disagreeing, which shows up as intermittent landmark behaviour, not a build error. Now a
+   mutation-checked test (`tests/mediapipeVersion.test.ts`).
+5. **A stale-response race on the Leaderboard.** All three tab fetchers wrote state after multiple
+   awaits with no cancellation; the friends effect's deps include `xp`/`streak`, which change during
+   ordinary play, so overlapping fetches were real and the last to arrive won rather than the most
+   recent requested.
+
+### Defects found in the test infrastructure itself
+
+These matter more than the five above, because they mean other guarantees were less guarded than
+they looked.
+
+6. **The e2e suite had never been typechecked.** Neither `tsconfig.app.json` (only `src`) nor
+   `tsconfig.node.json` (only `vite.config.ts`) included `e2e/` — so the suite guarding every other
+   guarantee had zero type checking. Adding `tsconfig.e2e.json` immediately exposed a test that had
+   been **passing without testing anything**: `chest.spec.ts`'s reduced-motion block passed
+   `reducedMotion` as a top-level `test.use()` key, which Playwright does not declare and its
+   runtime silently discards. Proved rather than assumed — a probe measured
+   `matchMedia('(prefers-reduced-motion: reduce)').matches` as `false` under the old form and `true`
+   via `contextOptions`. Every assertion in that block had run with motion fully **enabled**. Fixed;
+   it now passes with reduced motion genuinely applied, so the product code was right all along —
+   only the test was fictional.
+7. **The a11y gate was non-deterministic and would have been dismissed as a known flake.** The full
+   suite failed `desktop Leaderboard: 8 serious/critical color-contrast violations` on **chromium
+   and webkit**, and passed on every isolated rerun — the exact signature of this project's
+   documented CPU-contention flake. It was not that. The scan's quiescence check waits for
+   animations but not for in-flight network work, so: navigate → nothing animating yet → the wait
+   returns → Supabase rows arrive → they mount with a staggered entrance → axe scans them mid-fade
+   and reports a transient. A `waitForTimeout(800)` masked it at 1 worker and not at 4. The tokens
+   were verified innocent first (every failing pair computed: 6.71:1 worst case in light, 5.99:1 in
+   dark — all clear AA). Fixed by waiting for `networkidle` before the animation barrier. The suite
+   is now deterministic **and faster** — the desktop sweep went 23.8s → 12.6s, because networkidle
+   resolves sooner than the fixed waits it replaced.
+
+Also: the new multiplayer suite was being collected by the *main* Playwright config as well (60
+extra cases across three device projects, aimed at the wrong webServer). They skipped because
+`assertLocalOnly` defaults to localhost — but "harmless because a guard happens to catch it" is not
+a reason to leave a suite pointed at the wrong build. Fixed with `testIgnore`.
+
+### Claims independently verified as sound
+
+Recorded so the next audit does not repeat the work: no secrets tracked in git (service-role keys
+read from env everywhere, `.env.local` untracked); CSP, HSTS and Permissions-Policy correct and
+split per-surface; the root `vercel.json` really is deleted; the pre-push hook is real and active
+via `core.hooksPath`; TF.js genuinely does not load; the 28 Hz fix is real (28 Hz processing, 10 Hz
+React updates, pass-detection independent of the throttle — implemented as a throttle rather than
+the plan's "dedup" because `VerifyResult` carries continuous floats that would never dedup, which
+is the right call and worth stating precisely); `AuthContext` is memoised; `React.memo` is on both
+recognition-subtree components; the axe gate runs the **full** ruleset with nothing disabled;
+`ErrorBoundary` deliberately avoids the `Button` primitive so its crash fallback cannot depend on
+framer-motion, with a comment saying so; `TermsModal` is documented, tree-shaken dead code kept for
+a one-line revert. Remaining bare `Loading…` strings are confined to `AdminPanel` (admin-only) and
+the dev-only avatar viewers — the Phase 4e claim was about user-facing surfaces and holds as scoped.

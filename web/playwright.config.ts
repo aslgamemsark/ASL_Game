@@ -7,6 +7,13 @@ import { defineConfig, devices } from '@playwright/test';
 // device and are a separate, larger effort; this covers what's reachable without one.
 export default defineConfig({
   testDir: './e2e',
+  // The multiplayer suite has its own config (playwright.multiplayer.config.ts): its own port, its
+  // own build pointed at a LOCAL Supabase stack, fake-media launch flags, and serial workers.
+  // Without this it is also collected here — 60 extra cases across the three device projects,
+  // running against the wrong webServer. They currently skip (assertLocalOnly defaults to
+  // localhost), so the only visible symptom was skip-count noise, but "harmless because a guard
+  // happens to catch it" is not a reason to leave a suite pointed at the wrong build.
+  testIgnore: /multiplayer\.spec\.ts/,
   fullyParallel: true,
   // Capped deliberately. Playwright defaults to half the core count (8 here), but each worker is a
   // full browser engine driving React + framer-motion, and the axe sweeps pin a core for seconds at

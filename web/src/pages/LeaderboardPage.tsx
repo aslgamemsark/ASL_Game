@@ -235,6 +235,13 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
   // Load world leaderboard (top 50 by total_xp)
   useEffect(() => {
     if (!supabaseReady) return;
+    // Guards against an older in-flight response landing after a newer one and overwriting it.
+    // Each of these three effects re-runs on dependency changes that genuinely fire mid-request
+    // (a reload key, a tab switch, and — for the friends board — `xp`/`streak`, which change
+    // during ordinary play), so two fetches really can overlap; without this the LAST response to
+    // arrive wins rather than the most recent one requested. Same `active` pattern already used in
+    // UserProfilePage.
+    let active = true;
     setWorldLoading(true);
     setWorldError(false);
     (async () => {
@@ -259,6 +266,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       } else {
         data = first.data;
       }
+      if (!active) return;
       if (failed) {
         setWorldError(true);
         setWorldRows([]);
@@ -283,11 +291,13 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       setWorldRows(rows);
       setWorldLoading(false);
     })();
+    return () => { active = false; };
   }, [user, worldReloadKey]);
 
   // Load friends leaderboard
   useEffect(() => {
     if (!user || !supabaseReady || tab !== 'friends') return;
+    let active = true;
     setFriendLoading(true);
     setFriendError(false);
     (async () => {
@@ -298,6 +308,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
         .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
         .eq('status', 'accepted');
 
+      if (!active) return;
       if (friendshipsError) {
         setFriendError(true);
         setFriendRows([]);
@@ -371,15 +382,18 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
         .filter(Boolean) as BoardRow[];
 
       rows.sort((a, b) => b.total_xp - a.total_xp);
+      if (!active) return;
       setFriendRows(rows);
       setFriendLoading(false);
     })();
+    return () => { active = false; };
   }, [tab, user, xp, streak, friendReloadKey]);
 
   // Load region leaderboard: same view as world, filtered to players who share the
   // current user's detected region (see useProgressSync's one-time geolocation lookup).
   useEffect(() => {
     if (!user || !supabaseReady || tab !== 'region') return;
+    let active = true;
     setRegionLoading(true);
     setRegionError(false);
     (async () => {
@@ -388,6 +402,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
         .select('region')
         .eq('id', user.id)
         .single();
+      if (!active) return;
       if (profileError) {
         setRegionError(true);
         setRegionRows([]);
@@ -423,6 +438,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       } else {
         data = first.data;
       }
+      if (!active) return;
       if (failed) {
         setRegionError(true);
         setRegionRows([]);
@@ -444,6 +460,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       setRegionRows(rows);
       setRegionLoading(false);
     })();
+    return () => { active = false; };
   }, [tab, user, regionReloadKey]);
 
   // Manual region set (the fallback when IP detection failed/was blocked) and a "retry auto-detect"

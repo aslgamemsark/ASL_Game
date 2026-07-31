@@ -19,6 +19,16 @@ ships surprised. This is deliberately candid — every item is real and evidence
 ## Multiplayer
 - **Room mode (3–4 players) has no disconnect handling.** If a player drops mid-round, the round
   stalls until a 10-second timeout. Duel (1v1) has reconnect/forfeit; rooms do not yet.
+- **Integration coverage is Chromium-only, and cannot cover real radio behaviour.** The suite
+  (`web/e2e/multiplayer.spec.ts`, see `docs/MULTIPLAYER_TESTING.md`) runs two real browser contexts
+  with fake media devices against a local Supabase stack. Not covered, and honestly out of reach
+  without two physical devices: true radio-level interruption (airplane mode mid-round),
+  high-latency/lossy links, and real mobile-Safari backgrounding — iOS suspends timers and tears
+  down media in ways `visibilitychange` in a desktop engine does not reproduce.
+  `context.setOffline()` models a clean drop, not a degraded link.
+- **The Duel and Room state machines are still separate**, with duplicated flow logic. Deliberate:
+  merging them was frozen until integration coverage existed. That coverage now exists, so this is
+  a ready-to-start piece of work rather than an open risk.
 - **Video is peer-to-peer (WebRTC).** Behind strict corporate/NAT firewalls, video may fail to
   connect; the fallback TURN server is a free tier not sized for scale.
 - **No matchmaking.** Multiplayer is play-with-a-friend via room codes only — there is no "find a
@@ -54,8 +64,11 @@ ships surprised. This is deliberately candid — every item is real and evidence
   pass; a dedicated desktop a11y sweep is a reasonable follow-up, not done here.
 
 ## Observability
-- **No production error monitoring yet.** Crashes users hit are not reported anywhere until this is
-  wired.
+- **No crash-monitoring SDK (Sentry or equivalent).** Crashes DO reach PostHog as `fatal_error` /
+  `session_crashed` events, routed through the single integration point in `src/lib/errorReporting.ts`
+  — so they are not invisible, but there is no stack-trace aggregation, release-health tracking, or
+  alerting. Adding Sentry is ~3 lines at that one file (steps are in its header comment); it needs a
+  third-party account, which is a decision rather than a task.
 
 ## Privacy / legal
 - **Legal posture for minors is unverified.** Camera-based, appeals to children, collects landmark

@@ -7,6 +7,74 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 20) — Fresh-eyes production audit: five real defects, verified not assumed
+
+Deliberately adversarial re-audit of the whole repo, treating the release report as a claim to be
+checked rather than a record to be trusted. Most claims held. Five things did not.
+
+- **Dev-only tooling was shipping to every production user, and being precached.** `AvatarLabPage`
+  uses `import.meta.env.DEV ? import(...) : Promise.resolve(...)` so the bundler can drop it — with
+  a comment explaining exactly why. `CalibrationPage`, declared one line below and gated the same
+  way at its render site, used a plain `lazy(() => import(...))`. Gating the RENDER only eliminates
+  the branch; the chunk is still emitted, and the PWA plugin then precached it. Fixed with the same
+  pattern. **Precache went 52 → 50 entries.**
+- **421 kB of unfetchable model weights and 84 kB of dev fixtures in the deploy.** Phase 2's plan
+  said to drop `public/models/signs/` from the deploy; it never happened. With
+  `CLASSIFIER_LOAD_ENABLED = false` nothing can request them. Added both (plus `dist/dev`, the
+  Avatar Lab's landmark fixtures) to `stripDevOnlyPublicAssets`. The comment names the coupling —
+  re-enabling the classifier means removing that line too — and why it is not a trap: re-enabling
+  already requires retraining, so new weights ship regardless.
+- **A comment that confidently described behaviour the code no longer had.** `GATE_ENFORCED`'s
+  block still read "the classifier still loads, still runs inference on every attempt, and every
+  vote is still recorded" — untrue since 2026-07-30, and Phase 2's plan had explicitly listed
+  correcting it. Rewritten to state that it is inert until `CLASSIFIER_LOAD_ENABLED` is turned back
+  on, and that the two flags are a sequence, not alternatives.
+- **The MediaPipe WASM pin had no mechanism, only a request.** `capture.ts` pins the CDN WASM URL to
+  a hardcoded `0.10.35` while `package.json` carries `^0.10.35`, so a routine `npm install` can move
+  the JS wrapper forward and leave the WASM behind — the two halves of the recognition runtime
+  disagreeing, which surfaces as intermittent landmark behaviour rather than a build error. The only
+  guard was a comment asking the next person to remember. Added `tests/mediapipeVersion.test.ts`,
+  mutation-checked (forced to `0.10.99`, failed with an actionable message; restored, passed).
+- **A stale-response race on the Leaderboard.** All three tab fetchers wrote state after multiple
+  awaits with no cancellation, and the friends effect's deps include `xp`/`streak` — which change
+  during ordinary play — so two fetches genuinely overlap and the LAST to arrive wins rather than
+  the most recent requested. Added the `active` guard already used in `UserProfilePage` to all
+  three.
+
+**And one defect in the gate itself, which is the one that mattered most:**
+
+- **The a11y suite's quiescence check watched animations but not in-flight network work.** The full
+  suite failed `desktop Leaderboard: 8 serious/critical color-contrast violations` on chromium AND
+  webkit, and passed on every isolated rerun — the exact signature of the documented CPU-contention
+  flake, which is what it would have been dismissed as. It was not. The ordering is: navigate →
+  nothing animating yet → `waitForAnimationsToSettle` returns → Supabase rows arrive → they mount
+  and start a staggered entrance → axe scans them mid-fade and reports a transient as a violation.
+  A `waitForTimeout(800)` at the call site masked it at 1 worker and not at 4. Verified the tokens
+  were innocent first (computed every failing pair: 6.71:1 worst case in light, 5.99:1 in dark —
+  all clear AA). Fixed in `helpers.ts` by waiting for `networkidle` before the animation barrier —
+  precisely the failure `.claude/rules/concurrency/event-ordering-assumptions.md` describes.
+  **The suite is now deterministic and faster** (desktop sweep 23.8s → 12.6s: networkidle resolves
+  sooner than the fixed waits it replaced). A gate that fails on production data volume is not a
+  gate — and this one would have been disabled by whoever hit it next, exactly like the
+  colour-contrast rule that was blanket-disabled before this pass.
+- **The multiplayer suite was also being collected by the main Playwright config** (60 extra cases
+  across three device projects, pointed at the wrong webServer). They skipped, because
+  `assertLocalOnly` defaults to localhost — but "harmless because a guard happens to catch it" is
+  not a reason to leave a suite aimed at the wrong build. Added `testIgnore` to `playwright.config.ts`.
+
+**Checked and found genuinely sound** (recorded so the next audit does not redo them): no secrets
+tracked in git (service-role keys read from env everywhere); CSP, HSTS and Permissions-Policy
+correct and split per-surface; the root `vercel.json` really is deleted; the pre-push hook is real
+and active via `core.hooksPath`; TF.js genuinely does not load; the 28 Hz fix is real (28 Hz
+processing, 10 Hz React updates, pass-detection independent of the throttle — implemented as a
+throttle rather than the plan's "dedup" because `VerifyResult` is continuous floats that would
+never dedup, which is the right call); `AuthContext` is memoised; `React.memo` is on both
+recognition-subtree components; the axe gate runs the FULL ruleset with nothing disabled;
+`ErrorBoundary` deliberately avoids the `Button` primitive so its fallback cannot depend on
+framer-motion, with a comment saying so; `TermsModal` is documented, tree-shaken dead code kept for
+a one-line revert. Remaining bare `Loading…` strings are all in `AdminPanel` (admin-only) and the
+dev-only avatar viewers — the Phase 4e claim was about user-facing surfaces and holds as scoped.
+
 ## 2026-07-31 (part 19) — Phase 6 (close): multiplayer integration suite on a local Supabase stack
 
 - **Resolved the infrastructure decision flagged in part 16, by taking the option that does not

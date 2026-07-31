@@ -583,12 +583,25 @@ Fix shipped (full detail per change: `docs/WORKLOG.md`, 2026-07-31 entries):
   offline); `SpeedChallengePage` no longer runs a camera-less round to a silent dead end; the
   768–1023px tablet band gets `SideNav` instead of a cramped phone nav; bottom-nav clearance derived
   from `BottomNav`'s actual measured height instead of two disagreeing hardcoded guesses.
-- **Multiplayer (partial)**: the duplicated join-code input and private/public toggle extracted into
-  shared components, touch targets fixed to 44px in the process. The two-context WebRTC/Realtime
-  integration suite is **not built** — it requires an infrastructure decision (dedicated test
-  Supabase project vs. an e2e auth bypass vs. accepting production test-data writes) flagged for a
-  human call rather than made silently. State machines stay frozen either way, per the standing
-  decision.
+- **Multiplayer**: the duplicated join-code input and private/public toggle extracted into shared
+  components, touch targets fixed to 44px in the process. The two-context WebRTC/Realtime
+  integration suite **is built** (20 tests) and runs against a **local Supabase stack** — chosen
+  over a hosted test project or an e2e auth bypass precisely because it puts no test-only code into
+  production. Writing it surfaced a real production defect, fixed in migration `20260731120000`:
+  `join_multiplayer_room` was not idempotent, so **reconnecting into your own in-progress match was
+  impossible** ("room already started"), a double-tapped Join burned the last slot, and
+  `participant_count` drifted above the true headcount. State machines stay frozen per the standing
+  decision — this suite is the precondition for revisiting that, not the thing that does it.
+- **Fresh-eyes re-audit** (treating all of the above as claims to verify rather than a record to
+  trust) found five more defects: dev-only `CalibrationPage` shipping to production and being
+  **precached** for every user; 505 kB of unfetchable model weights and dev fixtures in the deploy;
+  a `GATE_ENFORCED` comment describing behaviour the code no longer had; a MediaPipe WASM version
+  pin with nothing but a comment enforcing it (now a mutation-checked test); and a stale-response
+  race across all three Leaderboard tab fetchers. Plus two defects in the test infrastructure
+  itself — the e2e suite had **never been typechecked** (which immediately exposed a reduced-motion
+  test that had been passing with motion fully enabled), and the a11y gate's quiescence check
+  watched animations but not in-flight network requests, so it failed on production data volume and
+  passed on every isolated rerun.
 
 Explicitly declined this pass (evaluated, not defaulted past): `noUncheckedIndexedAccess` (549
 errors, cost exceeds value), a routing library (the existing `Screen` union needed history
