@@ -2,6 +2,7 @@ import { test, expect, type Browser, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   assertLocalOnly,
+  createAdminClient,
   createAnonClient,
   ensureTestUsers,
   probeStack,
@@ -278,6 +279,130 @@ test.describe('multiplayer room registry', () => {
     const found = await guestClient.rpc('find_public_room', { p_mode: 'duel' });
     expect((found.data as { code?: string } | null)?.code,
       'a public waiting room must be findable').toBe(publicCode);
+  });
+
+  test('search never returns a room you host — the self-match bug', async () => {
+    // THE bug that made multiplayer unusable in production (migration 20260731130000).
+    // find_public_room had no filter on who was asking, so tapping "Search for a Match" right
+    // after creating a public room returned your OWN room. Joining it pushed participant_count to
+    // 2/2 while the membership insert no-op'd on the primary key, so the room advertised as FULL
+    // with one person in it: the real opponent got 'room full', and the host waited forever.
+    // Reproduced from production rows before fixing — three of four duel rooms in one session had
+    // participant_count = 2 and exactly one member, who was the host.
+    const host = users[0]!;
+    const hostClient = await clientFor(host);
+    const code = uniqueCode();
+
+    await createRoom(hostClient, host.id, code, 'public');
+
+    const found = await hostClient.rpc('find_public_room', { p_mode: 'duel' });
+    expect((found.data as { code?: string } | null)?.code ?? null,
+      'a room you host must never be offered to you as a match').not.toBe(code);
+  });
+
+  test('search never returns a room you already joined', async () => {
+    // The same class as above one step later: back out of a room you joined and search again, and
+    // the old query would hand you straight back into it.
+    const [host, guest] = [users[0]!, users[1]!];
+    const hostClient = await clientFor(host);
+    const guestClient = await clientFor(guest);
+    const code = uniqueCode();
+
+    // 4-seat room so it still has a free slot after the guest joins — otherwise the capacity
+    // filter alone would hide it and the test would pass without exercising the membership check.
+    const { error: createError } = await hostClient.from('multiplayer_rooms').insert({
+      code, mode: 'duel', visibility: 'public', host_id: host.id, max_participants: 4,
+    });
+    expect(createError).toBeNull();
+    await guestClient.rpc('join_multiplayer_room', { p_code: code });
+
+    const found = await guestClient.rpc('find_public_room', { p_mode: 'duel' });
+    expect((found.data as { code?: string } | null)?.code ?? null,
+      'a room you are already a member of must never be offered as a new match').not.toBe(code);
+  });
+
+  test('joining your own room does not fill it against the real opponent', async () => {
+    // The second half of the same defect, guarded independently (migration 20260731120000): even
+    // if some other path hands a host their own code, the join must not consume a seat.
+    const [host, guest] = [users[0]!, users[1]!];
+    const hostClient = await clientFor(host);
+    const guestClient = await clientFor(guest);
+    const code = uniqueCode();
+
+    await createRoom(hostClient, host.id, code, 'public');
+    await hostClient.rpc('join_multiplayer_room', { p_code: code });
+
+    const { data: room } = await hostClient
+      .from('multiplayer_rooms').select('participant_count').eq('code', code).single();
+    expect((room as { participant_count: number }).participant_count,
+      'a host joining their own room must not consume the opponent\'s seat').toBe(1);
+
+    const opponent = await guestClient.rpc('join_multiplayer_room', { p_code: code });
+    expect(opponent.error, 'the real opponent must still be able to get in').toBeNull();
+  });
+
+  test('participant_count never disagrees with the membership table', async () => {
+    // The invariant whose violation made the production bug diagnosable after the fact. Asserted
+    // directly, because every way of breaking it produces a room that lies about how full it is.
+    const [host, guest] = [users[0]!, users[1]!];
+    const hostClient = await clientFor(host);
+    const guestClient = await clientFor(guest);
+    const admin = createAdminClient();
+    const code = uniqueCode();
+
+    await createRoom(hostClient, host.id, code);
+    await guestClient.rpc('join_multiplayer_room', { p_code: code });
+    await guestClient.rpc('join_multiplayer_room', { p_code: code }); // duplicate
+    await hostClient.rpc('join_multiplayer_room', { p_code: code });  // self-join
+
+    const { data: room } = await hostClient
+      .from('multiplayer_rooms').select('participant_count').eq('code', code).single();
+    const { data: members } = await admin
+      .from('multiplayer_room_members').select('user_id').eq('room_code', code);
+
+    expect((room as { participant_count: number }).participant_count,
+      'participant_count must equal the number of real members, whatever join calls arrived')
+      .toBe((members ?? []).length);
+  });
+
+  test('the last player leaving deletes the room instead of leaving it forever', async () => {
+    // Rooms were never deleted: production still held 'waiting' rooms from days earlier, because
+    // leave_multiplayer_room only decremented. Restored in migration 20260731140000 — which also
+    // had to MERGE the behaviour, since 20260718010000 had silently reverted it by re-creating the
+    // function without the delete.
+    const host = users[0]!;
+    const hostClient = await clientFor(host);
+    const admin = createAdminClient();
+    const code = uniqueCode();
+
+    await createRoom(hostClient, host.id, code);
+    await hostClient.rpc('leave_multiplayer_room', { p_code: code });
+
+    const { data } = await admin.from('multiplayer_rooms').select('code').eq('code', code);
+    expect(data ?? [], 'a room nobody is left in must not survive').toHaveLength(0);
+  });
+
+  test('the stale-room sweep removes rooms nobody ever exited', async () => {
+    // The safety net for a crashed tab or a dead battery, which fire no client code at all.
+    const host = users[0]!;
+    const hostClient = await clientFor(host);
+    const admin = createAdminClient();
+    const stale = uniqueCode();
+    const fresh = uniqueCode();
+
+    await createRoom(hostClient, host.id, stale);
+    await createRoom(hostClient, host.id, fresh);
+    // Backdate one past the 30-minute waiting-room window.
+    await admin.from('multiplayer_rooms')
+      .update({ created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString() })
+      .eq('code', stale);
+
+    await admin.rpc('cleanup_stale_multiplayer_rooms');
+
+    const { data: staleRow } = await admin.from('multiplayer_rooms').select('code').eq('code', stale);
+    const { data: freshRow } = await admin.from('multiplayer_rooms').select('code').eq('code', fresh);
+    expect(staleRow ?? [], 'an abandoned room must be swept').toHaveLength(0);
+    expect(freshRow ?? [], 'a room created moments ago must NOT be swept').toHaveLength(1);
   });
 
   test('a closed public room drops out of search results', async () => {

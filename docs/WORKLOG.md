@@ -7,6 +7,72 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 21) — Why multiplayer didn't work: diagnosed from production data
+
+User report: multiplayer wasn't working, and a room made two days earlier was still open. Both
+turned out to be real, and neither was guesswork — the production database was queried directly
+through the Supabase MCP and the mechanisms fell straight out of the rows.
+
+**The evidence.** Duel rooms from the test session:
+
+| code | host | participant_count | actual members |
+| --- | --- | --- | --- |
+| AEST8CT5 | 80296cd1 | 2 | [80296cd1] |
+| GSUJPVRA | 90c26e12 | 2 | [90c26e12] |
+| Z3ED3JA6 | 80296cd1 | 2 | [80296cd1] |
+| GV638356 | 80296cd1 | 2 | [80296cd1, 90c26e12] |
+
+Three of four rooms showed **2 participants and exactly one member — the host**. Only GV638356 had
+a genuine second player.
+
+- **ROOT CAUSE 1 — "Search for a Match" matched you with yourself.** `find_public_room` filtered on
+  mode/visibility/status/capacity/age but never on *who was asking*, so a host who tapped Search
+  after creating a public room was handed **their own room**. Joining it pushed
+  `participant_count` to 2/2 while the membership insert hit the primary key the host trigger had
+  already created and did nothing — so the room advertised as FULL with one person in it. The real
+  opponent got "room full"; the host waited forever. That is the whole bug, and the count/membership
+  disagreement is what made it diagnosable afterwards. Fixed in migration `20260731130000`:
+  `find_public_room` now excludes rooms where the caller is the host **or** already a member
+  (SECURITY DEFINER, because members has RLS with no client policies), plus a one-shot repair
+  rebuilding `participant_count` from the membership table for every non-closed room that disagrees.
+  Verified read-only against production first: with counts repaired, the old query returns
+  `DKRVVZ, AEST8CT5, GSUJPVRA, Z3ED3JA6` for user 80296cd1 — including two rooms they host — while
+  the new one returns only `DKRVVZ, GSUJPVRA`, both hosted by someone else.
+- **ROOT CAUSE 2 — one lost broadcast stranded both players.** The guest sent `'join'` exactly once,
+  immediately after its own `signaling.join()` + `startCamera()`, assuming the host was already
+  subscribed. Nothing enforced that: via Search the guest can join within milliseconds of the host's
+  INSERT, while the host is still inside its own subscribe and camera warmup. Realtime broadcast has
+  no replay, so that message is simply gone and both sides sit on "Waiting…" with no error and no
+  recovery. `DuelPage.joinRoom` now re-announces every 1.2s until the host's `'start'` arrives,
+  bounded at 10 attempts and then telling the user the host couldn't be reached. Safe by
+  construction rather than by luck: the host's handler already returns early on `startedRef.current`,
+  so every repeat is a no-op.
+- **ROOT CAUSE 3 (the user's second question) — nothing ever deleted a room.** Rooms from 07-16,
+  07-18 and 07-19 were all still `waiting`. Migration `20260716140000` was written to fix exactly
+  this and never took effect, for **two independent reasons**: it was never applied to production
+  (`cleanup_stale_multiplayer_rooms` doesn't exist, `rooms_delete_own` doesn't exist, and `cron.job`
+  holds exactly one entry — `trim_training_samples`), **and the repo itself reverts it** —
+  `20260718010000` re-created `leave_multiplayer_room` to add member-row removal and silently
+  dropped the delete-at-zero behaviour, because `create or replace function` replaces the whole
+  body. So even a clean `supabase db reset` produced the leaking version, which is why this survived
+  applying the migrations correctly. Migration `20260731140000` restores the policy, **merges** both
+  behaviours into one body so the next `create or replace` starts from something complete, recreates
+  the sweep, and schedules it idempotently.
+- **DuelPage never marked a match `in_progress`** — RoomPage always has. Harmless while the room
+  read as full, but the moment a leave decremented the count the room became findable again and a
+  stranger could walk into a live duel. It also interacts with the sweep above: the 30-minute
+  `waiting` window would have applied to duels for their whole life, so these two had to land
+  together.
+- **6 new integration tests** covering all of it: search never returns a room you host, search never
+  returns a room you already joined, a self-join doesn't consume the opponent's seat,
+  `participant_count` never disagrees with the membership table (the invariant whose violation
+  produced the table above), the last player leaving deletes the room, and the stale sweep removes
+  an abandoned room while leaving a fresh one alone. Suite is now 26 tests.
+- **Verified:** `tsc -b` clean, `oxlint` 0 errors, 697 unit tests, build clean, all 26 multiplayer
+  tests collect. The three migrations are written and reviewed but **not yet applied** — see
+  `docs/MULTIPLAYER_TESTING.md` and the release report; applying them to the live database is a
+  gated step.
+
 ## 2026-07-31 (part 20) — Fresh-eyes production audit: five real defects, verified not assumed
 
 Deliberately adversarial re-audit of the whole repo, treating the release report as a claim to be

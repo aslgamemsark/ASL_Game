@@ -67,6 +67,12 @@ const RECONNECT_SECONDS = 30;
 // arrives — a dropped broadcast, a camera that never loads — start the timer anyway after this
 // long, rather than letting a lost message stall a round forever.
 const TURN_ARM_FALLBACK_MS = 5000;
+// The guest re-announces its arrival until the host replies, because a broadcast sent before the
+// host finished subscribing is lost with no replay (see joinRoom). ~1.2s x 10 covers a cold-start
+// camera prompt on the host's side; past that the host genuinely isn't there and the guest is told
+// so rather than waiting forever.
+const JOIN_ANNOUNCE_INTERVAL_MS = 1200;
+const JOIN_ANNOUNCE_ATTEMPTS = 10;
 
 export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const { user, username } = useAuth();
@@ -115,6 +121,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const [endedByForfeit, setEndedByForfeit] = useState(false);
   const reconnectIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const forfeitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Repeats the guest's 'join' announcement until the host answers — see joinRoom for why one
+  // broadcast was not enough.
+  const joinAnnounceRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const phaseRef = useRef<Phase>('lobby');
   const phaseBeforeDisconnectRef = useRef<Phase>('signer');
   const wasPresentRef = useRef(false);
@@ -220,6 +229,10 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     enterResult(true, false, ms.currentSign, ms.opponentUsername);
   }
 
+  const clearJoinAnnounce = useCallback(() => {
+    if (joinAnnounceRef.current) { clearInterval(joinAnnounceRef.current); joinAnnounceRef.current = null; }
+  }, []);
+
   const handleMessage = useCallback((event: string, payload: Record<string, unknown>, fromPeerId: string) => {
     const ms = matchStateRef.current;
     if (event === 'join') {
@@ -236,6 +249,16 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       matchStartedAtRef.current = Date.now();
       matchStartTrackedRef.current = true;
       track('multiplayer_match_started', { mode: 'duel', room_id: matchStateRef.current?.roomId ?? '', player_count: 2 });
+      // Close the room to newcomers the moment the match starts — RoomPage has always done this
+      // and Duel never did, so a duel in progress still advertised status='waiting'. Harmless
+      // while the room reads as full, but the instant a player's leave decremented the count the
+      // room became findable again and a stranger could walk into a match already under way.
+      // Host-only by construction: this branch runs on the host, and the rooms_update_own policy
+      // restricts the write to host_id = auth.uid() regardless.
+      const startedRoomId = matchStateRef.current?.roomId;
+      if (startedRoomId) {
+        void supabase.from('multiplayer_rooms').update({ status: 'in_progress' }).eq('code', startedRoomId);
+      }
       if (!amSigner) buildGuessOptions(firstSign);
       void (async () => {
         await signaling.startCamera();
@@ -247,6 +270,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     if (event === 'start') {
       if (startedRef.current || !user) return;
       startedRef.current = true;
+      // The host answered — stop re-announcing immediately rather than waiting for the interval's
+      // next tick to notice, so no redundant 'join' goes out after the match has begun.
+      clearJoinAnnounce();
       const hostId = payload.hostId as string;
       const signs = payload.signs as string[];
       const firstSign = payload.firstSign as string;
@@ -297,7 +323,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       return;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buildGuessOptions, enterResult, user]);
+  }, [buildGuessOptions, clearJoinAnnounce, enterResult, user]);
 
   const signaling = useMultiplayerSignaling({ selfPeerId: user?.id ?? '', onMessage: handleMessage });
 
@@ -353,8 +379,38 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     setMatchState((s) => ({ ...(s ?? { opponentId: '', opponentUsername: '', currentSign: '', round: 1, myScore: 0, opponentScore: 0 }), roomId }));
     await signaling.join(`mp-room-${roomId}`);
     await signaling.startCamera();
-    signaling.send('join', { username: username ?? user.email?.split('@')[0] ?? 'Player', border: equippedBorder ?? '' });
+
+    // Announce arrival, then KEEP announcing until the host answers with 'start'.
+    //
+    // A single broadcast assumed the host was already subscribed when it arrived, and nothing
+    // enforced that. Via "Search for a Match" the guest can find and join a room within
+    // milliseconds of the host's INSERT — while the host is still inside its own
+    // `signaling.join()` + `startCamera()` (a camera permission prompt and warmup, seconds on a
+    // cold start). Realtime broadcast has no replay: a message sent before the host subscribes is
+    // simply gone, and both players then sit on "Waiting…" forever with no error and no recovery.
+    //
+    // Re-sending is safe by construction rather than by luck: the host's handler returns early on
+    // `startedRef.current`, so every join after the first is a no-op. Bounded per livelock.md —
+    // it gives up after JOIN_ANNOUNCE_ATTEMPTS and tells the user, instead of retrying forever.
+    const announce = () => signaling.send('join', {
+      username: username ?? user.email?.split('@')[0] ?? 'Player',
+      border: equippedBorder ?? '',
+    });
+    announce();
     setStatusMsg('Connected! Waiting for host…');
+
+    let attempts = 0;
+    joinAnnounceRef.current = setInterval(() => {
+      // startedRef flips the moment the host's 'start' lands — the real "we're in" signal.
+      if (startedRef.current) { clearJoinAnnounce(); return; }
+      attempts += 1;
+      if (attempts >= JOIN_ANNOUNCE_ATTEMPTS) {
+        clearJoinAnnounce();
+        setStatusMsg("Couldn't reach the host — they may have left. Try another room.");
+        return;
+      }
+      announce();
+    }, JOIN_ANNOUNCE_INTERVAL_MS);
   };
 
   const searchForMatch = async () => {
@@ -477,8 +533,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     recognition.stopLoop();
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
     if (turnIntervalRef.current) clearInterval(turnIntervalRef.current);
+    clearJoinAnnounce();
     clearReconnectTimers();
-  }, [clearReconnectTimers]);
+  }, [clearReconnectTimers, clearJoinAnnounce]);
 
   // Opponent forfeits by leaving: after RECONNECT_SECONDS with no reconnection, the staying player
   // wins outright and gets the normal win reward. Unchanged from before — only WHO sees which
