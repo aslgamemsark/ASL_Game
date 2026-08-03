@@ -121,6 +121,7 @@ Two in the test infrastructure, both more consequential:
 | `oxlint` | **Pass**, 0 errors (pre-existing warnings only) |
 | Unit — `vitest run` | **697 passed**, 50 files, 0 failures |
 | E2E — Playwright, chromium + android + ios | **118 passed**, 2 intentional skips, exit 0 |
+| Multiplayer fixes re-verified after the Room-mode fix | full suite re-run green, exit 0 |
 | Multiplayer integration | 26 collected, **skip cleanly** with reason (no Docker here — see §5) |
 | Multiplayer fixes, verified against the **live** database | **Pass** — see §8 |
 | Production build | **Pass** |
