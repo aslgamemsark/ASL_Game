@@ -69,3 +69,27 @@ export function describeRules(rules: RoomRules, roundsWord = 'rounds'): string {
   const set = rules.signSet === 'letters' ? 'Letters' : rules.signSet === 'words' ? 'Words' : 'All signs';
   return `${rules.rounds} ${roundsWord} · ${rules.turnSeconds}s · ${set}`;
 }
+
+/**
+ * Who signs in `roundNum`, given the turn order fixed at match start and who has since left.
+ *
+ * Returns null when fewer than two players remain — the caller should end the match rather than
+ * run rounds nobody can score.
+ *
+ * Departed players must be skipped rather than handed a turn they cannot take: the turn order is
+ * frozen when the match starts, so a positional pick keeps selecting someone who has gone, and
+ * every one of those rounds burns the FULL turn timer with an empty video tile — once per cycle,
+ * for the rest of the match (Room-mode disconnect audit, 2026-08-03).
+ *
+ * Pure so the rule is testable without a room, two browsers and a real disconnect.
+ */
+export function pickNextSigner(
+  turnOrder: string[],
+  disconnectedPeerIds: string[],
+  roundNum: number,
+): string | null {
+  const stillHere = turnOrder.filter((id) => !disconnectedPeerIds.includes(id));
+  if (stillHere.length < 2) return null;
+  // roundNum is 1-based; rounds cycle through whoever is left, in the original relative order.
+  return stillHere[(roundNum - 1) % stillHere.length] ?? null;
+}

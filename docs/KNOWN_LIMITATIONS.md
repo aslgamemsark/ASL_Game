@@ -17,8 +17,13 @@ ships surprised. This is deliberately candid — every item is real and evidence
   certified interpreter — it will sometimes pass sloppy signs and fail good ones.
 
 ## Multiplayer
-- **Room mode (3–4 players) has no disconnect handling.** If a player drops mid-round, the round
-  stalls until a 10-second timeout. Duel (1v1) has reconnect/forfeit; rooms do not yet.
+- **Room mode's disconnect handling is partial** (improved 2026-08-03). It now tracks who has left,
+  excludes them from the guess count, re-offers video when they return, ends a round immediately if
+  the SIGNER drops rather than running the timer down on an empty tile, skips departed players when
+  choosing the next signer, and ends the match when fewer than two players remain. What it still
+  lacks versus Duel: a visible "waiting for X to reconnect" state with a countdown, and a forfeit
+  award. A player who drops and returns rejoins a match in progress fine (migration
+  20260731120000), but the others get no UI telling them what is happening while they wait.
 - **Integration coverage is Chromium-only, and cannot cover real radio behaviour.** The suite
   (`web/e2e/multiplayer.spec.ts`, see `docs/MULTIPLAYER_TESTING.md`) runs two real browser contexts
   with fake media devices against a local Supabase stack. Not covered, and honestly out of reach

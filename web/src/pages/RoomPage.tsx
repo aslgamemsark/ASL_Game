@@ -8,7 +8,7 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMultiplayerSignaling } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
-import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_ROOM_RULES, ROOM_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
+import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, pickNextSigner, DEFAULT_ROOM_RULES, ROOM_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
 import { RoomRulesPanel } from '@/components/multiplayer/RoomRulesPanel';
 import { RoomVisibilityToggle } from '@/components/multiplayer/RoomVisibilityToggle';
 import { RoomJoinByCode } from '@/components/multiplayer/RoomJoinByCode';
@@ -121,6 +121,10 @@ export function RoomPage({ onExit }: Props) {
   const matchStartedAtRef = useRef(0);
   const armTurnTimerRef = useRef<(startedAt?: number) => void>(() => {});
 
+  // Read by the presence effect, which is keyed on presentPeerIds/roster and would otherwise close
+  // over a stale `phase`.
+  const phaseRef = useRef<Phase>('lobby');
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { rosterRef.current = roster; }, [roster]);
   useEffect(() => { scoresRef.current = scores; }, [scores]);
   useEffect(() => { disconnectedPeerIdsRef.current = disconnectedPeerIds; }, [disconnectedPeerIds]);
@@ -209,8 +213,19 @@ export function RoomPage({ onExit }: Props) {
           applyGameOver();
           return;
         }
-        const order = turnOrderRef.current;
-        const nextSigner = order[(nextRound - 1) % order.length];
+        // Skip players who have left. The turn order is fixed at match start, so without this a
+        // departed player keeps being handed turns — and each of those rounds burns the FULL turn
+        // timer with nobody signing, once per cycle, for the rest of the match. Falls back to the
+        // positional pick when everyone is gone, which the guard below then turns into a game-over.
+        const nextSigner = pickNextSigner(turnOrderRef.current, disconnectedPeerIdsRef.current, nextRound);
+        if (!nextSigner) {
+          // Fewer than two players left — end the match rather than run rounds nobody can score.
+          const finalScores = { ...scoresRef.current };
+          for (const [pid, delta] of Object.entries(scoreDeltas)) finalScores[pid] = (finalScores[pid] ?? 0) + delta;
+          signaling.send('game-over', { finalScores });
+          applyGameOver();
+          return;
+        }
         const nextSignId = signsRef.current[nextRound - 1];
         signaling.send('round-start', { round: nextRound, signerPeerId: nextSigner, signId: nextSignId });
         beginRound(nextRound, nextSigner, nextSignId);
@@ -396,6 +411,19 @@ export function RoomPage({ onExit }: Props) {
       }
     }
     wasPresentRef.current = present;
+
+    // The SIGNER left mid-round. Nobody can score a round whose signer is gone, so end it now
+    // instead of making everyone watch the full turn timer run down on an empty video tile.
+    // Host-authoritative, matching every other round transition — a guesser ending the round
+    // locally would desync the others.
+    const signer = signerPeerIdRef.current;
+    if (
+      isHostRef.current && signer && signer !== user?.id &&
+      nowDisconnected.includes(signer) &&
+      (phaseRef.current === 'signing' || phaseRef.current === 'guessing')
+    ) {
+      endRound();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signaling.presentPeerIds, roster]);
 
