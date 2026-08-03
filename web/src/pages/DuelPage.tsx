@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
+import { useRecognition } from '@/hooks/useRecognition';
+import { useAttemptLog } from '@/hooks/useAttemptLog';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { useUserStore } from '@/stores/useUserStore';
@@ -71,7 +72,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const sounds = useSounds();
   const { burst } = useConfetti();
-  const recognition = useRecognition({ onPass: handleSignCorrect, onAttempt: handleDuelAttempt, screen: 'multiplayer' });
+  // No worldId — any sign in the pool can come up.
+  const attemptLog = useAttemptLog({ source: 'duel' });
+  const recognition = useRecognition({ onPass: handleSignCorrect, onAttempt: attemptLog.recordAttempt, screen: 'multiplayer' });
 
   const [phase, setPhase] = useState<Phase>('lobby');
   const [reportOpen, setReportOpen] = useState(false);
@@ -190,24 +193,6 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     setPhase('result');
     resultTimerRef.current = setTimeout(() => advanceRound(iScored, opponentScored), RESULT_HOLD_MS);
   }, [advanceRound]);
-
-  // Analytics-only — Duel doesn't feed the Supabase landmark-training pipeline (logAttempt) the
-  // way solo screens do; that's a deliberate scope limit for this pass, not an oversight (see the
-  // Analytics Coverage Report). No single world_id: any sign in the pool can come up.
-  function handleDuelAttempt(a: AttemptRecord) {
-    track('sign_attempt', {
-      sign_id: a.signId,
-      world_id: null,
-      source: 'duel',
-      rule_passed: a.rulePassed,
-      ai_vetoed: a.aiVetoed,
-      final_passed: a.finalPassed,
-      ai_prediction: a.aiPrediction,
-      ai_confidence: a.aiConfidence,
-      duration_ms: a.durationMs,
-      attempt_number: a.attemptNumber,
-    });
-  }
 
   function handleSignCorrect(_r: VerifyResult) {
     const ms = matchStateRef.current;

@@ -15,13 +15,17 @@ export type ScreenName =
   | 'home' | 'onboarding' | 'lesson' | 'practice' | 'story' | 'speed' | 'shop' | 'friends'
   | 'multiplayer' | 'settings' | 'leaderboard' | 'admin' | 'privacy' | 'user-profile';
 
+/** Every mode that can produce a sign attempt. Distinct from ScreenName: Duel and Room are two
+ *  modes of the single 'multiplayer' screen, and attempt analytics needs to tell them apart. */
+export type AttemptSource = 'lesson' | 'practice' | 'story' | 'speed' | 'duel' | 'room';
+
 /** A sign-recognition attempt's outcome, shared by every screen that runs the recognition loop
  *  (Lesson/Practice/Story/Speed/Duel/Room) — see engine/gate.ts for what rule-pass/veto mean. */
 export interface SignAttemptBase {
   sign_id: string;
   world_id: string | null;
   /** Which screen/mode produced this attempt. */
-  source: 'lesson' | 'practice' | 'story' | 'speed' | 'duel' | 'room';
+  source: AttemptSource;
   rule_passed: boolean;
   /** True only when the ML classifier rejected a rule-pass (see engine/gate.ts) — the classifier
    *  can never turn a rule-fail into a pass, so this is only ever meaningful when rule_passed. */

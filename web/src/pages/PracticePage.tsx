@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCamera } from '@/hooks/useCamera';
 import { useAttemptRecorder } from '@/hooks/useAttemptRecorder';
-import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
+import { useRecognition } from '@/hooks/useRecognition';
 import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
@@ -19,7 +19,8 @@ import { Zippy } from '@/components/shared/Zippy';
 import { pickZippyLine } from '@/data/zippy';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { logSignAttempt, logVerification, logAttempt } from '@/hooks/useProgressSync';
+import { logSignAttempt, logVerification } from '@/hooks/useProgressSync';
+import { useAttemptLog } from '@/hooks/useAttemptLog';
 import type { VerificationEntry } from '@/hooks/useRecognition';
 import { SIGNS } from '@/data/signs';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
@@ -144,36 +145,8 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     [user]
   );
 
-  const handleAttempt = useCallback(
-    (a: AttemptRecord) => {
-      // No single world_id — Practice deliberately mixes signs across worlds for review.
-      track('sign_attempt', {
-        sign_id: a.signId,
-        world_id: null,
-        source: 'practice',
-        rule_passed: a.rulePassed,
-        ai_vetoed: a.aiVetoed,
-        final_passed: a.finalPassed,
-        ai_prediction: a.aiPrediction,
-        ai_confidence: a.aiConfidence,
-        duration_ms: a.durationMs,
-        attempt_number: a.attemptNumber,
-      });
-      if (!user) return;
-      void logAttempt({
-        userId: user.id,
-        signId: a.signId,
-        rulePassed: a.rulePassed,
-        aiPrediction: a.aiPrediction,
-        aiConfidence: a.aiConfidence,
-        aiVetoed: a.aiVetoed,
-        finalPassed: a.finalPassed,
-        source: 'practice',
-        frames: a.frames,
-      });
-    },
-    [user]
-  );
+  // No worldId — Practice deliberately mixes signs across worlds for review.
+  const attemptLog = useAttemptLog({ source: 'practice' });
 
   const { classifier, status: classifierStatus, logVote, lastVote } = useClassifier();
   const recognition = useRecognition({
@@ -181,7 +154,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     classifier,
     onVote: logVote,
     onVerified: handleVerified,
-    onAttempt: handleAttempt,
+    onAttempt: attemptLog.recordAttempt,
     screen: 'practice',
   });
   // First-run only: overlay a camera-framing guide until the user is well positioned.
@@ -367,19 +340,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
       recordSign(currentSignId, false);
-      if (user) {
-        void logAttempt({
-          userId: user.id,
-          signId: currentSignId,
-          rulePassed: false,
-          aiPrediction: null,
-          aiConfidence: null,
-          aiVetoed: false,
-          finalPassed: false,
-          source: 'practice',
-          frames: recognition.getSnapshot(),
-        });
-      }
+      attemptLog.recordMiss(currentSignId, recognition.getSnapshot());
     }
     recorder.discard();
     loopStartedRef.current = null;

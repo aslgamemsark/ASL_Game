@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCamera } from '@/hooks/useCamera';
-import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
+import { useRecognition } from '@/hooks/useRecognition';
 import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
@@ -13,8 +13,7 @@ import { Zippy } from '@/components/shared/Zippy';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { pickZippyLine, type ZippyExpression } from '@/data/zippy';
 import { useUserStore } from '@/stores/useUserStore';
-import { useAuth } from '@/contexts/AuthContext';
-import { logAttempt } from '@/hooks/useProgressSync';
+import { useAttemptLog } from '@/hooks/useAttemptLog';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
@@ -50,7 +49,6 @@ const MOOD_ZIPPY: Record<string, ZippyExpression> = {
 export function StoryPage({ story, onExit }: Props) {
   const { addXp, addSigns, addGold, addDailyMinutes, recordSign, completeLesson, checkBadges, awardBadge, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
-  const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera('story');
   const sounds = useSounds();
   const { burst, bigCelebration } = useConfetti();
@@ -114,38 +112,10 @@ export function StoryPage({ story, onExit }: Props) {
     [phase, lineIdx, currentLine, story, recordSign, addXp, addSigns, addGold, completeLesson, skipsUsed, hintsUsed, awardBadge, checkBadges, worldId, startedAt]
   );
 
-  const handleAttempt = useCallback(
-    (a: AttemptRecord) => {
-      track('sign_attempt', {
-        sign_id: a.signId,
-        world_id: worldId,
-        source: 'story',
-        rule_passed: a.rulePassed,
-        ai_vetoed: a.aiVetoed,
-        final_passed: a.finalPassed,
-        ai_prediction: a.aiPrediction,
-        ai_confidence: a.aiConfidence,
-        duration_ms: a.durationMs,
-        attempt_number: a.attemptNumber,
-      });
-      if (!user) return;
-      void logAttempt({
-        userId: user.id,
-        signId: a.signId,
-        rulePassed: a.rulePassed,
-        aiPrediction: a.aiPrediction,
-        aiConfidence: a.aiConfidence,
-        aiVetoed: a.aiVetoed,
-        finalPassed: a.finalPassed,
-        source: 'story',
-        frames: a.frames,
-      });
-    },
-    [user, worldId]
-  );
+  const attemptLog = useAttemptLog({ source: 'story', worldId });
 
   const { classifier, status: classifierStatus, logVote, lastVote } = useClassifier();
-  const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote, onAttempt: handleAttempt, screen: 'story' });
+  const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote, onAttempt: attemptLog.recordAttempt, screen: 'story' });
 
   useEffect(() => { recognition.init(); }, [recognition.init]);
 
@@ -183,19 +153,7 @@ export function StoryPage({ story, onExit }: Props) {
   const handleSkip = () => {
     if (!currentLine) return;
     recordSign(currentLine.requiredSignId, false);
-    if (user) {
-      void logAttempt({
-        userId: user.id,
-        signId: currentLine.requiredSignId,
-        rulePassed: false,
-        aiPrediction: null,
-        aiConfidence: null,
-        aiVetoed: false,
-        finalPassed: false,
-        source: 'story',
-        frames: recognition.getSnapshot(),
-      });
-    }
+    attemptLog.recordMiss(currentLine.requiredSignId, recognition.getSnapshot());
     setSkipsUsed((p) => p + 1);
     setFailMsg(pickZippyLine('encourage'));
     setPhase('fail');

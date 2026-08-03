@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
+import { useRecognition } from '@/hooks/useRecognition';
+import { useAttemptLog } from '@/hooks/useAttemptLog';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { useUserStore } from '@/stores/useUserStore';
@@ -59,7 +60,9 @@ export function RoomPage({ onExit }: Props) {
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const sounds = useSounds();
   const { burst } = useConfetti();
-  const recognition = useRecognition({ onPass: handleSignCorrect, onAttempt: handleRoomAttempt, screen: 'multiplayer' });
+  // No worldId — any sign in the pool can come up.
+  const attemptLog = useAttemptLog({ source: 'room' });
+  const recognition = useRecognition({ onPass: handleSignCorrect, onAttempt: attemptLog.recordAttempt, screen: 'multiplayer' });
 
   const [phase, setPhase] = useState<Phase>('lobby');
   const [joinCode, setJoinCode] = useState('');
@@ -270,22 +273,6 @@ export function RoomPage({ onExit }: Props) {
     signaling.send('video-ready', { round: roundRef.current });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
-
-  // Analytics-only, same scope limit and reasoning as DuelPage's equivalent handler.
-  function handleRoomAttempt(a: AttemptRecord) {
-    track('sign_attempt', {
-      sign_id: a.signId,
-      world_id: null,
-      source: 'room',
-      rule_passed: a.rulePassed,
-      ai_vetoed: a.aiVetoed,
-      final_passed: a.finalPassed,
-      ai_prediction: a.aiPrediction,
-      ai_confidence: a.aiConfidence,
-      duration_ms: a.durationMs,
-      attempt_number: a.attemptNumber,
-    });
-  }
 
   function handleSignCorrect(_r: VerifyResult) {
     // Signing correctly doesn't auto-score in Room mode (guessers earn the points) — it's purely

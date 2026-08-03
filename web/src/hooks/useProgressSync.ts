@@ -6,6 +6,7 @@ import { useUserStore } from '@/stores/useUserStore';
 import type { SignStats, SpeedHighScore, Chest } from '@/types/user';
 import type { VerificationEntry } from '@/hooks/useRecognition';
 import type { Frame } from '@/engine/landmarks';
+import type { AttemptSource } from '@/analytics/types';
 
 const DEBOUNCE_MS = 3000;
 
@@ -242,7 +243,14 @@ export async function logVerification(userId: string, entry: VerificationEntry) 
   );
 }
 
-export type AttemptSource = 'lesson' | 'story' | 'practice' | 'speed';
+/**
+ * The subset of attempt sources whose landmark data feeds the training pipeline, and the only
+ * values `sign_attempts.source` is documented to hold (see the initial_schema migration). Derived
+ * from AttemptSource via Extract rather than re-listed, so dropping or renaming a source upstream
+ * breaks this line at compile time instead of silently diverging — the two lists drifting apart is
+ * exactly how the analytics union came to carry 'duel'/'room' while this one didn't.
+ */
+export type TrainingDataSource = Extract<AttemptSource, 'lesson' | 'story' | 'practice' | 'speed'>;
 
 export interface AttemptPayload {
   userId: string;
@@ -252,7 +260,7 @@ export interface AttemptPayload {
   aiConfidence: number | null;
   aiVetoed: boolean;
   finalPassed: boolean;
-  source: AttemptSource;
+  source: TrainingDataSource;
   /** Landmark snapshot for this attempt. Persisted only if the user hasn't opted out. */
   frames: Frame[];
 }

@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCamera } from '@/hooks/useCamera';
-import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
+import { useRecognition } from '@/hooks/useRecognition';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { Zippy } from '@/components/shared/Zippy';
 import { useUserStore } from '@/stores/useUserStore';
-import { useAuth } from '@/contexts/AuthContext';
-import { logAttempt } from '@/hooks/useProgressSync';
+import { useAttemptLog } from '@/hooks/useAttemptLog';
 import { SIGNS } from '@/data/signs';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { MovementKind } from '@/engine/schema';
@@ -33,7 +32,6 @@ interface Props {
 export function SpeedChallengePage({ onExit }: Props) {
   const { addXp, addSigns, recordSign, recordSpeedResult, checkBadges, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
-  const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera('speed');
   const sounds = useSounds();
   const { burst } = useConfetti();
@@ -112,38 +110,10 @@ export function SpeedChallengePage({ onExit }: Props) {
     [currentSignId, config, addXp, addSigns, recordSign, advanceSign, burst, sounds]
   );
 
-  const handleAttempt = useCallback(
-    (a: AttemptRecord) => {
-      // No single world_id — Speed Challenge draws from the full sign pool across worlds.
-      track('sign_attempt', {
-        sign_id: a.signId,
-        world_id: null,
-        source: 'speed',
-        rule_passed: a.rulePassed,
-        ai_vetoed: a.aiVetoed,
-        final_passed: a.finalPassed,
-        ai_prediction: a.aiPrediction,
-        ai_confidence: a.aiConfidence,
-        duration_ms: a.durationMs,
-        attempt_number: a.attemptNumber,
-      });
-      if (!user) return;
-      void logAttempt({
-        userId: user.id,
-        signId: a.signId,
-        rulePassed: a.rulePassed,
-        aiPrediction: a.aiPrediction,
-        aiConfidence: a.aiConfidence,
-        aiVetoed: a.aiVetoed,
-        finalPassed: a.finalPassed,
-        source: 'speed',
-        frames: a.frames,
-      });
-    },
-    [user]
-  );
+  // No worldId — Speed Challenge draws from the full sign pool across worlds.
+  const attemptLog = useAttemptLog({ source: 'speed' });
 
-  const recognition = useRecognition({ onPass: handlePass, onAttempt: handleAttempt, screen: 'speed' });
+  const recognition = useRecognition({ onPass: handlePass, onAttempt: attemptLog.recordAttempt, screen: 'speed' });
 
   useEffect(() => {
     recognition.init();
@@ -180,19 +150,7 @@ export function SpeedChallengePage({ onExit }: Props) {
           clearInterval(timerRef.current);
           if (currentSignId) {
             recordSign(currentSignId, false);
-            if (user) {
-              void logAttempt({
-                userId: user.id,
-                signId: currentSignId,
-                rulePassed: false,
-                aiPrediction: null,
-                aiConfidence: null,
-                aiVetoed: false,
-                finalPassed: false,
-                source: 'speed',
-                frames: recognition.getSnapshot(),
-              });
-            }
+            attemptLog.recordMiss(currentSignId, recognition.getSnapshot());
           }
           setCombo(0);
           loopStartedRef.current = null;
