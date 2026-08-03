@@ -52,6 +52,14 @@ create policy "rooms_insert_own" on public.multiplayer_rooms
 create policy "rooms_update_own" on public.multiplayer_rooms
   for update to authenticated using (host_id = auth.uid()) with check (host_id = auth.uid());
 
+-- RLS policies filter ROWS; the base table-level GRANT below is what lets `authenticated` attempt
+-- the operation at all. Without it, every query fails "permission denied for table
+-- multiplayer_rooms" before RLS is ever evaluated -- found 2026-08-04, first genuinely fresh
+-- `supabase db reset` (this table was the one new-since-launch table whose migration never added
+-- this grant explicitly, unlike world_flags/feedback elsewhere in this migration set). No delete:
+-- rooms are only ever removed via the SECURITY DEFINER cleanup path, which bypasses grants.
+grant select, insert, update on public.multiplayer_rooms to authenticated;
+
 
 -- Atomically validates a code exists and is joinable, claims a slot, and returns the room —
 -- one round trip instead of "select then hope nobody else joined between the check and the
