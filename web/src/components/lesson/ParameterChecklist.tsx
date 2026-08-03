@@ -120,9 +120,13 @@ interface Props {
    *  otherwise (movement signs are paced by their own movement scorer, not a hold timer — see
    *  STATIC_HOLD_SECONDS in useRecognition.ts). */
   holdProgress?: number | null;
+  /** Slightly more breathing room between rows (the desktop three-column signing layout, where
+   *  this panel sits alongside a taller reference clip + webcam) — purely a spacing choice, not
+   *  a height match; row content is unchanged. */
+  fillHeight?: boolean;
 }
 
-export function ParameterChecklist({ params, sign, holdProgress }: Props) {
+export function ParameterChecklist({ params, sign, holdProgress, fillHeight }: Props) {
   // Per-parameter confidence-gate state, keyed by param name, sustained across frames so a
   // single noisy frame can't flip a specific (possibly wrong) coaching tip on or off. See
   // engine/coachingGate.ts — 'cleared' is immediate, 'confident-fail' requires a sustained
@@ -142,7 +146,7 @@ export function ParameterChecklist({ params, sign, holdProgress }: Props) {
   }, [params]);
 
   return (
-    <div className="space-y-2">
+    <div className={`flex flex-col gap-2 ${fillHeight ? 'lg:gap-3' : ''}`}>
       {holdProgress != null && (
         <motion.div
           className="flex items-center gap-3 rounded-xl px-3 py-2.5 border bg-z-purple/10 border-z-purple/30"

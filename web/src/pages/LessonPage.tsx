@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCamera } from '@/hooks/useCamera';
 import { useAttemptRecorder } from '@/hooks/useAttemptRecorder';
-import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
+import { useRecognition } from '@/hooks/useRecognition';
 import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
@@ -18,7 +18,8 @@ import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { ReplayCompare } from '@/components/lesson/ReplayCompare';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { logVerification, logAttempt } from '@/hooks/useProgressSync';
+import { logVerification } from '@/hooks/useProgressSync';
+import { useAttemptLog } from '@/hooks/useAttemptLog';
 import type { VerificationEntry } from '@/hooks/useRecognition';
 import { SIGNS } from '@/data/signs';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
@@ -152,38 +153,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
     [user]
   );
 
-  const handleAttempt = useCallback(
-    (a: AttemptRecord) => {
-      // Analytics tracks every attempt, guest or signed-in — the activation funnel needs
-      // anonymous data too. Supabase's landmark-training-data logAttempt stays user-gated below
-      // (it's tied to an account, unlike PostHog's anonymous-until-identify model).
-      track('sign_attempt', {
-        sign_id: a.signId,
-        world_id: worldId,
-        source: 'lesson',
-        rule_passed: a.rulePassed,
-        ai_vetoed: a.aiVetoed,
-        final_passed: a.finalPassed,
-        ai_prediction: a.aiPrediction,
-        ai_confidence: a.aiConfidence,
-        duration_ms: a.durationMs,
-        attempt_number: a.attemptNumber,
-      });
-      if (!user) return;
-      void logAttempt({
-        userId: user.id,
-        signId: a.signId,
-        rulePassed: a.rulePassed,
-        aiPrediction: a.aiPrediction,
-        aiConfidence: a.aiConfidence,
-        aiVetoed: a.aiVetoed,
-        finalPassed: a.finalPassed,
-        source: 'lesson',
-        frames: a.frames,
-      });
-    },
-    [user, worldId]
-  );
+  const attemptLog = useAttemptLog({ source: 'lesson', worldId });
 
   const { classifier, status: classifierStatus, logVote, lastVote } = useClassifier();
   const recognition = useRecognition({
@@ -191,7 +161,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
     classifier,
     onVote: logVote,
     onVerified: handleVerified,
-    onAttempt: handleAttempt,
+    onAttempt: attemptLog.recordAttempt,
     screen: 'lesson',
   });
   // First-run only: overlay a camera-framing guide until the user is well positioned.
@@ -269,19 +239,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
     setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
       recordSign(currentSignId, false);
-      if (user) {
-        void logAttempt({
-          userId: user.id,
-          signId: currentSignId,
-          rulePassed: false,
-          aiPrediction: null,
-          aiConfidence: null,
-          aiVetoed: false,
-          finalPassed: false,
-          source: 'lesson',
-          frames: recognition.getSnapshot(),
-        });
-      }
+      attemptLog.recordMiss(currentSignId, recognition.getSnapshot());
     }
     recorder.discard();
     loopStartedForSign.current = null;
@@ -335,7 +293,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
         autoPlay
       />
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-4 pb-6 flex flex-col">
+      <div className={`flex-1 mx-auto w-full px-4 pb-6 flex flex-col ${phase === 'signing' ? 'max-w-lg lg:max-w-6xl' : 'max-w-lg'}`}>
         <AnimatePresence mode="wait">
           {/* --- INTRO --- */}
           {phase === 'intro' && (
@@ -385,7 +343,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
           {phase === 'signing' && currentSignData && (
             <motion.div
               key={`signing-${promptIdx}`}
-              className="flex-1 flex flex-col gap-4"
+              className="flex-1 flex flex-col gap-4 lg:justify-center"
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -30 }}
@@ -397,52 +355,68 @@ export function LessonPage({ lessonId, onExit }: Props) {
                 <p className="text-sm text-z-gray-300 mt-1">{currentSignData.description}</p>
               </div>
 
-              {currentSignData.clip ? (
-                <ReferenceClip
-                  clipUrl={currentSignData.clip}
-                  signName={currentSignData.name}
-                  compact
-                />
-              ) : currentSignData.howTo ? (
-                <div className="rounded-2xl border border-z-gray-500/20 bg-z-card p-3 text-center">
-                  <p className="text-z-gray-300 text-xs font-bold uppercase tracking-widest mb-1">No video yet — how to sign it</p>
-                  <p className="text-z-gray-100 text-sm leading-snug">{currentSignData.howTo}</p>
+              {/* Mobile: stacked (clip, camera, checklist) in source order. Desktop (lg+): three
+                  columns side by side — reference clip enlarged on the left, webcam center, live
+                  coaching checklist on the right — so everything is glanceable without scrolling. */}
+              <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[320px_1fr_340px] lg:gap-6 lg:items-start">
+                <div className="lg:order-1">
+                  {currentSignData.clip ? (
+                    <ReferenceClip
+                      clipUrl={currentSignData.clip}
+                      signName={currentSignData.name}
+                      compact
+                    />
+                  ) : currentSignData.howTo ? (
+                    <div className="rounded-2xl border border-z-gray-500/20 bg-z-card p-3 text-center lg:aspect-square lg:flex lg:flex-col lg:items-center lg:justify-center">
+                      <p className="text-z-gray-300 text-xs font-bold uppercase tracking-widest mb-1">No video yet — how to sign it</p>
+                      <p className="text-z-gray-100 text-sm leading-snug">{currentSignData.howTo}</p>
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
 
-              {(camStatus === 'denied' || camStatus === 'error' || recognition.status === 'error') ? (
-                <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center">
-                  <p className="text-sm font-bold text-z-red">
-                    {camStatus === 'denied' ? 'Camera access denied' : 'Camera unavailable'}
-                  </p>
-                  <p className="text-xs text-z-gray-300 mt-1">
-                    {camStatus === 'denied'
-                      ? 'Live coaching needs your camera. Allow camera access in your browser settings, then try again.'
-                      : 'Something went wrong starting the camera. Try again, or check that no other app is using it.'}
-                  </p>
-                  <button
-                    onClick={() => startCam()}
-                    className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
-                  >
-                    Try again
-                  </button>
+                <div className="lg:order-2">
+                  {(camStatus === 'denied' || camStatus === 'error' || recognition.status === 'error') ? (
+                    <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center">
+                      <p className="text-sm font-bold text-z-red">
+                        {camStatus === 'denied' ? 'Camera access denied' : 'Camera unavailable'}
+                      </p>
+                      <p className="text-xs text-z-gray-300 mt-1">
+                        {camStatus === 'denied'
+                          ? 'Live coaching needs your camera. Allow camera access in your browser settings, then try again.'
+                          : 'Something went wrong starting the camera. Try again, or check that no other app is using it.'}
+                      </p>
+                      <button
+                        onClick={() => startCam()}
+                        className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  ) : (
+                    /* Visible webcam mirror — reads from the hidden video element. Slightly
+                       taller than the standard 16:9 aspect-video (4:3) to fill the desktop
+                       column better, short of stretching to match the reference clip/checklist. */
+                    <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} aspectClassName="aspect-video lg:aspect-[4/3]" />
+                  )}
                 </div>
-              ) : (
-                <>
-                  {/* Visible webcam mirror — reads from the hidden video element */}
-                  <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} />
 
-                  {recognition.result && (
+                <div className="lg:order-3">
+                  {recognition.result && !(camStatus === 'denied' || camStatus === 'error' || recognition.status === 'error') && (
                     <ParameterChecklist
                       params={recognition.result.params}
                       sign={currentEngineSign}
                       holdProgress={recognition.holdProgress}
+                      fillHeight
                     />
                   )}
-                </>
-              )}
+                </div>
+              </div>
 
-              <div className="flex items-center justify-between mt-auto pt-2">
+              {/* mt-auto pins this to the bottom of the full-height mobile layout. On desktop the
+                  parent motion.div now centers its content vertically (lg:justify-center above)
+                  instead, so mt-auto must be killed there — otherwise the auto margin would still
+                  greedily eat the remaining space and pin this row to the bottom regardless. */}
+              <div className="flex items-center justify-between mt-auto lg:mt-0 pt-2 lg:pt-6">
                 <p className="text-xs text-z-gray-400 italic max-w-[60%]">
                   {currentSignData.hint}
                 </p>

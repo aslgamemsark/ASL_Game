@@ -37,7 +37,7 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
     <>
       <motion.div
         className={`relative rounded-2xl overflow-hidden bg-z-card ${
-          compact ? 'w-28 h-28 mx-auto' : 'aspect-square'
+          compact ? 'w-28 h-28 mx-auto lg:w-full lg:h-auto lg:aspect-square lg:mx-0' : 'aspect-square'
         } ${showPlaceholder ? '' : 'cursor-zoom-in'}`}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -53,8 +53,8 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
       >
         {showPlaceholder ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-center px-4">
-            <span className={compact ? 'text-xl' : 'text-3xl'} aria-hidden="true">🎬</span>
-            {!compact && <p className="text-z-gray-300 text-sm font-bold">Demo coming soon</p>}
+            <span className={compact ? 'text-xl lg:text-3xl' : 'text-3xl'} aria-hidden="true">🎬</span>
+            <p className={`text-z-gray-300 text-sm font-bold ${compact ? 'hidden lg:block' : ''}`}>Demo coming soon</p>
           </div>
         ) : (
           <>
@@ -73,16 +73,14 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
             </div>
           </>
         )}
-        {!compact && (
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
-            <p className="text-white text-sm font-bold">{signName.replace(/_/g, ' ')}</p>
-            <p className="text-white/70 text-xs">{showPlaceholder ? 'No demo video yet — follow the hint below' : 'Watch and follow along — tap to enlarge'}</p>
-          </div>
-        )}
+        <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 ${compact ? 'hidden lg:block' : ''}`}>
+          <p className="text-white text-sm font-bold">{signName.replace(/_/g, ' ')}</p>
+          <p className="text-white/70 text-xs">{showPlaceholder ? 'No demo video yet — follow the hint below' : 'Watch and follow along — tap to enlarge'}</p>
+        </div>
       </motion.div>
 
       {compact && !showPlaceholder && (
-        <p className="text-center text-z-gray-300 text-xs mt-1">Too small to see? Tap to enlarge ⤢</p>
+        <p className="text-center text-z-gray-300 text-xs mt-1 lg:hidden">Too small to see? Tap to enlarge ⤢</p>
       )}
 
       {!showPlaceholder && (

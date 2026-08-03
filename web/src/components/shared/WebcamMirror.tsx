@@ -41,6 +41,10 @@ interface Props {
    *  MediaPipe's handedness label, which flips depending on the camera/driver and was reported
    *  backwards on real hardware (2026-07-16) — see DominantHandCheck.tsx for the full reasoning. */
   handZones?: { active: 'left' | 'right' | null; selected: 'left' | 'right' | null } | null;
+  /** Override the default 16:9 box (e.g. to stretch and fill a taller row alongside other panels
+   *  in the desktop three-column signing layout) — defaults to the standard `aspect-video` used
+   *  everywhere else this component appears. */
+  aspectClassName?: string;
 }
 
 /**
@@ -51,7 +55,7 @@ interface Props {
  * (production audit, 2026-07-12). The camera stream and recognition loop were already correctly
  * shared via hooks (useCamera/useRecognition) — only this rendering piece was duplicated.
  */
-export function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones }: Props) {
+export function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones, aspectClassName = 'aspect-video' }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const [overlayEnlarged, setOverlayEnlarged] = useState(false);
@@ -79,7 +83,7 @@ export function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed
 
   return (
     <div
-      className={`relative rounded-2xl overflow-hidden bg-z-surface aspect-video ${cosmeticBorderClasses ?? ''} ${
+      className={`relative rounded-2xl overflow-hidden bg-z-surface ${aspectClassName} ${cosmeticBorderClasses ?? ''} ${
         activeTurn ? 'outline outline-2 outline-z-purple-light' : ''
       } ${
         passed === undefined ? '' : `border-2 transition-colors duration-200 ${passed ? 'border-z-green' : 'border-transparent'}`
