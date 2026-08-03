@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import type { CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WORLDS, WORLD_UNLOCK_GOLD_COST } from '@/data/worlds';
 import { LESSON_UNITS, LESSON_SKIP_COST } from '@/data/lessons';
 import { STORIES } from '@/data/stories';
 import { Zippy } from '@/components/shared/Zippy';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 
 // Maps a world's unlockCondition (a raw story/lesson id like "coffee-story") to a real display
 // title. The previous code did `unlockCondition.replace(/-/g, ' ')`, which for "greetings-story"
@@ -11,6 +13,20 @@ import { Zippy } from '@/components/shared/Zippy';
 // that story's real title is "Meet Zippy" (first-time-user pass, 2026-07-12).
 function unlockConditionLabel(conditionId: string): string {
   return STORIES.find((s) => s.id === conditionId)?.title ?? conditionId.replace(/-/g, ' ');
+}
+
+/**
+ * A world's identity gradient with the gradient-card scrim composited over it.
+ *
+ * World gradients come from data (`WORLDS[].bgGradient`) rather than from a CSS utility, so they
+ * cannot carry a baked-in scrim the way `bg-gradient-*` does — this applies the same 45% floor at
+ * the point of use instead. Without it the white/80 card text sat at 1.72:1 on the teal world,
+ * because the data's stops were picked as world *identity* colours with no reference to the text
+ * that would sit on them. Keep the scrim here in the view, not in `data/worlds.ts`: the data
+ * describes what a world looks like, not how text is made legible on it.
+ */
+function scrimmed(gradient: string): CSSProperties {
+  return { backgroundImage: `linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)), ${gradient}` };
 }
 import { useUserStore } from '@/stores/useUserStore';
 import { supabase, supabaseReady } from '@/lib/supabase';
@@ -90,7 +106,7 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
     const { done, total } = getWorldProgress(selectedWorld);
 
     return (
-      <div className="pb-32">
+      <div className="pb-nav-clear">
         {/* Back + world header */}
         <motion.div
           className="mb-6"
@@ -108,27 +124,26 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
           </button>
           <div
             className="rounded-2xl p-5 border border-white/10"
-            style={{ background: selectedWorld.bgGradient }}
+            style={scrimmed(selectedWorld.bgGradient)}
           >
             <div className="flex items-center gap-3 mb-3">
               <span className="text-3xl">{selectedWorld.emoji}</span>
               <div>
                 <h2 className="font-bold text-xl text-white">{selectedWorld.title}</h2>
-                <p className="text-white/60 text-sm">{selectedWorld.description}</p>
+                <p className="text-white/80 text-sm">{selectedWorld.description}</p>
               </div>
             </div>
-            <div className="flex items-center justify-between text-xs text-white/60 mb-1.5">
+            <div className="flex items-center justify-between text-xs text-white/80 mb-1.5">
               <span>{done}/{total} lessons</span>
               <span>{total > 0 ? Math.round((done / total) * 100) : 0}%</span>
             </div>
-            <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-white/70"
-                initial={{ width: 0 }}
-                animate={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
-              />
-            </div>
+            <ProgressBar
+              value={done / total}
+              label={`${selectedWorld.title}: ${done} of ${total} lessons complete`}
+              size="xs"
+              fillClassName="bg-white/70"
+              trackClassName="bg-black/30"
+            />
           </div>
         </motion.div>
 
@@ -188,7 +203,7 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                         <p className="text-xs text-z-gray-400">{node.description}</p>
                       </div>
                       {status === 'completed' && <span className="ml-auto text-z-green">✓</span>}
-                      {status === 'locked' && <span className="ml-auto text-z-gray-500">🔒</span>}
+                      {status === 'locked' && <span className="ml-auto text-z-gray-400">🔒</span>}
                     </motion.button>
                   );
                 }
@@ -213,7 +228,7 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
   }
 
   return (
-    <div className="pb-32">
+    <div className="pb-nav-clear">
       <AnimatePresence>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -239,9 +254,8 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
             return (
               <motion.div
                 key={world.id}
-                className="w-full rounded-2xl overflow-hidden border border-white/5 text-left relative opacity-90"
-                style={{ background: 'linear-gradient(135deg,#1a1a2e,#16213e)' }}
-                initial={{ opacity: 0, y: 20 }}
+                className="w-full rounded-2xl overflow-hidden border border-white/5 text-left relative opacity-90 bg-gradient-locked"
+                                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
               >
@@ -251,17 +265,17 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                       <span className="text-4xl grayscale opacity-70">{world.emoji}</span>
                       <div>
                         <h3 className="font-bold text-lg text-white">{world.title}</h3>
-                        <p className="text-white/60 text-xs mt-0.5 max-w-[180px]">{world.description}</p>
+                        <p className="text-white/80 text-xs mt-0.5 max-w-[180px]">{world.description}</p>
                       </div>
                     </div>
                     <span className="text-2xl shrink-0">{comingSoon ? '🚧' : '🔒'}</span>
                   </div>
 
                   {comingSoon ? (
-                    <p className="text-white/60 text-xs mt-1 mb-1">Coming soon!</p>
+                    <p className="text-white/80 text-xs mt-1 mb-1">Coming soon!</p>
                   ) : (
                     <>
-                      <p className="text-white/60 text-xs mt-1 mb-3">
+                      <p className="text-white/80 text-xs mt-1 mb-3">
                         Finish {world.unlockCondition ? unlockConditionLabel(world.unlockCondition) : 'the previous world'} to open this world!
                       </p>
                       <button
@@ -287,7 +301,7 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
               key={world.id}
               onClick={() => setSelectedWorldId(world.id)}
               className="w-full rounded-2xl overflow-hidden border border-white/10 text-left relative"
-              style={{ background: world.bgGradient }}
+              style={scrimmed(world.bgGradient)}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
@@ -300,27 +314,27 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                     <span className="text-4xl">{world.emoji}</span>
                     <div>
                       <h3 className="font-bold text-lg text-white">{world.title}</h3>
-                      <p className="text-white/60 text-xs mt-0.5 max-w-[180px]">{world.description}</p>
+                      <p className="text-white/80 text-xs mt-0.5 max-w-[180px]">{world.description}</p>
                     </div>
                   </div>
                   {done === total && total > 0 && <span className="text-2xl shrink-0">✅</span>}
                   {(done < total || total === 0) && (
-                    <span className="text-white/70 text-sm font-bold shrink-0 mt-1">{done}/{total}</span>
+                    <span className="text-white/80 text-sm font-bold shrink-0 mt-1">{done}/{total}</span>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-white/75 mb-1.5">
+                <div className="flex items-center justify-between text-xs text-white/80 mb-1.5">
                   <span>{done} of {total} lessons</span>
                   <span>{Math.round(pct)}%</span>
                 </div>
-                <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full bg-white/65"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={{ duration: 0.8, ease: 'easeOut', delay: i * 0.1 + 0.2 }}
-                  />
-                </div>
+                <ProgressBar
+                  value={pct / 100}
+                  label={`${world.title}: ${done} of ${total} lessons complete`}
+                  size="xs"
+                  fillClassName="bg-white/65"
+                  trackClassName="bg-black/30"
+                  transition={{ duration: 0.8, ease: 'easeOut', delay: i * 0.1 + 0.2 }}
+                />
               </div>
             </motion.button>
           );

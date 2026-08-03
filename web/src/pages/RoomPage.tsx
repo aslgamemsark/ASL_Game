@@ -2,14 +2,15 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRecognition } from '@/hooks/useRecognition';
 import { useAttemptLog } from '@/hooks/useAttemptLog';
+import { Button } from '@/components/shared/Button';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMultiplayerSignaling } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
-import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_ROOM_RULES, ROOM_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
-import { RoomRulesPanel } from '@/components/multiplayer/RoomRulesPanel';
+import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, pickNextSigner, DEFAULT_ROOM_RULES, type RoomRules } from '@/lib/multiplayerRooms';
+import { MultiplayerLobby } from '@/components/multiplayer/MultiplayerLobby';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
@@ -40,6 +41,8 @@ interface ResultData {
 
 interface Props {
   onExit: () => void;
+  /** Swaps the whole screen to the other mode from inside the lobby. See DuelPage's copy. */
+  onSwitchMode?: (mode: 'duel' | 'room') => void;
 }
 
 const ALL_SIGNS = Object.keys(SIGNS);
@@ -48,13 +51,19 @@ const MAX_PLAYERS = 4;
 // host's chosen RoomRules override this; totalRounds is derived from the synced signs array length
 // so every client agrees regardless of the host's rounds-per-player choice.
 const TURN_SECONDS = DEFAULT_ROOM_RULES.turnSeconds;
+// The joiner re-announces itself until the host's roster broadcast comes back naming it. Same
+// mechanism and reasoning as DuelPage's join announcement: a broadcast sent before the host
+// finished subscribing is lost with no replay, and the joiner then never appears in the roster,
+// so the host can never reach the 2-player minimum to start.
+const ROSTER_ANNOUNCE_INTERVAL_MS = 1200;
+const ROSTER_ANNOUNCE_ATTEMPTS = 10;
 const RESULT_HOLD_MS = 1500;
 // Safety net: if not every guesser confirms they can see the signer's video within this long
 // (dropped message, a camera that never loads), start the round timer anyway rather than
 // stalling the whole room on one stuck connection.
 const TURN_ARM_FALLBACK_MS = 5000;
 
-export function RoomPage({ onExit }: Props) {
+export function RoomPage({ onExit, onSwitchMode }: Props) {
   const { user, username } = useAuth();
   const { addSigns, addGold, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
@@ -96,6 +105,7 @@ export function RoomPage({ onExit }: Props) {
   const turnArmFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const turnIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const rosterRef = useRef<RosterMember[]>([]);
+  const rosterAnnounceRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const turnOrderRef = useRef<string[]>([]);
   const signsRef = useRef<string[]>([]);
   const totalRoundsRef = useRef(0);
@@ -114,6 +124,10 @@ export function RoomPage({ onExit }: Props) {
   const matchStartedAtRef = useRef(0);
   const armTurnTimerRef = useRef<(startedAt?: number) => void>(() => {});
 
+  // Read by the presence effect, which is keyed on presentPeerIds/roster and would otherwise close
+  // over a stale `phase`.
+  const phaseRef = useRef<Phase>('lobby');
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { rosterRef.current = roster; }, [roster]);
   useEffect(() => { scoresRef.current = scores; }, [scores]);
   useEffect(() => { disconnectedPeerIdsRef.current = disconnectedPeerIds; }, [disconnectedPeerIds]);
@@ -202,8 +216,19 @@ export function RoomPage({ onExit }: Props) {
           applyGameOver();
           return;
         }
-        const order = turnOrderRef.current;
-        const nextSigner = order[(nextRound - 1) % order.length];
+        // Skip players who have left. The turn order is fixed at match start, so without this a
+        // departed player keeps being handed turns — and each of those rounds burns the FULL turn
+        // timer with nobody signing, once per cycle, for the rest of the match. Falls back to the
+        // positional pick when everyone is gone, which the guard below then turns into a game-over.
+        const nextSigner = pickNextSigner(turnOrderRef.current, disconnectedPeerIdsRef.current, nextRound);
+        if (!nextSigner) {
+          // Fewer than two players left — end the match rather than run rounds nobody can score.
+          const finalScores = { ...scoresRef.current };
+          for (const [pid, delta] of Object.entries(scoreDeltas)) finalScores[pid] = (finalScores[pid] ?? 0) + delta;
+          signaling.send('game-over', { finalScores });
+          applyGameOver();
+          return;
+        }
         const nextSignId = signsRef.current[nextRound - 1];
         signaling.send('round-start', { round: nextRound, signerPeerId: nextSigner, signId: nextSignId });
         beginRound(nextRound, nextSigner, nextSignId);
@@ -280,6 +305,10 @@ export function RoomPage({ onExit }: Props) {
     sounds.correct();
   }
 
+  const clearRosterAnnounce = useCallback(() => {
+    if (rosterAnnounceRef.current) { clearInterval(rosterAnnounceRef.current); rosterAnnounceRef.current = null; }
+  }, []);
+
   const handleMessage = useCallback((event: string, payload: Record<string, unknown>, fromPeerId: string) => {
     if (event === 'roster-join') {
       if (!isHostRef.current) return;
@@ -291,7 +320,11 @@ export function RoomPage({ onExit }: Props) {
       return;
     }
     if (event === 'roster') {
-      setRoster(payload.members as RosterMember[]);
+      const members = payload.members as RosterMember[];
+      setRoster(members);
+      // The host has acknowledged us by name — stop re-announcing immediately rather than waiting
+      // for the interval's next tick.
+      if (user && members.some((m) => m.peerId === user.id)) clearRosterAnnounce();
       return;
     }
     if (event === 'game-start') {
@@ -339,7 +372,7 @@ export function RoomPage({ onExit }: Props) {
       return;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applyGameOver, applyRoundEnd, beginRound, endRound]);
+  }, [applyGameOver, applyRoundEnd, beginRound, endRound, clearRosterAnnounce, user]);
 
   const signaling = useMultiplayerSignaling({ selfPeerId: user?.id ?? '', onMessage: handleMessage });
 
@@ -365,6 +398,19 @@ export function RoomPage({ onExit }: Props) {
       }
     }
     wasPresentRef.current = present;
+
+    // The SIGNER left mid-round. Nobody can score a round whose signer is gone, so end it now
+    // instead of making everyone watch the full turn timer run down on an empty video tile.
+    // Host-authoritative, matching every other round transition — a guesser ending the round
+    // locally would desync the others.
+    const signer = signerPeerIdRef.current;
+    if (
+      isHostRef.current && signer && signer !== user?.id &&
+      nowDisconnected.includes(signer) &&
+      (phaseRef.current === 'signing' || phaseRef.current === 'guessing')
+    ) {
+      endRound();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signaling.presentPeerIds, roster]);
 
@@ -402,8 +448,27 @@ export function RoomPage({ onExit }: Props) {
     track('multiplayer_room_joined', { mode: 'room', room_id: code, via });
     await signaling.join(`mp-room-${code}`);
     await signaling.startCamera();
-    signaling.send('roster-join', { username: username ?? user.email?.split('@')[0] ?? 'Player', border: equippedBorder ?? '' });
+    const announce = () => signaling.send('roster-join', {
+      username: username ?? user.email?.split('@')[0] ?? 'Player',
+      border: equippedBorder ?? '',
+    });
+    announce();
     setStatusMsg('Connected! Waiting for host to start…');
+
+    // Keep announcing until the host's roster comes back naming us — see
+    // ROSTER_ANNOUNCE_INTERVAL_MS. Safe to repeat: the host's 'roster-join' handler returns early
+    // when the peer is already in the roster, so every repeat after the first is a no-op.
+    let attempts = 0;
+    rosterAnnounceRef.current = setInterval(() => {
+      if (rosterRef.current.some((m) => m.peerId === user.id)) { clearRosterAnnounce(); return; }
+      attempts += 1;
+      if (attempts >= ROSTER_ANNOUNCE_ATTEMPTS) {
+        clearRosterAnnounce();
+        setStatusMsg("Couldn't reach the host — they may have left. Try another room.");
+        return;
+      }
+      announce();
+    }, ROSTER_ANNOUNCE_INTERVAL_MS);
   };
 
   const searchForMatch = async () => {
@@ -483,6 +548,7 @@ export function RoomPage({ onExit }: Props) {
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
     if (turnIntervalRef.current) clearInterval(turnIntervalRef.current);
     if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
+    if (rosterAnnounceRef.current) clearInterval(rosterAnnounceRef.current);
   }, []);
 
   const exit = () => {
@@ -510,65 +576,36 @@ export function RoomPage({ onExit }: Props) {
   const timerPercent = turnArmed ? (timeLeft / turnSecondsRef.current) * 100 : 100;
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       <video ref={signaling.localVideoRef} style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }} muted playsInline autoPlay />
 
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton icon="close" onClick={exit} />
-        <h1 className="font-bold text-lg">👥 Group Room</h1>
+        {/* In the lobby the mode switcher directly below already names the mode, so
+            repeating it here read as the same words twice. Once a match is under way there
+            is no switcher, and naming the mode is useful context again. */}
+        <h1 className="font-bold text-lg">{phase === 'lobby' ? 'Multiplayer' : '👥 Group Room'}</h1>
       </div>
 
       <div className="flex-1 max-w-lg mx-auto w-full px-4 pb-6 flex flex-col">
         <AnimatePresence mode="wait">
 
           {phase === 'lobby' && (
-            <motion.div key="lobby" className="flex-1 flex flex-col items-center justify-center gap-6"
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="text-6xl">👥</div>
-              <div className="text-center">
-                <h2 className="text-2xl font-bold">Group Sign & Guess</h2>
-                <p className="text-z-gray-300 text-sm mt-1">Up to 4 players — one signs, everyone else guesses.</p>
-              </div>
-              <div className="w-full max-w-xs flex flex-col gap-2">
-                <RoomRulesPanel rules={rules} onChange={setRules} roundsOptions={ROOM_ROUNDS_OPTIONS} roundsLabel="Rounds each" />
-                <div className="flex bg-z-card border border-white/10 rounded-2xl p-1">
-                  <button onClick={() => setVisibility('private')}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'private' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
-                    🔒 Private
-                  </button>
-                  <button onClick={() => setVisibility('public')}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'public' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
-                    🌐 Public
-                  </button>
-                </div>
-                <motion.button onClick={() => void createRoom()}
-                  className="w-full py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  Create Room
-                </motion.button>
-              </div>
-
-              <motion.button onClick={() => void searchForMatch()} disabled={searching}
-                className="w-full max-w-xs py-3 rounded-2xl font-bold text-sm bg-z-card border border-white/10 hover:border-z-purple/40 disabled:opacity-50"
-                whileTap={{ scale: 0.97 }}>
-                {searching ? 'Searching…' : '🔍 Search for a Room'}
-              </motion.button>
-              {codeError && <p className="text-center text-z-red text-xs -mt-3">{codeError}</p>}
-
-              <div className="w-full max-w-xs">
-                <p className="text-center text-z-gray-400 text-sm mb-2">— or join with a code —</p>
-                <div className="flex gap-2">
-                  <input value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setCodeError(''); }}
-                    placeholder="XXXXXX"
-                    className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:outline-none focus:border-z-purple/60" />
-                  <motion.button onClick={() => void joinRoom()} disabled={!joinCode.trim()}
-                    className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                    whileTap={{ scale: 0.96 }}>
-                    Join
-                  </motion.button>
-                </div>
-              </div>
-            </motion.div>
+            <MultiplayerLobby
+              mode="room"
+              onModeChange={onSwitchMode ? () => onSwitchMode('duel') : undefined}
+              rules={rules}
+              onRulesChange={setRules}
+              visibility={visibility}
+              onVisibilityChange={setVisibility}
+              onCreate={() => void createRoom()}
+              onSearch={() => void searchForMatch()}
+              searching={searching}
+              joinCode={joinCode}
+              onJoinCodeChange={(v) => { setJoinCode(v); setCodeError(''); }}
+              onJoin={() => void joinRoom()}
+              codeError={codeError}
+            />
           )}
 
           {phase === 'waitingRoom' && (
@@ -593,11 +630,9 @@ export function RoomPage({ onExit }: Props) {
                 </div>
               </div>
               {isHostRef.current && (
-                <motion.button onClick={startGame} disabled={roster.length < 2}
-                  className="px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary disabled:opacity-40 disabled:cursor-not-allowed"
-                  whileTap={{ scale: 0.97 }}>
+                <Button onClick={startGame} disabled={roster.length < 2}>
                   Start Game
-                </motion.button>
+                </Button>
               )}
             </motion.div>
           )}
@@ -611,7 +646,7 @@ export function RoomPage({ onExit }: Props) {
               </div>
               <div className="bg-z-card border border-z-purple/30 rounded-2xl p-4 text-center">
                 <p className="text-xs text-z-gray-400 mb-1">
-                  SIGN THIS · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-500">waiting for everyone's camera…</span>}
+                  SIGN THIS · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-400">waiting for everyone's camera…</span>}
                 </p>
                 <p className="text-3xl font-bold text-z-purple-light">{SIGNS[currentSignId]?.name.replace(/_/g, ' ') ?? currentSignId}</p>
               </div>
@@ -641,7 +676,7 @@ export function RoomPage({ onExit }: Props) {
                 onVideoReady={handleVideoReady}
               />
               <p className="text-center font-bold">
-                {turnArmed ? 'What are they signing?' : <span className="text-z-gray-500 font-normal text-sm">connecting…</span>}
+                {turnArmed ? 'What are they signing?' : <span className="text-z-gray-400 font-normal text-sm">connecting…</span>}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {guessOptions.map((s) => (
@@ -683,11 +718,9 @@ export function RoomPage({ onExit }: Props) {
                   </div>
                 ))}
               </div>
-              <motion.button onClick={exit}
-                className="px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                whileTap={{ scale: 0.97 }}>
+              <Button onClick={exit}>
                 Back to Home
-              </motion.button>
+              </Button>
             </motion.div>
           )}
 

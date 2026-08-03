@@ -1,0 +1,47 @@
+{
+  "name": "TEACHER",
+  "twoHanded": true,
+  "extraHandMotionFloor": null,
+  "dominant": {
+    "kind": "open",
+    "required": true,
+    "minConfidence": 0.5
+  },
+  "nondominant": {
+    "kind": "open",
+    "required": true,
+    "minConfidence": 0.5
+  },
+  "location": {
+    "anchor": "forehead",
+    "actingHand": "dominant",
+    "maxDistRatio": 0.8,
+    "minDistRatio": 0.0,
+    "vertical": null,
+    "below": null,
+    "useClosestApproach": false,
+    "required": true,
+    "minConfidence": 0.6
+  },
+  "movement": {
+    "kind": "repeated",
+    "actor": "dominant",
+    "pivot": "nondominant",
+    "minTotalRotationDeg": 300.0,
+    "radiusToleranceRatio": 0.4,
+    "direction": null,
+    "minDisplacementRatio": 0.3,
+    "minCycles": 2,
+    "minAmplitudeRatio": 0.08,
+    "minApproachRatio": 0.15,
+    "traceTemplate": [],
+    "traceToleranceDeg": 60.0,
+    "gateToLocation": false,
+    "otherHandMaxMotionRatio": null,
+    "minDurationS": 0.5,
+    "required": true,
+    "minConfidence": 0.4
+  },
+  "orientation": null,
+  "nmm": null
+}

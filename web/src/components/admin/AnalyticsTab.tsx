@@ -28,7 +28,7 @@ function Median({ label, value }: { label: string; value: number }) {
   return (
     <div className="bg-z-surface rounded-xl py-2.5 text-center">
       <p className="text-xl font-bold tabular-nums">{Math.round(value)}</p>
-      <p className="text-[11px] text-z-gray-400 mt-0.5">{label}</p>
+      <p className="text-2xs text-z-gray-400 mt-0.5">{label}</p>
     </div>
   );
 }
@@ -64,7 +64,7 @@ export default function AnalyticsTab({ showToast }: { showToast: (m: string) => 
     return (
       <div className="text-center py-10">
         <p className="text-z-gray-300 text-sm">Couldn't load analytics</p>
-        <button onClick={() => void load(days)} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+        <button onClick={() => void load(days)} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2">
           Try again
         </button>
       </div>
@@ -95,7 +95,7 @@ export default function AnalyticsTab({ showToast }: { showToast: (m: string) => 
         <button
           onClick={() => void load(days)}
           disabled={loading}
-          className="ml-auto text-xs font-semibold text-z-purple-light hover:underline disabled:opacity-50"
+          className="ml-auto text-xs font-semibold text-z-purple-light hover:underline disabled:opacity-50 py-2.5 -my-2.5 px-2 -mx-2"
         >
           {loading ? 'Refreshing…' : '↻ Refresh'}
         </button>
@@ -154,7 +154,7 @@ export default function AnalyticsTab({ showToast }: { showToast: (m: string) => 
         </div>
       </Section>
 
-      <p className="text-[11px] text-z-gray-500 text-center">
+      <p className="text-2xs text-z-gray-400 text-center">
         Registered users only · updated {formatAdminTimestamp(data.generated_at)}
       </p>
     </div>

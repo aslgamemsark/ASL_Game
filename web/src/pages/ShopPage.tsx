@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { SHOP_ITEMS, RARITY_COLOR, type ShopItem, type CosmeticType } from '@/data/shop';
@@ -23,6 +24,12 @@ export function ShopPage({ onExit }: Props) {
   const { gold, ownedCosmetics, equippedBorder, equippedAvatar, renameCards, streakFreezes, purchaseCosmetic, purchaseRenameCard, purchaseStreakFreeze, equipBorder, equipAvatar } = useUserStore();
   const { purchase, wrong } = useSounds();
   const [selected, setSelected] = useState<ShopItem | null>(null);
+  // active: !!selected — the detail sheet is gated on `selected` inside an always-mounted page.
+  const dialog = useDialogA11y({
+    label: selected ? selected.title : 'Shop item',
+    onClose: () => setSelected(null),
+    active: !!selected,
+  });
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -63,7 +70,7 @@ export function ShopPage({ onExit }: Props) {
 
   if (shopDisabled) {
     return (
-      <div className="min-h-screen bg-z-bg flex flex-col">
+      <div className="min-h-dvh bg-z-bg flex flex-col">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
           <HeaderBackButton onClick={onExit} />
           <h1 className="font-bold text-lg flex-1">Shop</h1>
@@ -78,7 +85,7 @@ export function ShopPage({ onExit }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton onClick={onExit} />
@@ -90,7 +97,7 @@ export function ShopPage({ onExit }: Props) {
       </div>
 
       {/* Category sections */}
-      <div className="flex-1 max-w-3xl mx-auto w-full px-4 pt-6 pb-24 overflow-y-auto">
+      <div className="flex-1 max-w-3xl mx-auto w-full px-4 pt-6 pb-nav-clear overflow-y-auto">
         {SECTIONS.map((section) => {
           const items = SHOP_ITEMS.filter((i) => i.type === section.type);
           if (items.length === 0) return null;
@@ -139,12 +146,12 @@ export function ShopPage({ onExit }: Props) {
                         <div className="text-3xl mb-2">{item.icon}</div>
                       )}
                       <p className="font-bold text-sm leading-tight">{item.title}</p>
-                      <p className="text-[11px] text-z-gray-400 mt-0.5 leading-tight">{item.description}</p>
+                      <p className="text-2xs text-z-gray-400 mt-0.5 leading-tight">{item.description}</p>
 
                       <div className="mt-3 flex items-center justify-between">
                         {owned ? (
-                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${
-                            equipped ? 'bg-z-purple/30 text-z-purple' : 'bg-z-green/20 text-z-green'
+                          <span className={`text-2xs font-bold px-2 py-0.5 rounded-lg ${
+                            equipped ? 'bg-z-purple/30 text-z-purple-light' : 'bg-z-green/20 text-z-green'
                           }`}>
                             {equipped ? '✓ Equipped' : 'Owned'}
                           </span>
@@ -154,7 +161,7 @@ export function ShopPage({ onExit }: Props) {
                           </span>
                         )}
                         {isConsumable && consumableCount > 0 && (
-                          <span className="text-[11px] font-bold bg-z-purple/20 text-z-purple-light px-2 py-0.5 rounded-lg">
+                          <span className="text-2xs font-bold bg-z-purple/20 text-z-purple-light px-2 py-0.5 rounded-lg">
                             ×{consumableCount}
                           </span>
                         )}
@@ -173,12 +180,14 @@ export function ShopPage({ onExit }: Props) {
         {selected && (
           <>
             <motion.div
-              className="fixed inset-0 bg-black/50 z-40"
+              className="fixed inset-0 bg-black/50 z-chrome"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setSelected(null)}
             />
             <motion.div
-              className="fixed bottom-0 left-0 right-0 bg-z-surface border-t border-white/10 rounded-t-3xl p-6 z-50 max-w-lg mx-auto"
+              ref={dialog.ref}
+              {...dialog.props}
+              className="fixed bottom-0 left-0 right-0 bg-z-surface border-t border-white/10 rounded-t-3xl max-h-[85dvh] overflow-y-auto px-6 pt-6 pb-[calc(1.5rem+var(--sab))] z-overlay max-w-lg mx-auto outline-none"
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             >
@@ -214,9 +223,8 @@ export function ShopPage({ onExit }: Props) {
                   <motion.button
                     onClick={() => handleBuy(selected)}
                     disabled={gold < selected.goldPrice}
-                    className="w-full py-3 rounded-2xl font-bold text-base text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ background: 'linear-gradient(135deg,#B45309,#F59E0B)' }}
-                    whileTap={{ scale: 0.97 }}
+                    className="w-full py-3 rounded-2xl font-bold text-base text-white disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-amber"
+                                       whileTap={{ scale: 0.97 }}
                   >
                     Buy for 🪙 {selected.goldPrice}
                   </motion.button>
@@ -237,9 +245,8 @@ export function ShopPage({ onExit }: Props) {
                 <motion.button
                   onClick={() => handleBuy(selected)}
                   disabled={gold < selected.goldPrice}
-                  className="w-full py-3 rounded-2xl font-bold text-base text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ background: 'linear-gradient(135deg,#B45309,#F59E0B)' }}
-                  whileTap={{ scale: 0.97 }}
+                  className="w-full py-3 rounded-2xl font-bold text-base text-white disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-amber"
+                                   whileTap={{ scale: 0.97 }}
                 >
                   Buy for 🪙 {selected.goldPrice}
                 </motion.button>
@@ -253,7 +260,7 @@ export function ShopPage({ onExit }: Props) {
       <AnimatePresence>
         {toast && (
           <motion.div
-            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-50"
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-overlay"
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
           >
             {toast}

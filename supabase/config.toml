@@ -1,0 +1,59 @@
+# Supabase LOCAL development stack.
+#
+# This file configures `supabase start` — a Dockerised Postgres + GoTrue + Realtime + PostgREST
+# running entirely on 127.0.0.1. It has NOTHING to do with the hosted production project; nothing
+# here can reach it. It exists so the multiplayer integration suite
+# (`web/e2e/multiplayer.spec.ts`) can exercise the real schema, the real `join_multiplayer_room`
+# RPC (including its `for update` row lock, which is where the join race actually lives) and real
+# Realtime broadcast, without any automated test ever touching production data.
+#
+# Everything in this file is non-secret by construction: it is ports and feature flags, and the
+# local stack's JWT keys are fixed well-known constants published in Supabase's own docs, identical
+# on every developer's machine and only valid against 127.0.0.1. See docs/MULTIPLAYER_TESTING.md.
+
+project_id = "quicksign-local"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+# Match the hosted project's major version so a migration that applies locally also applies there.
+major_version = 15
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1"
+
+# Local mail catcher — signup/reset mails land here instead of being sent. The integration suite
+# does not depend on it (test users are provisioned confirmed via the admin API), but leaving it on
+# makes manual local auth debugging possible.
+[inbucket]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://localhost:4173"
+additional_redirect_urls = ["http://localhost:4173", "http://localhost:5173"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+# No mail round-trip in tests: users are created pre-confirmed through the admin API. Turning
+# confirmations off locally also keeps manual local signup usable without opening Inbucket.
+enable_confirmations = false
+double_confirm_changes = false

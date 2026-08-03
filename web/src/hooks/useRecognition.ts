@@ -2,9 +2,9 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import { Capture, getSharedCapture } from '@/engine/capture';
 import { RollingBuffer, HandStabilizer, type Frame } from '@/engine/landmarks';
 import { verify, type VerifyResult, resultPassed } from '@/engine/verifier';
-import { gatePass, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
+import { gateOutcome, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
 import { topK, type SignClassifier } from '@/engine/classifier';
-import { GATE_CONFIDENCE, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
+import { GATE_CONFIDENCE, GATE_ENFORCED, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
 import { MovementKind, type Sign } from '@/engine/schema';
 import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
@@ -28,19 +28,56 @@ export interface FramingStatus {
   message: string;
 }
 
-function computeFraming(frame: Frame): FramingStatus {
-  const { leftShoulder, rightShoulder, mouth, width, height } = frame;
+/**
+ * Thresholds calibrated 2026-07-27 against 27,110 frames from attempts the rule verifier ACTUALLY
+ * PASSED (`training_samples` where rule_passed), not from intuition. The previous set rejected
+ * 81.1% of those known-good frames — it was describing a webcam headshot, not a signing space.
+ *
+ * Measured on known-good frames — shoulder-width median 0.409 (p05 0.289, p95 0.607), mouth
+ * median 0.641, shoulder-height median 0.810 — and each old rule's false-positive rate:
+ *   "Raise your camera a touch"  77.0%  ← removed outright, see below
+ *   "Come a little closer"       11.8%  ← 0.32 sat above the p05 of people signing successfully
+ *   "Center yourself in the box"  2.2%  ← kept as-is
+ *   "Move back a little"          0.1%  ← kept as-is
+ * The replacement set below passes 94% of the same frames.
+ */
+const FRAMING = {
+  /** Below this, pose/hand landmarks genuinely start dropping out. p05 of successful frames is
+   *  0.289, so 0.28 sits just under the real working range instead of inside it. */
+  minShoulderWidthRatio: 0.28,
+  maxShoulderWidthRatio: 0.8,
+  maxCenterOffset: 0.16,
+  /** Shoulders this low leave no room for chest-level signs. PLEASE is the lowest sign we teach —
+   *  its hands sit BELOW the shoulder line (median +0.036 of frame height) and 2.93% of its hand
+   *  points already fall off the bottom edge. Advisory only: it never blocks `ok`, because 18% of
+   *  known-good frames are lower than this and those signs still passed. */
+  chestRoomShoulderY: 0.92,
+} as const;
+
+/** Exported for the calibration regression test in tests/framing.test.ts — not part of the hook's
+ *  public surface; consumers read `framing` off the hook's return value. */
+export function computeFraming(frame: Frame): FramingStatus {
+  const { leftShoulder, rightShoulder, width, height } = frame;
+  // The only condition that genuinely stops recognition: no pose at all.
   if (!width || !height || !leftShoulder || !rightShoulder) {
     return { ok: false, message: 'Step into view so I can see you' };
   }
   const shoulderWidthRatio = Math.abs(leftShoulder[0] - rightShoulder[0]) / width;
   const midX = ((leftShoulder[0] + rightShoulder[0]) / 2) / width;
   const centerOffset = Math.abs(midX - 0.5);
-  if (shoulderWidthRatio > 0.8) return { ok: false, message: 'Move back a little' };
-  if (shoulderWidthRatio < 0.32) return { ok: false, message: 'Come a little closer' };
-  if (centerOffset > 0.16) return { ok: false, message: 'Center yourself in the box' };
-  // Keep the face in the upper part of the frame so the chest stays visible below it.
-  if (mouth && mouth[1] / height > 0.55) return { ok: false, message: 'Raise your camera a touch' };
+  const shoulderYRatio = ((leftShoulder[1] + rightShoulder[1]) / 2) / height;
+
+  if (shoulderWidthRatio > FRAMING.maxShoulderWidthRatio) return { ok: false, message: 'Move back a little' };
+  if (shoulderWidthRatio < FRAMING.minShoulderWidthRatio) return { ok: false, message: 'Come a little closer' };
+  if (centerOffset > FRAMING.maxCenterOffset) return { ok: false, message: 'Center yourself in the box' };
+
+  // Deliberately ok:true — a tip, not a correction. The old rule here ("Raise your camera a touch")
+  // fired on 77% of known-good frames, hit all 10 users who ever reached a camera, is unactionable
+  // on a laptop whose webcam is fixed to the lid, and pushed users to frame HIGHER — which crops
+  // the chest and makes exactly the chest-level signs it should protect harder to perform.
+  if (shoulderYRatio > FRAMING.chestRoomShoulderY) {
+    return { ok: true, message: 'Sit back a little so your chest is in view' };
+  }
   return { ok: true, message: 'Perfect — hold it there ✓' };
 }
 
@@ -203,6 +240,24 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       const MIN_FRAME_INTERVAL_MS = 1000 / 28;
       let lastProcessMs = 0;
 
+      // Throttle the REACT STATE publish of the per-frame verify() result to 10Hz — a continuous
+      // score stream (not a discrete message like `framing` above, which dedupes by equality
+      // instead) has no single "did it change" boundary, so the fix here is rate, not equality.
+      // 10Hz is not arbitrary: ParameterChecklist's hold-progress bar already animates with a
+      // 100ms linear transition, so a new target arrives right as the previous one finishes —
+      // smooth, continuous motion with no dead time. Found 2026-07-30: `setResult` was firing on
+      // every processed frame (28/sec) with a brand-new object every time (verify() never returns
+      // the same reference twice), forcing every page that reads `result` — and everything below
+      // it in the tree, since there is no React.memo anywhere in this codebase — to re-render the
+      // whole screen 28 times a second for the full duration of every lesson/practice/story/speed/
+      // multiplayer round. The synchronous pass/fail logic below (`resultPassed(vr)`, `firePass()`)
+      // still reads the FRESH untouched `vr` every tick — only the React-visible publish is paced.
+      const RESULT_UPDATE_INTERVAL_MS = 1000 / 10;
+      let lastResultUpdateMs = 0;
+      // Same throttle, tracked independently — holdProgress and result are two separate signals
+      // that happen to update in the same tick, not one derived from the other.
+      let lastHoldUpdateMs = 0;
+
       const tick = () => {
         if (!runningRef.current || !signRef.current) return;
 
@@ -238,7 +293,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           }
 
           const vr = verify(bufferRef.current, signRef.current);
-          setResult(vr);
+          if (nowMs - lastResultUpdateMs >= RESULT_UPDATE_INTERVAL_MS) {
+            lastResultUpdateMs = nowMs;
+            setResult(vr);
+          }
 
           // Log first few frames for debugging
           if (import.meta.env.DEV && frameCountRef.current <= 3) {
@@ -261,12 +319,16 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 cls.classify(snapshot)
                   .then((vote) => {
                     if (!gatedSign) return;
-                    const passed = gatePass(true, vote, gatedSign.name, gateConfRef.current);
+                    const { passed, modelVetoed } = gateOutcome(true, vote, gatedSign.name, gateConfRef.current);
+                    // Suppressed whenever the learner passed — a "that looked more like X" note
+                    // next to a success is contradictory, and in shadow mode every attempt the
+                    // model disliked still passes.
                     const hint = passed ? null : gateHint(vote, gatedSign.name);
                     voteCallbackRef.current?.({
                       prompted: gatedSign.name,
                       vote,
-                      decision: passed ? 'pass' : 'veto',
+                      decision: modelVetoed ? 'veto' : 'pass',
+                      enforced: GATE_ENFORCED,
                       topK: vote ? topK(vote, 3) : [],
                       hint,
                     });
@@ -274,7 +336,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       signName: gatedSign.name,
                       params: vr.params,
                       vote,
-                      decision: passed ? 'pass' : 'veto',
+                      decision: modelVetoed ? 'veto' : 'pass',
                     });
                     attemptCountRef.current += 1;
                     attemptCallbackRef.current?.({
@@ -282,7 +344,9 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       rulePassed: true,
                       aiPrediction: vote ? vote.topSign : null,
                       aiConfidence: vote ? vote.confidence : null,
-                      aiVetoed: !passed,
+                      // The model's opinion, NOT the learner's result — these diverge in shadow
+                      // mode and that divergence is exactly the veto-precision measurement.
+                      aiVetoed: modelVetoed,
                       finalPassed: passed,
                       frames: snapshot,
                       durationMs: Math.round(performance.now() - loopStartRef.current),
@@ -332,7 +396,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
             if (clearedEnough) {
               if (holdStartMs === null) holdStartMs = nowMs;
               const elapsedMs = nowMs - holdStartMs;
-              setHoldProgress(clip(elapsedMs / (STATIC_HOLD_SECONDS * 1000), 0, 1));
+              if (nowMs - lastHoldUpdateMs >= RESULT_UPDATE_INTERVAL_MS) {
+                lastHoldUpdateMs = nowMs;
+                setHoldProgress(clip(elapsedMs / (STATIC_HOLD_SECONDS * 1000), 0, 1));
+              }
               if (elapsedMs >= STATIC_HOLD_SECONDS * 1000) {
                 holdStartMs = null;
                 setHoldProgress(null);

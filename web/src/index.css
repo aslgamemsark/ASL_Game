@@ -25,7 +25,7 @@
 
   --rt-z-green: #34D399;
   --rt-z-green-dark: #059669;
-  --rt-z-red: #EF4444;
+  --rt-z-red: #F24746; /* AA floor against z-surface, the lightest dark surface (was #EF4444 at 4.40:1) */
   --rt-z-blue: #60A5FA;
   --rt-z-cream: #FFF8E7;
 
@@ -54,30 +54,50 @@
      numbers, active-tab labels, NPC names, etc). Their dark-theme values are a pale lavender
      meant to pop against a near-black card - that same pale value is nearly invisible against
      the light theme's light-lavender cards, so the light variant uses a richer, readable purple
-     instead of a literal hue-match. */
-  --rt-z-purple-light: #7C3AED;
-  --rt-z-purple-glow: #7C3AED;
+     instead of a literal hue-match.
 
-  --rt-z-orange: #FD761A;
+     The same reasoning governs EVERY accent below, and it is the reason the light values look
+     so much deeper than their dark-theme counterparts. A dark theme puts text on a near-black
+     surface, so accents must be light to be legible; a light theme inverts that, so the SAME
+     semantic role needs a dark value. Light values were derived by holding each colour's OKLCH
+     hue and chroma and lowering lightness only until it cleared AA against z-bg (#E7D9FB) — the
+     darkest of the three light surfaces, so clearing it clears z-card and z-surface too.
+     Verified by tokenContrast.test.ts; change a value there and the test tells you the ratio. */
+  --rt-z-purple-light: #7834E8; /* was #7C3AED at 4.26:1 on z-bg */
+  --rt-z-purple-glow: #7834E8;  /* was #7C3AED at 4.26:1 on z-bg */
+
+  --rt-z-orange: #B73300; /* streak/energy. was #FD761A at 2.02:1 on z-bg */
   --rt-z-orange-dark: #9D4300;
   --rt-z-orange-bright: #FFB690;
 
   --rt-z-teal: #005766;
   --rt-z-teal-dark: #004E5C;
-  --rt-z-teal-light: #4CD7F6;
-  --rt-z-yellow: #4CD7F6;
+  --rt-z-teal-light: #006B88; /* was #4CD7F6 at 1.27:1 on z-bg */
+  /* Darkened from #006B88 (2026-07-30): that value was tuned to land EXACTLY at 4.54:1 on pure
+     z-bg — the AA floor with zero margin. Any translucent tint composited over a surface (e.g.
+     ShopPage's owned/equipped card tints, bg-z-purple/15) pushes the EFFECTIVE background just
+     enough that the same token drops under AA on it (measured 3.53:1) even though it clears fine
+     on the three pure surface tokens tokenContrast.test.ts checks. Real margin (6.16:1 on z-bg)
+     holds up under compositing generally, not just this one site — the fix that "do not fix this
+     at the call site" (see this file's own gradient-surface comment) already argues for. */
+  --rt-z-yellow: #00566D;     /* XP colour, aliased to teal-light. was #4CD7F6 at 1.27:1 on z-bg */
 
-  --rt-z-green: #059669;
+  --rt-z-green: #007147; /* pass/success — the app's most important feedback colour.
+                            was #059669 at 2.82:1 on z-bg */
   --rt-z-green-dark: #047857;
   --rt-z-red: #BA1A1A;
-  --rt-z-blue: #2563EB;
+  --rt-z-blue: #1A57DE; /* was #2563EB at 3.87:1 on z-bg */
   --rt-z-cream: #FFF8E7;
 
   --rt-z-gray-50: #24123F; /* dark purple, not navy/black — primary text color in light mode */
   --rt-z-gray-100: #3A2354;
   --rt-z-gray-200: #4A4455;
-  --rt-z-gray-300: #6B6478;
-  --rt-z-gray-400: #625B71; /* WCAG AA 4.5:1 floor against both bg and card (was #7B7487 at 4.25/4.06:1) */
+  --rt-z-gray-300: #665F73; /* WCAG AA floor against z-bg (was #6B6478 at 4.23:1) */
+  /* Darkened from #625B71 (2026-07-30): same margin problem as z-yellow above — a value tuned to
+     exactly the AA floor against pure surfaces (4.83:1 on z-bg) dropped under AA (3.75:1) once
+     composited under a translucent card tint (ShopPage's owned/equipped state). 6.05:1 on z-bg
+     gives real headroom instead of a razor's edge. */
+  --rt-z-gray-400: #534D60; /* WCAG AA 4.5:1 floor against both bg and card (was #7B7487 at 4.25/4.06:1) */
   --rt-z-gray-500: #CCC3D8;
 
   /* card/surface must read as visibly LIGHTER than bg (sidebar + cards float above the page),
@@ -130,14 +150,169 @@
   --color-z-surface-hover: var(--rt-z-surface-hover);
 
   --font-sans: 'Quicksand', sans-serif;
+
+  /* text-2xs/text-3xs — Tailwind's scale stops at text-xs (12px), but 73 call sites across the app
+     (badges, timestamps, pill labels, footnote-style UI text) needed something smaller and reached
+     for an arbitrary text-[11px]/text-[10px] value each time — 73 independent typos of the same
+     two numbers, not 73 independent design decisions (design-system audit, 2026-07-31). Named here
+     with NO paired `--text-2xs--line-height` deliberately: Tailwind only applies a line-height
+     companion when one exists, and text-[11px] arbitrary values never set one (verified against
+     the compiled CSS: `.text-\[11px\]{font-size:11px}`, nothing else) — adding one now would be a
+     real visual change smuggled into what should be a pure rename. */
+  --text-2xs: 11px;
+  --text-3xs: 10px;
 }
+
+/* ── Z-index scale ──────────────────────────────────────────────────────────────────────────
+   9 ad-hoc values (z-10 through z-[9999]) had accumulated across 30+ files with no shared scale —
+   each new dialog picked a number bigger than whatever it needed to beat, correct only by
+   accident (design-system audit, 2026-07-31). Named here with the SAME numbers already in use
+   (zero behavior change) so the next dialog picks a name that states its intent instead of
+   guessing a magic number. Uses `@utility` (not a `--z-index-*` `@theme` key) to match this
+   file's own `bg-gradient-primary`/`text-gradient-brand` pattern above.
+
+   z-chrome    (40) — persistent app chrome: SideNav, and a sheet's own backdrop layer.
+   z-overlay   (50) — the standard layer: header, bottom nav, tooltips, and the vast majority of
+                      modals/toasts. Start here; only reach for a higher tier if this one is
+                      provably not enough (a nested dialog, a takeover, a dev tool).
+   z-elevated  (60) — banners/celebrations that must beat the standard overlay layer even while
+                      one is open (InstallPrompt, CelebrationHost's confetti).
+   z-confirm   (70) — a confirmation dialog that must always beat persistent chrome, regardless of
+                      DOM order (LogoutConfirm).
+   z-nested-modal (100) — a modal that can be triggered from within another already-open surface
+                      (FeedbackModal, ReportUserModal).
+   z-takeover  (200) — a full-viewport media/document takeover that must beat any nested modal
+                      (ClipEnlarge, TermsModal).
+   z-debug     (9999) — dev-only overlays. Always on top; never shipped user-facing. */
+@utility z-chrome { z-index: 40; }
+@utility z-overlay { z-index: 50; }
+@utility z-elevated { z-index: 60; }
+@utility z-confirm { z-index: 70; }
+@utility z-nested-modal { z-index: 100; }
+@utility z-takeover { z-index: 200; }
+@utility z-debug { z-index: 9999; }
 
 /* Primary CTA gradient — the app's single most-repeated inline style (17+ call sites had drifted
    into two near-duplicate hex pairs: #7C3AED/#A78BFA matching the z-purple tokens, and an
    off-token #7B2FBE/#A855F7). Consolidated to one utility on the canonical token values so future
-   buttons reuse this instead of re-typing hex (impeccable audit, 2026-07-11). */
+   buttons reuse this instead of re-typing hex (impeccable audit, 2026-07-11).
+
+   Stops corrected 2026-07-27: the 2026-07-11 consolidation picked `z-purple -> z-purple-light`,
+   and every primary button in the app puts white bold text on it. In the DARK theme the light end
+   (#A78BFA) put that text at 2.72:1 — under even the 3:1 large-text floor, on "Get Started",
+   "Start Signing", "Continue" and "Claim!". Ends on `z-purple` instead, so both stops carry white
+   text (7.53:1 -> 5.70:1 dark, higher in light). Same purple identity, one shade deeper. */
 @utility bg-gradient-primary {
-  background: linear-gradient(135deg, var(--color-z-purple), var(--color-z-purple-light));
+  background: linear-gradient(135deg, var(--color-z-purple-dark), var(--color-z-purple));
+}
+
+/* ── Gradient card surfaces ─────────────────────────────────────────────────────────────────
+   A saturated gradient field that white text sits on: streak card, world/practice entry cards,
+   Speed Challenge tiers, Shop gold cards.
+
+   Two rules, both structural rather than remembered:
+
+   1. THE SCRIM IS BAKED IN. Every card in this family previously hand-rolled its own
+      `<div className="absolute inset-0 bg-black/NN" />`, and the values had drifted to five
+      different strengths (/20, /30, /45, /50) — several below what their own gradient needs.
+      Painting the scrim as the utility's first background layer means a card cannot be added
+      without it. 45% is the family floor: it is what the LIGHTEST gradient here (amber #F59E0B)
+      requires to carry body text, and the darker ones are comfortably clear of it.
+
+   2. TEXT ON THESE IS WHITE — `text-white`, or `text-white/80` for secondary lines. Never lower
+      (white/70 fails on teal at 4.28:1 and amber at 3.94:1), and never an accent token. Accent
+      tokens are derived against the THEME surfaces (z-bg/z-card/z-surface) and invert between
+      light and dark; these gradients do not invert, so a token that is legible on a dark card is
+      not legible here. `text-z-yellow` on the streak card measured 1.95:1 in the light theme for
+      exactly this reason.
+
+   Verified ratios at this scrim (white / white-80): teal 6.92/5.07, blue 9.02/6.43,
+   violet 9.47/6.69, ember 11.21/7.70, amber 6.20/4.62, streak 11.82/8.09. */
+@utility bg-gradient-teal {
+  background-image: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+                    linear-gradient(135deg, #0F766E, #14B8A6);
+}
+@utility bg-gradient-blue {
+  background-image: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+                    linear-gradient(135deg, #1E40AF, #3B82F6);
+}
+@utility bg-gradient-violet {
+  background-image: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+                    linear-gradient(135deg, #5B21B6, #A855F7);
+}
+@utility bg-gradient-amber {
+  background-image: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+                    linear-gradient(135deg, #B45309, #F59E0B);
+}
+@utility bg-gradient-ember {
+  background-image: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+                    linear-gradient(135deg, #78180A, #C2410C);
+}
+/* Streak card. Its old inline value started at the literal #18103A — the DARK theme's z-card —
+   so in the light theme the streak card stayed near-black while every other card turned light
+   lavender. Ends on the brand purple from the token instead of a copied surface hex. */
+@utility bg-gradient-streak {
+  background-image: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+                    linear-gradient(135deg, var(--color-z-purple-deep), var(--color-z-purple));
+}
+/* Locked / coming-soon world card — deliberately the one COLD surface in the family, so a locked
+   world reads as inert next to the saturated live ones. No scrim: it is already dark enough to
+   carry white/60 at 6.54:1. Built from the theme's own deep purple rather than the off-palette
+   #1a1a2e/#16213e navy it used to hardcode, which belonged to neither theme's palette. */
+/* ── Text over live video ────────────────────────────────────────────────────────────────────
+   The webcam mirror and the reference clips are the only surfaces in the app whose background is
+   genuinely UNKNOWN — it is whatever the learner's room looks like. A caption that reads fine
+   against a dim bedroom disappears entirely against a window, and neither theme's tokens help,
+   because the video does not follow the theme.
+
+   So the only honest floor is the worst case: evaluate every overlay against a blown-out white
+   frame AND a black frame, and require AA in both. For white text that means a black plate of at
+   least 54% — below that a white frame wins. 62% is the shipped value, which leaves headroom and
+   lands white at 6.2:1 / white-85 at 5.03:1 against ANY frame.
+
+   Consequences worth knowing before you reach for something else:
+   - `text-white/70` is NOT enough on video (4.0:1 even on this plate). white/85 is the floor.
+   - A soft `from-black/60 to-transparent` fade is not a plate. ReferenceClip's sign name used to
+     sit at the transparent END of exactly such a gradient, at 1.41:1 — the most important label
+     on the surface had the least backing. Fades are decoration; put text on the plate.
+   - Accent tokens do not work here for the same reason they do not work on gradient cards: they
+     invert with the theme, the video does not. State goes on borders and icons, not on the
+     colour of the text. */
+@utility bg-video-plate {
+  background-color: rgb(0 0 0 / 0.62);
+}
+
+/* Timer running out. Tokens, not the literal #ef4444/#f97316 it used to hardcode. */
+/* The wordmark — the app's ONE sanctioned use of gradient text, and the reason headings elsewhere
+   use solid colour (see the comment on OnboardingFlow's welcome h1). Gradient text is otherwise
+   banned here: it is decorative rather than meaningful, so it stays confined to the logotype,
+   where decorative IS the meaning. Design linters will flag this rule; that is correct behaviour
+   and the finding is a known, scoped exception — not a licence to gradient any other text.
+
+   Tokenised 2026-07-27: it hardcoded the DARK theme's #A78BFA/#14B8A6, so in the light theme the
+   wordmark rendered pale lavender on pale lavender at 2.05:1 — under even the 3:1 large-text
+   floor. Through tokens both stops follow the theme and stay legible on either background. */
+@utility text-gradient-brand {
+  background: linear-gradient(90deg, var(--color-z-purple-light) 0%, var(--color-z-teal) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@utility bg-gradient-urgent {
+  background: linear-gradient(90deg, var(--color-z-red), var(--color-z-orange));
+}
+/* Streak progress bar FILL (distinct from bg-gradient-streak, which is that card's background).
+   Was the codebase's last inline `style={{ background: linear-gradient(...) }}` — named here so
+   every gradient lives in one file and the ProgressBar primitive can take it as a class like
+   every other fill. */
+@utility bg-gradient-flame {
+  background: linear-gradient(90deg, var(--color-z-orange), var(--color-z-orange-bright));
+}
+@utility bg-gradient-locked {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--color-z-purple-deep) 60%, black),
+    var(--color-z-purple-deep));
 }
 
 /* Quicksand is SELF-HOSTED (OFL-licensed), not loaded from Google Fonts. The previous single
@@ -163,6 +338,41 @@
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+/* Safe-area insets (notch / Dynamic Island / home indicator). Real values only exist on-device —
+   `env()` falls back to 0px everywhere else, so this costs nothing on desktop or Android's
+   gesture-free devices. Exposed as custom props (not used inline via raw `env()` at each call
+   site) for two reasons: one definition to update, and a test can override them
+   (`document.documentElement.style.setProperty('--sat', '44px')`) to exercise the layout on a
+   platform that doesn't report real insets — see mobile.spec.ts's safe-area assertion. Requires
+   `viewport-fit=cover` in index.html's viewport meta, which is what actually extends the layout
+   viewport under the notch/indicator in the first place. */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+.pt-safe { padding-top: var(--sat); }
+.pb-safe { padding-bottom: var(--sab); }
+.pl-safe { padding-left: var(--sal); }
+.pr-safe { padding-right: var(--sar); }
+
+/* BottomNav's rendered content height (icon + label + its own vertical padding) — measured
+   2026-07-31 against the shipped markup, not itself derived from a formula, since icon size/
+   label line-height/gap aren't expressed as named tokens. 14 scrollable pages padded their last
+   row with a flat `pb-24`/`pb-32` guess at "enough to clear the bar" (design-system audit,
+   2026-07-31): `pb-24` (96px) covers BottomNav's 80px rest height but not its safe-area-grown
+   114px (80px + a 34px inset, via the bar's own `pb-safe`) — under-clearing by 18px on exactly
+   the devices (home-indicator phones) this was supposed to protect. `pb-32` (128px) happened to
+   cover the worst case but for no derived reason. One named clearance value, combined with the
+   SAME --sab BottomNav's own pb-safe already reads, so the two can't drift apart from having two
+   independent guesses about the safe-area component. Update this number if BottomNav's own
+   padding/icon/label sizing changes. */
+:root {
+  --bottom-nav-height: 80px;
+}
+.pb-nav-clear { padding-bottom: calc(var(--bottom-nav-height) + var(--sab)); }
+
 body {
   margin: 0;
   background-color: var(--rt-body-bg);
@@ -171,16 +381,50 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.2s ease, color 0.2s ease;
+  /* Modals are `fixed inset-0` with no separate scroll lock on most touch devices; without this,
+     scrolling inside one chains into the page behind it and can trigger Chrome Android's
+     pull-to-refresh mid-dialog. */
+  overscroll-behavior-y: contain;
+  /* Every tap on the ~479 interactive elements in the app otherwise flashes the browser's default
+     grey/blue highlight box on top of framer-motion's own whileTap animation — doubly visible on
+     BottomNav/SideNav rows. Focus rings (:focus-visible above... below) are unaffected; this only
+     suppresses the transient tap flash. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
+/* Removes the ~300ms tap delay and disables double-tap-to-zoom on interactive elements (the
+   26-cell alphabet grid was the original trigger — a double-tap on adjacent letters zoomed the
+   page instead of registering two taps). Left off non-interactive elements so pinch-zoom on
+   images/video still works where a user might want it. */
+button, a, [role="button"], input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* iOS Safari zooms the whole page when a focused input's computed font-size is under 16px, and
+   does not zoom back out on blur. Every text input in the app ships at Tailwind's text-sm (14px)
+   for visual consistency with surrounding UI, so the fix lives here — one rule for every input,
+   rather than bumping font-size at 20+ call sites and drifting from the design system. Scoped to
+   coarse pointers (touch) only, so desktop/mouse users keep the intended 14px sizing. `!important`
+   is required: Tailwind's `text-sm` utility is a class selector with equal specificity that would
+   otherwise win on source order. */
+@media (pointer: coarse) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
 /* Keyboard focus was previously invisible (framer-motion buttons ship no focus style of their
-   own). :focus-visible only — mouse/touch taps stay clean, keyboard users get a real ring. */
+   own). :focus-visible only — mouse/touch taps stay clean, keyboard users get a real ring.
+   Theme-aware token, not a hardcoded hex (found 2026-07-30): this was `#A78BFA`, the DARK theme's
+   z-purple-light value hardcoded — 2.04:1 against the light theme's z-bg, well under WCAG 1.4.11's
+   3:1 minimum, so every keyboard focus ring was effectively invisible in light theme. The token
+   resolves to the correct per-theme value (dark #A78BFA / light #7834E8, 5.04:1) automatically. */
 :focus-visible {
-  outline: 2px solid #A78BFA;
+  outline: 2px solid var(--color-z-purple-light);
   outline-offset: 2px;
   border-radius: 8px;
 }

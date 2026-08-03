@@ -11,12 +11,12 @@ export function DistributionBars({ data }: { data: HistogramBucket[] }) {
     <div className="flex items-end justify-between gap-2 h-28">
       {data.map((b) => (
         <div key={b.bucket} className="flex-1 flex flex-col items-center justify-end gap-1 h-full">
-          <span className="text-[11px] text-z-gray-300 font-semibold tabular-nums">{b.count}</span>
+          <span className="text-2xs text-z-gray-300 font-semibold tabular-nums">{b.count}</span>
           <div
             className="w-full bg-z-purple/70 rounded-t-md min-h-[2px] transition-[height]"
             style={{ height: `${Math.round((b.count / max) * 100)}%` }}
           />
-          <span className="text-[10px] text-z-gray-400 text-center leading-tight">{b.bucket}</span>
+          <span className="text-3xs text-z-gray-400 text-center leading-tight">{b.bucket}</span>
         </div>
       ))}
     </div>

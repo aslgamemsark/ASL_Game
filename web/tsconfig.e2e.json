@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    /* The suite indexes fixture arrays (`users[0]`) and DOM query results constantly. Unlike the
+       app (where this setting measured 549 errors and was declined), the e2e tree is small and new,
+       so the stricter indexing rule is affordable here and catches a real failure mode: a fixture
+       that silently reads undefined and produces a confusing mid-test error instead of a clear one. */
+    "noUncheckedIndexedAccess": true
+  },
+  "include": ["e2e", "playwright.config.ts", "playwright.multiplayer.config.ts"]
+}

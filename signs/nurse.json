@@ -1,0 +1,47 @@
+{
+  "name": "NURSE",
+  "twoHanded": true,
+  "extraHandMotionFloor": null,
+  "dominant": {
+    "kind": "n",
+    "required": true,
+    "minConfidence": 0.29
+  },
+  "nondominant": {
+    "kind": "open",
+    "required": false,
+    "minConfidence": 0.6
+  },
+  "location": {
+    "anchor": "other_hand",
+    "actingHand": "dominant",
+    "maxDistRatio": 0.35,
+    "minDistRatio": 0.0,
+    "vertical": null,
+    "below": null,
+    "useClosestApproach": true,
+    "required": true,
+    "minConfidence": 0.6
+  },
+  "movement": {
+    "kind": "repeated",
+    "actor": "dominant",
+    "pivot": "nondominant",
+    "minTotalRotationDeg": 300.0,
+    "radiusToleranceRatio": 0.4,
+    "direction": null,
+    "minDisplacementRatio": 0.3,
+    "minCycles": 2,
+    "minAmplitudeRatio": 0.05,
+    "minApproachRatio": 0.15,
+    "traceTemplate": [],
+    "traceToleranceDeg": 60.0,
+    "gateToLocation": false,
+    "otherHandMaxMotionRatio": null,
+    "minDurationS": 0.5,
+    "required": true,
+    "minConfidence": 0.6
+  },
+  "orientation": null,
+  "nmm": null
+}

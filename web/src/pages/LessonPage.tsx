@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/shared/Button';
 import { useCamera } from '@/hooks/useCamera';
 import { useAttemptRecorder } from '@/hooks/useAttemptRecorder';
 import { useRecognition } from '@/hooks/useRecognition';
@@ -164,6 +165,12 @@ export function LessonPage({ lessonId, onExit }: Props) {
     onAttempt: attemptLog.recordAttempt,
     screen: 'lesson',
   });
+  // One name for "there is no usable picture", because two hand-written copies of this condition
+  // had already drifted: the checklist's guard was still missing 'stalled', so a stalled camera
+  // showed the recovery card AND a live coaching panel scoring a frozen frame.
+  const cameraUnavailable =
+    camStatus === 'denied' || camStatus === 'error' || camStatus === 'stalled' || recognition.status === 'error';
+
   // First-run only: overlay a camera-framing guide until the user is well positioned.
   const showCamGuide = useFirstRunCameraGuide(recognition.framing?.ok);
   const loopStartedForSign = useRef<string | null>(null);
@@ -254,7 +261,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
 
   if (!lesson) {
     return (
-      <div className="min-h-screen bg-z-bg flex items-center justify-center text-z-gray-300">
+      <div className="min-h-dvh bg-z-bg flex items-center justify-center overflow-y-auto text-z-gray-300">
         Lesson not found.
       </div>
     );
@@ -262,8 +269,18 @@ export function LessonPage({ lessonId, onExit }: Props) {
 
   const showCamera = phase === 'signing' || phase === 'success';
 
+  // What the always-mounted announcer below says for the current phase — '' for every phase that
+  // isn't a milestone (matches the text a sighted learner already sees on screen).
+  const phaseAnnouncement =
+    phase === 'success' ? `${successMsg} +10 XP`
+    : phase === 'complete' ? `${isFirstLessonComplete ? 'Your First Lesson!' : 'Lesson Complete!'} ${completeMsg} ${earnedXp} XP earned, ${correctCount} of ${signIds.length} correct`
+    : '';
+
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
+      {/* Always mounted, separate from the phase panels' own AnimatePresence — see DESIGN.md
+          "Status messages": a live region must already be in the DOM before its text appears. */}
+      <p className="sr-only" role="status" aria-live="polite">{phaseAnnouncement}</p>
       <AnimatePresence>
         {showOnboarding && phase === 'intro' && (
           <CameraOnboarding onContinue={handleOnboardingContinue} onCancel={onExit} />
@@ -321,15 +338,14 @@ export function LessonPage({ lessonId, onExit }: Props) {
                 </p>
               )}
 
-              <motion.button
+              <Button
                 onClick={handleStart}
                 disabled={recognition.status === 'loading'}
-                className="mt-4 px-8 py-3 rounded-2xl font-bold text-white text-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-primary"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+                size="lg"
+                className="mt-4"
               >
                 {camStatus === 'idle' ? 'Start Signing' : 'Continue'}
-              </motion.button>
+              </Button>
 
               {camStatus === 'denied' && (
                 <p className="text-z-red text-sm text-center max-w-xs">
@@ -375,18 +391,27 @@ export function LessonPage({ lessonId, onExit }: Props) {
                 </div>
 
                 <div className="lg:order-2">
-                  {(camStatus === 'denied' || camStatus === 'error' || recognition.status === 'error') ? (
+                  {cameraUnavailable ? (
                     <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center">
                       <p className="text-sm font-bold text-z-red">
-                        {camStatus === 'denied' ? 'Camera access denied' : 'Camera unavailable'}
+                        {camStatus === 'denied'
+                          ? 'Camera access denied'
+                          : camStatus === 'stalled'
+                            ? "Camera feed isn't showing"
+                            : 'Camera unavailable'}
                       </p>
                       <p className="text-xs text-z-gray-300 mt-1">
                         {camStatus === 'denied'
                           ? 'Live coaching needs your camera. Allow camera access in your browser settings, then try again.'
-                          : 'Something went wrong starting the camera. Try again, or check that no other app is using it.'}
+                          : camStatus === 'stalled'
+                            ? "Your camera is on but no picture is coming through. Try again, or check that no other app is using it."
+                            : 'Something went wrong starting the camera. Try again, or check that no other app is using it.'}
                       </p>
+                      {/* stopCam() before startCam() forces a fresh getUserMedia() call instead of
+                          reattaching the same (possibly dead) stream — required for the 'stalled'
+                          case, harmless for the others since stop() on an idle camera is a no-op. */}
                       <button
-                        onClick={() => startCam()}
+                        onClick={() => { stopCam(); startCam(); }}
                         className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
                       >
                         Try again
@@ -394,14 +419,14 @@ export function LessonPage({ lessonId, onExit }: Props) {
                     </div>
                   ) : (
                     /* Visible webcam mirror — reads from the hidden video element. Slightly
-                       taller than the standard 16:9 aspect-video (4:3) to fill the desktop
-                       column better, short of stretching to match the reference clip/checklist. */
-                    <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} aspectClassName="aspect-video lg:aspect-[4/3]" />
+                       taller than the stream's own shape (4:3) on desktop to fill the middle
+                       column better, short of stretching to match the clip/checklist columns. */
+                    <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} frameGuide={showCamGuide ? recognition.framing : null} aspectClassName="aspect-[var(--cam-ar)] lg:aspect-[4/3]" />
                   )}
                 </div>
 
                 <div className="lg:order-3">
-                  {recognition.result && !(camStatus === 'denied' || camStatus === 'error' || recognition.status === 'error') && (
+                  {recognition.result && !cameraUnavailable && (
                     <ParameterChecklist
                       params={recognition.result.params}
                       sign={currentEngineSign}
@@ -507,23 +532,22 @@ export function LessonPage({ lessonId, onExit }: Props) {
                 </div>
               </div>
 
-              <motion.button
-                onClick={onExit}
-                className="mt-6 px-8 py-3 rounded-2xl font-bold text-white text-lg bg-gradient-primary"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
+              <Button onClick={onExit} size="lg" className="mt-6">
                 Continue
-              </motion.button>
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
+      {/* Always-mounted announcer, separate from the toast's own AnimatePresence-gated div — see
+          DESIGN.md "Status messages": a live region must already be in the DOM before its text
+          appears, or a screen reader may miss it. */}
+      <p className="sr-only" role="status" aria-live="polite">{skipMsg ?? ''}</p>
       <AnimatePresence>
         {skipMsg && (
           <motion.div
-            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-50 flex items-center gap-2"
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-overlay flex items-center gap-2"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}

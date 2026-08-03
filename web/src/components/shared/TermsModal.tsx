@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
+import { Button } from '@/components/shared/Button';
 
 interface Props {
   onAccept: () => void;
@@ -22,13 +24,18 @@ const TLDR: { icon: string; text: string }[] = [
  * (production analytics found users bailing here, 2026-07-24).
  */
 export function TermsModal({ onAccept, onAcceptLater }: Props) {
+  // No `onClose`: this is a consent gate, so Escape must not dismiss it — "Accept later" is the
+  // deliberate way out. Wired up even though the component currently has no call sites (the Terms
+  // wall was removed from first paint in S1-T7 and this was kept for a one-line restore) so that a
+  // restore brings back a dialog with focus management rather than one without.
+  const dialog = useDialogA11y({ label: 'Terms and Conditions' });
+
   return (
-    <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+    <div className="fixed inset-0 z-takeover bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
       <motion.div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Terms and Conditions"
-        className="w-full max-w-md bg-z-card border border-z-gray-400/20 rounded-3xl shadow-2xl flex flex-col max-h-[85vh]"
+        ref={dialog.ref}
+        {...dialog.props}
+        className="w-full max-w-md bg-z-card border border-z-gray-400/20 rounded-3xl shadow-2xl flex flex-col max-h-[85vh] outline-none"
         initial={{ opacity: 0, y: 30, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
@@ -96,13 +103,9 @@ export function TermsModal({ onAccept, onAcceptLater }: Props) {
         </div>
 
         <div className="px-6 pt-4 pb-6 shrink-0 flex flex-col gap-2">
-          <motion.button
-            onClick={onAccept}
-            className="w-full py-4 rounded-2xl font-bold text-base bg-gradient-primary text-white shadow-lg shadow-z-purple/30"
-            whileTap={{ scale: 0.97 }}
-          >
+          <Button onClick={onAccept} size="lg" fullWidth className="shadow-lg shadow-z-purple/30">
             Accept &amp; Continue
-          </motion.button>
+          </Button>
           <button
             onClick={onAcceptLater}
             className="w-full py-3 rounded-2xl font-semibold text-sm border border-z-gray-400/30 text-z-gray-200 hover:border-z-gray-400/50 transition-colors"

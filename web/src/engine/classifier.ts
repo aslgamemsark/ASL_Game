@@ -115,7 +115,6 @@ export async function loadClassifier(modelUrl: string, classes: string[]): Promi
   };
 }
 
-export const disabledClassifier = DISABLED;
 
 /** Top-k predictions from a vote, highest probability first — for debugging/overlays. */
 export function topK(vote: ClassifierVote, k = 3): { sign: string; prob: number }[] {

@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { ReportUserModal } from '@/components/shared/ReportUserModal';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
+import { Button } from '@/components/shared/Button';
+import { Skeleton } from '@/components/shared/Skeleton';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -296,25 +298,21 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
   // loading list.
   if (!user) {
     return (
-      <div className="min-h-screen bg-z-bg flex flex-col">
+      <div className="min-h-dvh bg-z-bg flex flex-col">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
           <HeaderBackButton onClick={onExit} />
           <h1 className="font-bold text-lg">Friends &amp; 1v1</h1>
         </div>
-        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 flex flex-col items-center justify-center gap-4 text-center">
+        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 flex flex-col items-center justify-center gap-4 text-center overflow-y-auto">
           <span className="text-5xl">🤝</span>
           <div>
             <p className="font-bold text-lg">Sign in to add friends</p>
             <p className="text-z-gray-400 text-sm mt-1">Create an account so you can find players, send requests, and challenge friends to 1v1.</p>
           </div>
           {onRequireSignIn && (
-            <motion.button
-              onClick={onRequireSignIn}
-              className="px-6 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            >
+            <Button onClick={onRequireSignIn}>
               Sign In
-            </motion.button>
+            </Button>
           )}
         </div>
       </div>
@@ -322,7 +320,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
   }
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton onClick={onExit} />
@@ -338,20 +336,21 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
         )}
       </div>
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-4 pt-4 pb-24 space-y-6">
+      <div className="flex-1 max-w-lg mx-auto w-full px-4 pt-4 pb-nav-clear space-y-6">
 
         {/* Search */}
         <div>
-          <p className="text-xs text-z-gray-400 uppercase tracking-widest mb-2">Find Players</p>
+          <label htmlFor="friend-search" className="text-xs text-z-gray-400 uppercase tracking-widest mb-2 block">Find Players</label>
           <div className="flex gap-2">
             <input
+              id="friend-search"
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="Search by username…"
               maxLength={20}
-              className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:border-z-purple/60 placeholder:text-z-gray-500"
+              className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm focus:border-z-purple/60 placeholder:text-z-gray-400"
             />
             <motion.button
               onClick={handleSearch}
@@ -370,7 +369,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                 initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
               >
                 <p className="text-z-red text-sm font-semibold">Search failed</p>
-                <p className="text-z-gray-500 text-xs mt-1">Check your connection and try again.</p>
+                <p className="text-z-gray-400 text-xs mt-1">Check your connection and try again.</p>
               </motion.div>
             )}
             {!searchError && !searching && hasSearched && searchResults.length === 0 && (
@@ -410,7 +409,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                       )}
                       <button onClick={() => setReportTarget({ id: p.id, username: p.username })}
                         aria-label={`Report ${p.username}`}
-                        className="w-11 h-11 -mr-2 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors shrink-0">
+                        className="w-11 h-11 -mr-2 flex items-center justify-center text-z-gray-400 hover:text-z-red transition-colors shrink-0">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
                           <line x1="4" y1="22" x2="4" y2="15" />
@@ -445,13 +444,13 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                   <div className="flex gap-2">
                     <motion.button onClick={() => handleAccept(entry)}
                       disabled={busyIds.has(entry.other.id)}
-                      className="text-xs px-3 py-1.5 rounded-xl font-bold bg-z-purple text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="text-xs px-3 min-h-11 rounded-xl font-bold bg-z-purple text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       whileTap={{ scale: 0.96 }}>
                       {busyIds.has(entry.other.id) ? '…' : 'Accept'}
                     </motion.button>
                     <motion.button onClick={() => handleDecline(entry)}
                       disabled={busyIds.has(entry.other.id)}
-                      className="text-xs px-3 py-1.5 rounded-xl font-bold border border-white/15 text-z-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="text-xs px-3 min-h-11 rounded-xl font-bold border border-white/15 text-z-gray-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       whileTap={{ scale: 0.96 }}>
                       Decline
                     </motion.button>
@@ -471,10 +470,10 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
             <div className="space-y-2">
               {[0,1,2].map((i) => (
                 <div key={i} className="flex items-center gap-3 bg-z-card border border-white/8 rounded-2xl px-4 py-3 opacity-40">
-                  <div className="w-10 h-10 rounded-xl bg-z-surface animate-pulse" />
+                  <Skeleton className="w-10 h-10 rounded-xl" />
                   <div className="flex-1 space-y-1.5">
-                    <div className="h-3 w-28 bg-z-surface rounded animate-pulse" />
-                    <div className="h-2 w-20 bg-z-surface rounded animate-pulse" />
+                    <Skeleton className="h-3 w-28 rounded" />
+                    <Skeleton className="h-2 w-20 rounded" />
                   </div>
                 </div>
               ))}
@@ -494,7 +493,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
             <div className="text-center py-10">
               <p className="text-4xl mb-3">🤝</p>
               <p className="text-z-gray-300 text-sm">No friends yet</p>
-              <p className="text-z-gray-500 text-xs mt-1">Search for players by username above</p>
+              <p className="text-z-gray-400 text-xs mt-1">Search for players by username above</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -523,7 +522,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                     )}
                     <button onClick={() => setReportTarget({ id: entry.other.id, username: entry.other.username })}
                       aria-label={`Report ${entry.other.username}`}
-                      className="w-11 h-11 -mx-1 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors">
+                      className="w-11 h-11 -mx-1 flex items-center justify-center text-z-gray-400 hover:text-z-red transition-colors">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
                         <line x1="4" y1="22" x2="4" y2="15" />
@@ -531,7 +530,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
                     </button>
                     <button onClick={() => handleRemove(entry)}
                       disabled={busyIds.has(entry.other.id)}
-                      className="w-11 h-11 -ml-1 -mr-2 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                      className="w-11 h-11 -ml-1 -mr-2 flex items-center justify-center text-z-gray-400 hover:text-z-red transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M18 6L6 18M6 6l12 12" />
                       </svg>
@@ -586,7 +585,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
       <AnimatePresence>
         {toast && (
           <motion.div
-            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-50 whitespace-nowrap"
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-overlay whitespace-nowrap"
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
           >
             {toast}

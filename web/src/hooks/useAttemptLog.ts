@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { track } from '@/analytics';
+import { track, trackFirstSignSuccess } from '@/analytics';
 import { logAttempt, type TrainingDataSource } from '@/hooks/useProgressSync';
 import type { AttemptRecord } from '@/hooks/useRecognition';
 import type { AttemptSource } from '@/analytics/types';
@@ -82,6 +82,19 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
         duration_ms: attempt.durationMs,
         attempt_number: attempt.attemptNumber,
       });
+      // Activation. Fires at most once per browser ever — trackFirstSignSuccess owns that guard —
+      // so calling it on every pass from every surface is both safe and the only way the metric
+      // stays correct: a guest's first success is as likely to happen in Practice or Story as in a
+      // lesson. It lives here rather than in the pages because two hand-written copies had already
+      // diverged (Lesson and Practice had it; Story, Speed and multiplayer silently did not).
+      // Deliberately before the `!user` return: guests are the population this metric exists for.
+      if (attempt.finalPassed) {
+        trackFirstSignSuccess({
+          signId: attempt.signId,
+          msSinceLessonStart: attempt.durationMs,
+          attemptsTaken: attempt.attemptNumber,
+        });
+      }
       if (!user || !persistedSource) return;
       void logAttempt({
         userId: user.id,

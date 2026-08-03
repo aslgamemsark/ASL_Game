@@ -59,10 +59,20 @@ export interface EventPayloads {
   password_reset_requested: Record<string, never>;
   password_recovery_completed: Record<string, never>;
 
+  // PWA install (see lib/pwaInstall.ts)
+  pwa_install_prompted: { source: 'banner' | 'settings' };
+  pwa_install_result: { source: 'banner' | 'settings'; outcome: 'accepted' | 'dismissed' };
+
   // Onboarding (components/onboarding/OnboardingFlow.tsx)
   onboarding_step_viewed: { step: 'welcome' | 'auth' | 'skill' | 'done' };
   onboarding_skill_selected: { skill_level: 'beginner' | 'intermediate' | 'advanced' };
   onboarding_completed: { skill_level: string; duration_ms: number };
+  /** Which door the user took at the auth step. `guest_started` already fires for the guest case;
+   *  this exists so all three options are comparable in ONE funnel step instead of having to
+   *  reconcile guest_started against signup_started against nothing-at-all for Google. Added
+   *  2026-07-27 — the auth step was the second-largest drop in the W1 funnel (6 users reached it,
+   *  1 continued) and there was no event distinguishing which option people chose. */
+  auth_option_selected: { method: 'google' | 'email' | 'guest' };
 
   // Dominant-hand check (components/shared/DominantHandCheck.tsx) — moved out of onboarding
   // (2026-07-23) to the first real camera session (see PracticePage), not asked before a
@@ -73,6 +83,10 @@ export interface EventPayloads {
   camera_permission_granted: { screen: ScreenName };
   camera_permission_denied: { screen: ScreenName };
   camera_error: { screen: ScreenName; error_name: string };
+  /** getUserMedia succeeded (permission granted, stream returned) but no video frame ever arrived
+   *  within the liveness window, or a live track ended unexpectedly — the "granted but blank feed"
+   *  failure mode, distinct from a permission denial or a getUserMedia() throw. */
+  camera_stalled: { screen: ScreenName; reason: 'no_frame' | 'track_ended' };
 
   // Camera framing guide (engine/framing.ts) — sampled, not per-frame.
   framing_check: { ok: boolean; reason: string | null; screen: ScreenName };
@@ -97,6 +111,13 @@ export interface EventPayloads {
   // separate event name, so aggregate AI-quality metrics (avg confidence, avg attempts-to-success,
   // avg latency) are one PostHog query over one event instead of stitched across two.
   sign_attempt: SignAttemptBase;
+  /** The moment a user first passes ANY sign, ever — the product's real activation event, fired
+   *  once per user and never again (guarded by a localStorage flag). `attempts_taken` is how many
+   *  tries it cost them. Added 2026-07-27 to make "time to first successful sign" measurable: it
+   *  was on the KPI dashboard with no way to compute it, and W1 had no signal separating "never
+   *  reached a lesson" from "reached one and could not pass a sign" — the difference between a
+   *  funnel problem and a recognition problem. */
+  first_sign_success: { sign_id: string; ms_since_lesson_start: number; attempts_taken: number };
 
   // Business-level completion (derived from useUserStore.completedLessons vs data/worlds.ts)
   world_completed: { world_id: string; badge_id: string };

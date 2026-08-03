@@ -11,6 +11,8 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { Zippy } from '@/components/shared/Zippy';
 import { ZIPPY_LINES } from '@/data/zippy';
 import { countryName, detectCountryCode, COUNTRY_CODES } from '@/lib/geolocation';
+import { useTabListKeyNav } from '@/hooks/useTabListKeyNav';
+import { Skeleton } from '@/components/shared/Skeleton';
 
 interface Props {
   onExit: () => void;
@@ -53,7 +55,7 @@ function BoardList({
     return (
       <div className="flex flex-col gap-2">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-14 bg-z-card rounded-2xl animate-pulse" />
+          <Skeleton key={i} className="h-14 rounded-2xl" />
         ))}
       </div>
     );
@@ -63,9 +65,9 @@ function BoardList({
       <div className="text-center py-16 flex flex-col items-center">
         <p className="text-4xl mb-3">⚠️</p>
         <p className="text-z-gray-300 font-semibold text-sm">Couldn't load the leaderboard</p>
-        <p className="text-z-gray-500 text-xs mt-1">Check your connection and try again.</p>
+        <p className="text-z-gray-400 text-xs mt-1">Check your connection and try again.</p>
         {onRetry && (
-          <button onClick={onRetry} className="text-z-purple-light text-xs mt-3 font-semibold hover:underline">
+          <button onClick={onRetry} className="text-z-purple-light text-xs mt-3 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2">
             Retry
           </button>
         )}
@@ -77,7 +79,7 @@ function BoardList({
       <div className="text-center py-16 flex flex-col items-center">
         <Zippy expression="teaching" size="md" />
         <p className="text-z-gray-300 font-semibold text-sm mt-3">No one here yet</p>
-        <p className="text-z-gray-500 text-xs mt-1 max-w-[16rem]">{ZIPPY_LINES.emptyLeaderboard[0]}</p>
+        <p className="text-z-gray-400 text-xs mt-1 max-w-[16rem]">{ZIPPY_LINES.emptyLeaderboard[0]}</p>
       </div>
     );
   }
@@ -135,20 +137,20 @@ function BoardList({
               <p className="text-xs font-bold text-z-gray-400">{rank.name}</p>
               <p className="text-sm font-bold text-z-yellow tabular-nums">{row.total_xp.toLocaleString()} XP</p>
               {row.streak > 0 && (
-                <p className="text-[11px] text-z-gray-400">🔥 {row.streak}d</p>
+                <p className="text-2xs text-z-gray-400">🔥 {row.streak}d</p>
               )}
             </div>
 
             {/* Friend action — only for other users when signed in */}
             {userId && row.id !== userId && onAddFriend && (() => {
               const rel = relations?.get(row.id);
-              if (rel === 'accepted') return <span className="text-[11px] text-z-gray-500 shrink-0">Friends ✓</span>;
-              if (rel === 'pendingSent') return <span className="text-[11px] text-z-gray-500 shrink-0">Pending</span>;
-              if (rel === 'pendingReceived') return <span className="text-[11px] text-z-gray-500 shrink-0">Incoming</span>;
+              if (rel === 'accepted') return <span className="text-2xs text-z-gray-400 shrink-0">Friends ✓</span>;
+              if (rel === 'pendingSent') return <span className="text-2xs text-z-gray-400 shrink-0">Pending</span>;
+              if (rel === 'pendingReceived') return <span className="text-2xs text-z-gray-400 shrink-0">Incoming</span>;
               return (
                 <motion.button
                   onClick={() => onAddFriend(row.id, row.username)}
-                  className="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-z-purple/20 text-z-purple-light border border-z-purple/30"
+                  className="shrink-0 text-2xs font-bold px-2.5 py-1 rounded-lg bg-z-purple/20 text-z-purple-light border border-z-purple/30"
                   whileTap={{ scale: 0.94 }}
                 >
                   + Add
@@ -161,7 +163,7 @@ function BoardList({
               <button
                 onClick={() => onReport(row.id, row.username)}
                 aria-label={`Report ${row.username}`}
-                className="shrink-0 text-z-gray-500 hover:text-z-red transition-colors p-1"
+                className="shrink-0 text-z-gray-400 hover:text-z-red transition-colors p-1"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
@@ -233,6 +235,13 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
   // Load world leaderboard (top 50 by total_xp)
   useEffect(() => {
     if (!supabaseReady) return;
+    // Guards against an older in-flight response landing after a newer one and overwriting it.
+    // Each of these three effects re-runs on dependency changes that genuinely fire mid-request
+    // (a reload key, a tab switch, and — for the friends board — `xp`/`streak`, which change
+    // during ordinary play), so two fetches really can overlap; without this the LAST response to
+    // arrive wins rather than the most recent one requested. Same `active` pattern already used in
+    // UserProfilePage.
+    let active = true;
     setWorldLoading(true);
     setWorldError(false);
     (async () => {
@@ -257,6 +266,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       } else {
         data = first.data;
       }
+      if (!active) return;
       if (failed) {
         setWorldError(true);
         setWorldRows([]);
@@ -281,11 +291,13 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       setWorldRows(rows);
       setWorldLoading(false);
     })();
+    return () => { active = false; };
   }, [user, worldReloadKey]);
 
   // Load friends leaderboard
   useEffect(() => {
     if (!user || !supabaseReady || tab !== 'friends') return;
+    let active = true;
     setFriendLoading(true);
     setFriendError(false);
     (async () => {
@@ -296,6 +308,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
         .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
         .eq('status', 'accepted');
 
+      if (!active) return;
       if (friendshipsError) {
         setFriendError(true);
         setFriendRows([]);
@@ -369,15 +382,18 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
         .filter(Boolean) as BoardRow[];
 
       rows.sort((a, b) => b.total_xp - a.total_xp);
+      if (!active) return;
       setFriendRows(rows);
       setFriendLoading(false);
     })();
+    return () => { active = false; };
   }, [tab, user, xp, streak, friendReloadKey]);
 
   // Load region leaderboard: same view as world, filtered to players who share the
   // current user's detected region (see useProgressSync's one-time geolocation lookup).
   useEffect(() => {
     if (!user || !supabaseReady || tab !== 'region') return;
+    let active = true;
     setRegionLoading(true);
     setRegionError(false);
     (async () => {
@@ -386,6 +402,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
         .select('region')
         .eq('id', user.id)
         .single();
+      if (!active) return;
       if (profileError) {
         setRegionError(true);
         setRegionRows([]);
@@ -421,6 +438,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       } else {
         data = first.data;
       }
+      if (!active) return;
       if (failed) {
         setRegionError(true);
         setRegionRows([]);
@@ -442,6 +460,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       setRegionRows(rows);
       setRegionLoading(false);
     })();
+    return () => { active = false; };
   }, [tab, user, regionReloadKey]);
 
   // Manual region set (the fallback when IP detection failed/was blocked) and a "retry auto-detect"
@@ -476,9 +495,11 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
     { id: 'region', label: 'Region', icon: '📍' },
     { id: 'friends', label: 'Friends', icon: '🤝' },
   ];
+  const TAB_IDS = TABS.map((t) => t.id);
+  const { refFor, onKeyDown } = useTabListKeyNav(TAB_IDS, setTab);
 
   return (
-    <div className="min-h-screen bg-z-bg">
+    <div className="min-h-dvh bg-z-bg">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton onClick={onExit} />
@@ -486,13 +507,20 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
         <span className="text-2xl">🏆</span>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 pt-5 pb-24">
+      <div className="max-w-lg mx-auto px-4 pt-5 pb-nav-clear">
         {/* Tab bar */}
-        <div className="flex bg-z-surface/50 rounded-xl p-1 mb-5 gap-1">
-          {TABS.map((t) => (
+        <div role="tablist" aria-label="Leaderboard scope" className="flex bg-z-surface/50 rounded-xl p-1 mb-5 gap-1">
+          {TABS.map((t, i) => (
             <button
               key={t.id}
+              ref={refFor(i)}
+              role="tab"
+              id={`board-tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls={`board-panel-${t.id}`}
+              tabIndex={tab === t.id ? 0 : -1}
               onClick={() => setTab(t.id)}
+              onKeyDown={(e) => onKeyDown(e, i)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-bold rounded-lg transition-colors ${
                 tab === t.id ? 'bg-z-card text-z-gray-50' : 'text-z-gray-400 hover:text-z-gray-200'
               }`}
@@ -504,6 +532,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
         </div>
 
         {/* Content */}
+        <div role="tabpanel" id={`board-panel-${tab}`} aria-labelledby={`board-tab-${tab}`}>
         {tab === 'world' && (
           <BoardList
             rows={worldRows}
@@ -522,7 +551,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
           <div className="text-center py-20">
             <p className="text-5xl mb-4">📍</p>
             <p className="text-z-gray-200 font-bold text-base">Sign in to see your region</p>
-            <p className="text-z-gray-500 text-sm mt-2">Compare your progress with signers near you.</p>
+            <p className="text-z-gray-400 text-sm mt-2">Compare your progress with signers near you.</p>
           </div>
         )}
 
@@ -530,7 +559,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
           <div className="text-center py-16">
             <p className="text-5xl mb-4">📍</p>
             <p className="text-z-gray-200 font-bold text-base">Pick your region</p>
-            <p className="text-z-gray-500 text-sm mt-2 max-w-xs mx-auto leading-relaxed">
+            <p className="text-z-gray-400 text-sm mt-2 max-w-xs mx-auto leading-relaxed">
               We couldn't detect it automatically. Choose your country to see signers near you.
             </p>
             <div className="mt-5 flex flex-col items-center gap-3">
@@ -551,7 +580,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
               <button
                 onClick={() => void retryDetectRegion()}
                 disabled={regionSaving}
-                className="text-xs text-z-purple-light hover:underline disabled:opacity-50"
+                className="text-xs text-z-purple-light hover:underline disabled:opacity-50 py-2.5 -my-2.5 px-2 -mx-2"
               >
                 {regionSaving ? 'Working…' : 'Try auto-detect again'}
               </button>
@@ -568,7 +597,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
                 </p>
                 <button
                   onClick={() => setMyRegion(null)}
-                  className="text-[11px] text-z-gray-500 hover:text-z-purple-light mt-0.5"
+                  className="text-2xs text-z-gray-400 hover:text-z-purple-light mt-0.5"
                 >
                   Change region
                 </button>
@@ -592,7 +621,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
           <div className="text-center py-20">
             <p className="text-5xl mb-4">🤝</p>
             <p className="text-z-gray-200 font-bold text-base">Sign in to see friends</p>
-            <p className="text-z-gray-500 text-sm mt-2">Add friends to compare your progress.</p>
+            <p className="text-z-gray-400 text-sm mt-2">Add friends to compare your progress.</p>
           </div>
         )}
 
@@ -600,7 +629,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
           friendLoading ? (
             <div className="flex flex-col gap-2">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-14 bg-z-card rounded-2xl animate-pulse" />
+                <Skeleton key={i} className="h-14 rounded-2xl" />
               ))}
             </div>
           ) : friendError ? (
@@ -609,7 +638,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
               <p className="text-z-gray-300 font-semibold text-sm">Couldn't load your friends board</p>
               <button
                 onClick={() => setFriendReloadKey((k) => k + 1)}
-                className="text-z-purple-light text-xs mt-3 font-semibold hover:underline"
+                className="text-z-purple-light text-xs mt-3 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2"
               >
                 Retry
               </button>
@@ -618,7 +647,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
             <div className="text-center py-20 flex flex-col items-center">
               <Zippy expression="welcome" size="md" />
               <p className="text-z-gray-200 font-bold text-base mt-3">No friends yet</p>
-              <p className="text-z-gray-500 text-sm mt-2 max-w-[18rem]">{ZIPPY_LINES.emptyFriends[0]}</p>
+              <p className="text-z-gray-400 text-sm mt-2 max-w-[18rem]">{ZIPPY_LINES.emptyFriends[0]}</p>
             </div>
           ) : (
             <BoardList
@@ -630,6 +659,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
             />
           )
         )}
+        </div>
       </div>
 
       {user && reportTarget && (
@@ -645,7 +675,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
       <AnimatePresence>
         {toast && (
           <motion.div
-            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-50 whitespace-nowrap"
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-overlay whitespace-nowrap"
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
           >
             {toast}

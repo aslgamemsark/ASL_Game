@@ -7,6 +7,7 @@ import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { BadgesSection } from '@/components/home/BadgesSection';
 import { getBadge } from '@/data/badges';
 import { Tooltip } from '@/components/shared/Tooltip';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 import { getRankProgress } from '@/data/ranks';
 import { SHOP_ITEMS, getShopItem } from '@/data/shop';
 import { AvatarGlyph } from '@/components/shared/AvatarGlyph';
@@ -50,7 +51,15 @@ function cardVariants(glowColor: string) {
   };
 }
 
-export function ProfileTab() {
+interface Props {
+  onOpenLeaderboard: () => void;
+  onOpenFriends: () => void;
+  onOpenMultiplayer: () => void;
+  onOpenShop: () => void;
+  onOpenSettings: () => void;
+}
+
+export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer, onOpenShop, onOpenSettings }: Props) {
   const { xp, level, streak, signs, gold, lastPracticeDate, completedLessons, signAccuracy, badges, showcaseBadges, speedHighScores, activeBadge, equippedAvatar, equippedBorder, ownedCosmetics, equipAvatar, equipBorder } = useUserStore();
   const borderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user, username } = useAuth();
@@ -65,7 +74,7 @@ export function ProfileTab() {
   const bestSpeed = Object.entries(speedHighScores).reduce<{ tier: string; score: number } | null>((best, [tier, hs]) => (!best || hs.score > best.score) ? { tier, score: hs.score } : best, null);
 
   return (
-    <div className="px-4 pb-24">
+    <div className="px-4 pb-nav-clear">
       {/* Auth banner */}
       <motion.div className="mb-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         {user ? (
@@ -79,7 +88,7 @@ export function ProfileTab() {
                   <p className="font-bold text-sm">@{username ?? '…'}</p>
                   <button
                     onClick={() => setShowSetUsername(true)}
-                    className="text-z-gray-500 hover:text-z-gray-300 transition-colors"
+                    className="text-z-gray-400 hover:text-z-gray-300 transition-colors"
                     title="Change username"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -98,9 +107,47 @@ export function ProfileTab() {
               <p className="font-bold text-sm">Save your progress</p>
               <p className="text-z-gray-400 text-xs">Sign in to sync + join leaderboards</p>
             </div>
-            <button onClick={() => setShowAuth(true)} className="text-xs bg-z-purple text-white rounded-xl px-4 py-2 font-bold">Sign in</button>
+            <button onClick={() => setShowAuth(true)} className="text-xs bg-z-purple text-white rounded-xl px-4 min-h-11 font-bold">Sign in</button>
           </div>
         )}
+      </motion.div>
+
+      {/* Everything that is not a Home learning tab. On a phone this is the ONLY entry point for
+          Leaderboard and Friends (SideNav, their only other caller, is `hidden md:flex`), and the
+          primary one for Multiplayer and Settings since trimming BottomNav to five tabs.
+
+          Every destination is a labelled card, not an icon: an icon-only affordance is what made
+          Shop hard to find in the first place. Shop appears here as well as in the TopBar cart —
+          deliberate redundancy, because the cart is the one icon-only entry point left. */}
+      <motion.div
+        className="mb-5"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.03 }}
+      >
+        <h2 className="text-xs font-bold uppercase tracking-wide text-z-gray-400 mb-2 px-1">Explore</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: 'Leaderboard', icon: '🏆', onClick: onOpenLeaderboard },
+            { label: 'Friends', icon: '🤝', onClick: onOpenFriends },
+            { label: 'Multiplayer', icon: '⚔️', onClick: onOpenMultiplayer },
+            { label: 'Shop', icon: '🛒', onClick: onOpenShop },
+            // Spans both columns: with an odd number of entries the last one would otherwise sit
+            // alone in a half-width cell and read as a layout mistake rather than a choice.
+            { label: 'Settings', icon: '⚙️', onClick: onOpenSettings, wide: true },
+          ].map((item) => (
+            <button
+              key={item.label}
+              onClick={item.onClick}
+              className={`bg-z-card border border-white/5 rounded-2xl p-4 min-h-11 flex items-center gap-2.5 active:bg-white/5 transition-colors ${
+                'wide' in item ? 'col-span-2' : ''
+              }`}
+            >
+              <span className="text-xl">{item.icon}</span>
+              <span className="font-bold text-sm text-z-gray-50">{item.label}</span>
+            </button>
+          ))}
+        </div>
       </motion.div>
 
       {/* Avatar + showcase */}
@@ -143,26 +190,23 @@ export function ProfileTab() {
                 <span className="text-2xl">{rank.emoji}</span>
                 <div>
                   <p className="font-bold text-sm">{rank.name}</p>
-                  <p className="text-[11px] text-z-gray-400">{xp.toLocaleString()} XP total</p>
+                  <p className="text-2xs text-z-gray-400">{xp.toLocaleString()} XP total</p>
                 </div>
               </div>
               {next && (
                 <div className="text-right">
-                  <p className="text-[11px] text-z-gray-400">Next rank</p>
+                  <p className="text-2xs text-z-gray-400">Next rank</p>
                   <p className="text-xs font-bold text-z-gray-300">{next.emoji} {next.name}</p>
-                  <p className="text-[10px] text-z-gray-500">{(next.minXp - xp).toLocaleString()} XP away</p>
+                  <p className="text-3xs text-z-gray-400">{(next.minXp - xp).toLocaleString()} XP away</p>
                 </div>
               )}
             </div>
-            <div className="h-2 bg-z-surface rounded-full overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-gradient-primary"
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.round(progress * 100)}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
-              />
-            </div>
-            {!next && <p className="text-[11px] text-z-yellow text-center mt-2 font-bold">Max rank reached! 🌟</p>}
+            <ProgressBar
+              value={progress}
+              label={next ? `Rank progress: ${rank.name} toward ${next.name}` : `Rank: ${rank.name}, max rank reached`}
+              size="sm"
+            />
+            {!next && <p className="text-2xs text-z-yellow text-center mt-2 font-bold">Max rank reached! 🌟</p>}
           </motion.div>
         );
       })()}
@@ -190,7 +234,7 @@ export function ProfileTab() {
               <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center cursor-default" initial="rest" animate="rest" whileHover="hover" variants={cardVariants('rgba(94,234,212,0.22)')}>
                 <motion.span className="text-2xl inline-block" variants={{ rest: SPARKLE_REST, hover: SPARKLE_HOVER }}>✨</motion.span>
                 <p className="text-2xl font-bold mt-1 text-z-yellow">{xp}</p>
-                <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Total XP</p>
+                <p className="text-2xs text-z-gray-400 mt-0.5 tracking-wide">Total XP</p>
               </motion.div>
             </motion.div>
 
@@ -198,7 +242,7 @@ export function ProfileTab() {
               <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center cursor-default" initial="rest" animate="rest" whileHover="hover" onHoverStart={() => setLevelBurst((b) => b + 1)} variants={cardVariants('rgba(250,204,21,0.32)')}>
                 <TrophyIcon burst={levelBurst} />
                 <p className="text-2xl font-bold mt-1 text-z-orange">{level}</p>
-                <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Level</p>
+                <p className="text-2xs text-z-gray-400 mt-0.5 tracking-wide">Level</p>
               </motion.div>
             </motion.div>
 
@@ -206,7 +250,7 @@ export function ProfileTab() {
               <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center cursor-default" initial="rest" animate="rest" whileHover="hover" variants={cardVariants('rgba(249,115,22,0.22)')}>
                 <motion.span className="text-2xl inline-block" variants={{ rest: FIRE_REST, hover: FIRE_HOVER }}>🔥</motion.span>
                 <p className="text-2xl font-bold mt-1 text-z-orange-bright">{streak}d</p>
-                <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Streak</p>
+                <p className="text-2xs text-z-gray-400 mt-0.5 tracking-wide">Streak</p>
               </motion.div>
             </motion.div>
 
@@ -214,7 +258,7 @@ export function ProfileTab() {
               <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center cursor-default" initial="rest" animate="rest" whileHover="hover" variants={cardVariants('rgba(96,165,250,0.32)')}>
                 <motion.span className="text-2xl inline-block" variants={{ rest: { y: 0, rotate: 0, transition: { duration: 0.25 } }, hover: { y: -5, rotate: [0, -7, 6, -4, 0], transition: { duration: 0.55 } } }}>📖</motion.span>
                 <p className="text-2xl font-bold mt-1 text-z-purple-light">{completedLessons.length}</p>
-                <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Completed</p>
+                <p className="text-2xs text-z-gray-400 mt-0.5 tracking-wide">Completed</p>
               </motion.div>
             </motion.div>
           </div>
@@ -223,19 +267,19 @@ export function ProfileTab() {
           <motion.div className="bg-z-card border border-white/5 rounded-2xl p-4 mb-5 flex justify-around" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
             <div className="text-center">
               <p className="text-xl font-bold text-z-purple-light">🤟 {signs}</p>
-              <p className="text-[11px] text-z-gray-400 mt-0.5">Signs</p>
+              <p className="text-2xs text-z-gray-400 mt-0.5">Signs</p>
             </div>
             <div className="w-px bg-z-gray-500/40" />
             <div className="text-center">
               <p className="text-xl font-bold text-z-yellow">🪙 {gold}</p>
-              <p className="text-[11px] text-z-gray-400 mt-0.5">Gold</p>
+              <p className="text-2xs text-z-gray-400 mt-0.5">Gold</p>
             </div>
             {bestSpeed && (
               <>
                 <div className="w-px bg-z-gray-500/40" />
                 <div className="text-center">
                   <p className="text-xl font-bold text-z-blue">⚡ {bestSpeed.score}</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">Best speed</p>
+                  <p className="text-2xs text-z-gray-400 mt-0.5">Best speed</p>
                 </div>
               </>
             )}
@@ -268,7 +312,7 @@ export function ProfileTab() {
                 </div>
 
                 {items.length === 0 ? (
-                  <p className="text-[11px] text-z-gray-500">
+                  <p className="text-2xs text-z-gray-400">
                     No {cosmeticTab === 'avatar' ? 'avatars' : 'borders'} owned yet — check the Shop!
                   </p>
                 ) : (
@@ -302,7 +346,7 @@ export function ProfileTab() {
                   </div>
                 )}
                 {isEquippedId && items.length > 0 && (
-                  <p className="text-[11px] text-z-gray-400 mt-2">Tap your equipped {cosmeticTab} to unequip</p>
+                  <p className="text-2xs text-z-gray-400 mt-2">Tap your equipped {cosmeticTab} to unequip</p>
                 )}
               </motion.div>
             );
@@ -326,14 +370,14 @@ export function ProfileTab() {
                 }
                 return (
                   <div key={i} className="flex flex-col items-center gap-1.5">
-                    <span className="text-[10px] text-z-gray-400 font-semibold">{day}</span>
+                    <span className="text-3xs text-z-gray-400 font-semibold">{day}</span>
                     <div className={`relative w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
                       isToday && lastPracticeDate === todayStr()
                         ? 'bg-z-purple text-white shadow-md shadow-z-purple/40'
                         : isToday ? 'bg-z-purple/30 text-z-purple-light border border-z-purple/40'
                         : practiced ? 'bg-z-green/20 text-z-green'
-                        : isFuture ? 'bg-transparent text-z-gray-500 border border-z-gray-500/20'
-                        : 'bg-z-surface/40 text-z-gray-500'
+                        : isFuture ? 'bg-transparent text-z-gray-400 border border-z-gray-500/20'
+                        : 'bg-z-surface/40 text-z-gray-400'
                     }`}>
                       {practiced || (isToday && lastPracticeDate === todayStr()) ? '✓' : isToday ? '●' : ''}
                       {isToday && (

@@ -36,11 +36,14 @@ HELP = Sign(
     name="HELP",
     two_handed=True,
     dominant=HandShapeReq(kind="fist", required=True, min_confidence=0.5),
-    nondominant=HandShapeReq(kind="open", required=True, min_confidence=0.5),
+    # 0.45 (not the 0.5 default): live-calibrated in the web engine against help_real.json — at 0.5
+    # the platform hand's confidence dips below threshold mid-lift and flips the verifier's
+    # hand-role assignment, failing the recording on handshape_dominant of all things.
+    nondominant=HandShapeReq(kind="open", required=True, min_confidence=0.45),
     location=LocationReq(
         anchor=Anchor.OTHER_HAND,
         acting_hand=DOMINANT,
-        max_dist_ratio=0.60,             # roomy: the gap grows as the helping hand lifts off
+        max_dist_ratio=0.80,             # 0.80 lets the lifted fist move higher before location fails (web calibration)
         min_dist_ratio=0.0,
         vertical=None,
         required=True,
@@ -50,8 +53,8 @@ HELP = Sign(
         kind=MovementKind.LINEAR,
         actor=DOMINANT,
         direction=(0.0, -1.0),           # image-space up (y decreases upward)
-        min_displacement_ratio=0.15,     # a DELIBERATE lift (~0.15 shoulder-widths), not a drift
-        min_duration_s=0.4,
+        min_displacement_ratio=0.12,     # a DELIBERATE lift, not a drift (0.12 per web calibration)
+        min_duration_s=0.3,
         # Investigated 2026-07-14 against a real webcam rapid/random-movement confusor. At the
         # Python hospital_shop scenario's own short 1.5s window, min_confidence=0.98 looked like a
         # clean fix (correct streak 10, rapid streak 3) — but the web app's useRecognition.ts uses

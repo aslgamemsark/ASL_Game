@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { buildFeedbackPayload, MAX_FEEDBACK_LEN, type FeedbackCategory } from '@/lib/feedback';
 import { safeTruncate } from '@/lib/text';
 import { track } from '@/analytics';
+import { Button } from '@/components/shared/Button';
+import { Sheet } from '@/components/shared/Sheet';
 
 const CATEGORIES: { id: FeedbackCategory; label: string; icon: string; hint: string }[] = [
   { id: 'bug', label: 'Report a bug', icon: '🐞', hint: "Something broke or didn't work" },
@@ -61,24 +62,7 @@ export function FeedbackModal({ page, onClose }: Props) {
   };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-[100] bg-black/60 flex items-end sm:items-center justify-center p-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-      >
-        <motion.div
-          className="w-full max-w-sm bg-z-card border border-white/10 rounded-2xl p-5"
-          initial={{ opacity: 0, y: 20, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 20, scale: 0.97 }}
-          onClick={(e) => e.stopPropagation()}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Send feedback"
-        >
+    <Sheet ariaLabel="Send feedback" onClose={onClose}>
           {status === 'done' ? (
             <div className="text-center py-4">
               <p className="text-3xl mb-2">🙌</p>
@@ -132,7 +116,7 @@ export function FeedbackModal({ page, onClose }: Props) {
                     : 'Tell us more…'
                 }
                 rows={4}
-                className="w-full bg-z-surface border border-z-gray-400/30 rounded-xl px-3 py-2 text-sm text-z-gray-50 placeholder:text-z-gray-500 resize-none"
+                className="w-full bg-z-surface border border-z-gray-400/30 rounded-xl px-3 py-2 text-sm text-z-gray-50 placeholder:text-z-gray-400 resize-none"
               />
 
               {user && (
@@ -156,18 +140,17 @@ export function FeedbackModal({ page, onClose }: Props) {
                 >
                   Cancel
                 </button>
-                <button
+                <Button
                   onClick={submit}
                   disabled={!category || !message.trim() || status === 'submitting'}
-                  className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-gradient-primary text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  size="sm"
+                  className="flex-1"
                 >
                   {status === 'submitting' ? 'Sending…' : 'Send feedback'}
-                </button>
+                </Button>
               </div>
             </>
           )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    </Sheet>
   );
 }

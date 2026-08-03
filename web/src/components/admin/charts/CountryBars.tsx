@@ -1,4 +1,5 @@
 import type { CountryCount } from '@/lib/adminAnalytics';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 
 // Users by country as a horizontal bar list, reusing the fail-rate bar idiom already in
 // AdminPanel. "Unknown" (users whose region never resolved) is shown explicitly and greyed rather
@@ -31,12 +32,13 @@ export function CountryBars({ data }: { data: CountryCount[] }) {
               <span aria-hidden>{flag(d.region)}</span>
               <span className={`font-mono font-semibold ${isUnknown ? 'text-z-gray-400' : ''}`}>{d.region}</span>
             </span>
-            <div className="flex-1 h-2 bg-z-surface rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full ${isUnknown ? 'bg-z-gray-400/50' : 'bg-z-purple/70'}`}
-                style={{ width: `${Math.round((d.users / max) * 100)}%` }}
-              />
-            </div>
+            <ProgressBar
+              value={d.users / max}
+              label={`${d.region}: ${d.users} users`}
+              size="sm"
+              fillClassName={isUnknown ? 'bg-z-gray-400/50' : 'bg-z-purple/70'}
+              className="flex-1"
+            />
             <span className="text-xs text-z-gray-400 w-20 text-right shrink-0 tabular-nums">
               {d.users} · {Math.round((d.users / total) * 100)}%
             </span>

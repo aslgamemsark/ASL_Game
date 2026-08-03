@@ -6,6 +6,11 @@ __pycache__/
 build/
 dist/
 
+# --- Node dependencies, anywhere in the repo. web/.gitignore already covered web/node_modules,
+#     but the repo root had no rule, so a stray `npm install` at root produced 156MB of untracked
+#     noise and a vitest run-cache file actually reached a commit (636961f). ---
+node_modules/
+
 # --- Virtual environments ---
 .venv/
 .venv-ml/
@@ -77,3 +82,18 @@ supabase/.temp/
 
 # --- Local training_samples drains (exported landmark data, kept off-DB and off-git) ---
 ml/training_exports/
+
+# --- Session artifacts / generated reports (not product) ---
+graphify-out/
+brag-output/
+/*.pdf
+asl_landmarks_for_friend.zip
+
+# --- Android TWA build output (android-app/, 2026-07-29): generated project + gradle build
+#     artifacts + node_modules, none of which is source. Critically also holds android.keystore,
+#     the app's real signing identity — must never reach git history (a committed keystore/password
+#     is compromised the instant it's pushed, unrecoverably, even after later deletion). Regenerate
+#     via android-app/generate-manifest.js + run-build.js against the live PWA manifest; back the
+#     keystore up OUTSIDE this repo instead. ---
+/android-app/
+/QuickSign.apk

@@ -64,9 +64,6 @@ export const WORLDS: World[] = [
   },
 ];
 
-export function getWorld(id: string): World | undefined {
-  return WORLDS.find((w) => w.id === id);
-}
 
 /** Which world a lesson unit belongs to, for analytics labeling (lesson_started/completed,
  *  sign_attempt's world_id — see analytics/types.ts). Returns null for a unit id that isn't in
