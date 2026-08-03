@@ -50,6 +50,12 @@ const MAX_PLAYERS = 4;
 // host's chosen RoomRules override this; totalRounds is derived from the synced signs array length
 // so every client agrees regardless of the host's rounds-per-player choice.
 const TURN_SECONDS = DEFAULT_ROOM_RULES.turnSeconds;
+// The joiner re-announces itself until the host's roster broadcast comes back naming it. Same
+// mechanism and reasoning as DuelPage's join announcement: a broadcast sent before the host
+// finished subscribing is lost with no replay, and the joiner then never appears in the roster,
+// so the host can never reach the 2-player minimum to start.
+const ROSTER_ANNOUNCE_INTERVAL_MS = 1200;
+const ROSTER_ANNOUNCE_ATTEMPTS = 10;
 const RESULT_HOLD_MS = 1500;
 // Safety net: if not every guesser confirms they can see the signer's video within this long
 // (dropped message, a camera that never loads), start the round timer anyway rather than
@@ -96,6 +102,7 @@ export function RoomPage({ onExit }: Props) {
   const turnArmFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const turnIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const rosterRef = useRef<RosterMember[]>([]);
+  const rosterAnnounceRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const turnOrderRef = useRef<string[]>([]);
   const signsRef = useRef<string[]>([]);
   const totalRoundsRef = useRef(0);
@@ -296,6 +303,10 @@ export function RoomPage({ onExit }: Props) {
     sounds.correct();
   }
 
+  const clearRosterAnnounce = useCallback(() => {
+    if (rosterAnnounceRef.current) { clearInterval(rosterAnnounceRef.current); rosterAnnounceRef.current = null; }
+  }, []);
+
   const handleMessage = useCallback((event: string, payload: Record<string, unknown>, fromPeerId: string) => {
     if (event === 'roster-join') {
       if (!isHostRef.current) return;
@@ -307,7 +318,11 @@ export function RoomPage({ onExit }: Props) {
       return;
     }
     if (event === 'roster') {
-      setRoster(payload.members as RosterMember[]);
+      const members = payload.members as RosterMember[];
+      setRoster(members);
+      // The host has acknowledged us by name — stop re-announcing immediately rather than waiting
+      // for the interval's next tick.
+      if (user && members.some((m) => m.peerId === user.id)) clearRosterAnnounce();
       return;
     }
     if (event === 'game-start') {
@@ -355,7 +370,7 @@ export function RoomPage({ onExit }: Props) {
       return;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applyGameOver, applyRoundEnd, beginRound, endRound]);
+  }, [applyGameOver, applyRoundEnd, beginRound, endRound, clearRosterAnnounce, user]);
 
   const signaling = useMultiplayerSignaling({ selfPeerId: user?.id ?? '', onMessage: handleMessage });
 
@@ -418,8 +433,27 @@ export function RoomPage({ onExit }: Props) {
     track('multiplayer_room_joined', { mode: 'room', room_id: code, via });
     await signaling.join(`mp-room-${code}`);
     await signaling.startCamera();
-    signaling.send('roster-join', { username: username ?? user.email?.split('@')[0] ?? 'Player', border: equippedBorder ?? '' });
+    const announce = () => signaling.send('roster-join', {
+      username: username ?? user.email?.split('@')[0] ?? 'Player',
+      border: equippedBorder ?? '',
+    });
+    announce();
     setStatusMsg('Connected! Waiting for host to start…');
+
+    // Keep announcing until the host's roster comes back naming us — see
+    // ROSTER_ANNOUNCE_INTERVAL_MS. Safe to repeat: the host's 'roster-join' handler returns early
+    // when the peer is already in the roster, so every repeat after the first is a no-op.
+    let attempts = 0;
+    rosterAnnounceRef.current = setInterval(() => {
+      if (rosterRef.current.some((m) => m.peerId === user.id)) { clearRosterAnnounce(); return; }
+      attempts += 1;
+      if (attempts >= ROSTER_ANNOUNCE_ATTEMPTS) {
+        clearRosterAnnounce();
+        setStatusMsg("Couldn't reach the host — they may have left. Try another room.");
+        return;
+      }
+      announce();
+    }, ROSTER_ANNOUNCE_INTERVAL_MS);
   };
 
   const searchForMatch = async () => {
@@ -499,6 +533,7 @@ export function RoomPage({ onExit }: Props) {
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
     if (turnIntervalRef.current) clearInterval(turnIntervalRef.current);
     if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
+    if (rosterAnnounceRef.current) clearInterval(rosterAnnounceRef.current);
   }, []);
 
   const exit = () => {

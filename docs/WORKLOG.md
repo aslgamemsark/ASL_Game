@@ -7,6 +7,23 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 23) — RoomPage had the same lost-broadcast bug as Duel
+
+- **Group Room shared DuelPage's single-shot announcement defect**, found by checking whether the
+  fix generalised rather than assuming it was Duel-specific. `RoomPage.joinRoom` sent `'roster-join'`
+  exactly once after its own subscribe + camera warmup; if that broadcast landed before the host had
+  subscribed it was lost with no replay, the joiner never appeared in the host's roster, and the
+  host could never reach the 2-player minimum to start — the joiner sat on "Waiting for host to
+  start…" indefinitely with nothing wrong on screen.
+- Same bounded re-announce as Duel, with the confirmation signal that fits this flow: the joiner
+  keeps announcing until the host's `'roster'` broadcast comes back **naming it**, then stops
+  immediately rather than on the next tick. 1.2s x 10, then it tells the user the host couldn't be
+  reached. Safe to repeat by construction — the host's `'roster-join'` handler already returns early
+  when the peer is in the roster, so every repeat after the first is a no-op.
+- **`find_public_room`'s fix covers Room mode for free**, since both pages call the same RPC — the
+  self-match bug applied to Group Room too (`J6ATEEXP`, a 4-seat public room, sat at 4/4).
+- **Verified:** `tsc -b` clean, `oxlint` 0 errors (no new warnings), 697 unit tests, build clean.
+
 ## 2026-07-31 (part 22) — Migrations applied to production; a11y scans now measure the settled state
 
 - **The three multiplayer migrations were applied to the live project** (user-authorised) and each
