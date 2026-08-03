@@ -7,6 +7,35 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-07-31 (part 22) — Migrations applied to production; a11y scans now measure the settled state
+
+- **The three multiplayer migrations were applied to the live project** (user-authorised) and each
+  fix verified against it rather than assumed:
+  - `find_public_room` as the host who created the room → **`(none)`**; as a different player →
+    the room. Self-matching is gone, real matchmaking still works.
+  - Two consecutive self-joins → `participant_count` stays **1**, members **1**. Before, the second
+    would have made a 2-seat duel unjoinable by the actual opponent.
+  - `leave_multiplayer_room` on the last seat → room deleted, **0 orphan member rows**.
+  - The count repair fixed every corrupted row (**0 remain** disagreeing with the membership table).
+  - The sweep cleared **20 stale rooms**, including the two-day-old ones the user asked about, and
+    is now scheduled every 15 minutes (`cron.job` previously held only `trim_training_samples`).
+  - Note for future migration work: production's migration history has **12 repo migrations that
+    were never applied**, and several applied ones carry different version numbers than the repo
+    files. A plain `supabase db push` would try to replay unrelated old migrations — these three
+    were applied individually and deliberately.
+- **a11y scans now run under emulated reduced motion.** The app wires
+  `<MotionConfig reducedMotion="user">`, so emulating it suppresses every framer-motion entrance —
+  including the `ScreenTransition` fade between screens. Without that, axe could scan a screen
+  mid-fade and report a **transient** opacity as a contrast violation; which element got flagged
+  varied by run and engine (leaderboard rows one run, a Friends heading the next), which reads as a
+  flaky gate rather than the timing artefact it is. WCAG 1.4.3 governs the settled state, so this is
+  also the more correct scan. 15/15 green at the standard 4-worker configuration.
+- **Honest note on that change:** it removes a whole class of transient, but it is not proof the
+  gate can never flake — an intermediate run at `--repeat-each=2` (30 tests over 4 workers, double
+  the documented envelope) still produced iOS timeouts, and each failing test passed in isolation.
+  That is the pre-existing, documented CPU-contention ceiling, unchanged by this work; the earlier
+  comparison that appeared to show a regression was measuring two different loads.
+
 ## 2026-07-31 (part 21) — Why multiplayer didn't work: diagnosed from production data
 
 User report: multiplayer wasn't working, and a room made two days earlier was still open. Both

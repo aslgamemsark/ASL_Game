@@ -29,6 +29,12 @@ ships surprised. This is deliberately candid — every item is real and evidence
 - **The Duel and Room state machines are still separate**, with duplicated flow logic. Deliberate:
   merging them was frozen until integration coverage existed. That coverage now exists, so this is
   a ready-to-start piece of work rather than an open risk.
+- **Production's migration history does not match the repo.** 12 repo migrations were never applied,
+  and several applied ones carry different version numbers than their repo files. The 2026-07-31
+  multiplayer bug lived in exactly that gap for two weeks. Until the history is reconciled, "it is
+  in the repo" does NOT mean "it is in the database" — check before assuming, and apply migrations
+  individually rather than with a blanket `supabase db push`, which would try to replay unrelated
+  old ones.
 - **Video is peer-to-peer (WebRTC).** Behind strict corporate/NAT firewalls, video may fail to
   connect; the fallback TURN server is a free tier not sized for scale.
 - **No matchmaking.** Multiplayer is play-with-a-friend via room codes only — there is no "find a

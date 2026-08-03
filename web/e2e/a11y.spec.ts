@@ -72,7 +72,13 @@ test.describe('accessibility', () => {
   // at `lg`: BottomNav below it, SideNav above, with different labels ("Basics" vs "Basic Signs",
   // "Duel" vs "Multiplayer") and Shop reachable only via a top-bar icon on desktop. Scanning one
   // breakpoint keeps the selectors honest; the desktop layout is a separate sweep worth adding.
-  test.use({ viewport: { width: 430, height: 932 } });
+  // Reduced motion, deliberately: the app wires <MotionConfig reducedMotion="user">, so emulating it
+  // suppresses every framer-motion entrance — including the ScreenTransition fade between screens.
+  // Without it axe can scan a screen mid-fade and report a TRANSIENT opacity as a contrast
+  // violation; which elements get flagged then varies per run and per engine (leaderboard rows one
+  // run, a Friends heading the next), which reads as a flaky gate rather than the timing artefact
+  // it is. WCAG 1.4.3 governs the settled state, so measuring it is also the more correct scan.
+  test.use({ viewport: { width: 430, height: 932 }, contextOptions: { reducedMotion: 'reduce' } });
 
   test('onboarding steps', async ({ page }) => {
     await page.goto('/');
@@ -147,7 +153,7 @@ test.describe('accessibility', () => {
  * had ever been scanned.
  */
 test.describe('accessibility (desktop)', () => {
-  test.use({ viewport: { width: 1280, height: 800 } });
+  test.use({ viewport: { width: 1280, height: 800 }, contextOptions: { reducedMotion: 'reduce' } });
 
   async function reachHomeDesktop(page: import('@playwright/test').Page) {
     await page.goto('/');

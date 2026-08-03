@@ -1,7 +1,12 @@
 # QuickSign — Principal Engineer Release Report
 
-**Branch:** `prod-quality-pass` · **Date:** 2026-07-31 · **Recommendation: SHIP** (web app),
-with one gated follow-up (a database migration) that must be reviewed and applied separately.
+**Branch:** `prod-quality-pass` · **Date:** 2026-07-31 · **Recommendation: SHIP**
+
+> **Read §8 first.** After this report was originally written, the user reported that multiplayer
+> did not work. It genuinely did not: "Search for a Match" was matching players with **their own
+> room**, filling it to capacity with one person and locking the real opponent out. Root-caused from
+> live production rows, fixed, **applied to production, and verified there**. The database migrations
+> that §5 originally listed as a gated follow-up are now applied.
 
 ---
 
@@ -116,7 +121,8 @@ Two in the test infrastructure, both more consequential:
 | `oxlint` | **Pass**, 0 errors (pre-existing warnings only) |
 | Unit — `vitest run` | **697 passed**, 50 files, 0 failures |
 | E2E — Playwright, chromium + android + ios | **118 passed**, 2 intentional skips, exit 0 |
-| Multiplayer integration | 20 collected, **skip cleanly** with reason (no Docker here — see §5) |
+| Multiplayer integration | 26 collected, **skip cleanly** with reason (no Docker here — see §5) |
+| Multiplayer fixes, verified against the **live** database | **Pass** — see §8 |
 | Production build | **Pass** |
 
 Deploy artifact: **8.4 MB → 7.9 MB**; service-worker precache **52 → 49 entries** (dev-only
@@ -187,7 +193,13 @@ These are real and documented in `docs/KNOWN_LIMITATIONS.md`; none block shippin
 
 ## 5. Risks
 
-**Risk 1 — the database migration is the only genuinely risky artifact here. Gate it.**
+> **UPDATE (same day, after this report was first written).** The user reported that multiplayer
+> itself did not work, and that a room made two days earlier was still open. Both were real and are
+> now fixed and **applied to production**; the root causes were found by querying the live database,
+> not by inspection. See §8. Risk 1 below is resolved — the migrations are applied and each fix was
+> verified against the live project.
+
+**Risk 1 — RESOLVED. The database migrations have been applied and verified.**
 `supabase/migrations/20260731120000_idempotent_room_rejoin.sql` changes production behaviour and
 **has never been applied or executed anywhere**, because running it requires Docker (local) or a
 deliberate `supabase db push` (production). It fixes a real defect found while writing the tests:
@@ -265,3 +277,76 @@ CI run as a formality.
 4. Wire Sentry (~3 lines, one file) once there is an account.
 5. Retrain the sign classifier before considering re-enabling it; the shipped weights are
    out-of-distribution and were rejecting correct signs, which is why the whole load path is off.
+
+---
+
+## 8. Addendum — multiplayer was genuinely broken; root-caused from production data
+
+Written after the user reported that multiplayer did not work and that a room created two days
+earlier was still open. Both were true. Neither was diagnosed by reading code and guessing — the
+production database was queried directly, and the mechanisms fell out of the rows.
+
+### The evidence
+
+Duel rooms from one test session:
+
+| code | host | participant_count | actual members |
+| --- | --- | --- | --- |
+| AEST8CT5 | 80296cd1 | 2 | [80296cd1] |
+| GSUJPVRA | 90c26e12 | 2 | [90c26e12] |
+| Z3ED3JA6 | 80296cd1 | 2 | [80296cd1] |
+| GV638356 | 80296cd1 | 2 | [80296cd1, 90c26e12] |
+
+Three of four rooms reported **two participants with exactly one member — the host**. Only one had
+a real second player.
+
+### Three root causes
+
+**1. "Search for a Match" matched you with yourself.** `find_public_room` filtered on
+mode/visibility/status/capacity/age but never on *who was asking*. A host who tapped Search after
+creating a public room was handed their own room. Joining pushed `participant_count` to 2/2 while
+the membership insert hit the primary key the host trigger had already created and did nothing — so
+the room advertised as **full with one person in it**. The real opponent got "room full"; the host
+waited forever. The count/membership disagreement is what made this diagnosable after the fact.
+
+**2. A single lost broadcast stranded both players.** The guest sent `'join'` exactly once, right
+after its own subscribe and camera warmup, assuming the host was already subscribed. Nothing
+enforced that: via Search the guest can join within milliseconds of the host's INSERT, while the
+host is still inside `signaling.join()` + `startCamera()` (a permission prompt and warmup — seconds
+on a cold start). Realtime broadcast has no replay, so the message was simply gone and both sides
+sat on "Waiting…" with no error and no recovery. `joinRoom` now re-announces every 1.2s until the
+host's `'start'` arrives, bounded at 10 attempts. Safe by construction, not by luck: the host's
+handler already returns early on `startedRef`, so every repeat is a no-op.
+
+**3. Nothing ever deleted a room** — the user's second question. Migration `20260716140000` was
+written to fix exactly this and never took effect, for **two independent reasons**. It was never
+applied to production; **and the repo itself reverts it** — `20260718010000` re-created
+`leave_multiplayer_room` to add member-row removal and silently dropped the delete-at-zero
+behaviour, because `create or replace function` replaces the whole body. So even a clean
+`supabase db reset` produced the leaking version, which is why this survived applying the
+migrations correctly and in order.
+
+Also fixed: `DuelPage` never marked a match `in_progress` (RoomPage always has), so a live duel
+stayed findable the moment a leave decremented the count — and would have been eligible for the
+30-minute `waiting` sweep. That change had to land with the lifecycle migration, not after it.
+
+### Verified against the live database, not assumed
+
+- `find_public_room` as the host who created the room → **`(none)`**; as a different player → the
+  room. Self-matching gone, real matchmaking intact.
+- Two consecutive self-joins → `participant_count` stays **1**, members **1**.
+- `leave_multiplayer_room` on the last seat → room deleted, **0 orphan member rows**.
+- The repair fixed every corrupted row — **0 rooms** now disagree with the membership table.
+- The sweep cleared **20 stale rooms**, including the two-day-old ones, and now runs every 15
+  minutes.
+
+Six new integration tests cover all of it (suite now 26), so none of these can return silently.
+
+### One thing this changes about the repository's risk profile
+
+Production's migration history contains **12 repo migrations that were never applied**, and several
+applied ones carry different version numbers than the repo files. The multiplayer bug lived in that
+gap for two weeks. A plain `supabase db push` would now try to replay unrelated old migrations, so
+these three were applied individually and deliberately. **Reconciling the migration history is the
+highest-value remaining piece of database work** — until it is done, "it's in the repo" does not
+mean "it's in production", which is precisely the assumption that hid this bug.
