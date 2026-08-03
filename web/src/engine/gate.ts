@@ -42,8 +42,9 @@ export interface GateDecision {
  * learner's result; call `gateOutcome` for that.
  *
  * The rule verifier is authoritative. The classifier can only REJECT a rule-pass, and only
- * when it is confident (>= `vetoConfidence`) that the user actually signed a DIFFERENT sign.
- * It NEVER vetoes on uncertainty: a correct sign the model is merely unsure about still passes.
+ * when it is confident (>= `vetoConfidence`) that the user actually signed a DIFFERENT, NAMED
+ * sign. It NEVER vetoes on uncertainty: a correct sign the model is merely unsure about still
+ * passes. It also never vetoes on `NO_SIGN` — see the mechanism note below.
  *
  * CORRECTION (2026-07-27): this function's comment previously claimed the worst case was "missed
  * a confusor... never rejected a correct sign the user actually made". Production data disproved
@@ -51,6 +52,18 @@ export interface GateDecision {
  * are high-confidence, so veto-only did reject correct signs — 170 of 240 correct HELLO attempts.
  * Being a veto rather than a confirmation gate bounds the damage only when the model is calibrated.
  * See GATE_ENFORCED in config/classifier.ts for the full evidence and the re-enable criteria.
+ *
+ * MECHANISM FIX (2026-08-04): 87% of every production veto (108 of 124, 30-day PostHog sample)
+ * was the model voting `NO_SIGN` — "you didn't sign anything" — about an attempt the rule
+ * verifier had just cleared on every required parameter. `NO_SIGN` is an ABSENCE class, not a
+ * confusable sign: this gate exists to disambiguate "did you sign X or the similar-looking Y",
+ * a question that presupposes a sign happened. Whether one happened at all is exactly what the
+ * rule verifier already answered, with a stronger, more specific signal (per-parameter geometry)
+ * than a single softmax score. Letting the classifier re-litigate that question is a category
+ * error, not a confidence-threshold problem — no `vetoConfidence` value fixes it, since these
+ * false vetoes measured HIGHER (0.82-0.93) than genuine sign-vs-sign vetoes (as low as 0.72).
+ * `NO_SIGN` can still drive `gateHint`'s coaching message below — that's additive and never
+ * blocks a learner, unlike a veto.
  */
 export function gatePass(
   rulePassed: boolean,
@@ -60,7 +73,8 @@ export function gatePass(
 ): boolean {
   if (!rulePassed) return false; // rules authoritative for failure
   if (!vote) return true; // classifier disabled -> rules alone (unchanged behavior)
-  // Veto only on confident disagreement.
+  if (vote.topSign === 'NO_SIGN') return true; // absence is not a competing sign — never a veto
+  // Veto only on confident disagreement with a NAMED sign.
   if (vote.topSign !== promptedSign && vote.confidence >= vetoConfidence) return false;
   return true;
 }

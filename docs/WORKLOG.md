@@ -7,6 +7,68 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-08-04 — Fixed the live AI-veto regression; found and fixed the real mechanism
+
+- **Production was actively blocking correct signs.** Production had drifted to serving a
+  teammate's `Code_Fix` branch (promoted 2026-08-03 19:20 UTC) instead of this work, and that
+  branch predates both `GATE_ENFORCED`/`CLASSIFIER_LOAD_ENABLED` — so the AI veto ran unconditionally.
+  PostHog: 0 correct-but-blocked attempts on 07-29 through 07-31 (the fixed bundle was live), then
+  38 on 2026-08-03, the last one timestamped one minute after the promotion. Merged the two
+  branches (PR #4, `merge/prod-quality-into-code-fix`) rather than re-promoting over the
+  teammate's work.
+- **Correction to an earlier claim in this session:** I initially told the user QS-002 (the AI-veto
+  bug) could be closed as a measurement artifact caused by one Pakistan-based test account. Wrong —
+  checked "only one person" against PostHog directly: 8 of the 12 users who ever attempted HELLO
+  were vetoed at least once. Real bug, kept Open, and found its actual mechanism below.
+- **Root cause: `NO_SIGN` was being treated as a competing sign.** A 30-day PostHog sample of every
+  production veto showed 108 of 124 (87%) were the model voting `NO_SIGN` — "you didn't sign
+  anything" — about attempts the rule verifier had already cleared on every required parameter.
+  `NO_SIGN` is an absence class, not a confusable sign; the classifier has no business
+  re-litigating whether a sign happened when the rule verifier's per-parameter geometry already
+  answered that with a stronger signal. Not a threshold problem: the false NO_SIGN vetoes measured
+  HIGHER (0.82–0.93) than genuine sign-vs-sign vetoes (as low as 0.72), so no `GATE_CONFIDENCE`
+  value could have fixed it. Fixed at the source in `gatePass` (`web/src/engine/gate.ts`) — `NO_SIGN`
+  can no longer produce a veto, only `gateHint`'s additive coaching message. 4 new mechanism tests
+  in `src/engine/tests/gate.test.ts`, one stale test removed (it had asserted the old, wrong
+  behavior — NO_SIGN counting as a recorded veto).
+- **Re-enabled the classifier in shadow mode** (`CLASSIFIER_LOAD_ENABLED = true`,
+  `GATE_ENFORCED` stays `false`) now that its worst, most common failure mode is structurally
+  impossible. Cost lands only on users who open a camera screen (Lesson/Practice/Story each call
+  `useClassifier()` themselves) — the app-wide `App.tsx` warmup stays removed. Documented the
+  numeric bar for ever re-enabling enforcement directly on `GATE_ENFORCED`: ≥95% veto precision,
+  ≥200 vetoes across ≥20 users excluding Pakistan test traffic and bundle-change days, preprocessing
+  parity check, and per-sign re-enable via `GATE_EXCLUDED_SIGNS` only.
+- **Found and fixed three previously-undiscovered CI/infrastructure bugs while merging**, all
+  pre-existing on `Code_Fix` and never caught because this repo's CI only triggers on PRs and
+  pushes to `main` — `Code_Fix` had never once been CI-tested before being promoted to production:
+  1. `@supabase/realtime-js` needs the native `WebSocket` global (Node 22+); CI pinned Node 20.
+     Bumped all three JS jobs in `.github/workflows/ci.yml` to Node 22.
+  2. `20260707120000_admin_panel.sql` policies `sign_verification_log` two migrations before that
+     table exists (`20260709010000_security_hardening.sql`) — any from-scratch migration replay
+     failed immediately. Duplicated the idempotent `create table if not exists` into the earlier
+     file rather than reordering already-applied migrations.
+  3. `20260712120000_region_leaderboard.sql`'s own comment claimed its policy block was "idempotent
+     (drop-if-exists + create)" but only dropped the OLD combined policy name, not the four
+     granular ones it recreates — harmless against the live database, fatal on a from-scratch
+     replay. Added the missing `drop policy if exists` before each `create`.
+  4. `multiplayer_rooms`/`multiplayer_room_members` had RLS policies but no table-level GRANT for
+     either `authenticated` or `service_role` — every other table in the schema works via an
+     implicit Supabase default-privileges bootstrap this repo's migrations never had to capture
+     explicitly; these two were the outliers. Added explicit grants matching each table's actual
+     policies.
+  These four fixes took the multiplayer CI job from crashing at `supabase start` before a single
+  test ran, to **17 of 27 tests passing** — its first-ever real execution. The remaining 10
+  failures are a genuinely separate problem (two-browser-context WebRTC timing in CI, plus a
+  rate-limit/stale-room-sweep timing assumption) — real follow-up work, not migration/grant bugs,
+  and out of scope for this session.
+- **Verified:** `tsc -b` clean, lint exit 0, 710 unit tests, 117 e2e green across
+  chromium/android/ios (1 pre-existing flaky test, confirmed 3/3 clean in isolation and unrelated
+  to any change here — same journey never opens a camera page), build clean (precache unchanged at
+  50 entries / 1720 KiB — `vendor-tfjs` is a lazy chunk, not precached, confirming the shadow-mode
+  re-enable didn't regress the Phase 2 payload work).
+
+---
+
 ## 2026-08-03 (part 2) — One multiplayer room with a 1v1 / Group switcher
 
 - **Merged the two multiplayer lobbies into one.** Duel and Room each had their own lobby that was

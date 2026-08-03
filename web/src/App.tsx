@@ -91,7 +91,10 @@ export default function App() {
   // paint used to make the "Get Started" button feel frozen for several seconds on a fresh visit
   // (impeccable audit, 2026-07-11) — new visitors shouldn't pay that cost before they've even
   // started onboarding. The AI-classifier warmup that used to sit alongside this was removed
-  // 2026-07-30 — see CLASSIFIER_LOAD_ENABLED in config/classifier.ts; it no longer loads at all.
+  // 2026-07-30 and stays removed even though CLASSIFIER_LOAD_ENABLED (config/classifier.ts) is
+  // back on 2026-08-04: LessonPage/PracticePage/StoryPage each call useClassifier() themselves,
+  // so the cost now lands only on users who actually open a camera screen, not on every cold
+  // start. Do not reintroduce an app-wide warmup here.
   const readyForWarmup = onboardingComplete || !!user;
   useEffect(() => {
     if (!readyForWarmup) return;

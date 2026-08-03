@@ -64,8 +64,52 @@ Possible solutions:
   `sign_verification_log` 442 rows); re-enable per-sign only where measured veto precision is high.
 - Per `.claude/rules/fixes.md`, do NOT ship another threshold bump as the fix.
 
+**Update 2026-08-04 — mechanism found, not just a threshold problem:**
+
+A 30-day PostHog sample of every production veto (`sign_attempt`, `ai_vetoed = true`) broke down
+as:
+
+| Prompted | Model said | n | avg conf | conf range |
+|---|---|---|---|---|
+| HELLO | `NO_SIGN` | 98 | 0.899 | 0.82–0.926 |
+| YOU / PLEASE / WANT / THANK_YOU / COFFEE | `NO_SIGN` | 10 | ~0.87 | 0.764–0.902 |
+| everything else (genuine sign-vs-sign) | — | ~16 | — | 0.72–0.961 |
+
+**108 of 124 vetoes (87%) were `NO_SIGN`** — the model claiming no sign happened at all, about
+attempts the rule verifier had already cleared on every required parameter. `NO_SIGN` is an
+absence class, not a competing sign: the classifier exists to disambiguate "did you sign X or the
+similar-looking Y", a question that presupposes a sign happened — a question the rule verifier's
+per-parameter geometry already answered, with a stronger, more specific signal than one softmax
+score. Confirms the earlier "no threshold fixes it" finding with the actual numbers: false NO_SIGN
+vetoes sit HIGHER (0.82–0.93) than genuine sign-vs-sign vetoes (as low as 0.72) — raising
+`GATE_CONFIDENCE` would remove correct vetoes before wrong ones.
+
+**Fix shipped:** `gatePass` in `web/src/engine/gate.ts` no longer allows `NO_SIGN` to veto — only
+a confidently-detected NAMED different sign can. `NO_SIGN` still drives `gateHint`'s additive
+coaching message ("that didn't look like a sign at all"), which is never blocking. 4 mechanism
+tests in `src/engine/tests/gate.test.ts` lock this in, separate from the existing HOSPITAL/HELLO
+confusion tests (that failure mode is still real and still not fixed — see below).
+
+**Also corrected a claim made in this same investigation:** the user reported "it was only one
+person" for HELLO specifically. True by volume (2 accounts produce 97 of 124 vetoes total, one of
+them a Pakistan-based friends/family test account per the project's existing analytics
+segmentation), but the underlying MECHANISM reproduces across the population — 8 of the 12 users
+who ever attempted HELLO were vetoed at least once. Concluding "single user, close as
+non-issue" from the volume alone would have been wrong; keeping this Open and finding the actual
+mechanism was the correct call.
+
+**Re-enabled** `CLASSIFIER_LOAD_ENABLED` (shadow mode, `GATE_ENFORCED` still `false`) now that the
+87%-of-vetoes failure mode is structurally impossible. **Not closing this ticket** — the remaining
+~13% (genuine sign-vs-sign confusions, e.g. HELLO↔HOSPITAL) is still an open, real
+out-of-distribution problem, and no model has been retrained. The numeric bar for ever flipping
+`GATE_ENFORCED` back on is documented directly on that constant in
+`web/src/config/classifier.ts`: ≥95% veto precision on ≥200 vetoes across ≥20 users (excluding
+Pakistan test traffic and any day spanning a bundle change), preprocessing-parity verification,
+and per-sign re-enable via `GATE_EXCLUDED_SIGNS` only — never a global flip.
+
 Status:
-Open
+Open (mechanism for 87% of vetoes fixed; classifier back in shadow-mode measurement; remaining
+~13% sign-vs-sign confusion + eventual re-enable decision still open)
 
 ---
 

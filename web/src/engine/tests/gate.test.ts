@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { gateOutcome, gatePass, type ClassifierVote } from '../gate';
+import { gateOutcome, gatePass, gateHint, type ClassifierVote } from '../gate';
 import { GATE_ENFORCED } from '@/config/classifier';
 
 /**
@@ -28,14 +28,6 @@ describe('gateOutcome — shadow mode (enforcement off)', () => {
   it('records the veto even at the maximum confidence seen in production (0.967)', () => {
     const { passed, modelVetoed } = gateOutcome(
       true, confidentlyWrongVote('HOSPITAL', 0.967), 'HELLO', 0.7, false
-    );
-    expect(passed).toBe(true);
-    expect(modelVetoed).toBe(true);
-  });
-
-  it('handles the NO_SIGN failure mode — 81 of the HELLO vetoes were this', () => {
-    const { passed, modelVetoed } = gateOutcome(
-      true, confidentlyWrongVote('NO_SIGN', 0.872), 'HELLO', 0.7, false
     );
     expect(passed).toBe(true);
     expect(modelVetoed).toBe(true);
@@ -74,6 +66,39 @@ describe('gateOutcome — enforcement on (re-enable path)', () => {
 describe('gatePass — unchanged model-opinion primitive', () => {
   it('still reports the raw model opinion, independent of enforcement', () => {
     expect(gatePass(true, confidentlyWrongVote(), 'HELLO', 0.7)).toBe(false);
+  });
+});
+
+describe('gatePass — NO_SIGN is never a veto (mechanism fix, 2026-08-04)', () => {
+  // 108 of 124 production vetoes in a 30-day PostHog sample were NO_SIGN — the model claiming
+  // no sign happened at all, about attempts the rule verifier had already cleared on every
+  // required parameter. NO_SIGN is an absence class, not a competing named sign; asserting
+  // otherwise is the category error this fix removes, at any confidence and with enforcement on.
+  it('never vetoes on NO_SIGN, even at the highest confidence observed in production (0.926)', () => {
+    expect(gatePass(true, confidentlyWrongVote('NO_SIGN', 0.926), 'HELLO', 0.7)).toBe(true);
+  });
+
+  it('does not veto on NO_SIGN with enforcement ON', () => {
+    const { passed, modelVetoed } = gateOutcome(
+      true, confidentlyWrongVote('NO_SIGN', 0.899), 'HELLO', 0.7, true
+    );
+    expect(passed).toBe(true);
+    expect(modelVetoed).toBe(false);
+  });
+
+  it('still vetoes a genuine wrong-sign vote at the SAME confidence NO_SIGN no longer does', () => {
+    // Proves the fix is scoped to NO_SIGN specifically, not a blanket loosening of the gate.
+    const { passed, modelVetoed } = gateOutcome(
+      true, confidentlyWrongVote('HOSPITAL', 0.899), 'HELLO', 0.7, true
+    );
+    expect(passed).toBe(false);
+    expect(modelVetoed).toBe(true);
+  });
+
+  it('still lets NO_SIGN drive the additive coaching hint — only the veto is removed', () => {
+    expect(gateHint(confidentlyWrongVote('NO_SIGN', 0.9), 'HELLO')).toBe(
+      "That didn't look like a sign at all — check the reference."
+    );
   });
 });
 

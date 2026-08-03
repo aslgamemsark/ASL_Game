@@ -16,22 +16,21 @@ export const CLASSES_URL = '/models/signs/classes.json';
 
 /**
  * Master switch for LOADING the classifier at all — separate from, and upstream of,
- * `GATE_ENFORCED`. While `GATE_ENFORCED` was already false (shadow mode), every returning user
- * was still downloading the full model (~272 KB gzip TF.js + ~428 KB of weights) and paying a
- * WebGL/WASM init on the camera critical path, purely to log shadow-mode votes for a veto that
- * could not affect them. Product decision 2026-07-30: stop paying that cost for everyone.
+ * `GATE_ENFORCED`. Turned off 2026-07-30, back on 2026-08-04 as a deliberate decision to resume
+ * shadow-mode measurement, now that the NO_SIGN mechanism bug is fixed (see `gatePass` in
+ * `engine/gate.ts` — it was 87% of every observed veto) and there's real data to measure against.
+ *
+ * Cost, paid only by users who open a camera screen (Lesson/Practice/Story call `useClassifier`;
+ * `App.tsx` does not warm it up app-wide — do not reintroduce that): ~272 KB gzip TF.js + ~428 KB
+ * of weights, plus a WebGL/WASM init. `GATE_ENFORCED` below stays false, so this buys measurement
+ * only — no user can be blocked by a vote while it's false.
  *
  * Setting this false makes `useClassifier`'s `loadOnce()` return the same `{classifier: null,
  * status: 'disabled'}` shape used for "no model deployed" — every existing consumer (recognition
  * gating, `ClassifierDevPanel`) already handles that shape correctly, so nothing downstream needed
- * to change. Shadow-mode vote collection (`ai_prediction`/`ai_confidence`/`ai_vetoed` on
- * `sign_attempts`) stops while this is false; the 808 `training_samples` + 442
- * `sign_verification_log` rows already collected remain the basis for any future retrain.
- *
- * Flip back to true only as a deliberate decision to resume shadow-mode measurement (e.g. to
- * validate a retrained model before considering `GATE_ENFORCED` again) — not as a quick undo.
+ * to change when it was off, and nothing downstream needs to change now that it's on again.
  */
-export const CLASSIFIER_LOAD_ENABLED = false;
+export const CLASSIFIER_LOAD_ENABLED = true;
 
 /**
  * Veto threshold: a rule-pass is rejected ONLY when the model is at least this confident that
@@ -46,35 +45,39 @@ export const GATE_CONFIDENCE = 0.7;
 /**
  * Master switch for veto ENFORCEMENT ("shadow mode" when false).
  *
- * CURRENTLY INERT — and will stay inert until CLASSIFIER_LOAD_ENABLED above is turned back on.
- * With the model not loaded there is no vote to enforce or record, so flipping this alone changes
- * nothing. The two flags are a sequence, not alternatives: load first, measure, then enforce.
- * (Corrected 2026-07-31: this block previously described shadow mode as live — "the classifier
- * still loads, still runs inference on every attempt, and every vote is still recorded" — which
- * stopped being true on 2026-07-30 when the load was switched off. A comment that confidently
- * describes behaviour the code no longer has is worse than no comment.)
+ * STAYS FALSE as of 2026-08-04, even though `CLASSIFIER_LOAD_ENABLED` above is back on. The two
+ * flags are a sequence, not a pair flipped together: load first, measure, then enforce. With this
+ * false, the classifier runs inference on every camera-screen attempt and every vote is recorded
+ * to `sign_attempts` (ai_prediction / ai_confidence / ai_vetoed), but cannot reject a rule-pass —
+ * measurement without the user-facing harm.
  *
- * When shadow mode IS live (load enabled, this false), the classifier runs inference on every
- * attempt and every vote is recorded to `sign_attempts` (ai_prediction / ai_confidence /
- * ai_vetoed), but cannot reject a rule-pass — measurement without the user-facing harm.
+ * ORIGINAL FAILURE (set to false 2026-07-27): production data proved the veto was rejecting
+ * correct signs — HELLO 240 attempts, rule verifier passed 231 (96.3%), users saw 61 pass (25.4%).
+ * All 170 losses were vetoes, and the model was CONFIDENTLY wrong, not uncertain: it called a
+ * correct HELLO "NO_SIGN" @ 0.872 avg confidence and "HOSPITAL" @ 0.938 (max 0.967).
  *
- * Set to FALSE on 2026-07-27 because production data proved the veto was rejecting correct signs:
- *   HELLO — 240 attempts, rule verifier passed 231 (96.3%), users saw 61 pass (25.4%).
- *   All 170 losses were vetoes. The model was CONFIDENTLY wrong, not uncertain:
- *   it called a correct HELLO "NO_SIGN" @ 0.872 avg confidence and "HOSPITAL" @ 0.938 (max 0.967).
- *   One user attempted HELLO 73 times. YOU 28.9%, MEDICINE 16.0%, WANT 33.3% — same mechanism.
+ * MECHANISM FOUND (2026-08-04): a 30-day PostHog sample of every production veto showed 108 of
+ * 124 (87%) were `NO_SIGN` — the model claiming no sign happened, about attempts the rule
+ * verifier had just cleared. `NO_SIGN` is an absence class, not a competing sign; the gate had no
+ * business vetoing on it at all. Fixed at the source in `gatePass` (`engine/gate.ts`) — `NO_SIGN`
+ * can no longer produce a veto, only `gateHint`'s additive coaching message. This was a category
+ * error, not a confidence problem: the false NO_SIGN vetoes measured HIGHER (0.82-0.93) than
+ * genuine sign-vs-sign vetoes (as low as 0.72), so no `GATE_CONFIDENCE` value could have fixed it
+ * — raising the threshold would have removed correct vetoes before wrong ones.
  *
- * This is out-of-distribution failure: model_v4 was trained on ASL Citizen / WLASL studio video
- * and scored 85% there, but runs on live webcam landmarks. Raising GATE_CONFIDENCE cannot fix it
- * (the bad predictions sit above any usable threshold) and would be exactly the kind of
- * threshold-tuning band-aid .claude/rules/fixes.md prohibits.
+ * This does NOT mean the model is now trustworthy — only that its worst, most common failure mode
+ * is structurally impossible. It is still out-of-distribution on live webcam input (model_v4 was
+ * trained on ASL Citizen / WLASL studio video, 85% there) for genuine sign-vs-sign confusions.
  *
- * BEFORE FLIPPING THIS BACK TO TRUE, all three must hold:
- *   1. Live-pipeline preprocessing verified identical to training preprocessing (the "NO_SIGN
- *      @ 0.87 on a correct sign" signature points at a temporal-window/feature mismatch).
- *   2. Measured veto precision from shadow-mode production data is high — i.e. attempts where
- *      ai_vetoed = true were genuinely wrong signs, not correct ones.
- *   3. Re-enabled PER SIGN via GATE_EXCLUDED_SIGNS, never globally in one step.
+ * BEFORE FLIPPING THIS BACK TO TRUE, all four must hold:
+ *   1. Veto precision >= 95% on fresh shadow-mode data (post-NO_SIGN-fix) — of attempts where
+ *      ai_vetoed = true, at least 95% must be confirmed genuinely wrong signs, not assumed.
+ *   2. >= 200 vetoes across >= 20 distinct users in that sample, excluding Pakistan traffic
+ *      (friends/family test accounts, not the real US/CA market) and any day spanning a bundle
+ *      change (a stale cached bundle produces false signal — see docs/WORKLOG.md 2026-07-26).
+ *   3. Live-pipeline preprocessing verified identical to training preprocessing, if any residual
+ *      high-confidence wrong-sign vetoes remain.
+ *   4. Re-enabled PER SIGN via GATE_EXCLUDED_SIGNS, never globally in one step.
  */
 export const GATE_ENFORCED = false;
 
