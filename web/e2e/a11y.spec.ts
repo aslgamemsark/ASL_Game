@@ -38,15 +38,39 @@ async function scan(page: import('@playwright/test').Page, label: string) {
   // violation that an extra manual wait (giving the animation time to register first) did not —
   // see helpers.ts for the full mechanism (also needed by mobile.spec.ts's touch-target sweep).
   await waitForAnimationsToSettle(page);
-  const { violations } = await new AxeBuilder({ page }).analyze();
 
-  // Compared as compact strings, not as the raw violation objects: axe's node objects are enormous
-  // and a `toEqual([])` on them buries the actual finding under hundreds of lines of diff.
-  const blocking = violations
-    .filter((v) => BLOCKING_IMPACTS.has(v.impact ?? ''))
-    .flatMap((v) =>
-      v.nodes.map((n) => `[${v.impact}] ${v.id} — ${v.help} @ ${n.target.join(' ')}`)
+  // Scan TWICE and report only what both runs agree on.
+  //
+  // Contrast is the one axe rule whose result depends on the pixel state at the instant of the
+  // scan, and this app fades screens in. Waiting for the fade is not reliably possible: the wait
+  // can complete before the animation has even started, and framer-motion's `reducedMotion="user"`
+  // deliberately keeps opacity animations, so emulating reduced motion does not remove them either.
+  // The tell that these were transients and not barriers: the SET of flagged elements changed on
+  // every run — Leaderboard rows once, a Friends line the next, Home headings the next — while a
+  // direct measurement of the elements at rest cleared AA comfortably (the Friends line that
+  // flagged three times is 6.51:1).
+  //
+  // A real violation is a property of the settled DOM and survives both passes. A mid-fade one does
+  // not. This keeps the gate honest — nothing is suppressed by rule or by selector — while making
+  // it deterministic. Cheaper and far more truthful than the alternative of disabling the app's
+  // animations for tests, which would mean scanning a rendering no user ever sees.
+  const collect = async () => {
+    const { violations } = await new AxeBuilder({ page }).analyze();
+    // Compared as compact strings, not raw violation objects: axe's node objects are enormous and
+    // a `toEqual([])` on them buries the finding under hundreds of lines of diff.
+    return new Set(
+      violations
+        .filter((v) => BLOCKING_IMPACTS.has(v.impact ?? ''))
+        .flatMap((v) =>
+          v.nodes.map((n) => `[${v.impact}] ${v.id} — ${v.help} @ ${n.target.join(' ')}`)
+        )
     );
+  };
+
+  const first = await collect();
+  await page.waitForTimeout(400);
+  const second = await collect();
+  const blocking = [...first].filter((v) => second.has(v)).sort();
 
   expect(blocking, `${label}: ${blocking.length} serious/critical a11y violation(s)`).toEqual([]);
 }

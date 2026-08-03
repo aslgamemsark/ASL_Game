@@ -7,6 +7,40 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-08-03 (part 2) — One multiplayer room with a 1v1 / Group switcher
+
+- **Merged the two multiplayer lobbies into one.** Duel and Room each had their own lobby that was
+  ~95% the same markup, sitting behind a separate "pick a mode" screen. Now there is a single
+  `MultiplayerLobby` with a **1v1 Duel / Group Room switcher at the top**, and multiplayer opens
+  straight into a usable room instead of costing a tap first. Everything that genuinely differs
+  between modes (emoji, title, blurb, round options, "Rounds" vs "Rounds each", search wording,
+  input id) is one `MODES` record — a third mode would be an entry there, not a third lobby.
+- The two-card hub screen is gone; `MultiplayerHubPage` now renders the chosen mode directly and
+  passes `onSwitchMode`. Challenge-a-friend flows pin the mode and **hide** the switcher — offering
+  a choice there would discard the invite the user just accepted. The guest sign-in gate and the
+  remote kill switch are unchanged.
+- **Verified visually**, not just by types: a throwaway Playwright run injected a local-only fake
+  session (test code, no production change) to get past the guest gate and screenshot the lobby in
+  both modes. That caught a real cosmetic bug the tests would not have — the page header still read
+  "⚔️ 1v1 Duel" directly above a switcher segment saying the same words. Header now reads
+  "Multiplayer" in the lobby and names the mode only once a match is under way.
+- **The engines behind it are still separate**, deliberately. This merges the lobby and the entry
+  flow — the part that was duplicated — without rewriting two WebRTC round-flow state machines whose
+  integration suite has still never executed.
+- **Fixed the a11y gate's real flakiness at its mechanism.** Contrast is the one axe rule whose
+  result depends on the pixel state at scan time, and this app fades screens in. Two earlier
+  attempts (waiting for `networkidle`, then emulating reduced motion) both failed, because the wait
+  can complete before the animation has even started and framer-motion's `reducedMotion="user"`
+  deliberately **keeps** opacity animations. The tell that these were transients: the SET of flagged
+  elements changed every run — Leaderboard rows, then a Friends line, then Home headings — while
+  direct measurement of those elements at rest cleared AA comfortably (the Friends line that flagged
+  three times is **6.51:1**). The scan now runs axe **twice** and reports only what both passes
+  agree on: a real violation is a property of the settled DOM and survives; a mid-fade one does not.
+  Nothing is suppressed by rule or selector. **30/30 green at double the documented worker load**,
+  the configuration that had been failing consistently.
+- **Verified:** `tsc -b` clean, `oxlint` 0 errors, 702 unit tests, 118 e2e across
+  chromium/android/ios (exit 0), build clean, 27 multiplayer integration tests collecting.
+
 ## 2026-08-03 — Closing the remaining work: migration drift, Room disconnects, desktop, dedup
 
 - **Migration ledger reconciled.** All 32 repo migrations are now recorded in production, so

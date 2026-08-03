@@ -36,6 +36,29 @@ export async function waitForAnimationsToSettle(page: Page): Promise<void> {
   // the animation wait below is still a meaningful barrier on its own.
   await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
   await page.waitForTimeout(50);
+
+  // Then wait for nothing to be MID-FADE.
+  //
+  // Emulating reduced motion is not enough on its own: framer-motion's `reducedMotion="user"`
+  // suppresses transform and layout animations but deliberately KEEPS opacity fades, so a screen
+  // can still be scanned at partial opacity and report a contrast violation that the settled state
+  // does not have. Measured directly on the Friends guest-gate line that kept flagging:
+  // #9C90B0 on #0D0A1E is 6.51:1 at rest — comfortably past AA — so every one of those findings
+  // was a transient, not a real barrier.
+  //
+  // Keyed on INLINE opacity specifically: framer-motion writes `style="opacity: 0.34"` while
+  // animating, whereas deliberate translucency (a disabled button's `opacity-50`, a `/60`
+  // surface) comes from a class. Waiting for "no partial opacity anywhere" would therefore never
+  // resolve on a screen that has a legitimately faded element.
+  await page.waitForFunction(() => {
+    for (const el of document.querySelectorAll<HTMLElement>('[style*="opacity"]')) {
+      const raw = el.style.opacity;
+      if (!raw) continue;
+      const value = Number.parseFloat(raw);
+      if (Number.isFinite(value) && value > 0 && value < 1) return false;
+    }
+    return true;
+  }, { timeout: 5_000 }).catch(() => {}); // best-effort — a permanently half-faded element is its own bug
   await page.waitForFunction(
     () => document.getAnimations()
       .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)

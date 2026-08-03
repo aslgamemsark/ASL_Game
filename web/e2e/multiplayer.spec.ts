@@ -475,6 +475,10 @@ async function openDuelLobby(browser: Browser, user: TestUser): Promise<Page> {
 
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first().click();
   await page.getByRole('button', { name: /Multiplayer$/ }).first().click();
+  // Multiplayer now opens straight into the duel lobby — the separate "pick a mode" screen was
+  // replaced by the 1v1 / Group switcher inside the lobby itself (2026-08-03). Clicking the 1v1
+  // segment is therefore a no-op confirmation of the default rather than a navigation step, and is
+  // kept so the test fails loudly if the switcher ever stops being rendered.
   await page.getByRole('button', { name: /1v1 Duel/ }).click();
   await expect(page.getByRole('button', { name: /^Create Room$/ })).toBeVisible({ timeout: 15_000 });
   return page;
@@ -505,6 +509,23 @@ test.describe('multiplayer two-client session', () => {
 
     await hostPage.context().close();
     await guestPage.context().close();
+  });
+
+  test('the lobby switches between 1v1 and Group without leaving the screen', async ({ browser }) => {
+    // The merged lobby replaced a separate mode-picker screen; the switcher is now the only way to
+    // reach Group Room, so if it stops swapping modes that whole mode becomes unreachable.
+    const page = await openDuelLobby(browser, users[0]!);
+
+    await expect(page.getByRole('heading', { name: /Sign & Guess/ })).toBeVisible();
+    await page.getByRole('button', { name: /Group Room/ }).click();
+    await expect(page.getByRole('heading', { name: /Group Sign & Guess/ }),
+      'the Group segment must swap the lobby to room mode').toBeVisible({ timeout: 10_000 });
+
+    await page.getByRole('button', { name: /1v1 Duel/ }).click();
+    await expect(page.getByRole('heading', { name: /^Sign & Guess$/ }),
+      'and back again').toBeVisible({ timeout: 10_000 });
+
+    await page.context().close();
   });
 
   test('a wrong code is refused in the UI without leaving the lobby', async ({ browser }) => {

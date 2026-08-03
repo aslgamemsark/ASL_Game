@@ -8,10 +8,8 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMultiplayerSignaling } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
-import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_DUEL_RULES, DUEL_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
-import { RoomRulesPanel } from '@/components/multiplayer/RoomRulesPanel';
-import { RoomVisibilityToggle } from '@/components/multiplayer/RoomVisibilityToggle';
-import { RoomJoinByCode } from '@/components/multiplayer/RoomJoinByCode';
+import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_DUEL_RULES, type RoomRules } from '@/lib/multiplayerRooms';
+import { MultiplayerLobby } from '@/components/multiplayer/MultiplayerLobby';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
@@ -53,6 +51,9 @@ interface Props {
   autoHostRoomId?: string;
   /** When set, auto-joins this room code (challenged-player flow). */
   autoJoinCode?: string;
+  /** Swaps the whole screen to the other mode from inside the lobby. Absent when the mode is
+   *  fixed by the caller (challenge flows), which also hides the switcher. */
+  onSwitchMode?: (mode: 'duel' | 'room') => void;
 }
 
 const ALL_SIGNS = Object.keys(SIGNS);
@@ -74,7 +75,7 @@ const TURN_ARM_FALLBACK_MS = 5000;
 const JOIN_ANNOUNCE_INTERVAL_MS = 1200;
 const JOIN_ANNOUNCE_ATTEMPTS = 10;
 
-export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
+export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }: Props) {
   const { user, username } = useAuth();
   const { addSigns, addGold, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
@@ -632,43 +633,31 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
 
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton icon="close" onClick={exit} />
-        <h1 className="font-bold text-lg">⚔️ 1v1 Duel</h1>
+        {/* In the lobby the mode switcher directly below already names the mode, so
+            repeating it here read as the same words twice. Once a match is under way there
+            is no switcher, and naming the mode is useful context again. */}
+        <h1 className="font-bold text-lg">{phase === 'lobby' ? 'Multiplayer' : '⚔️ 1v1 Duel'}</h1>
       </div>
 
       <div className="flex-1 max-w-lg mx-auto w-full px-4 pb-6 flex flex-col">
         <AnimatePresence mode="wait">
 
           {phase === 'lobby' && (
-            <motion.div key="lobby" className="flex-1 flex flex-col items-center justify-center gap-6"
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="text-6xl">🤟</div>
-              <div className="text-center">
-                <h2 className="text-2xl font-bold">Sign & Guess</h2>
-                <p className="text-z-gray-300 text-sm mt-1">Sign it, your friend guesses it.</p>
-              </div>
-
-              <div className="w-full max-w-xs flex flex-col gap-2">
-                <RoomRulesPanel rules={rules} onChange={setRules} roundsOptions={DUEL_ROUNDS_OPTIONS} />
-                <RoomVisibilityToggle visibility={visibility} onChange={setVisibility} />
-                <Button onClick={() => createRoom()} fullWidth>
-                  Create Room
-                </Button>
-              </div>
-
-              <motion.button onClick={() => void searchForMatch()} disabled={searching}
-                className="w-full max-w-xs py-3 rounded-2xl font-bold text-sm bg-z-card border border-white/10 hover:border-z-purple/40 disabled:opacity-50"
-                whileTap={{ scale: 0.97 }}>
-                {searching ? 'Searching…' : '🔍 Search for a Match'}
-              </motion.button>
-              {codeError && <p className="text-center text-z-red text-xs -mt-3">{codeError}</p>}
-
-              <RoomJoinByCode
-                id="duel-join-code"
-                value={joinCode}
-                onChange={(v) => { setJoinCode(v); setCodeError(''); }}
-                onJoin={() => joinRoom()}
-              />
-            </motion.div>
+            <MultiplayerLobby
+              mode="duel"
+              onModeChange={onSwitchMode ? () => onSwitchMode('room') : undefined}
+              rules={rules}
+              onRulesChange={setRules}
+              visibility={visibility}
+              onVisibilityChange={setVisibility}
+              onCreate={() => void createRoom()}
+              onSearch={() => void searchForMatch()}
+              searching={searching}
+              joinCode={joinCode}
+              onJoinCodeChange={(v) => { setJoinCode(v); setCodeError(''); }}
+              onJoin={() => void joinRoom()}
+              codeError={codeError}
+            />
           )}
 
           {phase === 'waiting' && (

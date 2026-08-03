@@ -8,10 +8,8 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMultiplayerSignaling } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
-import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, pickNextSigner, DEFAULT_ROOM_RULES, ROOM_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
-import { RoomRulesPanel } from '@/components/multiplayer/RoomRulesPanel';
-import { RoomVisibilityToggle } from '@/components/multiplayer/RoomVisibilityToggle';
-import { RoomJoinByCode } from '@/components/multiplayer/RoomJoinByCode';
+import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, pickNextSigner, DEFAULT_ROOM_RULES, type RoomRules } from '@/lib/multiplayerRooms';
+import { MultiplayerLobby } from '@/components/multiplayer/MultiplayerLobby';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
@@ -42,6 +40,8 @@ interface ResultData {
 
 interface Props {
   onExit: () => void;
+  /** Swaps the whole screen to the other mode from inside the lobby. See DuelPage's copy. */
+  onSwitchMode?: (mode: 'duel' | 'room') => void;
 }
 
 const ALL_SIGNS = Object.keys(SIGNS);
@@ -62,7 +62,7 @@ const RESULT_HOLD_MS = 1500;
 // stalling the whole room on one stuck connection.
 const TURN_ARM_FALLBACK_MS = 5000;
 
-export function RoomPage({ onExit }: Props) {
+export function RoomPage({ onExit, onSwitchMode }: Props) {
   const { user, username } = useAuth();
   const { addSigns, addGold, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
@@ -583,42 +583,31 @@ export function RoomPage({ onExit }: Props) {
 
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton icon="close" onClick={exit} />
-        <h1 className="font-bold text-lg">👥 Group Room</h1>
+        {/* In the lobby the mode switcher directly below already names the mode, so
+            repeating it here read as the same words twice. Once a match is under way there
+            is no switcher, and naming the mode is useful context again. */}
+        <h1 className="font-bold text-lg">{phase === 'lobby' ? 'Multiplayer' : '👥 Group Room'}</h1>
       </div>
 
       <div className="flex-1 max-w-lg mx-auto w-full px-4 pb-6 flex flex-col">
         <AnimatePresence mode="wait">
 
           {phase === 'lobby' && (
-            <motion.div key="lobby" className="flex-1 flex flex-col items-center justify-center gap-6"
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="text-6xl">👥</div>
-              <div className="text-center">
-                <h2 className="text-2xl font-bold">Group Sign & Guess</h2>
-                <p className="text-z-gray-300 text-sm mt-1">Up to 4 players — one signs, everyone else guesses.</p>
-              </div>
-              <div className="w-full max-w-xs flex flex-col gap-2">
-                <RoomRulesPanel rules={rules} onChange={setRules} roundsOptions={ROOM_ROUNDS_OPTIONS} roundsLabel="Rounds each" />
-                <RoomVisibilityToggle visibility={visibility} onChange={setVisibility} />
-                <Button onClick={() => void createRoom()} fullWidth>
-                  Create Room
-                </Button>
-              </div>
-
-              <motion.button onClick={() => void searchForMatch()} disabled={searching}
-                className="w-full max-w-xs py-3 rounded-2xl font-bold text-sm bg-z-card border border-white/10 hover:border-z-purple/40 disabled:opacity-50"
-                whileTap={{ scale: 0.97 }}>
-                {searching ? 'Searching…' : '🔍 Search for a Room'}
-              </motion.button>
-              {codeError && <p className="text-center text-z-red text-xs -mt-3">{codeError}</p>}
-
-              <RoomJoinByCode
-                id="room-join-code"
-                value={joinCode}
-                onChange={(v) => { setJoinCode(v); setCodeError(''); }}
-                onJoin={() => void joinRoom()}
-              />
-            </motion.div>
+            <MultiplayerLobby
+              mode="room"
+              onModeChange={onSwitchMode ? () => onSwitchMode('duel') : undefined}
+              rules={rules}
+              onRulesChange={setRules}
+              visibility={visibility}
+              onVisibilityChange={setVisibility}
+              onCreate={() => void createRoom()}
+              onSearch={() => void searchForMatch()}
+              searching={searching}
+              joinCode={joinCode}
+              onJoinCodeChange={(v) => { setJoinCode(v); setCodeError(''); }}
+              onJoin={() => void joinRoom()}
+              codeError={codeError}
+            />
           )}
 
           {phase === 'waitingRoom' && (
