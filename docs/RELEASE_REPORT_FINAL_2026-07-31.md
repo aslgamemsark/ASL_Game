@@ -351,3 +351,64 @@ gap for two weeks. A plain `supabase db push` would now try to replay unrelated 
 these three were applied individually and deliberately. **Reconciling the migration history is the
 highest-value remaining piece of database work** — until it is done, "it's in the repo" does not
 mean "it's in production", which is precisely the assumption that hid this bug.
+
+
+---
+
+## 9. Addendum 2 — remaining work closed (2026-08-03)
+
+Everything §4 and §7 listed as outstanding that could be done without hardware or a third-party
+account is now done. What is left is listed honestly at the end.
+
+**Migration ledger reconciled.** All 32 repo migrations are recorded in production; `db push` is
+safe. This was the finding that mattered most, because the multiplayer bug had lived in exactly
+that gap. Replaying `20260709010000_security_hardening` — which a push would have done — re-creates
+`attempts_select_public`, a world-readable policy deliberately superseded by `attempts_select_own`;
+any anonymous visitor could then have dumped any user's per-sign attempt history. Verified: 0 repo
+migrations missing from the ledger.
+
+**One real gap behind the drift**, now extracted and deliberately NOT applied: security_hardening's
+audit-logging half (`audit_logs`, `log_audit_event`, the profiles/user_progress triggers) does not
+exist in production. `audit_profiles_trg` fires on profiles INSERT — the registration path — and a
+trigger that raises there breaks sign-up for every new user. Not a risk to take untested, and it
+cannot be tested here. `20260803150000_audit_logging_subsystem.sql` carries the exact local
+validation steps.
+
+**Room-mode disconnect** was worse than documented: the frozen turn order meant a departed player
+kept being handed turns, each burning the full timer against an empty tile, once per cycle, for the
+rest of the match. Fixed, with the selection rule extracted to a pure `pickNextSigner()` and
+mutation-checked tests.
+
+**Desktop reviewed visually** — which §3 previously claimed without looking, and should not have.
+Measured clean at 1280/1440/1920; one real find (a duplicate profile control on desktop) fixed.
+
+**`sign_attempt` deduplicated** across six screens; **5 dead exports removed**, with two named
+vocabularies deliberately kept.
+
+### Final verification
+
+| Gate | Result |
+| --- | --- |
+| `tsc -b` (4 projects) | **Pass**, 0 errors |
+| `oxlint` | **Pass**, 0 errors |
+| Unit | **702 passed**, 51 files |
+| E2E chromium+android+ios | **118 passed**, 2 skips, exit 0 |
+| Multiplayer integration | 26 collected, skip cleanly (no Docker) |
+| Production build | **Pass**, 7.9 MB |
+
+### Still open, and why
+
+1. **Real-device verification** — installed TWA Back button, a real iPhone, and recognition on a
+   real camera. Only the owner can do these.
+2. **A real two-device multiplayer game.** The database and signaling paths are now proven; the
+   live game loop is not.
+3. **The multiplayer integration suite has still never executed** (26 tests, needs Docker). CI is
+   where it first runs.
+4. **CI has never been observed passing** — it cannot be run from here.
+5. **The audit-logging migration** — written, not applied, for the reason above.
+6. **Sentry** — ~3 lines at one file, needs a third-party account. A decision, not a task.
+7. **Merging the Duel/Room state machines.** Deliberately still not done: the integration suite that
+   was its precondition exists but has never run. Merging two ~700-line state machines on the
+   strength of tests nobody has executed would risk re-breaking multiplayer for real users, which is
+   the exact failure this pass just spent its time undoing. It should follow the first green CI run,
+   not precede it.
