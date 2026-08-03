@@ -24,7 +24,7 @@ import { RemotePeerVideo } from '@/components/shared/RemotePeerVideo';
 import { Scoreboard } from '@/components/multiplayer/Scoreboard';
 import { RoundProgressDots } from '@/components/multiplayer/RoundProgressDots';
 import { RoundResultCard } from '@/components/multiplayer/RoundResultCard';
-import { track } from '@/analytics';
+import { track, trackSignAttempt } from '@/analytics';
 
 type Phase = 'lobby' | 'waiting' | 'signer' | 'guesser' | 'result' | 'done' | 'waiting-reconnect';
 type Visibility = 'public' | 'private';
@@ -207,18 +207,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   // way solo screens do; that's a deliberate scope limit for this pass, not an oversight (see the
   // Analytics Coverage Report). No single world_id: any sign in the pool can come up.
   function handleDuelAttempt(a: AttemptRecord) {
-    track('sign_attempt', {
-      sign_id: a.signId,
-      world_id: null,
-      source: 'duel',
-      rule_passed: a.rulePassed,
-      ai_vetoed: a.aiVetoed,
-      final_passed: a.finalPassed,
-      ai_prediction: a.aiPrediction,
-      ai_confidence: a.aiConfidence,
-      duration_ms: a.durationMs,
-      attempt_number: a.attemptNumber,
-    });
+    trackSignAttempt(a, { source: 'duel', worldId: null });
   }
 
   function handleSignCorrect(_r: VerifyResult) {

@@ -7,6 +7,54 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-08-03 — Closing the remaining work: migration drift, Room disconnects, desktop, dedup
+
+- **Migration ledger reconciled.** All 32 repo migrations are now recorded in production, so
+  `supabase db push` is safe. Not bookkeeping: 12 were absent from the ledger while their effects
+  WERE in the database, and a push would have replayed them — including
+  `20260709010000_security_hardening`, which re-creates `attempts_select_public`, a world-readable
+  policy deliberately replaced by `attempts_select_own`. Replaying it would have let any anonymous
+  visitor dump any user's per-sign attempt history. Verified: 0 repo migrations missing.
+- **One genuine gap behind the drift:** security_hardening's audit-logging half (the `audit_logs`
+  table, `log_audit_event`, and the profiles/user_progress triggers) does not exist in production.
+  No app code reads it, which is why it never surfaced. Extracted to
+  `20260803150000_audit_logging_subsystem.sql` and **deliberately NOT applied** —
+  `audit_profiles_trg` fires on profiles INSERT, which is the registration path, and a trigger that
+  raises there breaks sign-up for every new user. Untestable here (no Docker); the file carries the
+  exact local validation steps.
+- **Room-mode disconnect was worse than documented.** The turn order is frozen at match start and
+  the next signer was picked positionally from it, so a departed player kept being handed turns —
+  each burning the FULL turn timer against an empty tile, once per cycle, for the rest of the match.
+  Now: departed players are skipped, the round ends immediately if the SIGNER drops
+  (host-authoritative), and the match ends below two players. Extracted to a pure `pickNextSigner()`
+  so the rule is testable without two browsers and a real disconnect — 5 tests, mutation-checked
+  (reverting to the positional pick fails 3).
+- **Desktop reviewed visually for the first time**, which the previous report had claimed without
+  ever looking. Measured at 1280/1440/1920: no horizontal overflow, SideNav a consistent 256px,
+  content correctly centred in the remaining space. One real find, from actually seeing it: the
+  TopBar profile/avatar button rendered on desktop alongside SideNav's identical avatar card, a
+  third redundant route to the same screen sitting alone at the left of an otherwise empty bar.
+  Now `md:hidden`, matching the wordmark's existing treatment.
+  **Note on method:** the in-app browser pane could not composite (`document.hidden = true`, 0 rAF
+  frames/second), which stalls framer-motion's `AnimatePresence mode="wait"` and made onboarding
+  look broken. That was a tooling artefact, not a product bug — confirmed by measuring rAF directly
+  before concluding anything. The review was done through Playwright screenshots instead.
+- **Deduplicated the `sign_attempt` payload.** Six screens (Lesson, Practice, Story, Speed, Duel,
+  Room) each hand-built the same eight-field event, differing only in `source` and `world_id` — so
+  adding a field meant editing six files, and missing one produced analytics that were silently
+  incomplete for exactly one surface rather than obviously broken everywhere. Now
+  `trackSignAttempt(attempt, { source, worldId })`, with `source` typed to the existing union.
+- **Removed 5 genuinely dead exports** (`getNextAvailableLesson`, `getWorld`, `TOP_K`,
+  `disabledClassifier`, `describeRules`) — each verified to have exactly one occurrence in the
+  repo, its own export line. **Deliberately kept:** `motion/tokens.ts`'s unused durations and
+  `engine/landmarks.ts`'s unused indices. Both are declared vocabularies — the motion module's own
+  header says call sites migrate as components are rebuilt, and a MediaPipe index set that names
+  only the currently-referenced points would be arbitrary and incomplete.
+- **Verified:** `tsc -b` clean, `oxlint` 0 errors, 702 unit tests across 51 files, build clean.
+  Two e2e failures during this work were **my own interference, not regressions** — running
+  `npm run build` mid-run overwrote `dist/`, which `vite preview` serves from disk, swapping in a
+  bundle carrying the real PostHog key. Re-run clean: 16/16 on the affected specs.
+
 ## 2026-07-31 (part 23) — RoomPage had the same lost-broadcast bug as Duel
 
 - **Group Room shared DuelPage's single-shot announcement defect**, found by checking whether the

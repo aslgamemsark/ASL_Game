@@ -79,9 +79,17 @@ export function TopBar({ onOpenShop, onOpenProfile, profileLabel = 'My Profile' 
       <div ref={headerRef} className="relative max-w-lg mx-auto lg:max-w-none">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
+            {/* Hidden from `md:` up, for the same reason the wordmark below is: SideNav owns
+                identity on desktop. It renders the SAME avatar in its "Guest / Tap to sign in"
+                card, and also carries a "Me" nav item and a "Sign in" action — so on desktop this
+                was a third, redundant route to the same screen, sitting alone at the left of an
+                otherwise empty bar with the stat pills pushed far right (desktop visual review,
+                2026-08-03). `md:hidden` rather than `md:sr-only` because, unlike the wordmark,
+                this is a duplicate CONTROL, not the page's only heading — leaving it in the
+                accessibility tree would just mean three ways to say the same thing. */}
             <motion.button
               onClick={onOpenProfile}
-              className="w-11 h-11 flex items-center justify-center cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light focus-visible:ring-offset-2 focus-visible:ring-offset-z-bg rounded-xl"
+              className="w-11 h-11 flex items-center justify-center cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light focus-visible:ring-offset-2 focus-visible:ring-offset-z-bg rounded-xl md:hidden"
               whileTap={{ scale: 0.9 }}
               aria-label={profileLabel}
               title={profileLabel}

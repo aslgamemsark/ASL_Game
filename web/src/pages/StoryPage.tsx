@@ -22,7 +22,7 @@ import { getShopItem } from '@/data/shop';
 import type { StoryScript } from '@/data/stories';
 import type { VerifyResult } from '@/engine/verifier';
 import { getWorldIdForStory } from '@/data/worlds';
-import { track } from '@/analytics';
+import { track, trackSignAttempt } from '@/analytics';
 
 type Phase = 'intro' | 'dialogue' | 'fail' | 'response' | 'complete';
 
@@ -117,18 +117,7 @@ export function StoryPage({ story, onExit }: Props) {
 
   const handleAttempt = useCallback(
     (a: AttemptRecord) => {
-      track('sign_attempt', {
-        sign_id: a.signId,
-        world_id: worldId,
-        source: 'story',
-        rule_passed: a.rulePassed,
-        ai_vetoed: a.aiVetoed,
-        final_passed: a.finalPassed,
-        ai_prediction: a.aiPrediction,
-        ai_confidence: a.aiConfidence,
-        duration_ms: a.durationMs,
-        attempt_number: a.attemptNumber,
-      });
+      trackSignAttempt(a, { source: 'story', worldId: worldId });
       if (!user) return;
       void logAttempt({
         userId: user.id,

@@ -102,8 +102,6 @@ export function isClassifierDebugEnabled(): boolean {
   }
 }
 
-/** How many top predictions to surface for debugging. */
-export const TOP_K = 3;
 
 /**
  * Signs excluded from the AI gate even though the model was technically trained on them —

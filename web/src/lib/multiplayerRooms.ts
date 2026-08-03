@@ -64,11 +64,6 @@ export function pickSignsFrom(pool: string[], n: number): string[] {
   return [...pool].sort(() => Math.random() - 0.5).slice(0, n);
 }
 
-/** Short human-readable summary of a ruleset, e.g. "5 rounds · 15s · Letters". */
-export function describeRules(rules: RoomRules, roundsWord = 'rounds'): string {
-  const set = rules.signSet === 'letters' ? 'Letters' : rules.signSet === 'words' ? 'Words' : 'All signs';
-  return `${rules.rounds} ${roundsWord} · ${rules.turnSeconds}s · ${set}`;
-}
 
 /**
  * Who signs in `roundNum`, given the turn order fixed at match start and who has since left.

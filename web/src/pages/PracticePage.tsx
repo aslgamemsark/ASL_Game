@@ -27,7 +27,7 @@ import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { getSignsDueForReview, pickReceptiveDistractors } from '@/data/spaced-repetition';
 import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
-import { track, trackFirstSignSuccess } from '@/analytics';
+import { track, trackFirstSignSuccess, trackSignAttempt } from '@/analytics';
 
 type Mode = 'loading' | 'menu' | 'handcheck' | 'expressive' | 'receptive' | 'mixed' | 'done';
 type CardPhase = 'prompt' | 'result' | 'replay';
@@ -148,18 +148,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   const handleAttempt = useCallback(
     (a: AttemptRecord) => {
       // No single world_id — Practice deliberately mixes signs across worlds for review.
-      track('sign_attempt', {
-        sign_id: a.signId,
-        world_id: null,
-        source: 'practice',
-        rule_passed: a.rulePassed,
-        ai_vetoed: a.aiVetoed,
-        final_passed: a.finalPassed,
-        ai_prediction: a.aiPrediction,
-        ai_confidence: a.aiConfidence,
-        duration_ms: a.durationMs,
-        attempt_number: a.attemptNumber,
-      });
+      trackSignAttempt(a, { source: 'practice', worldId: null });
       // Guests can reach Practice without ever opening a lesson, so activation is measured here
       // too. The helper's once-per-browser guard means only whichever surface gets there first
       // reports it.

@@ -27,7 +27,7 @@ import { getLessonById, getUnitIdForLesson } from '@/data/lessons';
 import { getWorldIdForUnit } from '@/data/worlds';
 import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
-import { track, trackFirstSignSuccess } from '@/analytics';
+import { track, trackFirstSignSuccess, trackSignAttempt } from '@/analytics';
 
 type Phase = 'intro' | 'signing' | 'success' | 'replay' | 'complete';
 
@@ -158,18 +158,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
       // Analytics tracks every attempt, guest or signed-in — the activation funnel needs
       // anonymous data too. Supabase's landmark-training-data logAttempt stays user-gated below
       // (it's tied to an account, unlike PostHog's anonymous-until-identify model).
-      track('sign_attempt', {
-        sign_id: a.signId,
-        world_id: worldId,
-        source: 'lesson',
-        rule_passed: a.rulePassed,
-        ai_vetoed: a.aiVetoed,
-        final_passed: a.finalPassed,
-        ai_prediction: a.aiPrediction,
-        ai_confidence: a.aiConfidence,
-        duration_ms: a.durationMs,
-        attempt_number: a.attemptNumber,
-      });
+      trackSignAttempt(a, { source: 'lesson', worldId: worldId });
       // Fires at most once per browser, ever — the helper owns that guard. Placed before the
       // `!user` return so guests are counted: they are the population this metric exists for.
       if (a.finalPassed) {

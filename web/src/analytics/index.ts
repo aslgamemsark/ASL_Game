@@ -4,6 +4,7 @@
 export { initAnalytics, analyticsConfigured } from './client';
 export { track, identifyUser, aliasAnon, resetIdentity, setGroup, isAnalyticsOptedOut, setAnalyticsOptOut } from './capture';
 export { trackFirstSignSuccess } from './firstSuccess';
+export { trackSignAttempt, type AttemptOutcome } from './signAttempt';
 export { useAnalytics } from './useAnalytics';
 export { useScreenView } from './useScreenView';
 export { useFeatureFlag } from './useFeatureFlag';

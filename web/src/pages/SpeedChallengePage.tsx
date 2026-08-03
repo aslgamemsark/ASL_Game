@@ -17,7 +17,7 @@ import { MovementKind } from '@/engine/schema';
 import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
 import type { SpeedTier } from '@/types/user';
-import { track } from '@/analytics';
+import { track, trackSignAttempt } from '@/analytics';
 
 const TIER_CONFIG = {
   warmup: { label: 'Warm Up', icon: '🌡️', timePerSign: 15,  xpMult: 1, signsMult: 1, gradient: 'bg-gradient-teal',   glow: 'rgba(20,184,166,0.45)' },
@@ -117,18 +117,7 @@ export function SpeedChallengePage({ onExit }: Props) {
   const handleAttempt = useCallback(
     (a: AttemptRecord) => {
       // No single world_id — Speed Challenge draws from the full sign pool across worlds.
-      track('sign_attempt', {
-        sign_id: a.signId,
-        world_id: null,
-        source: 'speed',
-        rule_passed: a.rulePassed,
-        ai_vetoed: a.aiVetoed,
-        final_passed: a.finalPassed,
-        ai_prediction: a.aiPrediction,
-        ai_confidence: a.aiConfidence,
-        duration_ms: a.durationMs,
-        attempt_number: a.attemptNumber,
-      });
+      trackSignAttempt(a, { source: 'speed', worldId: null });
       if (!user) return;
       void logAttempt({
         userId: user.id,

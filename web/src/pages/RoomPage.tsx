@@ -22,7 +22,7 @@ import { RemotePeerVideo } from '@/components/shared/RemotePeerVideo';
 import { Scoreboard } from '@/components/multiplayer/Scoreboard';
 import { RoundProgressDots } from '@/components/multiplayer/RoundProgressDots';
 import { RoundResultCard } from '@/components/multiplayer/RoundResultCard';
-import { track } from '@/analytics';
+import { track, trackSignAttempt } from '@/analytics';
 
 type Phase = 'lobby' | 'waitingRoom' | 'signing' | 'guessing' | 'roundResult' | 'finalResults';
 type Visibility = 'public' | 'private';
@@ -298,18 +298,7 @@ export function RoomPage({ onExit }: Props) {
 
   // Analytics-only, same scope limit and reasoning as DuelPage's equivalent handler.
   function handleRoomAttempt(a: AttemptRecord) {
-    track('sign_attempt', {
-      sign_id: a.signId,
-      world_id: null,
-      source: 'room',
-      rule_passed: a.rulePassed,
-      ai_vetoed: a.aiVetoed,
-      final_passed: a.finalPassed,
-      ai_prediction: a.aiPrediction,
-      ai_confidence: a.aiConfidence,
-      duration_ms: a.durationMs,
-      attempt_number: a.attemptNumber,
-    });
+    trackSignAttempt(a, { source: 'room', worldId: null });
   }
 
   function handleSignCorrect(_r: VerifyResult) {
