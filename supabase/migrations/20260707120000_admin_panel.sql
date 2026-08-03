@@ -138,6 +138,28 @@ create policy "attempts_own" on public.sign_attempts
   for all using (auth.uid() = user_id and not public.current_user_banned())
   with check (auth.uid() = user_id and not public.current_user_banned());
 
+-- sign_verification_log has existed live since Phase D but was never captured as its own
+-- timestamped migration — it's only (re-)declared two migrations later in
+-- 20260709010000_security_hardening.sql. That migration's own comment claims this is "a no-op
+-- against the current live database and only matters for a from-scratch rebuild" — true for the
+-- live database, false for a from-scratch rebuild: migrations replay in filename order, so THIS
+-- file still runs first and fails immediately trying to policy a table that doesn't exist yet
+-- (found 2026-08-04, first time the multiplayer CI job ever ran a genuinely fresh `supabase db reset`).
+-- Idempotent `if not exists` duplicated here rather than reordering migration files, which would
+-- disturb the already-reconciled production ledger for no benefit — a table create is safe to
+-- repeat, a migration renumber is not.
+create table if not exists public.sign_verification_log (
+  id              bigint generated always as identity primary key,
+  user_id         uuid references public.profiles on delete cascade not null,
+  sign_id         text        not null,
+  decision        text        check (decision in ('pass', 'veto', 'no-classifier')) not null,
+  param_scores    jsonb       not null,
+  classifier_vote jsonb,
+  logged_at       timestamptz default now()
+);
+
+alter table public.sign_verification_log enable row level security;
+
 drop policy if exists "verification_log_own" on public.sign_verification_log;
 create policy "verification_log_own" on public.sign_verification_log
   for all using (auth.uid() = user_id and not public.current_user_banned())
