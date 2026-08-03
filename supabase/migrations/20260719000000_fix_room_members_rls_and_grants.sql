@@ -17,7 +17,7 @@ create policy "members_select_own" on public.multiplayer_room_members
 -- add_host_to_room_members() (SECURITY DEFINER trigger, bypasses grants), never a direct client
 -- write, which is exactly why the table's original comment says "Deliberately NO client-facing
 -- policies" and stays true for writes even after this file adds one read policy.
-grant select on public.multiplayer_room_members to authenticated;
+grant select on public.multiplayer_room_members to authenticated, service_role;
 
 -- Advisor 0028/0029: two SECURITY DEFINER functions were REST-callable by anon/authenticated but
 -- must not be. add_host_to_room_members() is a trigger function; trim_training_samples() is the
