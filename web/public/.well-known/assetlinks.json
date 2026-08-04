@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.quicksign.twa",
+      "sha256_cert_fingerprints": [
+        "0D:24:94:95:C7:73:72:A4:29:BD:62:A5:89:00:E0:56:53:C0:16:00:69:C7:60:4B:AB:A4:B1:92:7A:29:1A:2E"
+      ]
+    }
+  }
+]

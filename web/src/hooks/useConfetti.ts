@@ -1,7 +1,15 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 
 export function useConfetti() {
+  // Tracks the in-flight bigCelebration loop's rAF handle so it can be cancelled if the calling
+  // component unmounts mid-burst (e.g. a lesson-complete screen exited early) instead of the loop
+  // silently continuing to fire for up to durationMs after nothing on screen needs it anymore.
+  const rafRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+  }, []);
+
   const burst = useCallback(() => {
     confetti({
       particleCount: 80,
@@ -34,7 +42,7 @@ export function useConfetti() {
         colors: ['#FDBA74', '#14B8A6', '#5EEAD4'],
         disableForReducedMotion: true,
       });
-      if (Date.now() < end) requestAnimationFrame(frame);
+      rafRef.current = Date.now() < end ? requestAnimationFrame(frame) : null;
     };
     frame();
   }, []);

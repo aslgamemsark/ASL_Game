@@ -89,10 +89,12 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
 
           {/* Input */}
           <div className="mb-4">
+            <label htmlFor="set-username" className="sr-only">Username</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-z-gray-400 text-sm select-none">@</span>
               <input
-                className={`w-full bg-white/5 border rounded-xl pl-8 pr-10 py-2.5 text-sm placeholder:text-z-gray-500 focus:outline-none transition-colors ${
+                id="set-username"
+                className={`w-full bg-white/5 border rounded-xl pl-8 pr-10 py-2.5 text-sm placeholder:text-z-gray-400 transition-colors ${
                   status === 'error' ? 'border-z-red/60 focus:border-z-red' :
                   status === 'ok'    ? 'border-z-green/60 focus:border-z-green' :
                   'border-z-gray-400/30 focus:border-z-purple'
@@ -115,7 +117,7 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
                 {statusMsg}
               </p>
             )}
-            <p className="text-[10px] text-z-gray-500 mt-1.5 px-1">
+            <p className="text-3xs text-z-gray-400 mt-1.5 px-1">
               3–20 characters · letters, numbers, underscores only
             </p>
           </div>
@@ -134,7 +136,7 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
           {!isRename && (
             <button
               onClick={handleSkip}
-              className="w-full py-3 text-xs text-z-gray-500 hover:text-z-gray-300 transition-colors"
+              className="w-full py-3 text-xs text-z-gray-400 hover:text-z-gray-300 transition-colors"
             >
               Maybe later
             </button>
@@ -142,7 +144,7 @@ export function SetUsernameModal({ onClose, mode = 'setup' }: Props) {
           {isRename && (
             <button
               onClick={onClose}
-              className="w-full py-3 text-xs text-z-gray-500 hover:text-z-gray-300 transition-colors"
+              className="w-full py-3 text-xs text-z-gray-400 hover:text-z-gray-300 transition-colors"
             >
               Cancel
             </button>

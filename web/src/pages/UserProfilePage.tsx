@@ -9,6 +9,8 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { Zippy } from '@/components/shared/Zippy';
 import { ReportUserModal } from '@/components/shared/ReportUserModal';
 import { Tooltip } from '@/components/shared/Tooltip';
+import { ProgressBar } from '@/components/shared/ProgressBar';
+import { Skeleton } from '@/components/shared/Skeleton';
 
 interface Props {
   userId: string;
@@ -115,7 +117,7 @@ export function UserProfilePage({ userId, onExit }: Props) {
   const showcase = (row?.showcase_badges ?? []).map((id) => getBadge(id)).filter((b) => b != null);
 
   return (
-    <div className="min-h-screen bg-z-bg">
+    <div className="min-h-dvh bg-z-bg">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton onClick={onExit} />
         <h1 className="font-bold text-lg flex-1">Profile</h1>
@@ -123,7 +125,7 @@ export function UserProfilePage({ userId, onExit }: Props) {
           <button
             onClick={() => setReportOpen(true)}
             aria-label={`Report ${row.username}`}
-            className="w-11 h-11 -mr-2 flex items-center justify-center text-z-gray-500 hover:text-z-red transition-colors shrink-0"
+            className="w-11 h-11 -mr-2 flex items-center justify-center text-z-gray-400 hover:text-z-red transition-colors shrink-0"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
@@ -133,18 +135,18 @@ export function UserProfilePage({ userId, onExit }: Props) {
         )}
       </div>
 
-      <div className="max-w-lg mx-auto px-4 pt-6 pb-24">
+      <div className="max-w-lg mx-auto px-4 pt-6 pb-nav-clear">
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-16">
-            <div className="w-24 h-24 rounded-full bg-z-card animate-pulse" />
-            <div className="h-4 w-32 bg-z-card rounded animate-pulse" />
-            <div className="h-3 w-20 bg-z-card rounded animate-pulse" />
+            <Skeleton className="w-24 h-24 rounded-full" />
+            <Skeleton className="h-4 w-32 rounded" />
+            <Skeleton className="h-3 w-20 rounded" />
           </div>
         ) : fetchError ? (
           <div className="text-center py-16 flex flex-col items-center">
             <Zippy expression="oops" size="md" alt="Zippy looking puzzled" />
             <p className="text-z-gray-300 font-semibold text-sm mt-3">Couldn't load this profile</p>
-            <p className="text-z-gray-500 text-xs mt-1">Check your connection and try again.</p>
+            <p className="text-z-gray-400 text-xs mt-1">Check your connection and try again.</p>
             <button
               onClick={() => load()}
               className="text-z-purple-light text-xs mt-3 font-semibold hover:underline"
@@ -156,7 +158,7 @@ export function UserProfilePage({ userId, onExit }: Props) {
           <div className="text-center py-16 flex flex-col items-center">
             <Zippy expression="oops" size="md" alt="Zippy looking puzzled" />
             <p className="text-z-gray-300 font-semibold text-sm mt-3">Couldn't find that player</p>
-            <p className="text-z-gray-500 text-xs mt-1">They may have deleted their account.</p>
+            <p className="text-z-gray-400 text-xs mt-1">They may have deleted their account.</p>
           </div>
         ) : (
           <>
@@ -174,7 +176,7 @@ export function UserProfilePage({ userId, onExit }: Props) {
               </h2>
               <p className="text-z-gray-400 text-sm mt-0.5">
                 {rank.emoji} {rank.name}
-                {position != null && <span className="text-z-gray-500"> &middot; #{position.toLocaleString()} overall</span>}
+                {position != null && <span className="text-z-gray-400"> &middot; #{position.toLocaleString()} overall</span>}
               </p>
             </motion.div>
 
@@ -182,27 +184,26 @@ export function UserProfilePage({ userId, onExit }: Props) {
             <div className="mt-6 bg-z-card border border-white/5 rounded-2xl p-4">
               <div className="flex justify-between text-xs mb-2">
                 <span className="text-z-gray-400">{rank.emoji} {rank.name}</span>
-                {next && <span className="text-z-gray-500">{next.emoji} {next.name}</span>}
+                {next && <span className="text-z-gray-400">{next.emoji} {next.name}</span>}
               </div>
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-z-purple to-z-purple-light"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.round(progress * 100)}%` }}
-                  transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-                />
-              </div>
+              <ProgressBar
+                value={progress}
+                label={next ? `Rank progress: ${rank.name} toward ${next.name}` : `Rank: ${rank.name}, max rank reached`}
+                size="sm"
+                fillClassName="bg-gradient-to-r from-z-purple to-z-purple-light"
+                trackClassName="bg-white/10"
+              />
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center">
                 <p className="text-2xl font-bold text-z-yellow tabular-nums">{row.total_xp.toLocaleString()}</p>
-                <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Total XP</p>
+                <p className="text-2xs text-z-gray-400 mt-0.5 tracking-wide">Total XP</p>
               </div>
               <div className="bg-z-card border border-white/5 rounded-2xl p-4 text-center">
                 <p className="text-2xl font-bold text-z-orange tabular-nums">🔥 {row.streak}</p>
-                <p className="text-[11px] text-z-gray-400 mt-0.5 tracking-wide">Day streak</p>
+                <p className="text-2xs text-z-gray-400 mt-0.5 tracking-wide">Day streak</p>
               </div>
             </div>
 
@@ -224,7 +225,7 @@ export function UserProfilePage({ userId, onExit }: Props) {
                   ))}
                 </div>
               ) : (
-                <p className="text-z-gray-500 text-sm">
+                <p className="text-z-gray-400 text-sm">
                   {isMe ? "You haven't pinned any badges to your showcase yet." : `${row.username} hasn't pinned any badges yet.`}
                 </p>
               )}

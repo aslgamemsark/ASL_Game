@@ -4,10 +4,13 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { supabaseReady } from '@/lib/supabase';
+import { EMAIL_SIGNUP_ENABLED } from '@/config/auth';
 import { Zippy } from '@/components/shared/Zippy';
+import { GoogleIcon } from '@/components/shared/GoogleIcon';
 import { ZIPPY_LINES } from '@/data/zippy';
 import type { SkillLevel } from '@/types/user';
 import { track } from '@/analytics';
+import { Button } from '@/components/shared/Button';
 
 interface Props {
   onComplete: () => void;
@@ -81,7 +84,15 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-z-bg flex items-center justify-center px-6">
+    // overflow-y-auto: previously relied entirely on the document's own scroll to reach content
+    // taller than the viewport. That worked (nothing blocked it), but on a short viewport — a
+    // landscape phone, or a browser window resized small — the welcome step's CTA button ended up
+    // partially or fully below the fold with zero visual cue that more content existed, since a
+    // centered block that overflows equally hides its own "more below" signal. Making the
+    // container's own scrollability explicit here is defensive; the height-scoped spacing below is
+    // the actual fix, closing the gap outright at common short heights (measured: cut off by 6px
+    // at 800x660, 56px at 800x568) rather than just making the resulting scroll more reliable.
+    <div className="min-h-dvh bg-z-bg flex items-center justify-center px-6 py-6 overflow-y-auto">
       <AnimatePresence mode="wait">
         {step === 'welcome' && (
           <motion.div
@@ -92,7 +103,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
             exit={{ opacity: 0, y: -30, scale: 0.95 }}
             transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
-            <div className="mb-5 flex justify-center">
+            <div className="mb-5 [@media(max-height:700px)]:mb-2 flex justify-center">
               <Zippy expression="welcome" size="xl" float priority />
             </div>
 
@@ -101,17 +112,24 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
             <h1 className="text-4xl font-bold mb-1 text-z-gray-50">
               Welcome to <span className="text-z-purple-light">QuickSign</span>
             </h1>
-            <p className="text-z-purple-light/80 text-sm font-semibold tracking-wide uppercase mb-4">Beyond Words</p>
-            <p className="text-z-gray-300 text-lg mb-10">{ZIPPY_LINES.welcomeIntro[0]}</p>
+            {/* Full opacity, not /80 (found 2026-07-30): the 80%-alpha version measured 3.37:1 in
+                the light theme and only 4.91:1 in dark — a thin-enough margin that it flickered
+                between pass/fail across engines. Reducing contrast via text alpha is the same
+                mechanism as a token tuned to exactly the AA floor (see index.css's z-yellow/
+                z-gray-400 comments) — it has no headroom for anything. */}
+            <p className="text-z-purple-light text-sm font-semibold tracking-wide uppercase mb-4">Beyond Words</p>
+            <p className="text-z-gray-300 text-lg mb-10 [@media(max-height:700px)]:mb-4">{ZIPPY_LINES.welcomeIntro[0]}</p>
 
-            <motion.button
+            {/* The app's single most important button (the first thing every new user taps) keeps
+                its own hover glow rather than Button's default — a deliberate flourish, not drift. */}
+            <Button
               onClick={() => setStep(supabaseReady ? 'auth' : 'skill')}
-              className="w-full py-4 rounded-2xl font-bold text-lg text-white bg-gradient-primary"
+              size="lg"
+              fullWidth
               whileHover={{ scale: 1.02, boxShadow: '0 12px 40px rgba(168,85,247,0.45)' }}
-              whileTap={{ scale: 0.97 }}
             >
               Get Started →
-            </motion.button>
+            </Button>
           </motion.div>
         )}
 
@@ -134,36 +152,47 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
 
             <div className="flex flex-col gap-3">
               <motion.button
-                onClick={signInWithGoogle}
+                onClick={() => { track('auth_option_selected', { method: 'google' }); void signInWithGoogle(); }}
                 className="w-full py-3.5 rounded-2xl font-bold text-sm bg-white text-gray-900 flex items-center justify-center gap-2.5"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
+                <GoogleIcon size={18} />
                 Continue with Google
               </motion.button>
 
               <motion.button
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => { track('auth_option_selected', { method: 'email' }); setShowAuthModal(true); }}
                 className="w-full py-3.5 rounded-2xl font-bold text-sm border border-z-gray-400/30 text-z-gray-50"
                 whileHover={{ scale: 1.02, borderColor: 'rgba(168,85,247,0.5)' }}
                 whileTap={{ scale: 0.97 }}
               >
-                Sign in with email
+                {/* Labelled as a returning-user action, not a signup route: with email signup
+                    withdrawn, "Sign in with email" led a brand-new user to a form that cannot
+                    create them an account. */}
+                {EMAIL_SIGNUP_ENABLED ? 'Sign in with email' : 'Already have an account? Sign in'}
               </motion.button>
 
               <button
-                onClick={() => { track('guest_started', {}); setStep('skill'); }}
+                onClick={() => {
+                  track('auth_option_selected', { method: 'guest' });
+                  track('guest_started', {});
+                  setStep('skill');
+                }}
                 className="text-z-gray-400 text-sm mt-2 py-3 underline"
               >
                 Continue as guest
               </button>
             </div>
+
+            {/* Consent moved here from the old first-paint Terms wall (see App.tsx). Creating an
+                account is the legally meaningful moment; a guest gets notice, not a contract.
+                Camera/landmark disclosure is separate and lives at the camera itself
+                (CameraOnboarding), which is where it is actually actionable. */}
+            <p className="text-2xs text-z-gray-400 mt-5 leading-relaxed">
+              By creating an account you agree to our Terms &amp; Privacy Policy — readable any time
+              in Settings → Privacy &amp; Terms. Your camera video never leaves your device.
+            </p>
 
             {showAuthModal && (
               <AuthModal onClose={() => { setShowAuthModal(false); setStep('skill'); }} />
@@ -210,7 +239,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                       <p className="font-bold text-z-gray-50">{s.title}</p>
                       <p className="text-z-gray-400 text-sm">{s.subtitle}</p>
                     </div>
-                    <svg className="w-4 h-4 text-z-gray-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <svg className="w-4 h-4 text-z-gray-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M9 18l6-6-6-6" />
                     </svg>
                   </div>

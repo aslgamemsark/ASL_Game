@@ -2,26 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "avatar-preview",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8778", "--bind", "127.0.0.1", "--directory", "avatar_preview"],
-      "port": 8778
-    },
-    {
-      "name": "web",
+      "name": "quicksign-preview",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 5173,
-      "cwd": "web",
-      "autoPort": true
-    },
-    {
-      "name": "web-preview",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "preview", "--", "--port", "4173", "--strictPort"],
-      "port": 4173,
-      "cwd": "web",
-      "autoPort": true
+      "runtimeArgs": ["--prefix", "web", "run", "preview", "--", "--port", "4176"],
+      "port": 4176
     }
   ]
 }

@@ -1,8 +1,31 @@
 # Model Status
 
-*Last updated: 2026-07-14. This file is the living, always-current summary — read this first.
-For the point-in-time detailed snapshot this update was based on, see
-`docs/ml_reports/ML_INTELLIGENCE_REPORT_20260714.md` and its companion JSON.*
+*Last updated: 2026-08-04 (deployment status + gate mechanism correction only — the dataset/model
+sections below are otherwise unchanged since 2026-07-14 and due for a fresher pass). This file is
+the living, always-current summary — read this first. For the point-in-time detailed snapshot the
+2026-07-14 update was based on, see `docs/ml_reports/ML_INTELLIGENCE_REPORT_20260714.md` and its
+companion JSON.*
+
+## 2026-08-04 update — deployment status correction + gate mechanism fix
+
+- **This file's "NOT yet deployed" line for `model_v9` below was stale and wrong.**
+  `git log -- web/public/models/signs/` shows `model_v9` was deployed 2026-07-14 (commit
+  `77c9e87`) with a load-fix following (`a32c156`, unstripped L2 regularizer config) —
+  i.e. it has been the live model this whole time, not a pending decision. `classes.json`
+  confirms: 25 classes (24 signs + `NO_SIGN`), matching `model_v9`'s shape, not `model_v4`'s.
+- **The gate's `NO_SIGN` handling was the real production defect, not the model's accuracy.**
+  A 30-day PostHog sample of every production veto found 87% (108/124) were the model voting
+  `NO_SIGN` on attempts the rule verifier had already cleared — `NO_SIGN` is an absence class,
+  not a competing sign, and the gate had no business vetoing on it. Fixed in `gatePass`
+  (`web/src/engine/gate.ts`); see `docs/PRODUCT_BACKLOG_SAAD.md` QS-002 for the full writeup.
+  This does not change any number below — it's a bug in how the gate *used* the model's votes,
+  not in the model itself. The genuine sign-vs-sign confusion problem (HELLO↔HOSPITAL etc.,
+  Known Issue #2/#6 below) is still open.
+- **Classifier is back in shadow mode** (`CLASSIFIER_LOAD_ENABLED = true`, `GATE_ENFORCED =
+  false` in `web/src/config/classifier.ts`) — votes are recorded, nothing can block a user.
+  Re-enabling enforcement needs the numeric bar documented directly on `GATE_ENFORCED`: ≥95%
+  veto precision on ≥200 vetoes across ≥20 users, excluding known non-representative traffic and
+  bundle-change days, plus per-sign rollout via `GATE_EXCLUDED_SIGNS`.
 
 ## Current architecture
 

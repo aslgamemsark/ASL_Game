@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TurnOverlay } from '@/components/shared/TurnOverlay';
 
 interface Props {
@@ -30,6 +30,14 @@ interface Props {
  */
 export function RemotePeerVideo({ stream, label, connected, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, onVideoReady }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
+  // Same portrait-crop bug as WebcamMirror: a hardcoded 16:9 box crops a portrait peer stream
+  // top-and-bottom. Read from the video element's own dimensions once metadata loads, rather than
+  // the canvas-per-frame approach WebcamMirror uses (this is a plain <video>, not canvas-drawn).
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  const updateAspect = () => {
+    const v = ref.current;
+    if (v?.videoWidth && v.videoHeight) setAspectRatio(v.videoWidth / v.videoHeight);
+  };
   // Attach on every mount + whenever the stream changes. Callers may remount this element as
   // roles/rounds swap, so re-attaching here (not once in ontrack) keeps video flowing.
   useEffect(() => {
@@ -40,15 +48,24 @@ export function RemotePeerVideo({ stream, label, connected, cosmeticBorderClasse
     }
   }, [stream]);
   return (
-    <div className={`relative rounded-2xl overflow-hidden bg-z-surface aspect-video ${cosmeticBorderClasses ?? ''} ${activeTurn ? 'outline outline-2 outline-z-purple-light' : ''}`}>
-      <video ref={ref} autoPlay playsInline muted className="w-full h-full object-cover" onLoadedData={onVideoReady} />
+    <div style={{ aspectRatio: aspectRatio ?? 16 / 9 }} className={`relative rounded-2xl overflow-hidden bg-z-surface ${cosmeticBorderClasses ?? ''} ${activeTurn ? 'outline outline-2 outline-z-purple-light' : ''}`}>
+      <video
+        ref={ref}
+        autoPlay
+        playsInline
+        muted
+        className="w-full h-full object-cover"
+        onLoadedData={onVideoReady}
+        onLoadedMetadata={updateAspect}
+        onResize={updateAspect}
+      />
       {!(connected && stream) && (
         <div className="absolute inset-0 flex items-center justify-center bg-z-surface/90">
           <p className="text-xs text-z-gray-400">Connecting…</p>
         </div>
       )}
       <TurnOverlay active={!!activeTurn} label={turnLabel} timerPercent={timerPercent} />
-      <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded-md">{label}</span>
+      <span className="absolute bottom-1.5 left-1.5 text-3xs font-semibold bg-video-plate text-white px-1.5 py-0.5 rounded-md">{label}</span>
     </div>
   );
 }

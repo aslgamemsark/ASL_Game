@@ -19,6 +19,12 @@ doc is a human-readable mirror — if it drifts from the code, the code wins.
 | `password_reset_requested` | Reset email requested |
 | `password_recovery_completed` | New password set after following the reset link |
 
+## PWA install
+| Event | Fires when | Key properties |
+|---|---|---|
+| `pwa_install_prompted` | User taps the install button (banner or Settings row) | `source` |
+| `pwa_install_result` | Native install prompt resolves | `source`, `outcome` |
+
 ## Onboarding
 | Event | Key properties |
 |---|---|

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 import { useCamera } from '@/hooks/useCamera';
 import { useRecognition } from '@/hooks/useRecognition';
 import { useSounds } from '@/hooks/useSounds';
@@ -18,9 +19,9 @@ import type { SpeedTier } from '@/types/user';
 import { track } from '@/analytics';
 
 const TIER_CONFIG = {
-  warmup: { label: 'Warm Up', icon: '🌡️', timePerSign: 15,  xpMult: 1, signsMult: 1, bg: 'linear-gradient(135deg,#0F766E,#14B8A6)', glow: 'rgba(20,184,166,0.45)' },
-  sprint: { label: 'Sprint',  icon: '🏃',  timePerSign: 10,  xpMult: 2, signsMult: 2, bg: 'linear-gradient(135deg,#1E40AF,#3B82F6)', glow: 'rgba(59,130,246,0.45)' },
-  blitz:  { label: 'Blitz',   icon: '⚡',  timePerSign: 5,   xpMult: 3, signsMult: 3, bg: 'linear-gradient(135deg,#5B21B6,#A855F7)', glow: 'rgba(168,85,247,0.55)' },
+  warmup: { label: 'Warm Up', icon: '🌡️', timePerSign: 15,  xpMult: 1, signsMult: 1, gradient: 'bg-gradient-teal',   glow: 'rgba(20,184,166,0.45)' },
+  sprint: { label: 'Sprint',  icon: '🏃',  timePerSign: 10,  xpMult: 2, signsMult: 2, gradient: 'bg-gradient-blue',   glow: 'rgba(59,130,246,0.45)' },
+  blitz:  { label: 'Blitz',   icon: '⚡',  timePerSign: 5,   xpMult: 3, signsMult: 3, gradient: 'bg-gradient-violet', glow: 'rgba(168,85,247,0.55)' },
 } as const;
 
 type GamePhase = 'tier-select' | 'countdown' | 'playing' | 'done';
@@ -51,6 +52,7 @@ export function SpeedChallengePage({ onExit }: Props) {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const loopStartedRef = useRef<string | null>(null);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -179,6 +181,7 @@ export function SpeedChallengePage({ onExit }: Props) {
     return () => {
       clearInterval(timerRef.current);
       clearTimeout(advanceTimerRef.current);
+      clearInterval(countdownIntervalRef.current);
       stopCam();
       recognition.stopLoop();
     };
@@ -211,11 +214,12 @@ export function SpeedChallengePage({ onExit }: Props) {
     await startCam();
 
     let c = 3;
-    const cdInterval = setInterval(() => {
+    clearInterval(countdownIntervalRef.current);
+    countdownIntervalRef.current = setInterval(() => {
       c -= 1;
       setCountdown(c);
       if (c <= 0) {
-        clearInterval(cdInterval);
+        clearInterval(countdownIntervalRef.current);
         setTimeLeft(TIER_CONFIG[selectedTier].timePerSign);
         setPhase('playing');
       }
@@ -227,7 +231,7 @@ export function SpeedChallengePage({ onExit }: Props) {
     : 100;
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       <video
         ref={videoRef}
         style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }}
@@ -277,8 +281,7 @@ export function SpeedChallengePage({ onExit }: Props) {
                   <motion.button
                     key={id}
                     onClick={() => startGame(id)}
-                    className="w-full rounded-2xl p-5 text-left border border-white/5 overflow-hidden relative"
-                    style={{ background: cfg.bg }}
+                    className={`w-full rounded-2xl p-5 text-left border border-white/5 overflow-hidden relative ${cfg.gradient}`}
                     initial="rest"
                     animate="rest"
                     whileHover="hover"
@@ -289,15 +292,13 @@ export function SpeedChallengePage({ onExit }: Props) {
                     }}
                   >
                     <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
-                    {/* Same WCAG contrast fix as PracticeTab's "Coffee Shop Story" card: the
-                        title had no explicit text color (inherits the near-white body default)
-                        directly on a mid-bright gradient across all 3 tiers - a scrim keeps the
-                        gradient intact while giving text enough contrast to read on. */}
-                    <div className="absolute inset-0 bg-black/30 rounded-2xl" />
+                    {/* The scrim that used to be a separate div here is baked into the
+                        bg-gradient-* utilities. /30 was not enough for the Warm Up tier anyway —
+                        its teal put the subtitle at 3.16:1. See index.css. */}
                     <div className="relative flex items-center justify-between">
                       <div>
                         <h3 className="text-lg font-bold text-white">{cfg.icon} {cfg.label}</h3>
-                        <p className="text-white/70 text-sm mt-0.5">
+                        <p className="text-white/80 text-sm mt-0.5">
                           {cfg.timePerSign}s per sign · {cfg.xpMult}× XP · {cfg.signsMult}× Signs 🤟
                         </p>
                       </div>
@@ -310,7 +311,48 @@ export function SpeedChallengePage({ onExit }: Props) {
           )}
 
           {/* COUNTDOWN */}
-          {phase === 'countdown' && (
+          {/* Camera failure during countdown/playing — `startGame` awaits startCam() but never
+              checked its result (found in the design-system audit, 2026-07-31): a denied/failed
+              camera let the countdown run out and the timed round start anyway, with no active
+              camera and no recognition ever going 'ready', leaving the player stuck watching a
+              timer expire on every sign with no explanation. Same remediation LessonPage already
+              uses for the identical failure. */}
+          {(camStatus === 'denied' || camStatus === 'error' || camStatus === 'stalled') && (phase === 'countdown' || phase === 'playing') && (
+            <motion.div
+              key="cam-error"
+              className="flex-1 flex flex-col items-center justify-center gap-3 px-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center max-w-xs">
+                <p className="text-sm font-bold text-z-red">
+                  {camStatus === 'denied'
+                    ? 'Camera access denied'
+                    : camStatus === 'stalled'
+                      ? "Camera feed isn't showing"
+                      : 'Camera unavailable'}
+                </p>
+                <p className="text-xs text-z-gray-300 mt-1">
+                  {camStatus === 'denied'
+                    ? 'Speed Challenge needs your camera. Allow camera access in your browser settings, then try again.'
+                    : camStatus === 'stalled'
+                      ? "Your camera is on but no picture is coming through. Try again, or check that no other app is using it."
+                      : 'Something went wrong starting the camera. Try again, or check that no other app is using it.'}
+                </p>
+                {/* stopCam() before startCam(): forces a fresh getUserMedia() call instead of
+                    reattaching the same (possibly dead) stream — required for 'stalled'. */}
+                <button
+                  onClick={() => { setPhase('tier-select'); stopCam(); }}
+                  className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
+                >
+                  Back to tier select
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {phase === 'countdown' && camStatus !== 'denied' && camStatus !== 'error' && camStatus !== 'stalled' && (
             <motion.div
               key="countdown"
               className="flex-1 flex flex-col items-center justify-center gap-3"
@@ -335,7 +377,7 @@ export function SpeedChallengePage({ onExit }: Props) {
           )}
 
           {/* PLAYING */}
-          {phase === 'playing' && currentSignData && (
+          {phase === 'playing' && currentSignData && camStatus !== 'denied' && camStatus !== 'error' && camStatus !== 'stalled' && (
             <motion.div
               key={`play-${queueIdx}`}
               className="flex-1 flex flex-col gap-4 pt-4"
@@ -351,18 +393,18 @@ export function SpeedChallengePage({ onExit }: Props) {
                     {timeLeft.toFixed(1)}s
                   </span>
                 </div>
-                <div className="h-2.5 bg-z-surface rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${timerPercent}%`,
-                      background: timerPercent > 40
-                        ? config.bg
-                        : 'linear-gradient(90deg, #ef4444, #f97316)',
-                    }}
-                    transition={{ duration: 0.08 }}
-                  />
-                </div>
+                {/* Reuses the tier's own gradient class so the timer bar and the tier card that
+                    launched it are the same colour by construction, then switches to the shared
+                    urgency gradient under 40%. Was a plain `style={{ width }}` — updated on every
+                    countdown tick with no animation (transition had no effect on a style prop) and
+                    forced a layout reflow each time; ProgressBar's scaleX fixes both. */}
+                <ProgressBar
+                  value={timerPercent / 100}
+                  label={`Time remaining: ${timeLeft.toFixed(1)} seconds`}
+                  size="md"
+                  fillClassName={timerPercent > 40 ? config.gradient : 'bg-gradient-urgent'}
+                  transition={{ duration: 0.08 }}
+                />
               </div>
 
               {/* Sign prompt */}
@@ -400,7 +442,7 @@ export function SpeedChallengePage({ onExit }: Props) {
                     setCombo(0);
                     advanceSign(false);
                   }}
-                  className="text-xs text-z-gray-400 hover:text-z-gray-50 px-3 py-1.5 rounded-lg border border-z-gray-500/30"
+                  className="text-xs text-z-gray-400 hover:text-z-gray-50 min-h-11 px-3 rounded-lg border border-z-gray-500/30"
                 >
                   Skip
                 </button>
@@ -425,15 +467,15 @@ export function SpeedChallengePage({ onExit }: Props) {
               <div className="grid grid-cols-3 gap-3 w-full">
                 <div className="bg-z-card rounded-2xl p-4 text-center border border-white/5">
                   <p className="text-2xl font-bold text-z-yellow">{score}/{queue.length}</p>
-                  <p className="text-[11px] text-z-gray-400 mt-1">Score</p>
+                  <p className="text-2xs text-z-gray-400 mt-1">Score</p>
                 </div>
                 <div className="bg-z-card rounded-2xl p-4 text-center border border-white/5">
                   <p className="text-2xl font-bold text-z-orange">{maxCombo}×</p>
-                  <p className="text-[11px] text-z-gray-400 mt-1">Best combo</p>
+                  <p className="text-2xs text-z-gray-400 mt-1">Best combo</p>
                 </div>
                 <div className="bg-z-card rounded-2xl p-4 text-center border border-white/5">
                   <p className="text-xl font-bold text-z-purple-light">{totalSignsEarned}🤟</p>
-                  <p className="text-[11px] text-z-gray-400 mt-1">Signs earned</p>
+                  <p className="text-2xs text-z-gray-400 mt-1">Signs earned</p>
                 </div>
               </div>
 
@@ -452,9 +494,8 @@ export function SpeedChallengePage({ onExit }: Props) {
                 </motion.button>
                 <motion.button
                   onClick={onExit}
-                  className="flex-1 py-3 rounded-2xl font-bold text-sm text-white"
-                  style={{ background: 'linear-gradient(135deg,#5B21B6,#A855F7)' }}
-                  whileHover={{ scale: 1.02 }}
+                  className="flex-1 py-3 rounded-2xl font-bold text-sm text-white bg-gradient-violet"
+                                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
                 >
                   Back Home

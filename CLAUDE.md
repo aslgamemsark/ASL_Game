@@ -26,6 +26,11 @@ violation as a design signal, not a style note.
 - .claude/rules/no-hardcoding.md
 - .claude/rules/file-placement.md
 - .claude/rules/fixes.md
+- .claude/rules/worklog.md
+
+*Start every session by reading `docs/WORKLOG.md`* — the running record of what changed and why,
+updated continuously as work lands (not at session end, which is when context runs out and the
+record is lost). See `.claude/rules/worklog.md` for the format and when to compress it.
 
 *Concurrency and timing bugs:*
 - .claude/rules/concurrency/race-conditions.md

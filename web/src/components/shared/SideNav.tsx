@@ -67,18 +67,21 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
   };
 
   return (
-    <aside className="hidden lg:flex fixed left-0 top-0 h-dvh w-64 flex-col py-6 px-4 bg-z-card border-r border-white/5 z-40">
+    // <nav>, not <aside>: this is primary navigation, not complementary content — same landmark
+    // reasoning as BottomNav, which owns the equivalent role below the `md` breakpoint.
+    //
+    // `md:` (768px), not `lg:` (1024px): tablets in portrait (768-1023px — most iPads short of an
+    // old-format 12.9" Pro, which is already >=1024px) were landing on the phone BottomNav instead,
+    // its 8 items clustered into a ~512px island inside a much wider bar (768-1024px dead zone,
+    // design-system audit 2026-07-31). This nav's own content (w-64, 256px) fits comfortably at
+    // 768px — the constraint was the arbitrary breakpoint choice, not the layout itself.
+    <nav aria-label="Main" className="hidden md:flex fixed left-0 top-0 h-dvh w-64 flex-col py-6 px-4 bg-z-card border-r border-white/5 z-chrome">
       <div className="flex items-center gap-2 px-2 mb-8 shrink-0">
         <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
           <img src="/pwa-192x192.png" alt="" className="w-full h-full object-cover" />
         </div>
         <span
-          className="font-bold text-lg tracking-tight"
-          style={{
-            background: 'linear-gradient(90deg, #A78BFA 0%, #14B8A6 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
+          className="font-bold text-lg tracking-tight text-gradient-brand"
         >
           QuickSign
         </span>
@@ -111,7 +114,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
               key={item.id}
               onClick={handlers[item.id]}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                isActive ? 'bg-z-purple/20 text-z-purple' : 'text-z-gray-300 hover:bg-white/5'
+                isActive ? 'bg-z-purple/20 text-z-purple-light' : 'text-z-gray-300 hover:bg-white/5'
               }`}
               whileHover={{ x: 2 }}
               whileTap={{ scale: 0.98 }}
@@ -125,7 +128,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
         <motion.button
           onClick={onProfile}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-            active === 'profile' ? 'bg-z-purple/20 text-z-purple' : 'text-z-gray-300 hover:bg-white/5'
+            active === 'profile' ? 'bg-z-purple/20 text-z-purple-light' : 'text-z-gray-300 hover:bg-white/5'
           }`}
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
@@ -140,7 +143,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
         <motion.button
           onClick={onSettings}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-            active === 'settings' ? 'bg-z-purple/20 text-z-purple' : 'text-z-gray-300 hover:bg-white/5'
+            active === 'settings' ? 'bg-z-purple/20 text-z-purple-light' : 'text-z-gray-300 hover:bg-white/5'
           }`}
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
@@ -148,7 +151,7 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
         >
           {/* Explicit SVG (not the ⚙️ emoji): that glyph's default silver/gray color scheme reads
               as washed-out against the light theme's surfaces. currentColor ties it to this
-              button's existing text-z-purple/text-z-gray-300 state instead. */}
+              button's existing text-z-purple-light/text-z-gray-300 state instead. */}
           <svg className="w-[18px] h-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
@@ -172,6 +175,6 @@ export function SideNav({ active, onHome, onReview, onAlphabet, onBasicSigns, on
       </div>
 
       <LogoutConfirm open={showLogout} onClose={() => setShowLogout(false)} />
-    </aside>
+    </nav>
   );
 }

@@ -7,14 +7,14 @@ interface Props {
 
 export function PrivacyPage({ onExit }: Props) {
   return (
-    <div className="min-h-screen bg-z-bg lg:pl-64">
+    <div className="min-h-dvh bg-z-bg">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton onClick={onExit} />
         <h1 className="font-bold text-lg flex-1">Privacy &amp; Terms</h1>
       </div>
 
       <motion.div
-        className="max-w-lg mx-auto px-4 pt-6 pb-24 space-y-6 text-sm text-z-gray-300 leading-relaxed"
+        className="max-w-lg mx-auto px-4 pt-6 pb-nav-clear space-y-6 text-sm text-z-gray-300 leading-relaxed"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
       >

@@ -5,12 +5,15 @@ import { supabase } from '@/lib/supabase';
 import { SHOP_ITEMS } from '@/data/shop';
 import { WORLDS } from '@/data/worlds';
 import { formatAdminDate, formatAdminTimestamp } from '@/lib/formatTimestamp';
+import { useTabListKeyNav } from '@/hooks/useTabListKeyNav';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 
 interface Props {
   onExit: () => void;
 }
 
 type AdminTab = 'beta' | 'analytics' | 'users' | 'worlds' | 'audit';
+const ADMIN_TABS: AdminTab[] = ['beta', 'analytics', 'users', 'worlds', 'audit'];
 
 // Lazy so the recharts bundle only loads when the admin actually opens the Analytics tab, never
 // for the rest of the app.
@@ -89,24 +92,36 @@ interface AuditRow {
 export function AdminPanel({ onExit }: Props) {
   const [tab, setTab] = useState<AdminTab>('users');
   const [toast, setToast] = useState<string | null>(null);
+  const { refFor, onKeyDown } = useTabListKeyNav(ADMIN_TABS, setTab);
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   }, []);
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col lg:pl-64">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton onClick={onExit} />
         <h1 className="font-bold text-lg flex-1">🛠 Admin Panel</h1>
       </div>
 
-      <div className="flex bg-z-surface/50 mx-4 mt-4 rounded-xl p-1 max-w-2xl lg:mx-auto lg:w-full">
-        {(['beta', 'analytics', 'users', 'worlds', 'audit'] as const).map((t) => (
+      {/* Five flex-1 tabs at text-sm squeezed 5 of the app's longest labels ("Analytics", "Audit
+          Log") into ~67px each on a 375px phone with no wrap/scroll fallback (mobile audit,
+          2026-07-28). overflow-x-auto + shrink-0 lets them take their natural width and scroll
+          instead, matching how the rest of the app handles overflow (CohortGrid does the same). */}
+      <div role="tablist" aria-label="Admin section" className="flex bg-z-surface/50 mx-4 mt-4 rounded-xl p-1 max-w-2xl lg:mx-auto lg:w-full overflow-x-auto no-scrollbar">
+        {ADMIN_TABS.map((t, i) => (
           <button
             key={t}
+            ref={refFor(i)}
+            role="tab"
+            id={`admin-tab-${t}`}
+            aria-selected={tab === t}
+            aria-controls={`admin-panel-${t}`}
+            tabIndex={tab === t ? 0 : -1}
             onClick={() => setTab(t)}
-            className={`flex-1 py-2 rounded-lg text-sm font-bold capitalize transition-colors ${
+            onKeyDown={(e) => onKeyDown(e, i)}
+            className={`shrink-0 min-w-[20%] px-3 py-2 rounded-lg text-sm font-bold capitalize whitespace-nowrap transition-colors ${
               tab === t ? 'bg-z-purple text-white' : 'text-z-gray-400'
             }`}
           >
@@ -115,7 +130,7 @@ export function AdminPanel({ onExit }: Props) {
         ))}
       </div>
 
-      <div className="flex-1 max-w-2xl mx-auto w-full px-4 pt-6 pb-24">
+      <div role="tabpanel" id={`admin-panel-${tab}`} aria-labelledby={`admin-tab-${tab}`} className="flex-1 max-w-2xl mx-auto w-full px-4 pt-6 pb-nav-clear">
         {tab === 'beta' && <BetaTab showToast={showToast} />}
         {tab === 'analytics' && (
           <Suspense fallback={<p className="text-sm text-z-gray-400">Loading…</p>}>
@@ -130,7 +145,7 @@ export function AdminPanel({ onExit }: Props) {
       <AnimatePresence>
         {toast && (
           <motion.div
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold shadow-xl z-50"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold shadow-xl z-overlay"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
@@ -191,7 +206,7 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
     return (
       <div className="text-center py-10">
         <p className="text-z-gray-300 text-sm">Couldn't load beta metrics</p>
-        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2">
           Try again
         </button>
       </div>
@@ -237,12 +252,13 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
             {metrics.top_failed_signs.map((s) => (
               <div key={s.sign_id} className="flex items-center gap-2 text-sm">
                 <span className="font-mono font-semibold w-24 shrink-0">{s.sign_id}</span>
-                <div className="flex-1 h-2 bg-z-surface rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-z-red/70 rounded-full"
-                    style={{ width: `${Math.round(s.fail_rate * 100)}%` }}
-                  />
-                </div>
+                <ProgressBar
+                  value={s.fail_rate}
+                  label={`${s.sign_id} fail rate: ${Math.round(s.fail_rate * 100)}%`}
+                  size="sm"
+                  fillClassName="bg-z-red/70"
+                  className="flex-1"
+                />
                 <span className="text-xs text-z-gray-400 w-28 text-right shrink-0">
                   {Math.round(s.fail_rate * 100)}% · {s.failures}/{s.attempts}
                 </span>
@@ -270,14 +286,14 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
               <div key={f.id} className="bg-z-surface rounded-xl p-3 text-sm">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-bold uppercase text-z-purple-light">{f.category}</span>
-                  {f.anonymous && <span className="text-[10px] text-z-gray-500">anon</span>}
-                  <span className="text-[10px] text-z-gray-500 ml-auto">
+                  {f.anonymous && <span className="text-3xs text-z-gray-400">anon</span>}
+                  <span className="text-3xs text-z-gray-400 ml-auto">
                     {formatAdminDate(f.created_at)}
                   </span>
                 </div>
                 <p className="text-z-gray-200 whitespace-pre-wrap break-words">{f.message}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  {f.page && <span className="text-[10px] text-z-gray-500">on {f.page}</span>}
+                  {f.page && <span className="text-3xs text-z-gray-400">on {f.page}</span>}
                   <select
                     value={f.status}
                     onChange={(e) => void setStatus(f.id, e.target.value)}
@@ -302,7 +318,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="bg-z-card border border-white/5 rounded-xl py-3">
       <p className="text-2xl font-bold">{value}</p>
-      <p className="text-[11px] text-z-gray-400 mt-0.5">{label}</p>
+      <p className="text-2xs text-z-gray-400 mt-0.5">{label}</p>
     </div>
   );
 }
@@ -596,7 +612,7 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
 
               <div>
                 <p className="text-xs font-bold text-z-gray-300 uppercase mb-2">Rename</p>
-                <p className="text-[11px] text-z-gray-500 mb-2">
+                <p className="text-2xs text-z-gray-400 mb-2">
                   Clears an offensive username (banning alone leaves it visible on leaderboards).
                 </p>
                 <div className="flex gap-2">
@@ -684,7 +700,7 @@ function WorldsTab({ showToast }: { showToast: (m: string) => void }) {
     return (
       <div className="text-center py-10">
         <p className="text-z-gray-300 text-sm">Couldn't load world settings</p>
-        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2">
           Try again
         </button>
       </div>
@@ -762,7 +778,7 @@ function AuditTab() {
     return (
       <div className="text-center py-10">
         <p className="text-z-gray-300 text-sm">Couldn't load the audit log</p>
-        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline">
+        <button onClick={() => void load()} className="text-z-purple-light text-xs mt-1 font-semibold hover:underline py-2.5 -my-2.5 px-2 -mx-2">
           Try again
         </button>
       </div>
@@ -784,9 +800,9 @@ function AuditTab() {
               </>
             )}
           </p>
-          <p className="text-z-gray-500 mt-1">{formatAdminTimestamp(r.created_at)}</p>
+          <p className="text-z-gray-400 mt-1">{formatAdminTimestamp(r.created_at)}</p>
           {Object.keys(r.payload).length > 0 && (
-            <p className="text-z-gray-500 mt-1 font-mono break-all">{JSON.stringify(r.payload)}</p>
+            <p className="text-z-gray-400 mt-1 font-mono break-all">{JSON.stringify(r.payload)}</p>
           )}
         </div>
       ))}

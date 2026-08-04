@@ -221,16 +221,6 @@ export const LESSON_UNITS: LessonUnit[] = [
   },
 ];
 
-export function getNextAvailableLesson(completedIds: string[]): string | null {
-  for (const unit of LESSON_UNITS) {
-    for (const node of unit.nodes) {
-      if (!completedIds.includes(node.id)) {
-        return node.id;
-      }
-    }
-  }
-  return null;
-}
 
 export function getLessonById(id: string) {
   for (const unit of LESSON_UNITS) {

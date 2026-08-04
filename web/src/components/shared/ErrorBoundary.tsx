@@ -28,7 +28,7 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-z-bg flex items-center justify-center p-6">
+        <div className="min-h-dvh bg-z-bg flex items-center justify-center overflow-y-auto p-6">
           <div className="text-center max-w-sm">
             <div className="mb-4 flex justify-center">
               <Zippy expression="oops" size="lg" alt="Zippy looking puzzled" priority />
@@ -37,6 +37,9 @@ export class ErrorBoundary extends Component<Props, State> {
             <p className="text-z-gray-400 text-sm mb-6">
               {ZIPPY_LINES.error[0]}
             </p>
+            {/* Plain <button>, not the shared Button primitive: this is the app's last line of
+                defense against a crash anywhere in the tree, so its fallback UI must not add a new
+                dependency (framer-motion) that could itself be implicated in a future crash. */}
             <button
               onClick={() => window.location.reload()}
               className="w-full py-3 rounded-2xl font-bold text-white text-base bg-gradient-primary"

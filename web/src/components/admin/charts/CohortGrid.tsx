@@ -47,7 +47,7 @@ export function CohortGrid({ cohorts }: { cohorts: RetentionCohort[] }) {
                     style={pct === null ? undefined : cellStyle(pct)}
                     title={pct === null ? undefined : `${Math.round(pct * 100)}% of ${c.cohort_size} active in week ${o}`}
                   >
-                    <span className={pct === null ? 'text-z-gray-500' : 'text-white font-semibold'}>
+                    <span className={pct === null ? 'text-z-gray-400' : 'text-white font-semibold'}>
                       {pct === null ? '·' : `${Math.round(pct * 100)}%`}
                     </span>
                   </td>
@@ -57,7 +57,7 @@ export function CohortGrid({ cohorts }: { cohorts: RetentionCohort[] }) {
           ))}
         </tbody>
       </table>
-      <p className="text-[11px] text-z-gray-500 mt-2 leading-snug">
+      <p className="text-2xs text-z-gray-400 mt-2 leading-snug">
         Each row is the group of people who signed up in that week. Reading across: the % of them
         who came back and practiced a sign in their signup week, then +1 week later, +2 weeks, and
         so on. A greener cell = more people stuck around. Blank = that week hasn't happened yet.

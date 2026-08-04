@@ -2,7 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { validateUsername } from '@/lib/username';
 import { supabaseReady } from '@/lib/supabase';
+import { EMAIL_SIGNUP_ENABLED } from '@/config/auth';
 import { ModalShell } from '@/components/shared/ModalShell';
+import { useTabListKeyNav } from '@/hooks/useTabListKeyNav';
+import { GoogleIcon } from '@/components/shared/GoogleIcon';
 
 interface Props {
   onClose: () => void;
@@ -10,9 +13,16 @@ interface Props {
 
 type Tab = 'signin' | 'signup' | 'reset';
 type UsernameStatus = 'idle' | 'checking' | 'ok' | 'error';
+const AUTH_TABS: { id: 'signin' | 'signup'; label: string }[] = [
+  { id: 'signin', label: 'Sign in' },
+  { id: 'signup', label: 'Sign up' },
+];
+const AUTH_TAB_IDS = AUTH_TABS.map((t) => t.id);
 
 export function AuthModal({ onClose }: Props) {
   const { signInWithEmail, signUpWithEmail, signInWithGoogle, requestPasswordReset } = useAuth();
+  // With email signup withdrawn there is only one email tab left, so the switcher is hidden and
+  // 'signin' is the only reachable starting tab (see EMAIL_SIGNUP_ENABLED for the evidence).
   const [tab, setTab] = useState<Tab>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +34,10 @@ export function AuthModal({ onClose }: Props) {
   const [done, setDone] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectAuthTab = (t: 'signin' | 'signup') => {
+    setTab(t); setError(null); setUsernameStatus('idle'); setUsernameMsg('');
+  };
+  const { refFor, onKeyDown } = useTabListKeyNav(AUTH_TAB_IDS, selectAuthTab);
 
   // Debounced username availability check
   useEffect(() => {
@@ -76,6 +90,15 @@ export function AuthModal({ onClose }: Props) {
       setLoading(false);
       if (err) { setError(err); return; }
       setResetSent(true);
+      return;
+    }
+
+    // Guarded here as well as in the UI: the signup tab is unreachable while email signup is
+    // withdrawn, but this handler is the trust boundary that actually creates the account, and it
+    // must not depend on the switcher above having hidden the tab.
+    if (tab === 'signup' && !EMAIL_SIGNUP_ENABLED) {
+      setLoading(false);
+      setError('Email signup is unavailable — please continue with Google.');
       return;
     }
 
@@ -137,8 +160,10 @@ export function AuthModal({ onClose }: Props) {
         <p className="font-bold text-base mb-1">Reset your password</p>
         <p className="text-z-gray-400 text-xs mb-4">We'll email you a link to set a new one.</p>
         <form onSubmit={handleSubmit} className="space-y-3">
+          <label htmlFor="auth-reset-email" className="sr-only">Email</label>
           <input
-            className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+            id="auth-reset-email"
+            className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:border-z-purple transition-colors"
             type="email"
             placeholder="Email"
             value={email}
@@ -170,27 +195,53 @@ export function AuthModal({ onClose }: Props) {
 
   return (
     <Overlay onClose={onClose}>
-      {/* Tab switcher */}
-      <div className="flex rounded-xl bg-white/5 p-1 mb-5">
-        {(['signin', 'signup'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            className={`flex-1 py-1.5 rounded-lg text-sm font-bold transition-colors ${
-              tab === t ? 'bg-z-purple text-white' : 'text-z-gray-300'
-            }`}
-            onClick={() => { setTab(t); setError(null); setUsernameStatus('idle'); setUsernameMsg(''); }}
-          >
-            {t === 'signin' ? 'Sign in' : 'Sign up'}
-          </button>
-        ))}
-      </div>
+      {/* Tab switcher — only meaningful while email signup exists. With it withdrawn, a
+          two-tab switcher offering one reachable tab is pure noise. */}
+      {EMAIL_SIGNUP_ENABLED ? (
+        <div role="tablist" aria-label="Sign in or sign up" className="flex rounded-xl bg-white/5 p-1 mb-5">
+          {AUTH_TABS.map((t, i) => (
+            <button
+              key={t.id}
+              ref={refFor(i)}
+              role="tab"
+              id={`auth-tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls="auth-panel"
+              tabIndex={tab === t.id ? 0 : -1}
+              className={`flex-1 py-1.5 rounded-lg text-sm font-bold transition-colors ${
+                tab === t.id ? 'bg-z-purple text-white' : 'text-z-gray-300'
+              }`}
+              onClick={() => selectAuthTab(t.id)}
+              onKeyDown={(e) => onKeyDown(e, i)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="mb-5">
+          <p className="font-bold text-base">Sign in</p>
+          <p className="text-z-gray-400 text-xs mt-0.5">
+            New here? Use <strong className="text-z-gray-300">Continue with Google</strong> below —
+            it's one tap, no password to invent.
+          </p>
+        </div>
+      )}
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-3"
+        role={EMAIL_SIGNUP_ENABLED ? 'tabpanel' : undefined}
+        id={EMAIL_SIGNUP_ENABLED ? 'auth-panel' : undefined}
+        aria-labelledby={EMAIL_SIGNUP_ENABLED ? `auth-tab-${tab}` : undefined}
+      >
         {tab === 'signup' && (
           <div>
+            <label htmlFor="auth-username" className="sr-only">Username</label>
             <div className="relative">
               <input
-                className={`w-full bg-white/5 border rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none transition-colors pr-10 ${
+                id="auth-username"
+                className={`w-full bg-white/5 border rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 transition-colors pr-10 ${
                   usernameStatus === 'error' ? 'border-z-red/60 focus:border-z-red' :
                   usernameStatus === 'ok'    ? 'border-z-green/60 focus:border-z-green' :
                   'border-z-gray-400/30 focus:border-z-purple'
@@ -202,6 +253,9 @@ export function AuthModal({ onClose }: Props) {
                 maxLength={20}
                 required
                 autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
               {/* Status indicator */}
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none">
@@ -215,17 +269,19 @@ export function AuthModal({ onClose }: Props) {
                 {usernameMsg}
               </p>
             )}
-            <p className="text-[10px] text-z-gray-500 mt-1 px-1">
+            <p className="text-3xs text-z-gray-400 mt-1 px-1">
               3–20 characters · letters, numbers, underscores only · unique
             </p>
-            <p className="text-[10px] text-z-gray-600 mt-1 px-1">
+            <p className="text-3xs text-z-gray-600 mt-1 px-1">
               ⚠️ Choose carefully — future changes require a Rename Card from the Shop (🪙 150)
             </p>
           </div>
         )}
 
+        <label htmlFor="auth-email" className="sr-only">Email</label>
         <input
-          className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+          id="auth-email"
+          className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:border-z-purple transition-colors"
           type="email"
           placeholder="Email"
           value={email}
@@ -234,8 +290,10 @@ export function AuthModal({ onClose }: Props) {
           autoComplete="email"
           maxLength={254}
         />
+        <label htmlFor="auth-password" className="sr-only">Password</label>
         <input
-          className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+          id="auth-password"
+          className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:border-z-purple transition-colors"
           type="password"
           placeholder="Password"
           value={password}
@@ -279,12 +337,7 @@ export function AuthModal({ onClose }: Props) {
         onClick={signInWithGoogle}
         className="w-full py-2.5 rounded-xl border border-z-gray-400/30 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-white/5 transition-colors"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
+        <GoogleIcon size={16} />
         Continue with Google
       </button>
     </Overlay>
@@ -293,7 +346,10 @@ export function AuthModal({ onClose }: Props) {
 
 function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <ModalShell onClose={onClose} ariaLabel="Sign in or create an account">
+    <ModalShell
+      onClose={onClose}
+      ariaLabel={EMAIL_SIGNUP_ENABLED ? 'Sign in or create an account' : 'Sign in'}
+    >
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
           <span className="text-xl">🤟</span>

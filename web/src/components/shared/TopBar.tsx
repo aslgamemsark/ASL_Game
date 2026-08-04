@@ -25,9 +25,19 @@ const fireVariants = {
 interface TopBarProps {
   onOpenShop?: () => void;
   onOpenProfile?: () => void;
+  /** What the profile chip actually does for the current user — "Sign in" for a guest (it opens
+   *  the auth modal), "My Profile" once signed in. On desktop this same distinction already exists
+   *  as separate labeled items in SideNav ("Sign in" vs "View profile"); on mobile the chip is the
+   *  ONLY entry point, so it needs the same distinction to give guests an accessible "Sign in"
+   *  control at all — its title/aria-label used to be hardcoded to "My Profile" regardless of auth
+   *  state, silently mislabeling the one guest sign-in affordance mobile has (found via e2e run on
+   *  mobile viewports, 2026-07-28 — smoke.spec.ts's `getByRole('button', {name: /sign in/i})` had
+   *  never run below the `lg` breakpoint before). Defaults to "My Profile" for any caller that
+   *  doesn't pass it, matching the previous hardcoded behavior. */
+  profileLabel?: string;
 }
 
-export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
+export function TopBar({ onOpenShop, onOpenProfile, profileLabel = 'My Profile' }: TopBarProps = {}) {
   // Selector + useShallow: TopBar is always mounted, so subscribing to the whole store (the
   // previous `useUserStore()` with no selector) re-rendered it on every unrelated field change
   // too — e.g. an XP tick during a lesson (production audit, 2026-07-12).
@@ -68,17 +78,26 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
   }, []);
 
   return (
-    <div className="sticky top-0 z-50 bg-z-bg/90 backdrop-blur-md border-b border-z-purple-deep/50">
+    <div className="sticky top-0 z-overlay bg-z-bg/90 backdrop-blur-md border-b border-z-purple-deep/50 pt-safe">
       {/* `relative` anchors the cart button below — it's placed at top-full, i.e. right past this
           header's own bottom border (the divider), under the gold pill's column. */}
       <div ref={headerRef} className="relative max-w-lg mx-auto lg:max-w-none">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
+            {/* Hidden from `md:` up, for the same reason the wordmark below is: SideNav owns
+                identity on desktop. It renders the SAME avatar in its "Guest / Tap to sign in"
+                card, and also carries a "Me" nav item and a "Sign in" action — so on desktop this
+                was a third, redundant route to the same screen, sitting alone at the left of an
+                otherwise empty bar with the stat pills pushed far right (desktop visual review,
+                2026-08-03). `md:hidden` rather than `md:sr-only` because, unlike the wordmark,
+                this is a duplicate CONTROL, not the page's only heading — leaving it in the
+                accessibility tree would just mean three ways to say the same thing. */}
             <motion.button
               onClick={onOpenProfile}
-              className="w-11 h-11 flex items-center justify-center cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light focus-visible:ring-offset-2 focus-visible:ring-offset-z-bg rounded-xl"
+              className="w-11 h-11 flex items-center justify-center cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light focus-visible:ring-offset-2 focus-visible:ring-offset-z-bg rounded-xl md:hidden"
               whileTap={{ scale: 0.9 }}
-              title="My Profile"
+              aria-label={profileLabel}
+              title={profileLabel}
             >
               <motion.span
                 className={`w-8 h-8 rounded-xl overflow-hidden bg-gradient-to-br from-z-purple to-z-purple-deep flex items-center justify-center text-lg ${borderClasses}`}
@@ -87,36 +106,43 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
                 <AvatarGlyph avatarId={equippedAvatar} badgeId={activeBadge} />
               </motion.span>
             </motion.button>
-            <span
-              className="font-bold text-xl tracking-tight lg:hidden"
-              style={{
-                background: 'linear-gradient(90deg, #A78BFA 0%, #14B8A6 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >QuickSign</span>
+            {/* TopBar renders only on HomePage, so this doubles as the page's <h1> — the
+                individual tabs (Worlds, Basic Signs, Review, Explore) already carry their own
+                <h2>, leaving no other page-level heading. `md:sr-only` (not `md:hidden`) so it
+                stays in the accessibility tree once SideNav takes over the visual role — `md:`,
+                matching SideNav's own breakpoint (see SideNav.tsx's comment), not `lg:`: at `lg:`
+                both brand marks would render visibly at once across the 768-1023px tablet band. */}
+            <h1
+              className="font-bold text-xl tracking-tight md:sr-only text-gradient-brand"
+            >QuickSign</h1>
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
-            {/* Streak — hover reveals the full detail card (freezes, today's goal, next milestone) */}
+            {/* Streak — hover reveals the full detail card (freezes, today's goal, next milestone).
+                The pill itself is informational, not a control — no onClick, no whileTap — so it
+                carries role="status"/aria-live/aria-label the same way Signs/Gold do below; the
+                popover is a supplementary disclosure on top, not the pill's only way to convey the
+                streak count. */}
             <div
               className="relative"
               onMouseEnter={() => setStreakHover(true)}
               onMouseLeave={() => setStreakHover(false)}
             >
-              <motion.div
+              <div
                 className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default"
-                initial="rest"
-                whileHover="blaze"
-                whileTap={{ scale: 0.92 }}
-                variants={{
-                  rest:  { scale: 1, backgroundColor: 'rgba(34, 21, 72, 0.6)' },
-                  blaze: { scale: 1.1, backgroundColor: 'rgba(249, 115, 22, 0.16)', transition: { duration: 0.2 } },
-                }}
+                role="status"
+                aria-live="polite"
+                aria-label={`Streak: ${streak} day${streak === 1 ? '' : 's'}`}
               >
-                <motion.span className="text-sm inline-block" variants={fireVariants}>🔥</motion.span>
-                <span className="font-bold text-xs text-z-orange">{streak}</span>
-              </motion.div>
+                <motion.span
+                  className="text-sm inline-block"
+                  aria-hidden="true"
+                  initial="rest"
+                  whileHover="blaze"
+                  variants={fireVariants}
+                >🔥</motion.span>
+                <span className="font-bold text-xs text-z-orange" aria-hidden="true">{streak}</span>
+              </div>
 
               <AnimatePresence>
                 {streakHover && (
@@ -134,20 +160,27 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
             </div>
 
             {/* Signs 🤟 */}
-            <motion.div
+            <div
               className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default"
-              whileHover={{ scale: 1.08, backgroundColor: 'rgba(124, 58, 237, 0.18)', transition: { duration: 0.2 } }}
-              whileTap={{ scale: 0.92 }}
+              role="status"
+              aria-live="polite"
+              aria-label={`Signs learned: ${signs}`}
             >
-              <span className="text-sm">🤟</span>
-              <span className="font-bold text-xs text-z-purple-light">{signs}</span>
-            </motion.div>
+              <span className="text-sm" aria-hidden="true">🤟</span>
+              <span className="font-bold text-xs text-z-purple-light" aria-hidden="true">{signs}</span>
+            </div>
 
             {/* Gold 🪙 — plain display; the shop entry point is the cart button below (see the
                 absolutely-positioned button after this row), not the pill itself. */}
-            <div ref={goldRef} className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default">
-              <span className="text-sm">🪙</span>
-              <span className="font-bold text-xs text-z-yellow">{gold}</span>
+            <div
+              ref={goldRef}
+              className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default"
+              role="status"
+              aria-live="polite"
+              aria-label={`Gold: ${gold}`}
+            >
+              <span className="text-sm" aria-hidden="true">🪙</span>
+              <span className="font-bold text-xs text-z-yellow" aria-hidden="true">{gold}</span>
             </div>
           </div>
         </div>
@@ -169,7 +202,7 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
             y: 8,
             opacity: cartCenter === null ? 0 : 1,
           }}
-          className="absolute top-full w-8 h-8 rounded-full bg-z-surface border border-z-yellow/30 shadow-lg flex items-center justify-center text-z-yellow"
+          className="absolute top-full w-11 h-11 rounded-full bg-z-surface border border-z-yellow/30 shadow-lg flex items-center justify-center text-z-yellow"
           whileHover={{ scale: 1.12, backgroundColor: 'rgba(250, 204, 21, 0.16)', transition: { duration: 0.15 } }}
           whileTap={{ scale: 0.9 }}
         >
