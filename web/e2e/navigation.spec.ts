@@ -89,4 +89,34 @@ test.describe('hardware/browser Back navigation', () => {
     await page.goBack({ waitUntil: 'commit' }).catch(() => {});
     await expect(page.locator('body')).toBeVisible();
   });
+
+  // Regression, 2026-08-05: closing a dialog and navigating the screen behind it in the SAME
+  // click is a distinct case from the two above (Back on a screen; Back on a dialog) — it's what
+  // "Try Yourself" on a sign/letter detail modal does, and it broke silently. The dialog's
+  // useBackDismiss cleanup doesn't run until its exit animation finishes (measured ~576ms after
+  // the click), by which point the screen-level useBackDismiss instance had already activated and
+  // pushed its own history entry on top. The dialog's cleanup then unconditionally called
+  // history.back(), popping the SCREEN's fresh entry instead of its own, and the resulting
+  // popstate fired the screen instance's onBack (goHome) — silently reverting the navigation the
+  // click had just triggered. See useBackDismiss.ts for the fix (only consume on cleanup if this
+  // instance's entry is still the current top of the stack when cleanup actually runs).
+  test('Closing a dialog while navigating away in the same click reaches the new screen and stays there', async ({ page }) => {
+    await reachHome(page);
+    await page.getByRole('button', { name: /Basic Signs/i }).first().click();
+    await expect(page.getByText(/tap a sign to see it performed/i)).toBeVisible();
+
+    // Accessible name is "HELLO →" (the tile also renders a trailing arrow glyph), hence no anchors.
+    await page.getByRole('button', { name: /hello/i }).first().click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByRole('button', { name: /try yourself/i }).click();
+
+    // Must both leave the Basic Signs screen AND stay away from it — the bug's signature was a
+    // clean-looking navigation that silently reverted a beat later, so a single immediate
+    // assertion right after the click would not have caught it.
+    await expect(page.getByText(/tap a sign to see it performed/i)).not.toBeVisible();
+    await page.waitForTimeout(900); // covers the ~576ms exit-animation window the bug lived in
+    await expect(page.getByText(/tap a sign to see it performed/i)).not.toBeVisible();
+  });
 });

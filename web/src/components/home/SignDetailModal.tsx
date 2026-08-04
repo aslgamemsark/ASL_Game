@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDialogA11y } from '@/hooks/useDialogA11y';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import type { SignDef } from '@/types/signs';
 import { Button } from '@/components/shared/Button';
 
@@ -16,8 +16,10 @@ export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
   const hasClip = sign.clip != null && !clipFailed;
   const displayName = sign.name.replace(/_/g, ' ');
 
+  // No AnimatePresence here — see the matching comment in LetterDetailModal.tsx for why a second
+  // AnimatePresence around unconditional content deadlocks the caller's screen-level transition.
+  // The caller (BasicSignsTab) already supplies the one that owns this component's lifecycle.
   return (
-    <AnimatePresence>
       <motion.div
         className="fixed inset-0 z-overlay flex items-end sm:items-center justify-center p-4"
         initial={{ opacity: 0 }}
@@ -62,7 +64,12 @@ export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
           </div>
 
           {/* Reference visual */}
-          <div className="rounded-2xl overflow-hidden bg-z-bg border border-white/5 aspect-[4/3] flex items-center justify-center mb-4 relative">
+          {/* aspect-square + object-contain, not the previous aspect-[4/3] + object-cover: every
+              clip in public/clips is a 720x720 source (measured 2026-08-05), so a 4:3 box with
+              object-cover cropped ~25% of the height off the top and bottom — the avatar's head,
+              since it sits at the top of frame. LetterDetailModal and ReferenceClip already use
+              object-contain for the same clips; this was the one inconsistent surface. */}
+          <div className="rounded-2xl overflow-hidden bg-z-bg border border-white/5 aspect-square flex items-center justify-center mb-4 relative">
             {hasClip ? (
               <video
                 src={sign.clip}
@@ -71,7 +78,7 @@ export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
                 muted
                 playsInline
                 onError={() => setClipFailed(true)}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             ) : (
               <div className="flex flex-col items-center justify-center text-center px-4">
@@ -97,6 +104,5 @@ export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
           </Button>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
   );
 }

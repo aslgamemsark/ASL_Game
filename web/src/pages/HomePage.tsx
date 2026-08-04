@@ -213,7 +213,10 @@ export function HomePage({
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
               <BasicSignsTab
-                onStartSignsPractice={(ids) => onStartPractice({ filterSignIds: ids })}
+                // autoStart: true, matching AlphabetTab's onStartLettersPractice below — without
+                // it, "Try Yourself" on a Basic Sign's detail modal landed on the Practice MENU
+                // instead of opening the camera, the one action the button promises (found 2026-08-05).
+                onStartSignsPractice={(ids) => onStartPractice({ filterSignIds: ids, autoStart: true })}
                 onTestMemory={(ids) =>
                   onStartPractice({
                     filterSignIds: ids,

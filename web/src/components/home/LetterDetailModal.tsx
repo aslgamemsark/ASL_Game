@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDialogA11y } from '@/hooks/useDialogA11y';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import type { LetterDef } from '@/data/alphabet';
 import { ClipEnlarge } from '@/components/lesson/ClipEnlarge';
 import { Button } from '@/components/shared/Button';
@@ -25,8 +25,15 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
   const hasClip = CLIP_LETTERS.has(def.letter) && !clipFailed;
   const canPractice = def.signId != null;
 
+  // No AnimatePresence here: the caller (AlphabetTab) already wraps this component's conditional
+  // render in its own AnimatePresence, which is what actually owns mount/unmount lifecycle. A
+  // second AnimatePresence around unconditional content has nothing to exit-animate on ITS OWN
+  // terms, so when the parent removes this component as part of a wider transition (e.g.
+  // App.tsx's screen-level `mode="wait"`, mid-navigation), this inner boundary can leave an
+  // orphaned exit that the outer transition waits on forever — reproduced 2026-08-05: clicking
+  // "Try Yourself" called onClose() and navigated to Practice in the same tick, and the screen
+  // never switched because App's AnimatePresence was still waiting on this modal's own inner exit.
   return (
-    <AnimatePresence>
       <motion.div
         className="fixed inset-0 z-overlay flex items-end sm:items-center justify-center p-4"
         initial={{ opacity: 0 }}
@@ -153,6 +160,5 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
           </Button>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
   );
 }
