@@ -158,6 +158,13 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     onAttempt: attemptLog.recordAttempt,
     screen: 'practice',
   });
+  // startExpressive() below moves past 'menu' into 'expressive' regardless of whether startCam()
+  // actually succeeded (a denied/errored/stalled camera isn't a reason to strand the user on the
+  // mode-picker) — which means this view is the only place a failure ever becomes visible. Without
+  // this check the camera simply never appeared and nothing explained why (matches LessonPage's
+  // identically-named guard).
+  const cameraUnavailable =
+    camStatus === 'denied' || camStatus === 'error' || camStatus === 'stalled' || recognition.status === 'error';
   // First-run only: overlay a camera-framing guide until the user is well positioned.
   const showCamGuide = useFirstRunCameraGuide(recognition.framing?.ok);
 
@@ -530,16 +537,45 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                     )}
 
                     <div className="lg:order-2">
-                      <WebcamMirror
-                        videoRef={videoRef}
-                        cosmeticBorderClasses={cosmeticBorderClasses}
-                        frameGuide={showCamGuide ? recognition.framing : null}
-                        aspectClassName="aspect-[var(--cam-ar)] lg:aspect-[4/3]"
-                      />
+                      {cameraUnavailable ? (
+                        <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center">
+                          <p className="text-sm font-bold text-z-red">
+                            {camStatus === 'denied'
+                              ? 'Camera access denied'
+                              : camStatus === 'stalled'
+                                ? "Camera feed isn't showing"
+                                : 'Camera unavailable'}
+                          </p>
+                          <p className="text-xs text-z-gray-300 mt-1">
+                            {camStatus === 'denied'
+                              ? 'Live coaching needs your camera. Allow camera access in your browser settings, then try again.'
+                              : camStatus === 'stalled'
+                                ? "Your camera is on but no picture is coming through. Try again, or check that no other app is using it."
+                                : 'Something went wrong starting the camera. Try again, or check that no other app is using it.'}
+                          </p>
+                          {/* stopCam() before startCam() forces a fresh getUserMedia() call instead
+                              of reattaching the same (possibly dead) stream — required for the
+                              'stalled' case, harmless for the others since stop() on an idle camera
+                              is a no-op. */}
+                          <button
+                            onClick={() => { stopCam(); startCam(); }}
+                            className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
+                          >
+                            Try again
+                          </button>
+                        </div>
+                      ) : (
+                        <WebcamMirror
+                          videoRef={videoRef}
+                          cosmeticBorderClasses={cosmeticBorderClasses}
+                          frameGuide={showCamGuide ? recognition.framing : null}
+                          aspectClassName="aspect-[var(--cam-ar)] lg:aspect-[4/3]"
+                        />
+                      )}
                     </div>
 
                     <div className="lg:order-3">
-                      {recognition.result && (
+                      {recognition.result && !cameraUnavailable && (
                         <ParameterChecklist
                           params={recognition.result.params}
                           sign={currentEngineSign}
