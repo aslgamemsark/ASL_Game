@@ -189,7 +189,7 @@ export function StoryPage({ story, onExit }: Props) {
         )}
       </div>
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-4 pb-6 flex flex-col">
+      <div className={`flex-1 mx-auto w-full px-4 pb-6 flex flex-col ${phase === 'dialogue' ? 'max-w-lg lg:max-w-6xl' : 'max-w-lg'}`}>
         <AnimatePresence mode="wait">
 
           {/* INTRO */}
@@ -250,7 +250,7 @@ export function StoryPage({ story, onExit }: Props) {
                 </div>
               </div>
 
-              {/* Sign prompt + hint */}
+              {/* Sign prompt + text hint */}
               <div className="bg-z-surface/50 rounded-2xl p-4 border border-z-purple/30">
                 {/* What the player's character says back, in plain English — turns the exchange
                     into a real conversation instead of a bare vocabulary word. */}
@@ -259,7 +259,8 @@ export function StoryPage({ story, onExit }: Props) {
                 <p className="text-xl font-bold text-z-purple-glow">
                   {currentSignData?.name.replace(/_/g, ' ')}
                 </p>
-                {/* Hint levels — both start hidden; nothing shows until the player explicitly asks. */}
+                {/* Level-1 hint — starts hidden; nothing shows until the player explicitly asks.
+                    Level-2 (the clip) moved into the camera grid below, alongside the webcam. */}
                 <AnimatePresence>
                   {hintLevel >= 1 && (
                     <motion.p key="hint1" className="text-xs text-z-gray-300 mt-2 border-t border-white/5 pt-2"
@@ -267,8 +268,20 @@ export function StoryPage({ story, onExit }: Props) {
                       {currentLine.hint}
                     </motion.p>
                   )}
+                </AnimatePresence>
+              </div>
+
+              {/* Mobile: stacked (hint clip once asked for, camera, stats). Desktop (lg+): same
+                  three-column camera setup as Lesson/Practice — clip left (once the level-2 hint
+                  is revealed), webcam center, stats right. */}
+              <div
+                className={`flex flex-col gap-4 lg:grid lg:gap-6 lg:items-start ${
+                  hintLevel >= 2 ? 'lg:grid-cols-[320px_1fr_340px]' : 'lg:grid-cols-[1fr_340px]'
+                }`}
+              >
+                <AnimatePresence>
                   {hintLevel >= 2 && (
-                    <motion.div key="hint2" className="mt-2 border-t border-white/5 pt-2"
+                    <motion.div key="hint2" className="lg:order-1"
                       initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
                       <ReferenceClip
                         clipUrl={currentSignData?.clip}
@@ -278,14 +291,26 @@ export function StoryPage({ story, onExit }: Props) {
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                <div className="lg:order-2">
+                  <WebcamMirror
+                    videoRef={videoRef}
+                    cosmeticBorderClasses={cosmeticBorderClasses}
+                    aspectClassName="aspect-[var(--cam-ar)] lg:aspect-[4/3]"
+                  />
+                </div>
+
+                <div className="lg:order-3">
+                  {recognition.result && (
+                    <ParameterChecklist
+                      params={recognition.result.params}
+                      sign={currentEngineSign}
+                      holdProgress={recognition.holdProgress}
+                      fillHeight
+                    />
+                  )}
+                </div>
               </div>
-
-              {/* Webcam */}
-              <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} />
-
-              {recognition.result && (
-                <ParameterChecklist params={recognition.result.params} sign={currentEngineSign} holdProgress={recognition.holdProgress} />
-              )}
 
               {/* Actions */}
               <div className="flex gap-2 mt-auto pt-1">

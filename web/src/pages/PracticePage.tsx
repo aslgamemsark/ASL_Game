@@ -387,7 +387,11 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
         )}
       </div>
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-4 pb-6 flex flex-col">
+      <div
+        className={`flex-1 mx-auto w-full px-4 pb-6 flex flex-col ${
+          currentType === 'expressive' && cardPhase === 'prompt' ? 'max-w-lg lg:max-w-6xl' : 'max-w-lg'
+        }`}
+      >
         <AnimatePresence mode="wait">
           {/* --- LOADING (bridges the gap between mount and auto-start completing) --- */}
           {mode === 'loading' && (
@@ -509,21 +513,42 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                     <p className="text-sm text-z-gray-300 mt-2">{currentSignData.description}</p>
                   </div>
 
-                  <WebcamMirror
-                    videoRef={videoRef}
-                    overlayClipUrl={showClip ? currentSignData.clip : undefined}
-                    overlaySignName={currentSignData.name}
-                    cosmeticBorderClasses={cosmeticBorderClasses}
-                    frameGuide={showCamGuide ? recognition.framing : null}
-                  />
+                  {/* Mobile: stacked (clip when shown, camera, stats). Desktop (lg+): reference
+                      clip left, webcam center, stats right — same three-column layout as
+                      LessonPage, so the "camera setup" reads identically everywhere it appears.
+                      Sign Quiz mode (showClip false) deliberately hides the clip column — that's
+                      the point of quizzing from memory — so the grid drops to two columns. */}
+                  <div
+                    className={`flex flex-col gap-4 lg:grid lg:gap-6 lg:items-start ${
+                      showClip && currentSignData.clip ? 'lg:grid-cols-[320px_1fr_340px]' : 'lg:grid-cols-[1fr_340px]'
+                    }`}
+                  >
+                    {showClip && currentSignData.clip && (
+                      <div className="lg:order-1">
+                        <ReferenceClip clipUrl={currentSignData.clip} signName={currentSignData.name} compact />
+                      </div>
+                    )}
 
-                  {recognition.result && (
-                    <ParameterChecklist
-                      params={recognition.result.params}
-                      sign={currentEngineSign}
-                      holdProgress={recognition.holdProgress}
-                    />
-                  )}
+                    <div className="lg:order-2">
+                      <WebcamMirror
+                        videoRef={videoRef}
+                        cosmeticBorderClasses={cosmeticBorderClasses}
+                        frameGuide={showCamGuide ? recognition.framing : null}
+                        aspectClassName="aspect-[var(--cam-ar)] lg:aspect-[4/3]"
+                      />
+                    </div>
+
+                    <div className="lg:order-3">
+                      {recognition.result && (
+                        <ParameterChecklist
+                          params={recognition.result.params}
+                          sign={currentEngineSign}
+                          holdProgress={recognition.holdProgress}
+                          fillHeight
+                        />
+                      )}
+                    </div>
+                  </div>
 
                   <div className="flex justify-end mt-auto pt-2">
                     <button
