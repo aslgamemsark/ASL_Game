@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WORLDS, WORLD_UNLOCK_GOLD_COST } from '@/data/worlds';
 import { LESSON_UNITS, LESSON_SKIP_COST } from '@/data/lessons';
@@ -19,6 +19,13 @@ import { LessonNode } from './LessonNode';
 interface Props {
   onSelectLesson: (id: string) => void;
   onStartStory: (id: string) => void;
+  /** Externally-requested world to open (e.g. the home page's "Start your journey" CTA) — synced
+   *  into the internal selection state below and paired with an auto-scroll to that world's first
+   *  lesson node once its detail view has rendered. */
+  openWorldId?: string | null;
+  /** Fired once the open+scroll above has run, so the caller can clear its trigger and this
+   *  doesn't re-fire on later unrelated renders. */
+  onOpenWorldHandled?: () => void;
 }
 
 interface WorldFlag {
@@ -26,9 +33,12 @@ interface WorldFlag {
   coming_soon: boolean;
 }
 
-export function WorldMap({ onSelectLesson, onStartStory }: Props) {
+export function WorldMap({ onSelectLesson, onStartStory, openWorldId, onOpenWorldHandled }: Props) {
   const { completedLessons, signs, skipLesson, gold, unlockedWorldIds, unlockWorldWithGold } = useUserStore();
   const [selectedWorldId, setSelectedWorldId] = useState<string | null>(null);
+  // Target for the auto-scroll below — attached to whichever node renders first (unitIdx 0,
+  // nodeIdx 0) once a world's detail view is showing.
+  const firstLessonRef = useRef<HTMLDivElement>(null);
   // Admin-controlled override layer on top of the static WORLDS array (see AdminPanel's Worlds
   // tab) — lets a world be hidden or marked "coming soon" without a code deploy. Missing row =
   // default (visible, not coming-soon), so this is a no-op until an admin actually touches it.
@@ -48,6 +58,21 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
 
   const visibleWorlds = WORLDS.filter((w) => worldFlags[w.id]?.enabled !== false);
   const selectedWorld = visibleWorlds.find((w) => w.id === selectedWorldId);
+
+  useEffect(() => {
+    if (openWorldId) setSelectedWorldId(openWorldId);
+  }, [openWorldId]);
+
+  useEffect(() => {
+    if (!openWorldId || selectedWorld?.id !== openWorldId) return;
+    // A beat for the detail view's own enter transition to lay out before measuring scroll
+    // position — then hand control back so this can't re-fire on a later, unrelated render.
+    const t = setTimeout(() => {
+      firstLessonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      onOpenWorldHandled?.();
+    }, 150);
+    return () => clearTimeout(t);
+  }, [openWorldId, selectedWorld, onOpenWorldHandled]);
 
   // A world opens either by finishing the previous world's story, OR by paying gold instead —
   // the two are independent paths, so unlockedWorldIds never touches completedLessons (that
@@ -148,6 +173,9 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
             </motion.div>
             <div className="flex flex-col items-center gap-7">
               {unit.nodes.map((node, nodeIdx) => {
+                // The very first node of the very first unit — the scroll target for the "Start
+                // your journey" CTA's openWorldId trigger above.
+                const isFirstNode = unitIdx === 0 && nodeIdx === 0;
                 // A node is a "story" card whenever its id matches ANY registered story, not just
                 // the world's primary one — lets a world host more than one story (e.g. a second,
                 // harder chapter) without widening World.storyId's single-value badge/unlock role.
@@ -159,50 +187,52 @@ export function WorldMap({ onSelectLesson, onStartStory }: Props) {
                   // actually waiting to talk to you is visible before you even tap in.
                   const npcCostume = STORIES.find((s) => s.id === node.id)?.npcCostume;
                   return (
-                    <motion.button
-                      key={node.id}
-                      onClick={() => onStartStory(node.id)}
-                      disabled={status === 'locked'}
-                      className={`flex items-center gap-3 px-5 py-3 rounded-2xl border text-left w-64 ${
-                        status === 'locked'
-                          ? 'border-white/5 bg-z-surface/30 opacity-50 cursor-default'
-                          : status === 'completed'
-                            ? 'border-z-green/30 bg-z-green/10'
-                            : 'border-z-purple/40 bg-z-purple/20 cursor-pointer'
-                      }`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: unitIdx * 0.1 + nodeIdx * 0.05 }}
-                      whileHover={status !== 'locked' ? { scale: 1.02 } : {}}
-                      whileTap={status !== 'locked' ? { scale: 0.97 } : {}}
-                    >
-                      {npcCostume ? (
-                        <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 bg-z-purple">
-                          <Zippy expression={npcCostume} fit="cover" />
+                    <div key={node.id} ref={isFirstNode ? firstLessonRef : undefined}>
+                      <motion.button
+                        onClick={() => onStartStory(node.id)}
+                        disabled={status === 'locked'}
+                        className={`flex items-center gap-3 px-5 py-3 rounded-2xl border text-left w-64 ${
+                          status === 'locked'
+                            ? 'border-white/5 bg-z-surface/30 opacity-50 cursor-default'
+                            : status === 'completed'
+                              ? 'border-z-green/30 bg-z-green/10'
+                              : 'border-z-purple/40 bg-z-purple/20 cursor-pointer'
+                        }`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: unitIdx * 0.1 + nodeIdx * 0.05 }}
+                        whileHover={status !== 'locked' ? { scale: 1.02 } : {}}
+                        whileTap={status !== 'locked' ? { scale: 0.97 } : {}}
+                      >
+                        {npcCostume ? (
+                          <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 bg-z-purple">
+                            <Zippy expression={npcCostume} fit="cover" />
+                          </div>
+                        ) : (
+                          <span className="text-2xl">{node.iconEmoji}</span>
+                        )}
+                        <div>
+                          <p className="font-bold text-sm">{node.title}</p>
+                          <p className="text-xs text-z-gray-400">{node.description}</p>
                         </div>
-                      ) : (
-                        <span className="text-2xl">{node.iconEmoji}</span>
-                      )}
-                      <div>
-                        <p className="font-bold text-sm">{node.title}</p>
-                        <p className="text-xs text-z-gray-400">{node.description}</p>
-                      </div>
-                      {status === 'completed' && <span className="ml-auto text-z-green">✓</span>}
-                      {status === 'locked' && <span className="ml-auto text-z-gray-500">🔒</span>}
-                    </motion.button>
+                        {status === 'completed' && <span className="ml-auto text-z-green">✓</span>}
+                        {status === 'locked' && <span className="ml-auto text-z-gray-500">🔒</span>}
+                      </motion.button>
+                    </div>
                   );
                 }
                 return (
-                  <LessonNode
-                    key={node.id}
-                    node={{ ...node, status: getNodeStatus(node.id, units) }}
-                    index={unitIdx * 10 + nodeIdx}
-                    unitColor={unit.color}
-                    onSelect={onSelectLesson}
-                    skipCost={LESSON_SKIP_COST}
-                    signsBalance={signs}
-                    onSkip={(id) => skipLesson(id, LESSON_SKIP_COST)}
-                  />
+                  <div key={node.id} ref={isFirstNode ? firstLessonRef : undefined}>
+                    <LessonNode
+                      node={{ ...node, status: getNodeStatus(node.id, units) }}
+                      index={unitIdx * 10 + nodeIdx}
+                      unitColor={unit.color}
+                      onSelect={onSelectLesson}
+                      skipCost={LESSON_SKIP_COST}
+                      signsBalance={signs}
+                      onSkip={(id) => skipLesson(id, LESSON_SKIP_COST)}
+                    />
+                  </div>
                 );
               })}
             </div>

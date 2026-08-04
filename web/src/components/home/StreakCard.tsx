@@ -16,7 +16,7 @@ export function StreakCard() {
 
   return (
     <motion.div
-      className="relative overflow-hidden rounded-3xl p-5 mb-6 cursor-default"
+      className="relative overflow-hidden rounded-3xl p-5 cursor-default"
       style={{ background: 'linear-gradient(135deg, #18103A 0%, #7C3AED 100%)' }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}

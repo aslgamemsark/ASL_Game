@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TopBar } from '@/components/shared/TopBar';
-import { StreakCard } from '@/components/home/StreakCard';
+import { StartJourneyCard } from '@/components/home/StartJourneyCard';
 import { BottomNav, type Tab } from '@/components/home/BottomNav';
 import { PracticeTab } from '@/components/home/PracticeTab';
 import { ProfileTab } from '@/components/home/ProfileTab';
@@ -86,6 +86,15 @@ export function HomePage({
     });
   };
 
+  // "Start your journey" CTA below → WorldMap opens this world and scrolls to its first lesson.
+  // 'greetings' is the "Say Hello" world's id (data/worlds.ts) — cleared once WorldMap consumes it.
+  const [openWorldId, setOpenWorldId] = useState<string | null>(null);
+  // useCallback (not an inline arrow at the call site) so the identity stays stable across
+  // HomePage's own re-renders — WorldMap depends on this in a useEffect that debounces the
+  // scroll-into-view behind a short timeout, and an unstable callback there would reset that
+  // timeout on every unrelated re-render, so it could never fire.
+  const handleOpenWorldHandled = useCallback(() => setOpenWorldId(null), []);
+
   return (
     <div className="min-h-screen bg-z-bg">
       {/* Guest tapping the avatar gets the sign-in prompt; a signed-in user goes to their Me tab. */}
@@ -109,7 +118,7 @@ export function HomePage({
                 onTap={pokeZippy}
                 className="mb-3"
               />
-              <StreakCard />
+              <StartJourneyCard onStart={() => setOpenWorldId('greetings')} />
               <ChestCard />
               <DailyQuestsCard />
               {/* Moved here from Review (2026-07-13) — a timed game mode belongs alongside the
@@ -152,6 +161,8 @@ export function HomePage({
               <WorldMap
                 onSelectLesson={onStartLesson}
                 onStartStory={onStartStory}
+                openWorldId={openWorldId}
+                onOpenWorldHandled={handleOpenWorldHandled}
               />
             </motion.div>
           )}

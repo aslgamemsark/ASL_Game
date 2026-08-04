@@ -3,7 +3,8 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getShopItem } from '@/data/shop';
 import { AvatarGlyph } from '@/components/shared/AvatarGlyph';
-import { motion } from 'framer-motion';
+import { StreakCard } from '@/components/home/StreakCard';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const fireVariants = {
   rest: { rotate: 0, x: 0, scale: 1, filter: 'brightness(1) drop-shadow(0 0 0px rgba(249,115,22,0))', transition: { duration: 0.3, ease: 'easeOut' as const } },
@@ -45,6 +46,10 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
   const goldRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [cartCenter, setCartCenter] = useState<number | null>(null);
+  // Streak detail (freeze count, today's goal, next milestone) used to live in an always-visible
+  // home-page card; moved into this hover popover instead (2026-08-04) so the info stays reachable
+  // without permanently occupying page space.
+  const [streakHover, setStreakHover] = useState(false);
 
   useLayoutEffect(() => {
     const goldEl = goldRef.current;
@@ -93,20 +98,40 @@ export function TopBar({ onOpenShop, onOpenProfile }: TopBarProps = {}) {
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
-            {/* Streak */}
-            <motion.div
-              className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default"
-              initial="rest"
-              whileHover="blaze"
-              whileTap={{ scale: 0.92 }}
-              variants={{
-                rest:  { scale: 1, backgroundColor: 'rgba(34, 21, 72, 0.6)' },
-                blaze: { scale: 1.1, backgroundColor: 'rgba(249, 115, 22, 0.16)', transition: { duration: 0.2 } },
-              }}
+            {/* Streak — hover reveals the full detail card (freezes, today's goal, next milestone) */}
+            <div
+              className="relative"
+              onMouseEnter={() => setStreakHover(true)}
+              onMouseLeave={() => setStreakHover(false)}
             >
-              <motion.span className="text-sm inline-block" variants={fireVariants}>🔥</motion.span>
-              <span className="font-bold text-xs text-z-orange">{streak}</span>
-            </motion.div>
+              <motion.div
+                className="flex items-center gap-1 bg-z-surface/60 rounded-full px-2.5 py-1 cursor-default"
+                initial="rest"
+                whileHover="blaze"
+                whileTap={{ scale: 0.92 }}
+                variants={{
+                  rest:  { scale: 1, backgroundColor: 'rgba(34, 21, 72, 0.6)' },
+                  blaze: { scale: 1.1, backgroundColor: 'rgba(249, 115, 22, 0.16)', transition: { duration: 0.2 } },
+                }}
+              >
+                <motion.span className="text-sm inline-block" variants={fireVariants}>🔥</motion.span>
+                <span className="font-bold text-xs text-z-orange">{streak}</span>
+              </motion.div>
+
+              <AnimatePresence>
+                {streakHover && (
+                  <motion.div
+                    className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 max-w-[85vw] z-50"
+                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <StreakCard />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* Signs 🤟 */}
             <motion.div
