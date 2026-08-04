@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { ParamScore } from '@/engine/verifier';
 import { Anchor, PalmFacing, type Sign } from '@/engine/schema';
 import { advanceGateState, initGateState, type GateState } from '@/engine/coachingGate';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 
 const FRIENDLY_NAMES: Record<string, string> = {
   handshape_dominant: 'Hand shape',
@@ -113,6 +114,28 @@ export function hintFor(param: ParamScore, sign?: Sign | null): string | null {
   return null;
 }
 
+/**
+ * What the coach should say out loud right now — the one actionable correction, or '' when there
+ * is nothing to say.
+ *
+ * Returns a SINGLE hint rather than every failing parameter on purpose. A sighted learner glances
+ * at the checklist and picks one thing to fix; read aloud, three instructions at once is noise, and
+ * the next one announces itself as soon as the first clears. Parameter order is the sign's own
+ * declaration order, so the announcement is stable rather than jumping around as scores wobble.
+ *
+ * Only `confident-fail` produces a hint — that gate already requires a sustained, clearly-below-
+ * threshold streak (see coachingGate.ts), which is what stops a noisy frame announcing a wrong
+ * instruction. 'neutral' deliberately says nothing: "still working on it" is not worth interrupting
+ * a screen reader for.
+ */
+export function coachAnnouncement(
+  entries: { param: ParamScore; status: GateState['status'] }[],
+  sign?: Sign | null
+): string {
+  const failing = entries.find((e) => e.status === 'confident-fail');
+  return failing ? hintFor(failing.param, sign) ?? '' : '';
+}
+
 interface Props {
   params: ParamScore[];
   sign?: Sign | null;
@@ -126,7 +149,12 @@ interface Props {
   fillHeight?: boolean;
 }
 
-export function ParameterChecklist({ params, sign, holdProgress, fillHeight }: Props) {
+// memo: `params` is a fresh array from the throttled (but still frequently updating) recognition
+// result, so this component correctly re-renders when it actually changes — memo instead saves it
+// from re-rendering on every OTHER unrelated state change in the parent page (camera pages here
+// hold 15-25+ pieces of useState each), which is otherwise unconditional with zero React.memo
+// anywhere in this codebase (2026-07-30 audit).
+export const ParameterChecklist = memo(function ParameterChecklist({ params, sign, holdProgress, fillHeight }: Props) {
   // Per-parameter confidence-gate state, keyed by param name, sustained across frames so a
   // single noisy frame can't flip a specific (possibly wrong) coaching tip on or off. See
   // engine/coachingGate.ts — 'cleared' is immediate, 'confident-fail' requires a sustained
@@ -145,8 +173,23 @@ export function ParameterChecklist({ params, sign, holdProgress, fillHeight }: P
     if (changed) setTick((t) => t + 1);
   }, [params]);
 
+  const announcement = coachAnnouncement(
+    params.map((p) => ({ param: p, status: (gatesRef.current[p.name] ?? initGateState()).status })),
+    sign
+  );
+
   return (
     <div className={`flex flex-col gap-2 ${fillHeight ? 'lg:gap-3' : ''}`}>
+      {/* The Sign Coach's feedback is otherwise carried entirely by colour and position, which a
+          screen reader gets nothing from — and this checklist IS the product's differentiator, so
+          "which parameter missed and how to fix it" is the one thing that must reach everyone.
+          WCAG 4.1.3 (Status Messages, AA), and the app had no live region anywhere before this.
+
+          Always mounted rather than rendered only when there's something to say: a live region
+          inserted into the DOM at the same moment its text appears is unreliably announced, since
+          assistive tech has to be observing the node beforehand. Empty string = silence. */}
+      <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
+
       {holdProgress != null && (
         <motion.div
           className="flex items-center gap-3 rounded-xl px-3 py-2.5 border bg-z-purple/10 border-z-purple/30"
@@ -157,13 +200,18 @@ export function ParameterChecklist({ params, sign, holdProgress, fillHeight }: P
             <p className="text-sm font-semibold text-z-purple-light">Hold the pose…</p>
             <p className="text-xs text-z-gray-400 mt-0.5">Keep still while it locks in</p>
           </div>
-          <div className="w-20 h-2 bg-z-surface rounded-full overflow-hidden">
-            <motion.div
-              className="h-full rounded-full bg-z-purple-light"
-              animate={{ width: `${Math.round(holdProgress * 100)}%` }}
-              transition={{ duration: 0.1, ease: 'linear' }}
-            />
-          </div>
+          {/* transform: scaleX(), not width — this bar re-targets up to 10x/sec while holding a
+              static sign (see useRecognition.ts's RESULT_UPDATE_INTERVAL_MS), and width is a
+              layout property: every retarget would force a reflow of this row, its siblings, and
+              the flex parent. ProgressBar always animates scaleX (found 2026-07-30). */}
+          <ProgressBar
+            value={holdProgress}
+            label="Hold progress"
+            size="sm"
+            fillClassName="bg-z-purple-light"
+            transition={{ duration: 0.1, ease: 'linear' }}
+            className="w-20"
+          />
           <span className="text-xs font-mono w-8 text-right text-z-purple-light">
             {Math.round(holdProgress * 100)}%
           </span>
@@ -212,20 +260,19 @@ export function ParameterChecklist({ params, sign, holdProgress, fillHeight }: P
                 <p className="text-xs text-z-gray-300 mt-0.5">{hint}</p>
               )}
               {!cleared && !confidentFail && param.required && (
-                <p className="text-xs text-z-gray-500 mt-0.5">Keep trying…</p>
+                <p className="text-xs text-z-gray-400 mt-0.5">Keep trying…</p>
               )}
             </div>
 
-            <div className="w-20 h-2 bg-z-surface rounded-full overflow-hidden">
-              <motion.div
-                className={`h-full rounded-full ${
-                  cleared ? 'bg-z-green' : confidentFail ? 'bg-z-red' : 'bg-z-purple-light'
-                }`}
-                initial={{ width: 0 }}
-                animate={{ width: `${pct}%` }}
-                transition={{ duration: 0.3 }}
-              />
-            </div>
+            {/* transform: scaleX(), not width — see the hold-progress bar's comment above. */}
+            <ProgressBar
+              value={pct / 100}
+              label={`${FRIENDLY_NAMES[param.name] || param.name} score`}
+              size="sm"
+              fillClassName={cleared ? 'bg-z-green' : confidentFail ? 'bg-z-red' : 'bg-z-purple-light'}
+              transition={{ duration: 0.3 }}
+              className="w-20"
+            />
 
             <span className={`text-xs font-mono w-8 text-right ${
               cleared ? 'text-z-green' : 'text-z-gray-400'
@@ -237,4 +284,4 @@ export function ParameterChecklist({ params, sign, holdProgress, fillHeight }: P
       })}
     </div>
   );
-}
+});

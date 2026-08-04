@@ -1,0 +1,50 @@
+{
+  "name": "WANT",
+  "twoHanded": true,
+  "extraHandMotionFloor": null,
+  "dominant": {
+    "kind": "open",
+    "required": true,
+    "minConfidence": 0.6
+  },
+  "nondominant": {
+    "kind": "open",
+    "required": true,
+    "minConfidence": 0.6
+  },
+  "location": {
+    "anchor": "neutral_space",
+    "actingHand": "dominant",
+    "maxDistRatio": 3.0,
+    "minDistRatio": 0.0,
+    "vertical": null,
+    "below": null,
+    "useClosestApproach": false,
+    "required": false,
+    "minConfidence": 0.6
+  },
+  "movement": {
+    "kind": "linear",
+    "actor": "dominant",
+    "pivot": "nondominant",
+    "minTotalRotationDeg": 300.0,
+    "radiusToleranceRatio": 0.4,
+    "direction": [
+      0.0,
+      1.0
+    ],
+    "minDisplacementRatio": 0.2,
+    "minCycles": 2,
+    "minAmplitudeRatio": 0.05,
+    "minApproachRatio": 0.15,
+    "traceTemplate": [],
+    "traceToleranceDeg": 60.0,
+    "gateToLocation": false,
+    "otherHandMaxMotionRatio": null,
+    "minDurationS": 0.4,
+    "required": true,
+    "minConfidence": 0.25
+  },
+  "orientation": null,
+  "nmm": null
+}

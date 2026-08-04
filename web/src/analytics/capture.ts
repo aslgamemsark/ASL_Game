@@ -1,4 +1,4 @@
-import { getPosthog } from './client';
+import { getPosthog, whenAnalyticsReady } from './client';
 import { EVENTS } from './events';
 import { setAnalyticsOptedOut, isAnalyticsOptedOut } from './consent';
 import type { ActiveEventName, EventPayloads } from './types';
@@ -14,11 +14,19 @@ import type { ActiveEventName, EventPayloads } from './types';
 /**
  * Fire a typed product event. No-ops silently when analytics isn't configured (no key, or dev
  * without VITE_ANALYTICS_DEV) or the user opted out — callers never need their own guard.
+ *
+ * If posthog-js is still being fetched (initAnalytics dynamically imports it — see client.ts),
+ * the event is queued and replayed in order once it's ready, rather than silently dropped. That
+ * window is real now (it wasn't when the import was static) and top-of-funnel events like
+ * `landing_view` fire in exactly that window on a fresh page load.
  */
 export function track<E extends ActiveEventName>(event: E, properties: EventPayloads[E]): void {
   const ph = getPosthog();
-  if (!ph) return;
-  ph.capture(EVENTS[event], properties as Record<string, unknown>);
+  if (ph) {
+    ph.capture(EVENTS[event], properties as Record<string, unknown>);
+    return;
+  }
+  whenAnalyticsReady(() => getPosthog()?.capture(EVENTS[event], properties as Record<string, unknown>));
 }
 
 /** Identity a signed-in user. Call once, right after AuthContext resolves a session — never with

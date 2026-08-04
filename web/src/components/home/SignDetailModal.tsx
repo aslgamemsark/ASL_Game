@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SignDef } from '@/types/signs';
+import { Button } from '@/components/shared/Button';
 
 interface Props {
   sign: SignDef;
@@ -9,6 +11,7 @@ interface Props {
 }
 
 export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
+  const dialog = useDialogA11y({ label: sign.name.replace(/_/g, ' '), onClose });
   const [clipFailed, setClipFailed] = useState(false);
   const hasClip = sign.clip != null && !clipFailed;
   const displayName = sign.name.replace(/_/g, ' ');
@@ -16,7 +19,7 @@ export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+        className="fixed inset-0 z-overlay flex items-end sm:items-center justify-center p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -27,7 +30,9 @@ export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
         />
 
         <motion.div
-          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-5 shadow-2xl"
+          ref={dialog.ref}
+          {...dialog.props}
+          className="relative w-full max-w-sm max-h-[85dvh] overflow-y-auto bg-z-card border border-white/10 rounded-3xl p-5 shadow-2xl outline-none"
           initial={{ y: 40, opacity: 0, scale: 0.96 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: 40, opacity: 0, scale: 0.96 }}
@@ -50,7 +55,7 @@ export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
             <button
               onClick={onClose}
               aria-label="Close"
-              className="text-z-gray-400 hover:text-z-gray-50 text-2xl leading-none -mt-1"
+              className="w-11 h-11 -mr-2.5 -mt-2.5 flex items-center justify-center text-z-gray-400 hover:text-z-gray-50 text-2xl leading-none shrink-0"
             >
               ×
             </button>
@@ -87,14 +92,9 @@ export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
           </div>
 
           {/* Try Yourself */}
-          <motion.button
-            onClick={() => onTryYourself(sign.name)}
-            className="w-full rounded-2xl py-3 font-bold text-white text-sm flex items-center justify-center gap-2 bg-gradient-primary"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-          >
+          <Button onClick={() => onTryYourself(sign.name)} size="sm" fullWidth>
             📷 Try Yourself
-          </motion.button>
+          </Button>
         </motion.div>
       </motion.div>
     </AnimatePresence>

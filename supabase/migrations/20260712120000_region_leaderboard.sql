@@ -23,33 +23,48 @@
 --    database is in.
 -- ============================================================
 
+-- The header comment above claims this whole block is idempotent ("drop-if-exists + create"),
+-- but only the OLD combined policy name was ever dropped — none of the four granular policies
+-- being (re-)created here were. That's harmless replayed against the live database (these four
+-- didn't exist there yet when this was written), but a from-scratch replay creates them via
+-- 20260709000000/20260709010000 first, then hits this file and fails on "policy already exists"
+-- (found 2026-08-04, first from-scratch `supabase db reset`). Each create now has its own
+-- drop-if-exists immediately above it, matching what the comment already claimed.
 drop policy if exists "progress_all_own" on public.user_progress;
 
+drop policy if exists "progress_select_public" on public.user_progress;
 create policy "progress_select_public" on public.user_progress
   for select using (true);
 
+drop policy if exists "progress_insert_own" on public.user_progress;
 create policy "progress_insert_own" on public.user_progress
   for insert with check (auth.uid() = user_id);
 
+drop policy if exists "progress_update_own" on public.user_progress;
 create policy "progress_update_own" on public.user_progress
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+drop policy if exists "progress_delete_own" on public.user_progress;
 create policy "progress_delete_own" on public.user_progress
   for delete using (auth.uid() = user_id);
 
 
 drop policy if exists "attempts_own" on public.sign_attempts;
 
+drop policy if exists "attempts_select_public" on public.sign_attempts;
 create policy "attempts_select_public" on public.sign_attempts
   for select using (true);
 
+drop policy if exists "attempts_insert_own" on public.sign_attempts;
 create policy "attempts_insert_own" on public.sign_attempts
   for insert with check (auth.uid() = user_id and not public.current_user_banned());
 
+drop policy if exists "attempts_update_own" on public.sign_attempts;
 create policy "attempts_update_own" on public.sign_attempts
   for update using (auth.uid() = user_id and not public.current_user_banned())
   with check (auth.uid() = user_id and not public.current_user_banned());
 
+drop policy if exists "attempts_delete_own" on public.sign_attempts;
 create policy "attempts_delete_own" on public.sign_attempts
   for delete using (auth.uid() = user_id and not public.current_user_banned());
 

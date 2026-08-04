@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 import { ClipEnlarge } from '@/components/lesson/ClipEnlarge';
+import { Button } from '@/components/shared/Button';
 import type { ParamScore } from '@/engine/verifier';
 import type { Sign } from '@/engine/schema';
 
@@ -155,7 +156,7 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
       )}
 
       <div className="flex items-center justify-between">
-        <p className="text-[11px] text-z-gray-500">
+        <p className="text-2xs text-z-gray-400">
           Replay stays on your device and is deleted when you continue.
         </p>
         <button
@@ -182,14 +183,9 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
         </>
       )}
 
-      <motion.button
-        onClick={onContinue}
-        className="mt-auto w-full py-3 rounded-2xl font-bold text-white text-base bg-gradient-primary"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.97 }}
-      >
+      <Button onClick={onContinue} fullWidth className="mt-auto">
         Continue
-      </motion.button>
+      </Button>
     </motion.div>
   );
 }

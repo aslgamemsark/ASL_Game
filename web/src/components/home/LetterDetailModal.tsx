@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LetterDef } from '@/data/alphabet';
 import { ClipEnlarge } from '@/components/lesson/ClipEnlarge';
+import { Button } from '@/components/shared/Button';
 
 // All 26 letters now ship a StudioGalt-archive-rendered demo clip in /public/clips
 // (LETTER_<letter>.mp4) — independent of whether the letter also has a camera-recognizable
@@ -16,6 +18,7 @@ interface Props {
 }
 
 export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
+  const dialog = useDialogA11y({ label: `Letter ${def.letter}`, onClose });
   const [imgFailed, setImgFailed] = useState(false);
   const [clipFailed, setClipFailed] = useState(false);
   const [enlarged, setEnlarged] = useState(false);
@@ -25,7 +28,7 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+        className="fixed inset-0 z-overlay flex items-end sm:items-center justify-center p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -36,7 +39,9 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
         />
 
         <motion.div
-          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-5 shadow-2xl"
+          ref={dialog.ref}
+          {...dialog.props}
+          className="relative w-full max-w-sm max-h-[85dvh] overflow-y-auto bg-z-card border border-white/10 rounded-3xl p-5 shadow-2xl outline-none"
           initial={{ y: 40, opacity: 0, scale: 0.96 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: 40, opacity: 0, scale: 0.96 }}
@@ -55,7 +60,7 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
                 {def.letter}
               </div>
               <div>
-                <p className="text-z-gray-400 text-[10px] uppercase tracking-widest leading-none mb-1">
+                <p className="text-z-gray-400 text-3xs uppercase tracking-widest leading-none mb-1">
                   Handshape
                 </p>
                 <p className="font-bold text-z-gray-50 text-sm leading-none">{def.handshape}</p>
@@ -64,7 +69,7 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
             <button
               onClick={onClose}
               aria-label="Close"
-              className="text-z-gray-400 hover:text-z-gray-50 text-2xl leading-none -mt-1"
+              className="w-11 h-11 -mr-2.5 -mt-2.5 flex items-center justify-center text-z-gray-400 hover:text-z-gray-50 text-2xl leading-none shrink-0"
             >
               ×
             </button>
@@ -134,19 +139,18 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
           </div>
 
           {/* Try Yourself */}
-          <motion.button
+          <Button
             onClick={() => canPractice && onTryYourself(def.signId!)}
             disabled={!canPractice}
-            className="w-full rounded-2xl py-3 font-bold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-primary"
-            whileHover={canPractice ? { scale: 1.02 } : undefined}
-            whileTap={canPractice ? { scale: 0.97 } : undefined}
+            size="sm"
+            fullWidth
           >
             {canPractice ? (
               <>📷 Try Yourself</>
             ) : (
               <>Camera practice coming soon</>
             )}
-          </motion.button>
+          </Button>
         </motion.div>
       </motion.div>
     </AnimatePresence>

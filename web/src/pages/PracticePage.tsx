@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/shared/Button';
 import { useCamera } from '@/hooks/useCamera';
 import { useAttemptRecorder } from '@/hooks/useAttemptRecorder';
 import { useRecognition } from '@/hooks/useRecognition';
@@ -353,7 +354,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   };
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       {/* Hidden video for MediaPipe */}
       <video
         ref={videoRef}
@@ -429,7 +430,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-bold">Sign It</h3>
-                    <p className="text-purple-200 text-sm mt-1">Camera + demo clip to follow along</p>
+                    <p className="text-white text-sm mt-1">Camera + demo clip to follow along</p>
                   </div>
                   <span className="text-3xl">🤟</span>
                 </div>
@@ -455,7 +456,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                 <label className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-z-card border border-white/5 cursor-pointer">
                   <span className="text-sm text-z-gray-200">
                     Record my attempts for replay
-                    <span className="block text-[11px] text-z-gray-500">Stays on your device, never uploaded</span>
+                    <span className="block text-2xs text-z-gray-400">Stays on your device, never uploaded</span>
                   </span>
                   <input
                     type="checkbox"
@@ -650,27 +651,26 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                 )}
               </div>
               {bonusGoldOnPerfect != null && goldAwarded === 0 && (
-                <p className="text-z-gray-500 text-xs -mt-2">
+                <p className="text-z-gray-400 text-xs -mt-2">
                   Pass every letter without skipping to earn {bonusGoldOnPerfect} gold 🪙
                 </p>
               )}
-              <motion.button
-                onClick={onExit}
-                className="mt-4 px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
+              <Button onClick={onExit} className="mt-4">
                 Back to Home
-              </motion.button>
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
+      {/* Always-mounted announcer, separate from the toast's own AnimatePresence-gated div — see
+          DESIGN.md "Status messages": a live region must already be in the DOM before its text
+          appears, or a screen reader may miss it. */}
+      <p className="sr-only" role="status" aria-live="polite">{skipMsg ?? ''}</p>
       <AnimatePresence>
         {skipMsg && (
           <motion.div
-            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-50 flex items-center gap-2"
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-overlay flex items-center gap-2"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}

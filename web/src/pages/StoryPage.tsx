@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/shared/Button';
 import { useCamera } from '@/hooks/useCamera';
 import { useRecognition } from '@/hooks/useRecognition';
 import { useClassifier } from '@/hooks/useClassifier';
@@ -176,7 +177,7 @@ export function StoryPage({ story, onExit }: Props) {
   const timeTaken = Math.round((Date.now() - startedAt) / 1000);
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       <video ref={videoRef} style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }} muted playsInline autoPlay />
 
       {/* Header */}
@@ -220,11 +221,9 @@ export function StoryPage({ story, onExit }: Props) {
               {recognition.status === 'loading' && (
                 <p className="text-sm text-z-gray-400 animate-pulse">Loading camera model…</p>
               )}
-              <motion.button onClick={handleStart} disabled={recognition.status === 'loading'}
-                className="mt-2 px-8 py-3 rounded-2xl font-bold text-white text-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-primary"
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <Button onClick={handleStart} disabled={recognition.status === 'loading'} size="lg" className="mt-2">
                 Start
-              </motion.button>
+              </Button>
             </motion.div>
           )}
 
@@ -363,15 +362,15 @@ export function StoryPage({ story, onExit }: Props) {
               <div className="grid grid-cols-3 gap-3 w-full max-w-xs">
                 <div className="bg-z-card rounded-2xl p-3 text-center border border-white/5">
                   <p className="text-xl font-bold text-z-yellow">{earnedXp}</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">XP earned</p>
+                  <p className="text-2xs text-z-gray-400 mt-0.5">XP earned</p>
                 </div>
                 <div className="bg-z-card rounded-2xl p-3 text-center border border-white/5">
                   <p className="text-xl font-bold text-z-purple-light">{earnedSigns}🤟</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">Signs</p>
+                  <p className="text-2xs text-z-gray-400 mt-0.5">Signs</p>
                 </div>
                 <div className="bg-z-card rounded-2xl p-3 text-center border border-white/5">
                   <p className="text-xl font-bold text-z-yellow">{storyGold}🪙</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">Gold</p>
+                  <p className="text-2xs text-z-gray-400 mt-0.5">Gold</p>
                 </div>
               </div>
 
@@ -391,11 +390,9 @@ export function StoryPage({ story, onExit }: Props) {
                 </div>
               </div>
 
-              <motion.button onClick={onExit}
-                className="mt-2 px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <Button onClick={onExit} className="mt-2">
                 Back to Home
-              </motion.button>
+              </Button>
             </motion.div>
           )}
 

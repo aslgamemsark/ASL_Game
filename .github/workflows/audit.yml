@@ -1,0 +1,27 @@
+name: Dependency audit
+
+# Runs on a schedule instead of gating every PR/push build. A `high` advisory can get published
+# for an existing, already-installed transitive dependency at any time — that must not turn the
+# build red for a commit that changed nothing (this is exactly what happened to `web`'s CI: 30/30
+# runs failed on `npm audit`, unrelated to any code change, and nobody could tell "app broken" from
+# "upstream published an advisory today").
+on:
+  schedule:
+    - cron: '0 6 * * 1' # every Monday
+  workflow_dispatch: {}
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run audit

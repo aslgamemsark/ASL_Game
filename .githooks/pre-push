@@ -1,0 +1,12 @@
+#!/bin/sh
+# Activate with: git config core.hooksPath .githooks
+# Runs the same three checks CI runs on `web/`, before code leaves this machine — CI was found
+# red on 30/30 recorded runs with nobody noticing until 12 commits had landed (2026-07-29 audit).
+set -e
+cd "$(git rev-parse --show-toplevel)/web"
+echo "pre-push: tsc -b"
+npx tsc -b
+echo "pre-push: oxlint"
+npm run lint
+echo "pre-push: vitest"
+npm run test

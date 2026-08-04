@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 
@@ -24,14 +25,13 @@ export function ClipEnlarge({ clipUrl, signName, open, onClose }: Props) {
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, onClose]);
+  // Escape and the focus trap both come from useDialogA11y now — this used to hand-roll only the
+  // Escape half, so a keyboard user could tab out of the enlarged clip into the page behind it.
+  const dialog = useDialogA11y({
+    label: `${signName.replace(/_/g, ' ')} demo, enlarged`,
+    onClose,
+    active: open,
+  });
 
   if (typeof document === 'undefined') return null;
 
@@ -39,17 +39,20 @@ export function ClipEnlarge({ clipUrl, signName, open, onClose }: Props) {
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[200] bg-black/85 flex items-center justify-center p-4"
+          className="fixed inset-0 z-takeover bg-black/85 flex items-center justify-center p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${signName.replace(/_/g, ' ')} demo, enlarged`}
+          ref={dialog.ref}
+          {...dialog.props}
         >
           <motion.div
-            className="relative w-full max-w-2xl aspect-square"
+            // Sized off height as well as width now: at max-w-2xl (672px) wide, the square was
+            // exactly at the edge of a 375x667 phone rotated to landscape (667px viewport minus
+            // p-4) and overflowed on anything shorter (mobile audit, 2026-07-28). `h-full` +
+            // `max-h-[...]` bounds it by whichever dimension is actually tighter.
+            className="relative w-auto h-full max-w-2xl max-h-[calc(100dvh-2rem)] aspect-square mx-auto"
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.92, opacity: 0 }}
@@ -71,7 +74,7 @@ export function ClipEnlarge({ clipUrl, signName, open, onClose }: Props) {
             >
               ✕
             </button>
-            <div className="absolute bottom-3 left-3 right-3 bg-black/60 rounded-xl px-3 py-2">
+            <div className="absolute bottom-3 left-3 right-3 bg-video-plate rounded-xl px-3 py-2">
               <p className="text-white text-sm font-bold">{signName.replace(/_/g, ' ')}</p>
             </div>
           </motion.div>
