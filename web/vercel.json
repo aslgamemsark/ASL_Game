@@ -5,7 +5,7 @@
   "rewrites": [{ "source": "/((?!.*\\.[a-zA-Z0-9]+$).*)", "destination": "/index.html" }],
   "headers": [
     {
-      "source": "/landing.html",
+      "source": "/(landing|asl-alphabet).html",
       "headers": [
         {
           "key": "Content-Security-Policy",
@@ -19,7 +19,7 @@
       ]
     },
     {
-      "source": "/((?!landing\\.html$).*)",
+      "source": "/((?!landing\\.html$|asl-alphabet\\.html$).*)",
       "headers": [
         {
           "key": "Content-Security-Policy",

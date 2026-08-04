@@ -25,20 +25,20 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
 <!-- Quicksand is self-hosted (see /fonts/), not loaded from Google Fonts: no render-blocking
-     third-party request and no user-IP leak to Google on the marketing page either. -->
-<style>
-  @font-face {
-    font-family: 'Quicksand'; font-style: normal; font-weight: 300 700; font-display: swap;
-    src: url('/fonts/quicksand-latin.woff2') format('woff2');
-    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-  }
-  @font-face {
-    font-family: 'Quicksand'; font-style: normal; font-weight: 300 700; font-display: swap;
-    src: url('/fonts/quicksand-latin-ext.woff2') format('woff2');
-    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-  }
-</style>
+     third-party request and no user-IP leak to Google on the marketing page either.
+     Shared with every other static marketing page (see /css/marketing.css) so the browser
+     caches it once instead of re-downloading ~850 lines of CSS per page. -->
+<link rel="stylesheet" href="/css/marketing.css">
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "QuickSign",
+  "url": "https://aslgame.vercel.app/landing.html",
+  "logo": "https://aslgame.vercel.app/pwa-512x512.png"
+}
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -74,6 +74,11 @@
       "@type": "Question",
       "name": "Is it free?",
       "acceptedAnswer": { "@type": "Answer", "text": "Yes, QuickSign is free to use." }
+    },
+    {
+      "@type": "Question",
+      "name": "Where should a total beginner start?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Most learners start with the ASL alphabet to get comfortable with handshapes, then move into the Say Hello world for your first conversational signs." }
     },
     {
       "@type": "Question",
@@ -997,6 +1002,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <a href="#how-it-works">How it works</a>
       <a href="#worlds">Worlds</a>
       <a href="#multiplayer">Multiplayer</a>
+      <a href="/asl-alphabet.html">ASL Alphabet</a>
       <a href="#faq">FAQ</a>
       <a href="https://aslgame.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Start learning free</a>
     </div>
@@ -1199,6 +1205,10 @@ document.addEventListener('DOMContentLoaded', function () {
           <div class="faq-a"><p>Yes, QuickSign is free to use.</p></div>
         </details>
         <details class="faq-item">
+          <summary>Where should a total beginner start?</summary>
+          <div class="faq-a"><p>Most learners start with the <a href="/asl-alphabet.html" style="color: var(--purple-light); font-weight: 600;">ASL alphabet</a> to get comfortable with handshapes, then move into the Say Hello world for your first conversational signs.</p></div>
+        </details>
+        <details class="faq-item">
           <summary>Was the sign content checked by Deaf ASL signers?</summary>
           <div class="faq-a"><p>Not yet — we're a small student team and this is an open beta. Sign accuracy review by Deaf and hard-of-hearing signers is a known gap we want to close. If that's you, we'd genuinely value your feedback.</p></div>
         </details>
@@ -1237,6 +1247,8 @@ document.addEventListener('DOMContentLoaded', function () {
       <span>Privacy first</span>
     </div>
     <div class="footer-copy">
+      <a href="/asl-alphabet.html" style="color: var(--muted); text-decoration: none;">ASL Alphabet</a>
+      &nbsp;·&nbsp;
       <a href="https://aslgame.vercel.app/" target="_blank" rel="noopener noreferrer" style="color: var(--purple-light); font-weight: 700; text-decoration: none;">QuickSign ↗</a>
       &nbsp;·&nbsp; © 2026 QuickSign
     </div>
