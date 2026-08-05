@@ -44,8 +44,6 @@ interface Props {
   bonusGoldOnPerfect?: number;
   /** Overrides the header title while in expressive/done mode (e.g. "Letter Test"). */
   heading?: string;
-  /** When true, suppresses the reference clip during practice (e.g. alphabet test mode). */
-  hideReferenceClip?: boolean;
 }
 
 // Practice covers review, the alphabet test, and true mixed quizzes — none map cleanly onto the
@@ -58,7 +56,7 @@ function practiceContentType(autoStartMixed: boolean | undefined, heading: strin
   return 'review';
 }
 
-export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoStartMixed, bonusGoldOnPerfect, heading, hideReferenceClip }: Props) {
+export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoStartMixed, bonusGoldOnPerfect, heading }: Props) {
   const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession, equippedBorder, setDominantHand } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
@@ -73,7 +71,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   // Auto-start flows begin in 'loading' (not 'menu') so the mode-choice menu never flashes
   // on screen for a frame before the auto-start effect below replaces it.
   const [mode, setMode] = useState<Mode>(() => (autoStartExpressive || autoStartMixed) ? 'loading' : 'menu');
-  const [showClip, setShowClip] = useState(!hideReferenceClip);
+  // Always shown by default (including "Test from Memory" quiz sessions) — quizzing a learner on
+  // a handshape they've never been shown a video of is a bad first experience, not a genuine
+  // memory test. "Sign Quiz" on the menu below still lets a user opt into hiding it deliberately.
+  const [showClip, setShowClip] = useState(true);
   const [queue, setQueue] = useState<string[]>([]);
   const [queueIdx, setQueueIdx] = useState(0);
   const [itemTypes, setItemTypes] = useState<QuestionType[]>([]);

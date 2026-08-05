@@ -64,7 +64,7 @@ type Screen =
   | { type: 'home' }
   | { type: 'onboarding'; startAt?: 'welcome' | 'auth' }
   | { type: 'lesson'; lessonId: string }
-  | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; mixedQuiz?: boolean; bonusGoldOnPerfect?: number; heading?: string; hideReferenceClip?: boolean }
+  | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; mixedQuiz?: boolean; bonusGoldOnPerfect?: number; heading?: string }
   | { type: 'story'; storyId: string }
   | { type: 'speed' }
   | { type: 'shop' }
@@ -388,7 +388,6 @@ export default function App() {
                 autoStartMixed={screen.mixedQuiz}
                 bonusGoldOnPerfect={screen.bonusGoldOnPerfect}
                 heading={screen.heading}
-                hideReferenceClip={screen.hideReferenceClip}
               />
             </ScreenTransition>
           )}

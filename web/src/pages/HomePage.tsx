@@ -35,7 +35,6 @@ interface Props {
     mixedQuiz?: boolean;
     bonusGoldOnPerfect?: number;
     heading?: string;
-    hideReferenceClip?: boolean;
   }) => void;
   onStartStory: (id: string) => void;
   onStartSpeed: () => void;
@@ -208,7 +207,6 @@ export function HomePage({
                     mixedQuiz: true,
                     bonusGoldOnPerfect: 15,
                     heading: 'Letter Test',
-                    hideReferenceClip: true,
                   })
                 }
               />
@@ -231,7 +229,6 @@ export function HomePage({
                     mixedQuiz: true,
                     bonusGoldOnPerfect: 15,
                     heading: 'Basic Signs Test',
-                    hideReferenceClip: true,
                   })
                 }
               />
