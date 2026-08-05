@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { motion } from 'framer-motion';
 import { TurnOverlay } from '@/components/shared/TurnOverlay';
-import { ClipEnlarge } from '@/components/lesson/ClipEnlarge';
+import { useClipEnlarge, ClipEnlargeOverlay } from '@/components/shared/ClipEnlarge';
 
 interface Props {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -65,7 +65,6 @@ interface Props {
 export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones, aspectClassName = 'aspect-[var(--cam-ar)]' }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
-  const [overlayEnlarged, setOverlayEnlarged] = useState(false);
   // The container previously forced a hardcoded 16:9 box (`aspect-video`) regardless of the
   // stream's real shape. A phone held in portrait commonly delivers a portrait stream (e.g.
   // 480x640), which `object-cover` into a 16:9 box then crops top-and-bottom — exactly where the
@@ -76,6 +75,7 @@ export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUr
   // lands, matching the previous default.
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const lastAspectRef = useRef<number | null>(null);
+  const { expanded: overlayExpanded, open: openOverlay, close: closeOverlay } = useClipEnlarge();
 
   useEffect(() => {
     const draw = () => {
@@ -170,11 +170,13 @@ export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUr
       {label && <span className="absolute bottom-1.5 left-1.5 text-3xs font-semibold bg-video-plate text-white px-1.5 py-0.5 rounded-md">{label}</span>}
       {overlayClipUrl && (
         <>
+          {/* aspect-[3/4] (portrait) + object-contain, not an unconstrained box + object-cover —
+              the avatar demo clips are portrait and cover-fill was cropping the raised hand. */}
           <button
             type="button"
-            onClick={() => setOverlayEnlarged(true)}
+            onClick={openOverlay}
+            className="absolute top-2 right-2 w-28 aspect-[3/4] rounded-xl overflow-hidden border-2 border-white/20 shadow-lg bg-black cursor-zoom-in"
             aria-label="Enlarge reference clip"
-            className="absolute top-2 right-2 w-28 rounded-xl overflow-hidden border-2 border-white/20 shadow-lg bg-black cursor-zoom-in"
           >
             <video
               src={overlayClipUrl}
@@ -184,13 +186,11 @@ export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUr
               playsInline
               className="w-full h-full object-contain"
             />
+            <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-video-plate flex items-center justify-center text-white/90 text-[9px] pointer-events-none">
+              ⤢
+            </span>
           </button>
-          <ClipEnlarge
-            clipUrl={overlayClipUrl}
-            signName={overlaySignName ?? ''}
-            open={overlayEnlarged}
-            onClose={() => setOverlayEnlarged(false)}
-          />
+          <ClipEnlargeOverlay open={overlayExpanded} onClose={closeOverlay} clipUrl={overlayClipUrl} label={overlaySignName ?? 'Reference'} />
         </>
       )}
       {passed && (

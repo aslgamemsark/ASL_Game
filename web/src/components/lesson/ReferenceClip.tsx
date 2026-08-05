@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ClipEnlarge } from './ClipEnlarge';
+import { useClipEnlarge, ClipEnlargeOverlay } from '@/components/shared/ClipEnlarge';
 
 interface Props {
   clipUrl?: string;
@@ -18,7 +18,7 @@ interface Props {
 export function ReferenceClip({ clipUrl, signName, compact }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const { expanded, open, close } = useClipEnlarge();
 
   useEffect(() => {
     setFailed(false);
@@ -31,7 +31,8 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
   }, [clipUrl, failed]);
 
   const showPlaceholder = !clipUrl || failed;
-  const openEnlarged = showPlaceholder ? undefined : () => setExpanded(true);
+  const openEnlarged = showPlaceholder ? undefined : open;
+  const displayName = signName.replace(/_/g, ' ');
 
   return (
     <>
@@ -47,7 +48,7 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
             ? undefined
             : (e) => {
                 e.preventDefault();
-                setExpanded(true);
+                open();
               }
         }
       >
@@ -87,7 +88,7 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
         <div className={`absolute bottom-0 left-0 right-0 ${compact ? 'hidden lg:block' : ''}`}>
           <div className="h-6 bg-gradient-to-t from-black/62 to-transparent" aria-hidden="true" />
           <div className="bg-video-plate p-3">
-            <p className="text-white text-sm font-bold">{signName.replace(/_/g, ' ')}</p>
+            <p className="text-white text-sm font-bold">{displayName}</p>
             <p className="text-white/85 text-xs">{showPlaceholder ? 'No demo video yet — follow the hint below' : 'Watch and follow along — tap to enlarge'}</p>
           </div>
         </div>
@@ -97,13 +98,8 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
         <p className="text-center text-z-gray-300 text-xs mt-1 lg:hidden">Too small to see? Tap to enlarge ⤢</p>
       )}
 
-      {!showPlaceholder && (
-        <ClipEnlarge
-          clipUrl={clipUrl!}
-          signName={signName}
-          open={expanded}
-          onClose={() => setExpanded(false)}
-        />
+      {!showPlaceholder && clipUrl && (
+        <ClipEnlargeOverlay open={expanded} onClose={close} clipUrl={clipUrl} label={displayName} />
       )}
     </>
   );

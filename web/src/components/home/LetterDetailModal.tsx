@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LetterDef } from '@/data/alphabet';
-import { ClipEnlarge } from '@/components/lesson/ClipEnlarge';
+import { useClipEnlarge, ClipEnlargeOverlay } from '@/components/shared/ClipEnlarge';
 import { Button } from '@/components/shared/Button';
 
 // All 26 letters now ship a StudioGalt-archive-rendered demo clip in /public/clips
@@ -21,9 +21,10 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
   const dialog = useDialogA11y({ label: `Letter ${def.letter}`, onClose });
   const [imgFailed, setImgFailed] = useState(false);
   const [clipFailed, setClipFailed] = useState(false);
-  const [enlarged, setEnlarged] = useState(false);
   const hasClip = CLIP_LETTERS.has(def.letter) && !clipFailed;
   const canPractice = def.signId != null;
+  const clipUrl = `/clips/LETTER_${def.letter}.mp4`;
+  const { expanded, open: openEnlarged, close: closeEnlarged } = useClipEnlarge();
 
   return (
     <AnimatePresence>
@@ -75,14 +76,16 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
             </button>
           </div>
 
-          {/* Reference visual */}
+          {/* Reference visual — aspect-[3/4] (portrait) + object-contain, not aspect-[4/3] +
+              object-cover: the avatar demo clips are portrait and a landscape+cover box cropped
+              the raised hand off the top. */}
           <div
             className={`rounded-2xl overflow-hidden bg-z-bg border border-white/5 aspect-[3/4] flex items-center justify-center mb-4 relative ${hasClip ? 'cursor-zoom-in' : ''}`}
-            onClick={hasClip ? () => setEnlarged(true) : undefined}
+            onClick={hasClip ? openEnlarged : undefined}
           >
             {hasClip ? (
               <video
-                src={`/clips/LETTER_${def.letter}.mp4`}
+                src={clipUrl}
                 autoPlay
                 loop
                 muted
@@ -116,19 +119,13 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
               {hasClip ? 'Demo clip' : 'Reference'}
             </span>
             {hasClip && (
-              <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white/90 text-xs pointer-events-none">
+              <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white/90 text-xs pointer-events-none">
                 ⤢
-              </div>
+              </span>
             )}
           </div>
-
           {hasClip && (
-            <ClipEnlarge
-              clipUrl={`/clips/LETTER_${def.letter}.mp4`}
-              signName={def.letter}
-              open={enlarged}
-              onClose={() => setEnlarged(false)}
-            />
+            <ClipEnlargeOverlay open={expanded} onClose={closeEnlarged} clipUrl={clipUrl} label={`Letter ${def.letter}`} />
           )}
 
           {/* Description + hint */}

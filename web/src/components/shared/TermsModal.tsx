@@ -9,14 +9,6 @@ interface Props {
   onAcceptLater: () => void;
 }
 
-const TLDR: { icon: string; text: string }[] = [
-  { icon: '📷', text: 'Camera video stays on your device — never uploaded or recorded.' },
-  { icon: '📊', text: 'We collect account info, progress, and hand-landmark data (not video).' },
-  { icon: '🧪', text: "QuickSign is in beta — features and content may still change." },
-  { icon: '🤝', text: "Be respectful — harassment or impersonation can get you suspended." },
-  { icon: '⚙️', text: 'Data collection is opt-out anytime in Settings → Privacy.' },
-];
-
 /**
  * First-run consent gate: shown once before any part of the app is reachable (checked in App.tsx
  * against the 'asl-game-terms-accepted' localStorage flag). Leads with a scannable TL;DR — the
@@ -46,22 +38,36 @@ export function TermsModal({ onAccept, onAcceptLater }: Props) {
           <p className="text-z-gray-400 text-xs mt-1">The short version, before you continue</p>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-2">
-          <ul className="space-y-2.5">
-            {TLDR.map((item) => (
-              <li key={item.text} className="flex items-start gap-2.5 text-sm text-z-gray-200">
-                <span className="text-base leading-none mt-0.5 shrink-0" aria-hidden="true">{item.icon}</span>
-                <span>{item.text}</span>
-              </li>
-            ))}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 text-sm text-z-gray-300 leading-relaxed border-y border-z-gray-400/10 py-4">
+          <ul className="space-y-2.5 mb-1">
+            <li className="flex gap-2.5">
+              <span className="shrink-0">📷</span>
+              <span>Camera video never leaves your device — sign recognition runs locally in your browser.</span>
+            </li>
+            <li className="flex gap-2.5">
+              <span className="shrink-0">📊</span>
+              <span>We collect account info, progress (XP/streaks/badges), and numeric hand-landmark data (never video).</span>
+            </li>
+            <li className="flex gap-2.5">
+              <span className="shrink-0">🚧</span>
+              <span>QuickSign is in beta — features and content may change, provided "as is."</span>
+            </li>
+            <li className="flex gap-2.5">
+              <span className="shrink-0">🤝</span>
+              <span>Be respectful — no harassment or impersonation. Usernames and stats are visible to others.</span>
+            </li>
+            <li className="flex gap-2.5">
+              <span className="shrink-0">⚙️</span>
+              <span>Landmark collection and analytics can be turned off anytime in Settings → Privacy.</span>
+            </li>
           </ul>
 
-          <details className="mt-4 rounded-xl border border-z-gray-400/15 group">
-            <summary className="cursor-pointer select-none list-none px-3 py-2.5 text-xs font-semibold text-z-purple-light flex items-center justify-between">
+          <details className="mt-3 group">
+            <summary className="cursor-pointer text-xs font-semibold text-z-purple-light hover:text-z-purple-light/80 select-none list-none flex items-center gap-1">
+              <span className="inline-block transition-transform group-open:rotate-90">▸</span>
               Read the full terms
-              <span className="text-z-gray-400 transition-transform group-open:rotate-180" aria-hidden="true">▾</span>
             </summary>
-            <div className="px-3 pb-3 pt-1 space-y-3 text-xs text-z-gray-300 leading-relaxed border-t border-z-gray-400/10">
+            <div className="mt-3 space-y-4 text-xs">
               <section>
                 <h3 className="font-bold text-z-gray-50 mb-1">What stays on your device</h3>
                 <p>
@@ -108,7 +114,7 @@ export function TermsModal({ onAccept, onAcceptLater }: Props) {
           </Button>
           <button
             onClick={onAcceptLater}
-            className="w-full py-3 rounded-2xl font-semibold text-sm border border-z-gray-400/30 text-z-gray-200 hover:border-z-gray-400/50 transition-colors"
+            className="w-full mt-2 py-3 rounded-2xl text-sm font-semibold text-z-gray-300 bg-white/5 hover:bg-white/10 transition-colors"
           >
             Accept later
           </button>

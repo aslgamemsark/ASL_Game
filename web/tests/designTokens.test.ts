@@ -103,7 +103,7 @@ describe('overlays on live video', () => {
     'components/shared/RemotePeerVideo.tsx',
     'components/shared/TurnOverlay.tsx',
     'components/lesson/ReferenceClip.tsx',
-    'components/lesson/ClipEnlarge.tsx',
+    'components/shared/ClipEnlarge.tsx',
   ];
 
   /** Source with comments removed — these files explain the old bad values in prose, and a naive

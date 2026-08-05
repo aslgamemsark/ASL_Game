@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
-import { ClipEnlarge } from '@/components/lesson/ClipEnlarge';
+import { useClipEnlarge, ClipEnlargeOverlay } from '@/components/shared/ClipEnlarge';
 import { Button } from '@/components/shared/Button';
 import type { ParamScore } from '@/engine/verifier';
 import type { Sign } from '@/engine/schema';
@@ -36,7 +36,7 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
   const attemptRef = useRef<HTMLVideoElement>(null);
   const referenceRef = useRef<HTMLVideoElement>(null);
   const [slowMo, setSlowMo] = useState(false);
-  const [referenceEnlarged, setReferenceEnlarged] = useState(false);
+  const { expanded: refExpanded, open: openRef, close: closeRef } = useClipEnlarge();
 
   useEffect(() => {
     const rate = slowMo ? 0.5 : 1;
@@ -126,7 +126,7 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
         {sideBySide && (
           <button
             type="button"
-            onClick={() => setReferenceEnlarged(true)}
+            onClick={openRef}
             aria-label="Enlarge reference clip"
             className="relative rounded-2xl overflow-hidden bg-z-surface aspect-[4/3] cursor-zoom-in"
           >
@@ -139,21 +139,18 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
               autoPlay
               className="w-full h-full object-contain"
             />
+            <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white/90 text-xs pointer-events-none">
+              ⤢
+            </span>
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2">
               <p className="text-white text-xs font-bold">Reference</p>
             </div>
           </button>
         )}
+        {sideBySide && clipUrl && (
+          <ClipEnlargeOverlay open={refExpanded} onClose={closeRef} clipUrl={clipUrl} label={`${signName.replace(/_/g, ' ')} reference`} />
+        )}
       </div>
-
-      {sideBySide && clipUrl && (
-        <ClipEnlarge
-          clipUrl={clipUrl}
-          signName={signName}
-          open={referenceEnlarged}
-          onClose={() => setReferenceEnlarged(false)}
-        />
-      )}
 
       <div className="flex items-center justify-between">
         <p className="text-2xs text-z-gray-400">

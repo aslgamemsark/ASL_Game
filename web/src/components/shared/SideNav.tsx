@@ -25,8 +25,9 @@ interface Props {
   onSignIn: () => void;
 }
 
-// Shop was removed from this list (2026-07-24, analytics-driven nav simplification) — it stays
-// reachable via the TopBar cart icon and the mobile BottomNav.
+// Shop is intentionally NOT a side-nav row: it's reachable via the TopBar cart icon (under the
+// gold pill) and the mobile BottomNav shop button, so a third entry here was redundant clutter.
+// The 'shop' screen and onShop handler still exist — this list just doesn't surface it.
 const NAV_ITEMS: { id: SideNavScreen; label: string; icon: string }[] = [
   { id: 'home', label: 'Journey', icon: '🗺️' },
   { id: 'alphabet', label: 'Alphabets', icon: '🔤' },

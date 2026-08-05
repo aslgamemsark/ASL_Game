@@ -4,6 +4,10 @@ import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { supabase } from '@/lib/supabase';
 import { SHOP_ITEMS } from '@/data/shop';
 import { WORLDS } from '@/data/worlds';
+import {
+  buildAdminInsights, pickTopProblem, buildTrends,
+  type BetaMetrics, type AdminInsight, type AdminStatus, type Trend, type TopProblem,
+} from '@/lib/adminInsights';
 import { formatAdminDate, formatAdminTimestamp } from '@/lib/formatTimestamp';
 import { useTabListKeyNav } from '@/hooks/useTabListKeyNav';
 import { ProgressBar } from '@/components/shared/ProgressBar';
@@ -19,25 +23,8 @@ const ADMIN_TABS: AdminTab[] = ['beta', 'analytics', 'users', 'worlds', 'audit']
 // for the rest of the app.
 const AnalyticsTab = lazy(() => import('@/components/admin/AnalyticsTab'));
 
-// Shape returned by the admin_beta_metrics() RPC (migration 20260715030000). One aggregate blob so
-// the dashboard is a single round-trip; every field is computed server-side behind the is_admin gate.
-interface BetaMetrics {
-  generated_at: string;
-  users: { total: number; dau: number; wau: number };
-  recognition: {
-    attempts_total: number;
-    attempts_24h: number;
-    pass_rate: number | null;
-    rule_reject_rate: number | null;
-    rule_reject_denom: number;
-    ai_veto_rate: number | null;
-    ai_veto_denom: number;
-    avg_ai_confidence: number | null;
-    no_sign_count: number;
-  };
-  top_failed_signs: { sign_id: string; attempts: number; failures: number; fail_rate: number }[];
-  feedback: { total: number; open: number; by_category: Record<string, number> };
-}
+// The shape returned by the admin_beta_metrics() RPC is defined once in lib/adminInsights.ts
+// (imported above), alongside the plain-English interpretation logic that reads it.
 
 interface FeedbackRow {
   id: number;
@@ -214,10 +201,33 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
   }
 
   const r = metrics?.recognition;
+  const insights = metrics ? buildAdminInsights(metrics) : [];
+  const topProblem = metrics ? pickTopProblem(insights) : null;
+  const trends = metrics ? buildTrends(metrics) : [];
 
   return (
     <div className="space-y-5">
-      {/* Engagement */}
+      {/* Today's biggest problem — the single most important thing to look at, in plain English. */}
+      {topProblem && <TopProblemCard problem={topProblem} />}
+
+      {/* Since yesterday — simple up/down arrows, only shown once there's a previous day to compare. */}
+      {trends.length > 0 && (
+        <div className="bg-z-card border border-white/5 rounded-2xl p-4">
+          <h3 className="font-bold text-sm mb-3 text-z-gray-300 uppercase tracking-wide">Since yesterday</h3>
+          <div className="space-y-2">
+            {trends.map((t) => <TrendRow key={t.key} trend={t} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Overview — every stat as a plain-English sentence with a status pill. */}
+      {insights.length > 0 && (
+        <div className="space-y-2">
+          {insights.map((i) => <InsightCard key={i.key} insight={i} />)}
+        </div>
+      )}
+
+      {/* Engagement (quick numbers) */}
       {metrics && (
         <div className="grid grid-cols-3 gap-2 text-center">
           <Stat label="Active today" value={metrics.users.dau} />
@@ -226,11 +236,22 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
         </div>
       )}
 
-      {/* Recognition health */}
+      {/* Plain-English glossary — collapsed by default. */}
+      <details className="bg-z-card border border-white/5 rounded-2xl p-4">
+        <summary className="font-bold text-sm text-z-gray-300 cursor-pointer select-none">What do these words mean?</summary>
+        <div className="mt-3 space-y-2 text-sm text-z-gray-300">
+          <p><b className="text-white">Active today / this week</b> — how many different people practiced signs in that time.</p>
+          <p><b className="text-white">Success rate</b> — out of every sign someone tries, how often it gets accepted. Very low = too hard (people struggle); very high = maybe too easy.</p>
+          <p><b className="text-white">Hardest signs</b> — the signs people fail most. A very high fail rate means that sign probably needs to be made easier.</p>
+          <p><b className="text-white">AI veto / Rule reject / NO_SIGN</b> — developer diagnostics for how the recognizer made its decision. You can ignore these; they’re in the Advanced section for your dev.</p>
+        </div>
+      </details>
+
+      {/* Recognition health — moved to Advanced (the technical detail behind "Success rate"). */}
       {r && (
-        <div className="bg-z-card border border-white/5 rounded-2xl p-4">
-          <h3 className="font-bold text-sm mb-3 text-z-gray-300 uppercase tracking-wide">Recognition</h3>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <details className="bg-z-card border border-white/5 rounded-2xl p-4">
+          <summary className="font-bold text-sm text-z-gray-300 uppercase tracking-wide cursor-pointer select-none">Advanced (for developers)</summary>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mt-3">
             <Row label="Attempts (total)" value={String(r.attempts_total)} />
             <Row label="Attempts (24h)" value={String(r.attempts_24h)} />
             <Row label="Pass rate" value={pct(r.pass_rate)} />
@@ -239,7 +260,7 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
             <Row label={`AI veto (n=${r.ai_veto_denom})`} value={pct(r.ai_veto_rate)} />
             <Row label="NO_SIGN predictions" value={String(r.no_sign_count)} />
           </div>
-        </div>
+        </details>
       )}
 
       {/* Most-failed signs */}
@@ -309,6 +330,66 @@ function BetaTab({ showToast }: { showToast: (m: string) => void }) {
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Plain-English status → colors + label. One place so the pill and cards stay consistent.
+const STATUS_UI: Record<AdminStatus, { pill: string; label: string; ring: string }> = {
+  good: { pill: 'bg-z-green/15 text-z-green', label: 'All good', ring: 'border-white/5' },
+  watch: { pill: 'bg-z-yellow/15 text-z-yellow', label: 'Keep an eye', ring: 'border-z-yellow/30' },
+  action: { pill: 'bg-z-red/15 text-z-red', label: 'Needs action', ring: 'border-z-red/40' },
+};
+
+// The hero card: the single highest-priority issue right now, or a calm "all clear".
+function TopProblemCard({ problem }: { problem: TopProblem }) {
+  if (!problem.hasProblem) {
+    return (
+      <div className="rounded-2xl border border-z-green/30 bg-z-green/10 p-4">
+        <p className="text-sm font-bold text-z-green">✓ {problem.title}</p>
+        <p className="text-sm text-z-gray-200 mt-1">{problem.whyItMatters}</p>
+        <p className="text-sm text-z-gray-300 mt-2"><b className="text-white">Do next:</b> {problem.nextAction}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-2xl border border-z-red/40 bg-z-red/10 p-4">
+      <p className="text-xs font-bold uppercase tracking-wide text-z-red">⚠ Today’s biggest problem</p>
+      <p className="text-base font-bold text-white mt-1">{problem.whatsWrong}</p>
+      <div className="mt-3 space-y-1.5 text-sm text-z-gray-200">
+        <p><b className="text-white">Why it matters:</b> {problem.whyItMatters}</p>
+        <p><b className="text-white">Check first:</b> {problem.checkFirst}</p>
+        <p><b className="text-white">Do next:</b> {problem.nextAction}</p>
+      </div>
+    </div>
+  );
+}
+
+function TrendRow({ trend }: { trend: Trend }) {
+  const arrow = trend.dir === 'up' ? '↑' : trend.dir === 'down' ? '↓' : '→';
+  // A trend is "positive" when it moved in the good direction (up for users/accuracy).
+  const positive = trend.dir === 'flat' ? null : (trend.dir === 'up') === trend.goodWhenUp;
+  const color = positive === null ? 'text-z-gray-400' : positive ? 'text-z-green' : 'text-z-red';
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span className={`font-bold w-5 text-center ${color}`}>{arrow}</span>
+      <span className="font-semibold text-z-gray-200 w-40 shrink-0">{trend.label}</span>
+      <span className="text-z-gray-400">{trend.plain}</span>
+    </div>
+  );
+}
+
+function InsightCard({ insight }: { insight: AdminInsight }) {
+  const ui = STATUS_UI[insight.status];
+  return (
+    <div className={`bg-z-card border ${ui.ring} rounded-2xl p-3.5`}>
+      <div className="flex items-start gap-2">
+        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${ui.pill}`}>{ui.label}</span>
+        <div className="flex-1">
+          <p className="text-sm text-z-gray-100">{insight.plain}</p>
+          {insight.advice && <p className="text-xs text-z-gray-400 mt-1">{insight.advice}</p>}
+        </div>
       </div>
     </div>
   );

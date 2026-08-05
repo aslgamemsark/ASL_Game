@@ -30,6 +30,7 @@ function defaultProgress(): UserProgress {
     signAccuracy: {},
     achievements: [],
     onboardingComplete: false,
+    firstLessonCelebrated: false,
     skillLevel: 'beginner',
     dominantHand: null,
     dailyQuests: [],
@@ -50,7 +51,6 @@ function defaultProgress(): UserProgress {
     friends: [],
     renameCards: 0,
     collectTrainingData: true,
-    firstLessonCelebrated: false,
   };
 }
 
@@ -99,6 +99,9 @@ interface UserStore extends UserProgress {
   addGold: (amount: number) => void;
   addDailyMinutes: (minutes: number) => void;
   completeLesson: (lessonId: string) => void;
+  /** Marks the amplified first-lesson celebration as played, so it never fires again. Idempotent —
+   *  callers don't need to check the flag first. */
+  markFirstLessonCelebrated: () => void;
   skipLesson: (lessonId: string, cost: number) => boolean;
   recordSign: (signId: string, correct: boolean) => void;
   checkStreak: () => number[];
@@ -127,7 +130,6 @@ interface UserStore extends UserProgress {
   addFriend: (userId: string) => void;
   removeFriend: (userId: string) => void;
   setCollectTrainingData: (enabled: boolean) => void;
-  markFirstLessonCelebrated: () => void;
 }
 
 export const useUserStore = create<UserStore>()(
@@ -179,6 +181,10 @@ export const useUserStore = create<UserStore>()(
         get().checkStreak();
         get().updateQuestProgress('complete_lesson', 1);
         get().checkBadges();
+      },
+
+      markFirstLessonCelebrated: () => {
+        set((s) => (s.firstLessonCelebrated ? s : { firstLessonCelebrated: true }));
       },
 
       skipLesson: (lessonId, cost) => {
@@ -345,6 +351,9 @@ export const useUserStore = create<UserStore>()(
             merged.signAccuracy = acc;
           }
           if (remote.lastPracticeDate) merged.lastPracticeDate = remote.lastPracticeDate;
+          // One-way: once true on either side it must stay true everywhere, same as onboarding
+          // completion — this is "has the moment happened," never something to revert.
+          if (remote.firstLessonCelebrated) merged.firstLessonCelebrated = true;
           if (remote.collectTrainingData !== undefined) merged.collectTrainingData = remote.collectTrainingData;
           // Gold can legitimately decrease (spending), unlike xp/streak — but the case we must not
           // lose is an admin grant landing in Supabase while this device was offline, so take the
@@ -654,8 +663,6 @@ export const useUserStore = create<UserStore>()(
       },
 
       setCollectTrainingData: (enabled) => set({ collectTrainingData: enabled }),
-
-      markFirstLessonCelebrated: () => set({ firstLessonCelebrated: true }),
     }),
     { name: 'asl-game-progress' }
   )

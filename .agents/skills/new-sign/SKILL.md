@@ -1,0 +1,124 @@
+---
+name: new-sign
+description: Use when adding a NEW ASL sign to QuickSign, or fixing an existing sign that won't pass (false negatives) or passes wrongly (false positives). Covers defining the five sign parameters, writing confusor tests, recording real calibration data via /calibrate, setting rule thresholds, and wiring the sign into a scenario. Enforces the project's anti-bug gate so the COFFEE-class false-pass and the synthetic-fixture false-confidence trap cannot recur. NOT for retraining the ML model — the classifier is veto-only and never makes a sign pass.
+version: 1.0.0
+user-invocable: true
+argument-hint: "<SIGN_NAME> [scenario: coffee|hospital|classroom]"
+license: MIT
+---
+
+# Add or fix a QuickSign sign — the anti-bug lifecycle
+
+This skill turns the project's sign rules (AGENTS.md, `.Codex/rules/fixes.md`) into an executable,
+enforced order. Follow the phases in sequence. **Do not skip a phase to "save time" — every phase
+exists to prevent a specific bug this project has already shipped once.**
+
+Before starting, read (if not already in context this session): `AGENTS.md` (the NON-NEGOTIABLE
+rule + ARCHITECTURE PATTERN sections), `.Codex/rules/fixes.md`, and the target scenario's sign
+list in `web/src/engine/signs/index.ts`.
+
+## The two facts that govern everything here
+
+1. **The rule verifier is authoritative — the ML classifier is veto-only.** The classifier
+   (`web/src/engine/gate.ts`) can only REJECT a rule-pass; it can NEVER turn a rule-fail into a
+   pass. So if a sign won't pass, that is ALWAYS a rule-threshold problem, never a model problem.
+   **Never propose retraining, more data, or a different model to make a sign pass.** (See the
+   `first-trained-model` and `classroom-signs-synthetic-fixtures` memories.)
+2. **Movement must be validated over a rolling ~1.5–2s window, never a single frame.** A sign whose
+   definition involves movement (circular/linear/repeated) must gate on the movement scorer over
+   the buffer. A checker that only inspects handshape + location on one frame is the COFFEE bug.
+
+---
+
+## Phase 1 — Spec the five parameters BEFORE any code (brainstorm-first)
+
+Write the spec as prose first. For the sign, state each of the five ASL parameters:
+
+- **Handshape** (per hand; note the v1 approximation if the rule engine has no exact predicate —
+  e.g. flat-O approximated as "open", pinch approximated as "index").
+- **Location** (anchor + which hand acts; expressed as a ratio of shoulder width, never pixels).
+- **Movement** (none / linear / circular / repeated / converge) with the discriminating detail —
+  this is usually what separates the sign from its confusor. If the sign has NO movement, say so
+  explicitly and justify why a static check is safe for THIS sign.
+- **Palm orientation** (gate it only if it genuinely discriminates; often `required: false` in v1).
+- **Non-manual markers** (documented, but NOT gated in v1 unless verified live).
+
+Then state, in one sentence each:
+- **The discriminating parameter** — the one that actually distinguishes this sign.
+- **The likeliest confusor** — the specific accidental false-positive (usually "hands present in
+  roughly the right place but not really performing the movement", or a similar sign).
+
+**Hard gate:** if the sign involves movement and the spec only pins down handshape + location,
+STOP and push back — ask for the movement spec before writing anything. (AGENTS.md, verbatim.)
+
+If the sign is a **compound** (e.g. TEACHER = TEACH + person-agent), decide explicitly which
+morpheme(s) v1 verifies, and document that the others are intentionally not checked.
+
+## Phase 2 — Write the confusor test FIRST, and watch it be RED
+
+Before writing or finalizing the sign definition, add the fixture-replay test:
+
+- A **correct** fixture and a **confusor** fixture, both replayed through the verifier.
+- The test asserts: correct → PASS, confusor → FAIL (per-parameter, never an averaged score;
+  every required parameter must individually clear its threshold).
+- Run it. It should FAIL now (red) — either because the definition doesn't exist yet, or because
+  the current thresholds don't separate the two. A test that is green before you've done the work
+  is testing nothing.
+
+TS tests live alongside `web/src/engine/` (this is the engine the app actually runs); the Python
+suite mirrors them under `tests/`. Add to both.
+
+## Phase 3 — Record REAL calibration data (never synthetic)
+
+**This is the phase the project got wrong before** (TEACHER/WRITE/READ were calibrated to
+synthetic ideal-motion fixtures and passed tests but failed on real webcams — see the
+`classroom-signs-synthetic-fixtures` memory).
+
+- Use the browser calibration harness: `cd web && npm run dev`, open
+  `http://localhost:5173/calibrate`, pick the sign, record CORRECT then CONFUSOR, Build report,
+  Download CSV. Do this with a REAL person on a REAL webcam.
+- **Hard gate:** if the only fixtures available are synthetic (generated by
+  `tools/make_*_fixtures.py`), STOP. Do not set thresholds from them. Synthetic fixtures are for
+  smoke-testing the replay harness, not for calibrating thresholds to human motion.
+- Never open the user's camera yourself (see the `test-each-phase-live` memory) — the user/their
+  tester records; you calibrate from the CSV they provide.
+
+## Phase 4 — Set thresholds from the recording, then go GREEN
+
+From the CSV / report:
+- For each required parameter, set the threshold so that **confusor-max < threshold < correct-min**
+  (leave margin). The `/calibrate` report flags "FALSE-FAIL risk" (correct median below threshold)
+  and "FALSE-PASS risk" (confusor median above threshold) — both must be clear.
+- If no single threshold separates correct from confusor on a parameter, the parameter choice or
+  the movement model is wrong — fix the DESIGN (Phase 1), do not widen the number to make one case
+  pass. (`.Codex/rules/fixes.md`: threshold-widening as a substitute for a root-cause fix is
+  banned; declared tuning knobs may be adjusted only as a reasoned, documented decision.)
+- Implement the definition with `createSign(...)` in `web/src/engine/signs/index.ts`, mirror it in
+  `signs/<name>.py`, and add it to the correct scenario list (`COFFEE_SIGNS` / `HOSPITAL_SIGNS` /
+  `CLASSROOM_SIGNS`). Re-run Phase 2's test — it must now be green.
+
+## Phase 5 — Mechanism regression test + full verification
+
+- Ensure the regression test is built around the MECHANISM (the specific parameter/threshold that
+  separates correct from confusor), not just "this one recording now passes."
+- Run the gate: `cd web && npx tsc --noEmit && npx vitest run && npx oxlint src`. The Python suite
+  too if the sign was mirrored there.
+- State the outcome honestly: correct accepted, confusor rejected, every required parameter
+  individually clearing its threshold, movement validated over the window (not one frame).
+
+## Phase 6 — Record what was decided
+
+- If a threshold was a judgment call, add a one-line comment at its use site explaining the
+  confusor it guards against (comments live in the code, per `.Codex/rules/comments.md`, not the
+  commit message).
+- If the sign is a compound with un-verified morphemes, or has a known rough edge (e.g. TEACHER's
+  2-cycle requirement sometimes needs a retry), document it at the definition.
+- Update the relevant memory if the work changed a project-level fact.
+
+---
+
+## Done means
+
+Correct fixture passes, confusor fixture fails, thresholds came from REAL recordings, a mechanism
+regression test exists, tsc/vitest/oxlint are green, and no ML retraining was proposed to make the
+sign pass. If any of those is not true, the sign is not done.

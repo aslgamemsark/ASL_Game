@@ -396,22 +396,28 @@ export function LessonPage({ lessonId, onExit }: Props) {
                       <p className="text-sm font-bold text-z-red">
                         {camStatus === 'denied'
                           ? 'Camera access denied'
-                          : camStatus === 'stalled'
-                            ? "Camera feed isn't showing"
-                            : 'Camera unavailable'}
+                          : camStatus === 'error'
+                            ? 'Camera unavailable'
+                            : camStatus === 'stalled'
+                              ? "Camera feed isn't showing"
+                              : "Couldn't load the recognizer"}
                       </p>
                       <p className="text-xs text-z-gray-300 mt-1">
                         {camStatus === 'denied'
                           ? 'Live coaching needs your camera. Allow camera access in your browser settings, then try again.'
-                          : camStatus === 'stalled'
-                            ? "Your camera is on but no picture is coming through. Try again, or check that no other app is using it."
-                            : 'Something went wrong starting the camera. Try again, or check that no other app is using it.'}
+                          : camStatus === 'error'
+                            ? 'Something went wrong starting the camera. Try again, or check that no other app is using it.'
+                            : camStatus === 'stalled'
+                              ? "Your camera is on but no picture is coming through. Try again, or check that no other app is using it."
+                              : "We couldn't load the sign recognizer — usually a network hiccup. Check your connection and try again."}
                       </p>
-                      {/* stopCam() before startCam() forces a fresh getUserMedia() call instead of
-                          reattaching the same (possibly dead) stream — required for the 'stalled'
-                          case, harmless for the others since stop() on an idle camera is a no-op. */}
+                      {/* Retry both paths: recognition.init() re-attempts the MediaPipe load (now that a
+                          failed init no longer caches its rejection — see getSharedCapture). stopCam()
+                          before startCam() forces a fresh getUserMedia() call instead of reattaching the
+                          same (possibly dead) stream — required for the 'stalled' case, harmless for the
+                          others since stop() on an already-idle camera is a no-op. */}
                       <button
-                        onClick={() => { stopCam(); startCam(); }}
+                        onClick={() => { recognition.init(); stopCam(); startCam(); }}
                         className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
                       >
                         Try again

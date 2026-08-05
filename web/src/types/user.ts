@@ -46,6 +46,11 @@ export interface UserProgress {
   signAccuracy: Record<string, SignStats>;
   achievements: string[];
   onboardingComplete: boolean;
+  /** Whether the amplified first-lesson-ever celebration has already played. Not derived from
+   *  completedLessons.length === 1 — completeOnboarding pre-seeds that array for intermediate/
+   *  advanced skill levels, so length alone can't tell a genuine first play-through from a
+   *  pre-unlocked lesson. */
+  firstLessonCelebrated: boolean;
   skillLevel: SkillLevel;
   /** Which hand the user signs with, captured at onboarding. The recognition engine is
    *  handedness-agnostic (roles are assigned by motion), so this drives personalization/copy only,
@@ -72,10 +77,6 @@ export interface UserProgress {
   renameCards: number;
   /** Opt-out: when true, passed/failed attempts also save a landmark snapshot for future model training. */
   collectTrainingData: boolean;
-  /** Whether the amplified "first lesson ever" celebration has already fired. Not derivable from
-   *  completedLessons.length === 1 — completeOnboarding() pre-seeds that array for intermediate/
-   *  advanced skill levels, so a first REAL completion could already start at length 2+. */
-  firstLessonCelebrated: boolean;
 }
 
 export interface SignStats {

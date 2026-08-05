@@ -1,0 +1,2 @@
+Made QuickSign. Most ASL apps just show you a video — this one watches you sign it back, live, and tells you exactly what to fix.
+Free, runs entirely in your browser, camera never leaves your device.

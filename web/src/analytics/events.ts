@@ -73,6 +73,8 @@ export const EVENTS = {
   multiplayer_match_abandoned: 'multiplayer_match_abandoned',
   multiplayer_connection_lost: 'multiplayer_connection_lost',
   multiplayer_reconnected: 'multiplayer_reconnected',
+  multiplayer_ice_connected: 'multiplayer_ice_connected',
+  multiplayer_ice_failed: 'multiplayer_ice_failed',
 
   // Economy
   level_up: 'level_up',

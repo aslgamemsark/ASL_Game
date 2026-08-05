@@ -1,22 +1,34 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 
-interface Props {
-  clipUrl: string;
-  signName: string;
+/** Open/close state for the tap-to-enlarge pattern — shared by every clip-enlarging surface so
+ *  each caller only has to wire up its own trigger (click, tap, right-click). Pair with
+ *  `ClipEnlargeOverlay`, which owns the actual dialog behavior (focus trap, Escape, hardware
+ *  Back, scroll lock — see useDialogA11y). */
+export function useClipEnlarge() {
+  const [expanded, setExpanded] = useState(false);
+  return { expanded, open: () => setExpanded(true), close: () => setExpanded(false) };
+}
+
+interface ClipEnlargeOverlayProps {
   open: boolean;
   onClose: () => void;
+  clipUrl: string;
+  label: string;
 }
 
 /**
- * Fullscreen, uncropped (object-contain) viewer for a demo clip — Esc or backdrop-click to close.
- * Extracted from ReferenceClip.tsx (2026-07-24) so every clip surface (alphabet detail modal,
- * in-practice webcam overlay, replay comparison) gets the same enlarge affordance instead of only
- * lesson/practice/story's ReferenceClip having one.
+ * Fullscreen, uncropped (object-contain) viewer for a demo clip. Extracted from ReferenceClip.tsx
+ * (2026-07-24) so every clip surface (alphabet detail modal, in-practice webcam overlay, replay
+ * comparison) gets the identical viewer instead of near-duplicate implementations.
+ *
+ * Dialog behavior (focus trap, Escape, hardware Back, body scroll lock, iOS keyboard inset) comes
+ * from useDialogA11y, not hand-rolled here — an Escape-only version of this component briefly
+ * existed and let a keyboard user tab out of the enlarged clip into the page behind it.
  */
-export function ClipEnlarge({ clipUrl, signName, open, onClose }: Props) {
+export function ClipEnlargeOverlay({ open, onClose, clipUrl, label }: ClipEnlargeOverlayProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -25,13 +37,7 @@ export function ClipEnlarge({ clipUrl, signName, open, onClose }: Props) {
     }
   }, [open]);
 
-  // Escape and the focus trap both come from useDialogA11y now — this used to hand-roll only the
-  // Escape half, so a keyboard user could tab out of the enlarged clip into the page behind it.
-  const dialog = useDialogA11y({
-    label: `${signName.replace(/_/g, ' ')} demo, enlarged`,
-    onClose,
-    active: open,
-  });
+  const dialog = useDialogA11y({ label: `${label} demo, enlarged`, onClose, active: open });
 
   if (typeof document === 'undefined') return null;
 
@@ -48,10 +54,10 @@ export function ClipEnlarge({ clipUrl, signName, open, onClose }: Props) {
           {...dialog.props}
         >
           <motion.div
-            // Sized off height as well as width now: at max-w-2xl (672px) wide, the square was
-            // exactly at the edge of a 375x667 phone rotated to landscape (667px viewport minus
-            // p-4) and overflowed on anything shorter (mobile audit, 2026-07-28). `h-full` +
-            // `max-h-[...]` bounds it by whichever dimension is actually tighter.
+            // Sized off height as well as width: at max-w-2xl (672px) wide, the square was exactly
+            // at the edge of a 375x667 phone rotated to landscape (667px viewport minus p-4) and
+            // overflowed on anything shorter (mobile audit, 2026-07-28). `h-full` + `max-h-[...]`
+            // bounds it by whichever dimension is actually tighter.
             className="relative w-auto h-full max-w-2xl max-h-[calc(100dvh-2rem)] aspect-square mx-auto"
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -75,7 +81,7 @@ export function ClipEnlarge({ clipUrl, signName, open, onClose }: Props) {
               ✕
             </button>
             <div className="absolute bottom-3 left-3 right-3 bg-video-plate rounded-xl px-3 py-2">
-              <p className="text-white text-sm font-bold">{signName.replace(/_/g, ' ')}</p>
+              <p className="text-white text-sm font-bold">{label}</p>
             </div>
           </motion.div>
         </motion.div>

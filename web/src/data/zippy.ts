@@ -122,12 +122,15 @@ export const ZIPPY_LINES = {
     'You made it through — that’s what counts. Let’s review these again soon.',
     'Good try! Some of these are tricky — practice makes it easier.',
   ],
-  // The very first lesson ever completed — a bigger moment than a routine lesson finish, shown
-  // once and never again (see firstLessonCelebrated in useUserStore).
+  // The very first lesson ever completed — a bigger, one-time amplified moment than a routine
+  // lesson finish, not the regular lessonComplete* lines. Shown once and never again (see
+  // firstLessonCelebrated in useUserStore).
   firstLessonComplete: [
     'Your very first lesson — you’re really doing this! 🎉',
     'Look at that — your first lesson, done! This is just the beginning.',
     'You just finished your very first lesson. I’m so proud of you!',
+    'That’s lesson one in the books! This is just the beginning.',
+    'You just signed your first lesson ever. Welcome to QuickSign!',
   ],
   // Empty-state explainers.
   emptyLeaderboard: [

@@ -1,19 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useCamera, type CameraStatus } from '@/hooks/useCamera';
+import { getIceServers, isUsingDefaultTurn } from '@/config/iceServers';
 
-// STUN handles most home networks; the public OpenRelay TURN servers relay media when a player is
-// behind a symmetric/mobile NAT that STUN alone can't punch through. Best-effort — for guaranteed
-// relay, swap in your own TURN.
-const ICE_SERVERS: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-  ],
-};
+/** Outcome of one peer's WebRTC ICE negotiation, reported to the caller for analytics only (the
+ *  hook stays game-agnostic — the page attaches its mode/room_id). `candidateType` is the selected
+ *  local candidate: 'host'/'srflx' = direct/STUN (no relay), 'relay' = went through TURN. */
+export type IceResult =
+  | { outcome: 'connected'; connectionTimeMs: number; candidateType: string; usedRelay: boolean; usedDefaultTurn: boolean }
+  | { outcome: 'failed'; reason: string; usedDefaultTurn: boolean };
+
+/** Inspect the negotiated ICE candidate pair to learn whether the connection went direct, via STUN,
+ *  or had to relay through TURN. Best-effort: any stats hiccup degrades to 'unknown'/no-relay rather
+ *  than throwing (this is telemetry, never on the connection's critical path). */
+async function inspectSelectedCandidate(pc: RTCPeerConnection): Promise<{ candidateType: string; usedRelay: boolean }> {
+  try {
+    const stats = await pc.getStats();
+    let localId: string | undefined;
+    let remoteId: string | undefined;
+    stats.forEach((r) => {
+      const pair = r as RTCIceCandidatePairStats & { selected?: boolean; nominated?: boolean };
+      if (pair.type === 'candidate-pair' && (pair.selected || (pair.state === 'succeeded' && pair.nominated))) {
+        localId = pair.localCandidateId;
+        remoteId = pair.remoteCandidateId;
+      }
+    });
+    const localType = (localId ? (stats.get(localId) as { candidateType?: string } | undefined)?.candidateType : undefined) ?? 'unknown';
+    const remoteType = (remoteId ? (stats.get(remoteId) as { candidateType?: string } | undefined)?.candidateType : undefined) ?? 'unknown';
+    return { candidateType: localType, usedRelay: localType === 'relay' || remoteType === 'relay' };
+  } catch {
+    return { candidateType: 'unknown', usedRelay: false };
+  }
+}
 
 export interface SignalingPeer {
   peerId: string;
@@ -33,6 +51,10 @@ export interface UseMultiplayerSignalingOpts {
   /** Every broadcast event this hook doesn't own (roster/round-start/guess/etc.) — webrtc-offer/
    *  answer/ice targeted at another peer are filtered out before reaching this callback. */
   onMessage?: (event: string, payload: Record<string, unknown>, fromPeerId: string) => void;
+  /** Fired once per peer connection when ICE reaches a terminal state (connected/failed), for
+   *  networking analytics. The hook has no mode/room_id (it's game-agnostic) — the caller attaches
+   *  those. Purely observational; never affects connection behavior. */
+  onIceResult?: (result: IceResult) => void;
 }
 
 export interface MultiplayerSignaling {
@@ -64,7 +86,7 @@ export interface MultiplayerSignaling {
  * Game-flow state (rounds, scores, roles, sign selection, phase machine) is owned by the caller,
  * not this hook.
  */
-export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplayerSignalingOpts): MultiplayerSignaling {
+export function useMultiplayerSignaling({ selfPeerId, onMessage, onIceResult }: UseMultiplayerSignalingOpts): MultiplayerSignaling {
   const { videoRef: localVideoRef, status: camStatus, start: startCamera, stop: stopCamera, getStream } = useCamera('multiplayer');
   const [peers, setPeers] = useState<Record<string, SignalingPeer>>({});
   const [channelStatus, setChannelStatus] = useState<ChannelStatus>('connecting');
@@ -74,6 +96,11 @@ export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplaye
   const pendingCandidatesRef = useRef<Record<string, RTCIceCandidateInit[]>>({});
   const onMessageRef = useRef(onMessage);
   useEffect(() => { onMessageRef.current = onMessage; }, [onMessage]);
+  const onIceResultRef = useRef(onIceResult);
+  useEffect(() => { onIceResultRef.current = onIceResult; }, [onIceResult]);
+  // One ICE result per peer connection — guards against onconnectionstatechange firing 'connected'
+  // or 'failed' more than once (e.g. connected -> disconnected -> connected) double-counting.
+  const iceReportedRef = useRef<Record<string, boolean>>({});
 
   const send = useCallback((event: string, payload: Record<string, unknown> = {}, to?: string) => {
     channelRef.current?.send({
@@ -94,13 +121,16 @@ export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplaye
     pcsRef.current[peerId]?.close();
     delete pcsRef.current[peerId];
     delete pendingCandidatesRef.current[peerId];
+    delete iceReportedRef.current[peerId];
   }, []);
 
   const createPeerConnection = useCallback((peerId: string) => {
     // Tear down any prior connection under this key first (duplicate offer / re-entry / role
     // rotation in Room mode), so a stale connection never leaks.
     closePeerConnection(peerId);
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    const pc = new RTCPeerConnection(getIceServers());
+    iceReportedRef.current[peerId] = false;
+    const startedAt = performance.now();
     pc.onicecandidate = (e) => {
       if (e.candidate) send('webrtc-ice', { candidate: e.candidate.toJSON() }, peerId);
     };
@@ -111,6 +141,21 @@ export function useMultiplayerSignaling({ selfPeerId, onMessage }: UseMultiplaye
     };
     pc.onconnectionstatechange = () => {
       updatePeer(peerId, { connectionState: pc.connectionState });
+      // Report the first terminal ICE outcome to the caller for networking analytics (see
+      // onIceResult). Once-per-connection so a later flap doesn't double-count.
+      const state = pc.connectionState;
+      if ((state === 'connected' || state === 'failed') && !iceReportedRef.current[peerId]) {
+        iceReportedRef.current[peerId] = true;
+        const usedDefaultTurn = isUsingDefaultTurn();
+        if (state === 'connected') {
+          const connectionTimeMs = Math.round(performance.now() - startedAt);
+          void inspectSelectedCandidate(pc).then(({ candidateType, usedRelay }) => {
+            onIceResultRef.current?.({ outcome: 'connected', connectionTimeMs, candidateType, usedRelay, usedDefaultTurn });
+          });
+        } else {
+          onIceResultRef.current?.({ outcome: 'failed', reason: 'ice-connection-failed', usedDefaultTurn });
+        }
+      }
     };
     const stream = getStream();
     stream?.getTracks().forEach((t) => pc.addTrack(t, stream));
