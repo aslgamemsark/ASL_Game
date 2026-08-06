@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
+import { LoadingScreen } from '@/components/shared/LoadingScreen';
 
 interface ScreenTransitionProps {
   children: ReactNode;
@@ -22,6 +23,18 @@ interface ScreenTransitionProps {
  * screen" (2026-08-06) was: the new screen was there, just pushed under the
  * old one. Pulling the exiting screen out of flow the instant it starts
  * exiting lets the entering screen occupy the layout position immediately.
+ *
+ * The Suspense boundary belongs HERE, per screen, and must not be hoisted back
+ * up around App.tsx's AnimatePresence. Every screen is a `React.lazy` chunk, so
+ * entering one suspends; a boundary ABOVE AnimatePresence hides its whole
+ * subtree while that chunk downloads — including the outgoing screen, mid-exit.
+ * A hidden element gets no frames, so the exit animation never completes,
+ * AnimatePresence never unmounts the outgoing screen, and it stays on top at
+ * opacity 1 forever with the new screen stranded in flow beneath it. That is
+ * the version of the bug the `position: absolute` fix above did NOT solve:
+ * measured 2026-08-07, the outgoing Home was still `position: static, opacity 1`
+ * 2.5s after the swap, because its exit had never started. Scoping the boundary
+ * to the entering screen leaves the outgoing sibling visible and animating.
  */
 export function ScreenTransition({ children, className }: ScreenTransitionProps) {
   return (
@@ -32,7 +45,7 @@ export function ScreenTransition({ children, className }: ScreenTransitionProps)
       exit={{ opacity: 0, y: -8, position: 'absolute', inset: 0 }}
       transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
-      {children}
+      <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
     </motion.div>
   );
 }

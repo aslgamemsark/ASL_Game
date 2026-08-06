@@ -346,15 +346,15 @@ export default function App() {
       {/* md:, matching SideNav's own breakpoint (see SideNav.tsx's comment) — must switch at the
           exact same width the nav itself does, or content sits under empty space (or the nav). */}
       <div className={`relative${showSideNav ? ' md:pl-64' : ''}`}>
-        <Suspense fallback={<LoadingScreen />}>
         {/* Not mode="wait": that makes the incoming screen strictly wait for the outgoing one's
-            exit animation to finish. Confirmed broken 2026-08-06 ("Try Yourself does nothing, I'm
-            back on the Alphabets page") — closing a LetterDetailModal (its own nested
-            AnimatePresence exit) in the same click that changes `screen` to 'practice' left this
-            exit waiting on the outgoing tree forever: the modal's own unmount, racing its
-            ancestor's, never resolved the outer exit, so the new screen never mounted even though
-            `screen` state had already moved on. "Test from Memory" (no nested modal to close)
-            doesn't hit this and always worked. Concurrent enter/exit removes the dependency. */}
+            exit animation to finish, so a slow-loading screen chunk holds the old screen on
+            display for as long as the download takes.
+
+            Deliberately NOT wrapped in a Suspense boundary here. Each ScreenTransition carries its
+            own — see that component for why a boundary at THIS level is what kept "Try Yourself"
+            broken through two earlier fixes: it hid the outgoing screen mid-exit while the
+            incoming screen's lazy chunk loaded, so the exit never completed and the outgoing
+            screen never unmounted. */}
         <AnimatePresence>
           {screen.type === 'onboarding' && (
             <ScreenTransition key="onboarding">
@@ -491,7 +491,6 @@ export default function App() {
             </ScreenTransition>
           )}
         </AnimatePresence>
-        </Suspense>
       </div>
 
       {/* Username setup modal for Google/OAuth users */}
