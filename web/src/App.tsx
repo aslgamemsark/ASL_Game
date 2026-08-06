@@ -345,7 +345,7 @@ export default function App() {
       )}
       {/* md:, matching SideNav's own breakpoint (see SideNav.tsx's comment) — must switch at the
           exact same width the nav itself does, or content sits under empty space (or the nav). */}
-      <div className={showSideNav ? 'md:pl-64' : ''}>
+      <div className={`relative${showSideNav ? ' md:pl-64' : ''}`}>
         <Suspense fallback={<LoadingScreen />}>
         {/* Not mode="wait": that makes the incoming screen strictly wait for the outgoing one's
             exit animation to finish. Confirmed broken 2026-08-06 ("Try Yourself does nothing, I'm
