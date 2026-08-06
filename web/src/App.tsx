@@ -347,7 +347,15 @@ export default function App() {
           exact same width the nav itself does, or content sits under empty space (or the nav). */}
       <div className={showSideNav ? 'md:pl-64' : ''}>
         <Suspense fallback={<LoadingScreen />}>
-        <AnimatePresence mode="wait">
+        {/* Not mode="wait": that makes the incoming screen strictly wait for the outgoing one's
+            exit animation to finish. Confirmed broken 2026-08-06 ("Try Yourself does nothing, I'm
+            back on the Alphabets page") — closing a LetterDetailModal (its own nested
+            AnimatePresence exit) in the same click that changes `screen` to 'practice' left this
+            exit waiting on the outgoing tree forever: the modal's own unmount, racing its
+            ancestor's, never resolved the outer exit, so the new screen never mounted even though
+            `screen` state had already moved on. "Test from Memory" (no nested modal to close)
+            doesn't hit this and always worked. Concurrent enter/exit removes the dependency. */}
+        <AnimatePresence>
           {screen.type === 'onboarding' && (
             <ScreenTransition key="onboarding">
               <OnboardingFlow initialStep={screen.startAt} onComplete={handleOnboardingComplete} />
