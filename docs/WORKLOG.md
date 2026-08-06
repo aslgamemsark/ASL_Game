@@ -7,6 +7,49 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ---
 
+## 2026-08-06 — Found and fixed the real "Try Yourself" bug: two self-healing crash classes
+
+- **The reported bug ("camera opens, then bounces back to Alphabet") wasn't in the Try Yourself
+  logic at all.** Traced the two recent fixes (`04b6084`, `35af9e9`, `5178c64`) — all correct and
+  live — then pulled real signal from PostHog instead of guessing further, since the in-app
+  browser tool here can't reliably composite frames to reproduce click flows. Found two distinct,
+  recurring crash classes hiding under generic error events, both invisible without reading raw
+  `message` text row by row:
+  1. **`fatal_error`, "Failed to fetch dynamically imported module"** (4 occurrences, Jul 30 – Aug
+     6, hitting `PracticePage`, `ShopPage`, `MultiplayerHubPage`) — a tab left open across a
+     deploy still references an old JS chunk filename the CDN stops serving once a newer,
+     differently-hashed build lands. Given how many deploys shipped in the last two days, this
+     was hitting testers constantly. `PracticePage-CrQMMtYY.js` failed on 2026-08-05, the exact
+     day Basic Signs/Alphabet were being tested — this is almost certainly what "Try Yourself
+     does nothing" actually was.
+  2. **`session_crashed`, "ASM_CONSTS[code] is not a function"** (8 occurrences, Jul 30 – Aug 6) —
+     MediaPipe's WASM runtime, thrown as an unhandled rejection (so React's ErrorBoundary never
+     sees it — the page stays mounted but the recognition loop is dead). Root cause: the SW's
+     `CacheFirst` rule for `cdn.jsdelivr.net`/`storage.googleapis.com` (vite.config.ts) has no
+     integrity check. A single interrupted fetch of a WASM sub-resource gets cached as if it
+     succeeded and then fails identically for up to 60 days — confirmed the version pin itself
+     (`MEDIAPIPE_WASM_VERSION` in `capture.ts`) is NOT the problem, it matches package.json.
+  Neither class had ANY recovery path before this — a user just saw a dead screen or reloaded
+  manually, which is what a "goes back to Alphabet" report actually looks like from outside.
+- **Fix**: `web/src/lib/errorReporting.ts` now classifies every `fatal_error`/`session_crashed`
+  via `classifyError()` (`chunk-load-failure` | `wasm-crash` | `other`) and auto-recovers once per
+  15s cooldown (prevents a reload loop if recovery doesn't actually fix it): chunk-load failures
+  get a plain reload (self-heals — fetches current `index.html` with current filenames);
+  WASM crashes purge the `signup-mediapipe-cdn` SW cache first, since a plain reload alone would
+  just re-serve the same corrupted entry. Both `fatal_error` and `session_crashed` now carry an
+  `error_class` property in PostHog (`analytics/types.ts` updated to match) — this class of bug
+  should never again require manually reading raw error-message text to spot the pattern.
+- **Also swept Supabase advisors** (security + performance) — nothing new: the SECURITY DEFINER
+  warnings are the already-reviewed admin RPCs (each re-checks `is_admin` internally, documented
+  in `20260719000000_fix_room_members_rls_and_grants.sql`), `room_join_attempts`'s no-policy is
+  the deliberate deny-all-to-clients design, and the `auth_rls_initplan`/`unused_index` items are
+  pre-existing low-priority performance notes, not bugs — left untouched rather than bundled in.
+- **Verified:** `tsc -b` clean, lint exit 0, 715 unit tests (7 new — `classifyError` locked to the
+  exact message shapes observed in production, not synthetic approximations), build clean
+  (precache unchanged at 50 entries / ~1721 KiB).
+
+---
+
 ## 2026-08-04 — Fixed the live AI-veto regression; found and fixed the real mechanism
 
 - **Production was actively blocking correct signs.** Production had drifted to serving a

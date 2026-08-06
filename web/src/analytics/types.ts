@@ -169,9 +169,11 @@ export interface EventPayloads {
   bug_reported: { page: string };
   feature_requested: { page: string };
 
-  // Crash monitoring (lib/errorReporting.ts, components/shared/ErrorBoundary.tsx)
-  fatal_error: { message: string; component_stack_present: boolean; route: string };
-  session_crashed: { source: 'window-error' | 'unhandled-rejection'; message: string };
+  // Crash monitoring (lib/errorReporting.ts, components/shared/ErrorBoundary.tsx). error_class
+  // classifies known, self-healing failure shapes (chunk-load-failure, wasm-crash) vs 'other' —
+  // see KnownErrorClass in errorReporting.ts for what each means and why it's split out.
+  fatal_error: { message: string; component_stack_present: boolean; route: string; error_class: 'chunk-load-failure' | 'wasm-crash' | 'other' };
+  session_crashed: { source: 'window-error' | 'unhandled-rejection'; message: string; error_class: 'chunk-load-failure' | 'wasm-crash' | 'other' };
   unexpected_reload: { seconds_since_last_error: number };
 
   // General functional errors (Supabase/network) that aren't a crash but matter for reliability.
