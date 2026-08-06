@@ -19,7 +19,9 @@ export function SignDetailModal({ sign, onClose, onTryYourself }: Props) {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-overlay flex items-end sm:items-center justify-center p-4"
+        // z-confirm, not z-overlay — same reason as LetterDetailModal: BottomNav shares the
+        // z-overlay tier and painted over this sheet's "Try Yourself" button on phones.
+        className="fixed inset-0 z-confirm flex items-end sm:items-center justify-center p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

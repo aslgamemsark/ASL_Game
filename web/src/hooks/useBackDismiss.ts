@@ -5,6 +5,17 @@ import { useEffect, useRef } from 'react';
 // "my own entry was popped" without needing a single shared stack object threaded through props.
 let depthCounter = 0;
 
+// How many pops the hook itself has queued via the cleanup below and not yet seen arrive.
+//
+// `history.back()` is asynchronous: the popstate it causes lands a task later, by which time a
+// DIFFERENT instance may have mounted and pushed a deeper entry. That instance then sees a pop to
+// an entry shallower than its own and reads it as a user Back press — which is an order violation,
+// not a Back press. It broke every "close this dialog AND change screen" click in one React commit
+// ("Try Yourself" on Alphabet and Basic Signs: the new screen mounted, the camera came on, then the
+// stale pop dismissed it — reported 2026-08-06). Depth alone cannot distinguish the two cases,
+// because the offending pop carries a perfectly valid shallower depth.
+let selfQueuedPops = 0;
+
 /**
  * Makes the hardware/browser Back button run `onBack` while `active` is true, instead of leaving
  * the screen entirely or exiting the app — which is what happens by default once a WebView/TWA's
@@ -34,6 +45,13 @@ export function useBackDismiss(active: boolean, onBack: () => void) {
     window.history.pushState({ __backDismissDepth: myDepthRef.current }, '');
 
     const onPopState = (e: PopStateEvent) => {
+      // Bookkeeping we caused ourselves, not the user navigating — see selfQueuedPops above.
+      // Claimed before the depth check so it is consumed exactly once no matter how many
+      // instances are listening.
+      if (selfQueuedPops > 0) {
+        selfQueuedPops -= 1;
+        return;
+      }
       const landedDepth = (e.state as { __backDismissDepth?: number } | null)?.__backDismissDepth ?? 0;
       if (myDepthRef.current === null || landedDepth >= myDepthRef.current) return;
       myDepthRef.current = null;
@@ -44,6 +62,7 @@ export function useBackDismiss(active: boolean, onBack: () => void) {
       window.removeEventListener('popstate', onPopState);
       if (myDepthRef.current !== null) {
         myDepthRef.current = null;
+        selfQueuedPops += 1;
         window.history.back();
       }
     };

@@ -3,6 +3,56 @@
 Running record of what changed and why. Maintained continuously during a session, newest first —
 see `.claude/rules/worklog.md` for the rule, including when to compress older months.
 
+## 2026-08-07
+
+- **Fixed "Try Yourself" for real — three defects, none of them the ones the two previous fixes
+  targeted** (`web/src/components/shared/ScreenTransition.tsx`, `web/src/App.tsx`,
+  `web/src/hooks/useBackDismiss.ts`, `web/src/components/home/LetterDetailModal.tsx`,
+  `web/src/components/home/SignDetailModal.tsx`, `web/e2e/tryYourself.spec.ts` — new).
+
+  **Why the earlier two fixes missed:** both reasoned from the code and shipped without a browser
+  reproduction. Driving it under Playwright and polling the AnimatePresence container over time
+  showed the actual end state — and it was not "the new screen never mounts". Measured 2.5s after
+  the click: the outgoing Home wrapper was still `position: static, opacity: 1`, and PracticePage
+  was mounted and rendered at `top: 1016px`, i.e. a full viewport BELOW the fold. The camera really
+  did start (matching "the camera light comes on"); the user simply never saw the screen.
+
+  **Defect 1 — Suspense boundary above AnimatePresence froze the exit.** Every screen is a
+  `React.lazy` chunk, and the boundary sat around `<AnimatePresence>` in App.tsx. Entering a screen
+  suspends, so React hid that whole subtree — *including the outgoing screen mid-exit* — until the
+  chunk arrived. A hidden element gets no animation frames, so the exit never completed,
+  AnimatePresence never unmounted the outgoing screen, and it stayed on top at opacity 1 forever.
+  The earlier `exit: { position: absolute }` fix was correct but inert: it only applies once the
+  exit *starts*, and the exit never started. Fixed by moving the boundary INSIDE
+  `ScreenTransition`, so only the entering screen is suspended and its exiting sibling keeps
+  animating. **Watch out:** do not hoist this boundary back up to App.tsx — that reintroduces the
+  bug exactly.
+
+  **Defect 2 — order violation between two `useBackDismiss` instances.** Closing the modal and
+  changing `screen` happen in one React commit, so the modal's cleanup fires `history.back()`
+  (asynchronous, not yet landed) while the newly-armed screen-level instance pushes a deeper entry.
+  The queued pop then lands on an entry shallower than the screen's, which every listener reads as
+  a user Back press, and the screen dismisses itself. Depth alone cannot separate the two cases —
+  the offending pop carries a legitimately shallower depth — so the hook now counts pops it queued
+  itself and consumes them without firing `onBack`. Verified necessary independently: with Defect 1
+  fixed but this reverted, both regression tests still fail.
+
+  **Defect 3 — on phones the nav ate the tap.** `LetterDetailModal`/`SignDetailModal` sat on
+  `z-overlay` (50), the same tier as BottomNav, so DOM order decided and the nav painted over the
+  bottom-anchored sheet's "Try Yourself" button. Desktop never showed it (`sm:items-center` centres
+  the card clear of the nav) — it only surfaced once the regression test ran on the android/ios
+  projects, as "BottomNav button intercepts pointer events". Moved both to the `z-confirm` (70)
+  tier the design system already defines for "must beat persistent chrome regardless of DOM order".
+
+  **Verified:** new `e2e/tryYourself.spec.ts` asserts the mechanism (stays off the tab it left,
+  practice chrome present) and fails on each defect independently — it reproduced the bug in real
+  Chromium before any fix. Full suite 124 passed / 0 failed across chromium + android + ios;
+  731 unit tests; `tsc -b` and `npm run lint` clean; production build clean.
+
+- **Deliberately not fixed:** two `a11y.spec.ts` iOS cases (`secondary screens`, `an open dialog`)
+  failed on a clean tree as well as a patched one, then passed on a later full run — pre-existing
+  flake, unrelated to this work, not investigated here.
+
 **Read this at the start of every session, alongside `HANDOFF.md`.**
 
 ---

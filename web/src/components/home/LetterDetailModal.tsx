@@ -29,7 +29,12 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-overlay flex items-end sm:items-center justify-center p-4"
+        // z-confirm, not z-overlay: BottomNav is also z-overlay, so on phones — where this sheet
+        // is bottom-anchored (items-end) — the nav painted OVER the "Try Yourself" button purely
+        // by DOM order, swallowing the tap. Caught 2026-08-07 by the android/ios e2e projects
+        // ("BottomNav button intercepts pointer events"); desktop never showed it because
+        // sm:items-center centres the card clear of the nav.
+        className="fixed inset-0 z-confirm flex items-end sm:items-center justify-center p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
