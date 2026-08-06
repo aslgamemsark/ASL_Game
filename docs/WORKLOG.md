@@ -49,6 +49,14 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   Chromium before any fix. Full suite 124 passed / 0 failed across chromium + android + ios;
   731 unit tests; `tsc -b` and `npm run lint` clean; production build clean.
 
+- **Shipped to production and verified there** (PR #9 → `main` `f1a6f78` → `dpl_CpsLLbt…`,
+  aliased to aslgame.vercel.app). **Why it's worth a line:** verification was not "the deploy says
+  READY" — `playwright.prod.config.ts` (new) re-points the existing e2e specs at the live URL with
+  no local webServer, and `tryYourself.spec.ts` passed 4/4 against production on desktop + Pixel 7
+  geometry. `z-confirm flex items-end` also greps out of the live `index-B-ZRBs-5.js`. Run it with
+  `npx playwright test tryYourself.spec.ts --config=playwright.prod.config.ts` (override the target
+  with `PROD_URL`). Not wired into CI — `playwright.config.ts` remains the gate.
+
 - **Deliberately not fixed:** two `a11y.spec.ts` iOS cases (`secondary screens`, `an open dialog`)
   failed on a clean tree as well as a patched one, then passed on a later full run — pre-existing
   flake, unrelated to this work, not investigated here.
