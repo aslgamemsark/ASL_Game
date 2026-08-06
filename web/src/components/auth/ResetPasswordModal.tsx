@@ -51,8 +51,10 @@ export function ResetPasswordModal() {
                 <h2 className="font-bold text-lg">Set a new password</h2>
               </div>
               <form onSubmit={handleSubmit} className="space-y-3">
+                <label htmlFor="reset-new-password" className="sr-only">New password</label>
                 <input
-                  className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+                  id="reset-new-password"
+                  className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:border-z-purple transition-colors"
                   type="password"
                   placeholder="New password"
                   value={password}
@@ -63,8 +65,10 @@ export function ResetPasswordModal() {
                   autoComplete="new-password"
                   autoFocus
                 />
+                <label htmlFor="reset-confirm-password" className="sr-only">Confirm new password</label>
                 <input
-                  className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:outline-none focus:border-z-purple transition-colors"
+                  id="reset-confirm-password"
+                  className="w-full bg-white/5 border border-z-gray-400/30 rounded-xl px-4 py-2.5 text-sm placeholder:text-z-gray-400 focus:border-z-purple transition-colors"
                   type="password"
                   placeholder="Confirm new password"
                   value={confirm}

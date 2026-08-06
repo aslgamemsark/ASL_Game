@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/shared/Button';
 import { useCamera } from '@/hooks/useCamera';
-import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
+import { useRecognition } from '@/hooks/useRecognition';
 import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
@@ -13,8 +14,7 @@ import { Zippy } from '@/components/shared/Zippy';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { pickZippyLine, type ZippyExpression } from '@/data/zippy';
 import { useUserStore } from '@/stores/useUserStore';
-import { useAuth } from '@/contexts/AuthContext';
-import { logAttempt } from '@/hooks/useProgressSync';
+import { useAttemptLog } from '@/hooks/useAttemptLog';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
@@ -50,7 +50,6 @@ const MOOD_ZIPPY: Record<string, ZippyExpression> = {
 export function StoryPage({ story, onExit }: Props) {
   const { addXp, addSigns, addGold, addDailyMinutes, recordSign, completeLesson, checkBadges, awardBadge, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
-  const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera('story');
   const sounds = useSounds();
   const { burst, bigCelebration } = useConfetti();
@@ -114,38 +113,10 @@ export function StoryPage({ story, onExit }: Props) {
     [phase, lineIdx, currentLine, story, recordSign, addXp, addSigns, addGold, completeLesson, skipsUsed, hintsUsed, awardBadge, checkBadges, worldId, startedAt]
   );
 
-  const handleAttempt = useCallback(
-    (a: AttemptRecord) => {
-      track('sign_attempt', {
-        sign_id: a.signId,
-        world_id: worldId,
-        source: 'story',
-        rule_passed: a.rulePassed,
-        ai_vetoed: a.aiVetoed,
-        final_passed: a.finalPassed,
-        ai_prediction: a.aiPrediction,
-        ai_confidence: a.aiConfidence,
-        duration_ms: a.durationMs,
-        attempt_number: a.attemptNumber,
-      });
-      if (!user) return;
-      void logAttempt({
-        userId: user.id,
-        signId: a.signId,
-        rulePassed: a.rulePassed,
-        aiPrediction: a.aiPrediction,
-        aiConfidence: a.aiConfidence,
-        aiVetoed: a.aiVetoed,
-        finalPassed: a.finalPassed,
-        source: 'story',
-        frames: a.frames,
-      });
-    },
-    [user, worldId]
-  );
+  const attemptLog = useAttemptLog({ source: 'story', worldId });
 
   const { classifier, status: classifierStatus, logVote, lastVote } = useClassifier();
-  const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote, onAttempt: handleAttempt, screen: 'story' });
+  const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote, onAttempt: attemptLog.recordAttempt, screen: 'story' });
 
   useEffect(() => { recognition.init(); }, [recognition.init]);
 
@@ -183,19 +154,7 @@ export function StoryPage({ story, onExit }: Props) {
   const handleSkip = () => {
     if (!currentLine) return;
     recordSign(currentLine.requiredSignId, false);
-    if (user) {
-      void logAttempt({
-        userId: user.id,
-        signId: currentLine.requiredSignId,
-        rulePassed: false,
-        aiPrediction: null,
-        aiConfidence: null,
-        aiVetoed: false,
-        finalPassed: false,
-        source: 'story',
-        frames: recognition.getSnapshot(),
-      });
-    }
+    attemptLog.recordMiss(currentLine.requiredSignId, recognition.getSnapshot());
     setSkipsUsed((p) => p + 1);
     setFailMsg(pickZippyLine('encourage'));
     setPhase('fail');
@@ -218,7 +177,7 @@ export function StoryPage({ story, onExit }: Props) {
   const timeTaken = Math.round((Date.now() - startedAt) / 1000);
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       <video ref={videoRef} style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }} muted playsInline autoPlay />
 
       {/* Header */}
@@ -230,7 +189,7 @@ export function StoryPage({ story, onExit }: Props) {
         )}
       </div>
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-4 pb-6 flex flex-col">
+      <div className={`flex-1 mx-auto w-full px-4 pb-6 flex flex-col ${phase === 'dialogue' ? 'max-w-lg lg:max-w-6xl' : 'max-w-lg'}`}>
         <AnimatePresence mode="wait">
 
           {/* INTRO */}
@@ -262,11 +221,9 @@ export function StoryPage({ story, onExit }: Props) {
               {recognition.status === 'loading' && (
                 <p className="text-sm text-z-gray-400 animate-pulse">Loading camera model…</p>
               )}
-              <motion.button onClick={handleStart} disabled={recognition.status === 'loading'}
-                className="mt-2 px-8 py-3 rounded-2xl font-bold text-white text-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-primary"
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <Button onClick={handleStart} disabled={recognition.status === 'loading'} size="lg" className="mt-2">
                 Start
-              </motion.button>
+              </Button>
             </motion.div>
           )}
 
@@ -293,7 +250,7 @@ export function StoryPage({ story, onExit }: Props) {
                 </div>
               </div>
 
-              {/* Sign prompt + hint */}
+              {/* Sign prompt + text hint */}
               <div className="bg-z-surface/50 rounded-2xl p-4 border border-z-purple/30">
                 {/* What the player's character says back, in plain English — turns the exchange
                     into a real conversation instead of a bare vocabulary word. */}
@@ -302,7 +259,8 @@ export function StoryPage({ story, onExit }: Props) {
                 <p className="text-xl font-bold text-z-purple-glow">
                   {currentSignData?.name.replace(/_/g, ' ')}
                 </p>
-                {/* Hint levels — both start hidden; nothing shows until the player explicitly asks. */}
+                {/* Level-1 hint — starts hidden; nothing shows until the player explicitly asks.
+                    Level-2 (the clip) moved into the camera grid below, alongside the webcam. */}
                 <AnimatePresence>
                   {hintLevel >= 1 && (
                     <motion.p key="hint1" className="text-xs text-z-gray-300 mt-2 border-t border-white/5 pt-2"
@@ -310,8 +268,20 @@ export function StoryPage({ story, onExit }: Props) {
                       {currentLine.hint}
                     </motion.p>
                   )}
+                </AnimatePresence>
+              </div>
+
+              {/* Mobile: stacked (hint clip once asked for, camera, stats). Desktop (lg+): same
+                  three-column camera setup as Lesson/Practice — clip left (once the level-2 hint
+                  is revealed), webcam center, stats right. */}
+              <div
+                className={`flex flex-col gap-4 lg:grid lg:gap-6 lg:items-start ${
+                  hintLevel >= 2 ? 'lg:grid-cols-[320px_1fr_340px]' : 'lg:grid-cols-[1fr_340px]'
+                }`}
+              >
+                <AnimatePresence>
                   {hintLevel >= 2 && (
-                    <motion.div key="hint2" className="mt-2 border-t border-white/5 pt-2"
+                    <motion.div key="hint2" className="lg:order-1"
                       initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
                       <ReferenceClip
                         clipUrl={currentSignData?.clip}
@@ -321,14 +291,26 @@ export function StoryPage({ story, onExit }: Props) {
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                <div className="lg:order-2">
+                  <WebcamMirror
+                    videoRef={videoRef}
+                    cosmeticBorderClasses={cosmeticBorderClasses}
+                    aspectClassName="aspect-[var(--cam-ar)] lg:aspect-[4/3]"
+                  />
+                </div>
+
+                <div className="lg:order-3">
+                  {recognition.result && (
+                    <ParameterChecklist
+                      params={recognition.result.params}
+                      sign={currentEngineSign}
+                      holdProgress={recognition.holdProgress}
+                      fillHeight
+                    />
+                  )}
+                </div>
               </div>
-
-              {/* Webcam */}
-              <WebcamMirror videoRef={videoRef} cosmeticBorderClasses={cosmeticBorderClasses} />
-
-              {recognition.result && (
-                <ParameterChecklist params={recognition.result.params} sign={currentEngineSign} />
-              )}
 
               {/* Actions */}
               <div className="flex gap-2 mt-auto pt-1">
@@ -405,15 +387,15 @@ export function StoryPage({ story, onExit }: Props) {
               <div className="grid grid-cols-3 gap-3 w-full max-w-xs">
                 <div className="bg-z-card rounded-2xl p-3 text-center border border-white/5">
                   <p className="text-xl font-bold text-z-yellow">{earnedXp}</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">XP earned</p>
+                  <p className="text-2xs text-z-gray-400 mt-0.5">XP earned</p>
                 </div>
                 <div className="bg-z-card rounded-2xl p-3 text-center border border-white/5">
                   <p className="text-xl font-bold text-z-purple-light">{earnedSigns}🤟</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">Signs</p>
+                  <p className="text-2xs text-z-gray-400 mt-0.5">Signs</p>
                 </div>
                 <div className="bg-z-card rounded-2xl p-3 text-center border border-white/5">
                   <p className="text-xl font-bold text-z-yellow">{storyGold}🪙</p>
-                  <p className="text-[11px] text-z-gray-400 mt-0.5">Gold</p>
+                  <p className="text-2xs text-z-gray-400 mt-0.5">Gold</p>
                 </div>
               </div>
 
@@ -433,11 +415,9 @@ export function StoryPage({ story, onExit }: Props) {
                 </div>
               </div>
 
-              <motion.button onClick={onExit}
-                className="mt-2 px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <Button onClick={onExit} className="mt-2">
                 Back to Home
-              </motion.button>
+              </Button>
             </motion.div>
           )}
 

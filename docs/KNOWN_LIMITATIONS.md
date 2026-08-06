@@ -17,27 +17,69 @@ ships surprised. This is deliberately candid — every item is real and evidence
   certified interpreter — it will sometimes pass sloppy signs and fail good ones.
 
 ## Multiplayer
-- **Room mode (3–4 players) has no disconnect handling.** If a player drops mid-round, the round
-  stalls until a 10-second timeout. Duel (1v1) has reconnect/forfeit; rooms do not yet.
+- **Room mode's disconnect handling is partial** (improved 2026-08-03). It now tracks who has left,
+  excludes them from the guess count, re-offers video when they return, ends a round immediately if
+  the SIGNER drops rather than running the timer down on an empty tile, skips departed players when
+  choosing the next signer, and ends the match when fewer than two players remain. What it still
+  lacks versus Duel: a visible "waiting for X to reconnect" state with a countdown, and a forfeit
+  award. A player who drops and returns rejoins a match in progress fine (migration
+  20260731120000), but the others get no UI telling them what is happening while they wait.
+- **Integration coverage is Chromium-only, and cannot cover real radio behaviour.** The suite
+  (`web/e2e/multiplayer.spec.ts`, see `docs/MULTIPLAYER_TESTING.md`) runs two real browser contexts
+  with fake media devices against a local Supabase stack. Not covered, and honestly out of reach
+  without two physical devices: true radio-level interruption (airplane mode mid-round),
+  high-latency/lossy links, and real mobile-Safari backgrounding — iOS suspends timers and tears
+  down media in ways `visibilitychange` in a desktop engine does not reproduce.
+  `context.setOffline()` models a clean drop, not a degraded link.
+- **The Duel and Room state machines are still separate**, with duplicated flow logic. Deliberate:
+  merging them was frozen until integration coverage existed. That coverage now exists, so this is
+  a ready-to-start piece of work rather than an open risk.
+- **Production's migration history does not match the repo.** 12 repo migrations were never applied,
+  and several applied ones carry different version numbers than their repo files. The 2026-07-31
+  multiplayer bug lived in exactly that gap for two weeks. Until the history is reconciled, "it is
+  in the repo" does NOT mean "it is in the database" — check before assuming, and apply migrations
+  individually rather than with a blanket `supabase db push`, which would try to replay unrelated
+  old ones.
 - **Video is peer-to-peer (WebRTC).** Behind strict corporate/NAT firewalls, video may fail to
   connect; the fallback TURN server is a free tier not sized for scale.
 - **No matchmaking.** Multiplayer is play-with-a-friend via room codes only — there is no "find a
   random opponent."
 
 ## Platform / performance
-- **First load is heavy.** On-device MediaPipe + TF.js is ~1 MB+ of runtime. This is the deliberate
-  price of privacy (no video leaves your device), but it means a slow first paint on poor networks.
+- **First load is on-device MediaPipe only now (2026-07-31).** The TF.js disambiguation layer
+  (~1 MB gzip: 269 KB runtime + 428 KB weights) no longer loads on the critical path — it was
+  shadow-mode-only (`GATE_ENFORCED = false`) and never affected a real pass/fail, so its download
+  cost bought nothing for a returning user. PostHog's init was also moved off the render-blocking
+  path. MediaPipe's on-device hand/pose runtime remains — that's the real price of privacy (no
+  video leaves the device) and isn't going away.
 - **Not deeply tested across browsers/devices this pass.** iOS Safari camera + WebRTC in particular
   needs real-device verification before relying on it.
+- **Hardware/browser Back is wired for top-level screens, dialogs, and the multiplayer hub only**
+  (2026-07-30, `useBackDismiss`) — not for step machines *within* a screen. Pressing Back mid-way
+  through the onboarding flow's own steps, or while `AuthModal` is showing its "sign up" tab
+  instead of "sign in", exits that screen/dialog entirely rather than stepping back one internal
+  step. Each of those would need its own `useBackDismiss` adoption; not done broadly this pass
+  because it requires auditing every internal step flow app-wide, not just this one bug class.
 
 ## Accessibility
-- **Not yet WCAG-audited.** Keyboard navigation, screen-reader support, focus management, and
-  reduced-motion handling are unverified. The app is also inherently camera- and motion-dependent,
-  which limits some access modes.
+- **WCAG-audited as of 2026-07-31.** Keyboard navigation, screen-reader labels, focus management,
+  touch-target sizing (44px minimum), heading structure, and tab-widget semantics were audited and
+  fixed; axe's `color-contrast` rule runs (previously disabled) across all screens on
+  chromium/android/ios, and the focus ring itself is now contrast-checked
+  (`tests/tokenContrast.test.ts`) rather than hardcoded to the dark theme's color. The app is still
+  inherently camera- and motion-dependent, which limits some access modes by nature of what it is —
+  that isn't fixable by an accessibility pass.
+- **Not covered:** real assistive-technology testing (VoiceOver/TalkBack/NVDA on a real device) —
+  the axe scan and keyboard-only pass verify against the WCAG ruleset, not a real screen-reader
+  session. Desktop layout (`lg:`/`md:` breakpoints) was audited only at the phone viewport this
+  pass; a dedicated desktop a11y sweep is a reasonable follow-up, not done here.
 
 ## Observability
-- **No production error monitoring yet.** Crashes users hit are not reported anywhere until this is
-  wired.
+- **No crash-monitoring SDK (Sentry or equivalent).** Crashes DO reach PostHog as `fatal_error` /
+  `session_crashed` events, routed through the single integration point in `src/lib/errorReporting.ts`
+  — so they are not invisible, but there is no stack-trace aggregation, release-health tracking, or
+  alerting. Adding Sentry is ~3 lines at that one file (steps are in its header comment); it needs a
+  third-party account, which is a decision rather than a task.
 
 ## Privacy / legal
 - **Legal posture for minors is unverified.** Camera-based, appeals to children, collects landmark

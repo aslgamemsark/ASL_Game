@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <!-- Without this, the self-hosted brand font (index.css) is only discoverable after the CSS
+         itself finishes fetching and parsing, guaranteeing a swap flash on every load (found
+         2026-07-30). Only the `latin` subset is preloaded — the near-universal case for an
+         English-first product; `latin-ext` still loads normally, just not ahead of need. -->
+    <link rel="preload" href="/fonts/quicksand-latin.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>QuickSign — Learn ASL with Zippy</title>
     <meta name="description" content="Most apps ask you to recognize a sign. QuickSign watches you make it — and tells you exactly which part to fix. Free, in your browser, camera never leaves your device." />
@@ -32,6 +37,15 @@
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "QuickSign",
+      "url": "https://aslgame.vercel.app/",
+      "logo": "https://aslgame.vercel.app/pwa-512x512.png"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       "name": "QuickSign",
       "applicationCategory": "EducationalApplication",
@@ -46,6 +60,15 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!-- iOS reads this exactly once, at launch — unlike <meta name="theme-color"> (synced live to
+         the theme in ThemeContext.tsx), it cannot be changed at runtime, so one value has to serve
+         both themes. 'black-translucent' draws content edge-to-edge under a translucent status bar
+         with light icons/text — correct and premium-looking against the app's DEFAULT dark theme
+         (--rt-body-bg #0D0A1E). In light theme those same light status-bar icons sit on a pale
+         background (#E7D9FB) with reduced contrast. Accepted tradeoff: the app defaults to dark for
+         every new install (getInitialTheme in ThemeContext.tsx), so this is correct for the common
+         case; switching to 'default' would fix light-theme contrast but lose the edge-to-edge look
+         everyone actually gets. Revisit only if light-theme usage becomes significant. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="QuickSign" />
   </head>

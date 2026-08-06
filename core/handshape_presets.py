@@ -85,6 +85,12 @@ _THUMB_TIP_M_UNDER = np.array([-0.10, -0.55])
 # 2026-07-15 against a dedicated correct-vs-fist confusor recording after an initial 0.44 target
 # (from an older, differently-posed recording) still accepted a real fist live.
 _THUMB_TIP_E_UNDER = np.array([-0.17, -0.37])
+# B-specific: reusing the generic TUCKED position made B geometrically identical to 5 by
+# b_confidence's real-data-calibrated thumb-tucked check (both land >0.29 hand-scale units from
+# INDEX_MCP — see core.handshape's THUMB_TUCKED_LOW/HIGH comment, calibrated 2026-07-23 against a
+# real B/5 confusor recording). This position sits ~0.18 units from INDEX_MCP, comfortably inside
+# the "tucked" band.
+_THUMB_TIP_B_TUCKED = np.array([-0.20, -0.85])
 
 # (index, middle, ring, pinky) extension, thumb_extended. Aliases share one spec so a sign asking for
 # "s" and one asking for "fist" animate identically — the same reuse the recognition dispatch relies on.
@@ -193,7 +199,7 @@ def _finger_chain(name: str, extension: float) -> np.ndarray:
 def _thumb_chain(extended: bool, between: bool = False, pinch: bool = False,
                  k_touch: bool = False, p_touch: bool = False, n_under: bool = False,
                  a_alongside: bool = False, c_shape: bool = False,
-                 m_under: bool = False, e_under: bool = False) -> np.ndarray:
+                 m_under: bool = False, e_under: bool = False, b_tucked: bool = False) -> np.ndarray:
     """thumb mcp, ip, tip (3 points, 2D). cmc is fixed; the rest interpolate cmc->tip."""
     if between:
         tip = _THUMB_TIP_BETWEEN
@@ -213,6 +219,8 @@ def _thumb_chain(extended: bool, between: bool = False, pinch: bool = False,
         tip = _THUMB_TIP_M_UNDER
     elif e_under:
         tip = _THUMB_TIP_E_UNDER
+    elif b_tucked:
+        tip = _THUMB_TIP_B_TUCKED
     else:
         tip = _THUMB_TIP_OUT if extended else _THUMB_TIP_TUCKED
     return np.array([_THUMB_CMC + (tip - _THUMB_CMC) * f for f in (0.40, 0.72, 1.0)])
@@ -244,6 +252,7 @@ def local_hand(kind: str, scale: float = CANON_SCALE, mirror: bool = False) -> n
         c_shape=(key == "c"),
         m_under=(key == "m"),
         e_under=(key == "e"),
+        b_tucked=(key == "b"),
     )
     pts[1, :2] = _THUMB_CMC                       # thumb cmc
     pts[2, :2], pts[3, :2], pts[4, :2] = mcp_t, ip_t, tip_t   # mcp, ip, tip
@@ -269,7 +278,6 @@ def local_hand(kind: str, scale: float = CANON_SCALE, mirror: bool = False) -> n
         for joint in (1, 2, 3):
             pts[index_i + joint, 0] = mid_x + (pts[index_i + joint, 0] - mid_x) * 0.05
             pts[middle_i + joint, 0] = mid_x + (pts[middle_i + joint, 0] - mid_x) * 0.05
-
     pts[:, :2] *= scale
 
     rotate_deg = _ROTATION_DEG.get(key, 0.0)

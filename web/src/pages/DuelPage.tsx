@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
+import { useRecognition } from '@/hooks/useRecognition';
+import { useAttemptLog } from '@/hooks/useAttemptLog';
+import { Button } from '@/components/shared/Button';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMultiplayerSignaling, type IceResult } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
-import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_DUEL_RULES, DUEL_ROUNDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
-import { RoomRulesPanel } from '@/components/multiplayer/RoomRulesPanel';
+import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, DEFAULT_DUEL_RULES, type RoomRules } from '@/lib/multiplayerRooms';
+import { MultiplayerLobby } from '@/components/multiplayer/MultiplayerLobby';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { getShopItem } from '@/data/shop';
@@ -50,6 +52,9 @@ interface Props {
   autoHostRoomId?: string;
   /** When set, auto-joins this room code (challenged-player flow). */
   autoJoinCode?: string;
+  /** Swaps the whole screen to the other mode from inside the lobby. Absent when the mode is
+   *  fixed by the caller (challenge flows), which also hides the switcher. */
+  onSwitchMode?: (mode: 'duel' | 'room') => void;
 }
 
 const ALL_SIGNS = Object.keys(SIGNS);
@@ -64,14 +69,22 @@ const RECONNECT_SECONDS = 30;
 // arrives — a dropped broadcast, a camera that never loads — start the timer anyway after this
 // long, rather than letting a lost message stall a round forever.
 const TURN_ARM_FALLBACK_MS = 5000;
+// The guest re-announces its arrival until the host replies, because a broadcast sent before the
+// host finished subscribing is lost with no replay (see joinRoom). ~1.2s x 10 covers a cold-start
+// camera prompt on the host's side; past that the host genuinely isn't there and the guest is told
+// so rather than waiting forever.
+const JOIN_ANNOUNCE_INTERVAL_MS = 1200;
+const JOIN_ANNOUNCE_ATTEMPTS = 10;
 
-export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
+export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }: Props) {
   const { user, username } = useAuth();
   const { addSigns, addGold, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const sounds = useSounds();
   const { burst } = useConfetti();
-  const recognition = useRecognition({ onPass: handleSignCorrect, onAttempt: handleDuelAttempt, screen: 'multiplayer' });
+  // No worldId — any sign in the pool can come up.
+  const attemptLog = useAttemptLog({ source: 'duel' });
+  const recognition = useRecognition({ onPass: handleSignCorrect, onAttempt: attemptLog.recordAttempt, screen: 'multiplayer' });
 
   const [phase, setPhase] = useState<Phase>('lobby');
   const [reportOpen, setReportOpen] = useState(false);
@@ -112,6 +125,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const [endedByForfeit, setEndedByForfeit] = useState(false);
   const reconnectIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const forfeitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Repeats the guest's 'join' announcement until the host answers — see joinRoom for why one
+  // broadcast was not enough.
+  const joinAnnounceRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const phaseRef = useRef<Phase>('lobby');
   const phaseBeforeDisconnectRef = useRef<Phase>('signer');
   const wasPresentRef = useRef(false);
@@ -191,24 +207,6 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     resultTimerRef.current = setTimeout(() => advanceRound(iScored, opponentScored), RESULT_HOLD_MS);
   }, [advanceRound]);
 
-  // Analytics-only — Duel doesn't feed the Supabase landmark-training pipeline (logAttempt) the
-  // way solo screens do; that's a deliberate scope limit for this pass, not an oversight (see the
-  // Analytics Coverage Report). No single world_id: any sign in the pool can come up.
-  function handleDuelAttempt(a: AttemptRecord) {
-    track('sign_attempt', {
-      sign_id: a.signId,
-      world_id: null,
-      source: 'duel',
-      rule_passed: a.rulePassed,
-      ai_vetoed: a.aiVetoed,
-      final_passed: a.finalPassed,
-      ai_prediction: a.aiPrediction,
-      ai_confidence: a.aiConfidence,
-      duration_ms: a.durationMs,
-      attempt_number: a.attemptNumber,
-    });
-  }
-
   function handleSignCorrect(_r: VerifyResult) {
     const ms = matchStateRef.current;
     if (phase !== 'signer' || !ms) return;
@@ -216,6 +214,10 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     signaling.send('signed', { signId: ms.currentSign }, ms.opponentId);
     enterResult(true, false, ms.currentSign, ms.opponentUsername);
   }
+
+  const clearJoinAnnounce = useCallback(() => {
+    if (joinAnnounceRef.current) { clearInterval(joinAnnounceRef.current); joinAnnounceRef.current = null; }
+  }, []);
 
   const handleMessage = useCallback((event: string, payload: Record<string, unknown>, fromPeerId: string) => {
     const ms = matchStateRef.current;
@@ -233,6 +235,16 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       matchStartedAtRef.current = Date.now();
       matchStartTrackedRef.current = true;
       track('multiplayer_match_started', { mode: 'duel', room_id: matchStateRef.current?.roomId ?? '', player_count: 2 });
+      // Close the room to newcomers the moment the match starts — RoomPage has always done this
+      // and Duel never did, so a duel in progress still advertised status='waiting'. Harmless
+      // while the room reads as full, but the instant a player's leave decremented the count the
+      // room became findable again and a stranger could walk into a match already under way.
+      // Host-only by construction: this branch runs on the host, and the rooms_update_own policy
+      // restricts the write to host_id = auth.uid() regardless.
+      const startedRoomId = matchStateRef.current?.roomId;
+      if (startedRoomId) {
+        void supabase.from('multiplayer_rooms').update({ status: 'in_progress' }).eq('code', startedRoomId);
+      }
       if (!amSigner) buildGuessOptions(firstSign);
       void (async () => {
         await signaling.startCamera();
@@ -244,6 +256,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     if (event === 'start') {
       if (startedRef.current || !user) return;
       startedRef.current = true;
+      // The host answered — stop re-announcing immediately rather than waiting for the interval's
+      // next tick to notice, so no redundant 'join' goes out after the match has begun.
+      clearJoinAnnounce();
       const hostId = payload.hostId as string;
       const signs = payload.signs as string[];
       const firstSign = payload.firstSign as string;
@@ -294,7 +309,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
       return;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buildGuessOptions, enterResult, user]);
+  }, [buildGuessOptions, clearJoinAnnounce, enterResult, user]);
 
   // Networking telemetry — see multiplayer_ice_* in analytics/types.ts (answers "do we need paid
   // TURN?"). room_id read from the ref so this callback stays stable across the match.
@@ -364,8 +379,38 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     setMatchState((s) => ({ ...(s ?? { opponentId: '', opponentUsername: '', currentSign: '', round: 1, myScore: 0, opponentScore: 0 }), roomId }));
     await signaling.join(`mp-room-${roomId}`);
     await signaling.startCamera();
-    signaling.send('join', { username: username ?? user.email?.split('@')[0] ?? 'Player', border: equippedBorder ?? '' });
+
+    // Announce arrival, then KEEP announcing until the host answers with 'start'.
+    //
+    // A single broadcast assumed the host was already subscribed when it arrived, and nothing
+    // enforced that. Via "Search for a Match" the guest can find and join a room within
+    // milliseconds of the host's INSERT — while the host is still inside its own
+    // `signaling.join()` + `startCamera()` (a camera permission prompt and warmup, seconds on a
+    // cold start). Realtime broadcast has no replay: a message sent before the host subscribes is
+    // simply gone, and both players then sit on "Waiting…" forever with no error and no recovery.
+    //
+    // Re-sending is safe by construction rather than by luck: the host's handler returns early on
+    // `startedRef.current`, so every join after the first is a no-op. Bounded per livelock.md —
+    // it gives up after JOIN_ANNOUNCE_ATTEMPTS and tells the user, instead of retrying forever.
+    const announce = () => signaling.send('join', {
+      username: username ?? user.email?.split('@')[0] ?? 'Player',
+      border: equippedBorder ?? '',
+    });
+    announce();
     setStatusMsg('Connected! Waiting for host…');
+
+    let attempts = 0;
+    joinAnnounceRef.current = setInterval(() => {
+      // startedRef flips the moment the host's 'start' lands — the real "we're in" signal.
+      if (startedRef.current) { clearJoinAnnounce(); return; }
+      attempts += 1;
+      if (attempts >= JOIN_ANNOUNCE_ATTEMPTS) {
+        clearJoinAnnounce();
+        setStatusMsg("Couldn't reach the host — they may have left. Try another room.");
+        return;
+      }
+      announce();
+    }, JOIN_ANNOUNCE_INTERVAL_MS);
   };
 
   const searchForMatch = async () => {
@@ -488,8 +533,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
     recognition.stopLoop();
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
     if (turnIntervalRef.current) clearInterval(turnIntervalRef.current);
+    clearJoinAnnounce();
     clearReconnectTimers();
-  }, [clearReconnectTimers]);
+  }, [clearReconnectTimers, clearJoinAnnounce]);
 
   // Opponent forfeits by leaving: after RECONNECT_SECONDS with no reconnection, the staying player
   // wins outright and gets the normal win reward. Unchanged from before — only WHO sees which
@@ -592,66 +638,36 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
   const timerPercent = turnArmed ? (timeLeft / turnSecondsRef.current) * 100 : 100;
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       <video ref={signaling.localVideoRef} style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }} muted playsInline autoPlay />
 
       <div className="flex items-center gap-3 px-4 py-3 border-b border-z-purple-deep/40">
         <HeaderBackButton icon="close" onClick={exit} />
-        <h1 className="font-bold text-lg">⚔️ 1v1 Duel</h1>
+        {/* In the lobby the mode switcher directly below already names the mode, so
+            repeating it here read as the same words twice. Once a match is under way there
+            is no switcher, and naming the mode is useful context again. */}
+        <h1 className="font-bold text-lg">{phase === 'lobby' ? 'Multiplayer' : '⚔️ 1v1 Duel'}</h1>
       </div>
 
       <div className="flex-1 max-w-lg mx-auto w-full px-4 pb-6 flex flex-col">
         <AnimatePresence mode="wait">
 
           {phase === 'lobby' && (
-            <motion.div key="lobby" className="flex-1 flex flex-col items-center justify-center gap-6"
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="text-6xl">🤟</div>
-              <div className="text-center">
-                <h2 className="text-2xl font-bold">Sign & Guess</h2>
-                <p className="text-z-gray-300 text-sm mt-1">Sign it, your friend guesses it.</p>
-              </div>
-
-              <div className="w-full max-w-xs flex flex-col gap-2">
-                <RoomRulesPanel rules={rules} onChange={setRules} roundsOptions={DUEL_ROUNDS_OPTIONS} />
-                <div className="flex bg-z-card border border-white/10 rounded-2xl p-1">
-                  <button onClick={() => setVisibility('private')}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'private' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
-                    🔒 Private
-                  </button>
-                  <button onClick={() => setVisibility('public')}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors ${visibility === 'public' ? 'bg-z-purple text-white' : 'text-z-gray-400'}`}>
-                    🌐 Public
-                  </button>
-                </div>
-                <motion.button onClick={() => createRoom()}
-                  className="w-full py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  Create Room
-                </motion.button>
-              </div>
-
-              <motion.button onClick={() => void searchForMatch()} disabled={searching}
-                className="w-full max-w-xs py-3 rounded-2xl font-bold text-sm bg-z-card border border-white/10 hover:border-z-purple/40 disabled:opacity-50"
-                whileTap={{ scale: 0.97 }}>
-                {searching ? 'Searching…' : '🔍 Search for a Match'}
-              </motion.button>
-              {codeError && <p className="text-center text-z-red text-xs -mt-3">{codeError}</p>}
-
-              <div className="w-full max-w-xs">
-                <p className="text-center text-z-gray-400 text-sm mb-2">— or join with a code —</p>
-                <div className="flex gap-2">
-                  <input value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setCodeError(''); }}
-                    placeholder="XXXXXX"
-                    className="flex-1 bg-z-card border border-white/10 rounded-2xl px-4 py-2.5 text-sm uppercase tracking-widest font-bold text-center focus:outline-none focus:border-z-purple/60" />
-                  <motion.button onClick={() => joinRoom()} disabled={!joinCode.trim()}
-                    className="px-4 py-2.5 bg-z-purple rounded-2xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                    whileTap={{ scale: 0.96 }}>
-                    Join
-                  </motion.button>
-                </div>
-              </div>
-            </motion.div>
+            <MultiplayerLobby
+              mode="duel"
+              onModeChange={onSwitchMode ? () => onSwitchMode('room') : undefined}
+              rules={rules}
+              onRulesChange={setRules}
+              visibility={visibility}
+              onVisibilityChange={setVisibility}
+              onCreate={() => void createRoom()}
+              onSearch={() => void searchForMatch()}
+              searching={searching}
+              joinCode={joinCode}
+              onJoinCodeChange={(v) => { setJoinCode(v); setCodeError(''); }}
+              onJoin={() => void joinRoom()}
+              codeError={codeError}
+            />
           )}
 
           {phase === 'waiting' && (
@@ -677,11 +693,11 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
               </div>
               <div className="bg-z-card border border-z-purple/30 rounded-2xl p-4 text-center">
                 <p className="text-xs text-z-gray-400 mb-1">
-                  SIGN THIS · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-500">waiting for {matchState.opponentUsername}'s camera…</span>}
+                  SIGN THIS · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red font-bold' : ''}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-400">waiting for {matchState.opponentUsername}'s camera…</span>}
                 </p>
                 <p className="text-3xl font-bold text-z-purple-light">{SIGNS[matchState.currentSign]?.name.replace(/_/g, ' ') ?? matchState.currentSign}</p>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <WebcamMirror videoRef={signaling.localVideoRef} label="You" cosmeticBorderClasses={cosmeticBorderClasses} activeTurn turnLabel="YOUR TURN" timerPercent={timerPercent} />
                 <RemotePeerVideo stream={remoteStream} label={matchState.opponentUsername} connected={remoteConnected} cosmeticBorderClasses={opponentBorderClasses} />
               </div>
@@ -699,12 +715,12 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                 <RoundProgressDots total={totalRounds} current={matchState.round} />
                 <Scoreboard entries={[{ label: 'You', score: matchState.myScore, isYou: true }, { label: matchState.opponentUsername, score: matchState.opponentScore, isYou: false }]} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <RemotePeerVideo stream={remoteStream} label={`${matchState.opponentUsername} — signing`} connected={remoteConnected} cosmeticBorderClasses={opponentBorderClasses} activeTurn turnLabel={`${matchState.opponentUsername}'s turn`} timerPercent={timerPercent} onVideoReady={handleVideoReady} />
                 <WebcamMirror videoRef={signaling.localVideoRef} label="You" cosmeticBorderClasses={cosmeticBorderClasses} />
               </div>
               <p className="text-center font-bold">
-                What are they signing? · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red' : 'text-z-gray-400'}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-500 font-normal text-sm">connecting…</span>}
+                What are they signing? · {turnArmed ? <span className={timeLeft <= 3 ? 'text-z-red' : 'text-z-gray-400'}>{Math.ceil(timeLeft)}s</span> : <span className="text-z-gray-400 font-normal text-sm">connecting…</span>}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {guessOptions.map((s) => (
@@ -742,14 +758,14 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                   <h2 className="text-xl font-bold text-center">You've been disconnected</h2>
                   <p className="text-z-gray-400 text-sm text-center">Reconnecting automatically…</p>
                   <p className="text-4xl font-bold text-z-purple-light">{reconnectLeft}s</p>
-                  <p className="text-z-gray-500 text-xs text-center">If reconnecting fails, use the button below.</p>
+                  <p className="text-z-gray-400 text-xs text-center">If reconnecting fails, use the button below.</p>
                 </>
               ) : (
                 <>
                   <h2 className="text-xl font-bold text-center">{matchState.opponentUsername} disconnected</h2>
                   <p className="text-z-gray-400 text-sm text-center">Waiting for them to reconnect — the match is still on.</p>
                   <p className="text-4xl font-bold text-z-purple-light">{reconnectLeft}s</p>
-                  <p className="text-z-gray-500 text-xs text-center">If they don't come back, you win.</p>
+                  <p className="text-z-gray-400 text-xs text-center">If they don't come back, you win.</p>
                 </>
               )}
             </motion.div>
@@ -774,7 +790,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
                     <p className="text-3xl font-bold text-z-purple-light">{matchState.myScore}</p>
                     <p className="text-xs text-z-gray-400 mt-0.5">You</p>
                   </div>
-                  <span className="text-z-gray-500 font-bold">vs</span>
+                  <span className="text-z-gray-400 font-bold">vs</span>
                   <div className="text-center">
                     <p className="text-3xl font-bold text-z-gray-200">{matchState.opponentScore}</p>
                     <p className="text-xs text-z-gray-400 mt-0.5">{matchState.opponentUsername}</p>
@@ -784,13 +800,11 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
               {iWon && (
                 <p className="text-z-yellow font-bold">+200 🤟 Signs · +10 🪙 Gold</p>
               )}
-              <motion.button onClick={exit}
-                className="px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                whileTap={{ scale: 0.97 }}>
+              <Button onClick={exit}>
                 Back to Home
-              </motion.button>
+              </Button>
               <button onClick={() => setReportOpen(true)}
-                className="text-xs text-z-gray-500 hover:text-z-red transition-colors">
+                className="text-xs text-z-gray-400 hover:text-z-red transition-colors">
                 🚩 Report {matchState.opponentUsername}
               </button>
             </motion.div>
@@ -808,7 +822,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
           player's presence actually returns, resumeAfterReconnect() re-attempts the WebRTC
           handshake automatically from the staying player's side. */}
       {phase === 'waiting-reconnect' && matchState && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-z-card border border-z-purple/40 rounded-2xl px-5 py-3 shadow-xl flex items-center gap-4">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-overlay bg-z-card border border-z-purple/40 rounded-2xl px-5 py-3 shadow-xl flex items-center gap-4">
           {iAmDisconnected ? (
             <>
               <span className="text-sm font-semibold">You're disconnected — {reconnectLeft}s</span>
@@ -820,7 +834,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode }: Props) {
           ) : (
             <span className="text-sm font-semibold">{matchState.opponentUsername} disconnected — {reconnectLeft}s</span>
           )}
-          <button onClick={exit} className="text-xs text-z-gray-400 hover:text-z-gray-50">Leave</button>
+          <button onClick={exit} className="text-xs text-z-gray-400 hover:text-z-gray-50 min-h-11 px-2 -mx-2">Leave</button>
         </div>
       )}
 

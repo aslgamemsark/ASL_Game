@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/shared/Button';
 import { useCamera } from '@/hooks/useCamera';
 import { useAttemptRecorder } from '@/hooks/useAttemptRecorder';
-import { useRecognition, type AttemptRecord } from '@/hooks/useRecognition';
+import { useRecognition } from '@/hooks/useRecognition';
 import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
@@ -13,11 +14,14 @@ import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { useFirstRunCameraGuide } from '@/hooks/useFirstRunCameraGuide';
 import { ReplayCompare } from '@/components/lesson/ReplayCompare';
+import { DominantHandCheck } from '@/components/shared/DominantHandCheck';
+import { shouldShowHandCheck, markHandCheckDone } from '@/lib/handCheckGate';
 import { Zippy } from '@/components/shared/Zippy';
 import { pickZippyLine } from '@/data/zippy';
 import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { logSignAttempt, logVerification, logAttempt } from '@/hooks/useProgressSync';
+import { logSignAttempt, logVerification } from '@/hooks/useProgressSync';
+import { useAttemptLog } from '@/hooks/useAttemptLog';
 import type { VerificationEntry } from '@/hooks/useRecognition';
 import { SIGNS } from '@/data/signs';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
@@ -26,7 +30,7 @@ import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
 import { track } from '@/analytics';
 
-type Mode = 'loading' | 'menu' | 'expressive' | 'receptive' | 'mixed' | 'done';
+type Mode = 'loading' | 'menu' | 'handcheck' | 'expressive' | 'receptive' | 'mixed' | 'done';
 type CardPhase = 'prompt' | 'result' | 'replay';
 type QuestionType = 'expressive' | 'receptive';
 
@@ -40,8 +44,6 @@ interface Props {
   bonusGoldOnPerfect?: number;
   /** Overrides the header title while in expressive/done mode (e.g. "Letter Test"). */
   heading?: string;
-  /** When true, suppresses the reference clip during practice (e.g. alphabet test mode). */
-  hideReferenceClip?: boolean;
 }
 
 // Practice covers review, the alphabet test, and true mixed quizzes — none map cleanly onto the
@@ -54,8 +56,8 @@ function practiceContentType(autoStartMixed: boolean | undefined, heading: strin
   return 'review';
 }
 
-export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoStartMixed, bonusGoldOnPerfect, heading, hideReferenceClip }: Props) {
-  const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession, equippedBorder } = useUserStore();
+export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoStartMixed, bonusGoldOnPerfect, heading }: Props) {
+  const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession, equippedBorder, setDominantHand } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
   const { videoRef, status: camStatus, start: startCam, stop: stopCam, getStream } = useCamera('practice');
@@ -69,7 +71,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   // Auto-start flows begin in 'loading' (not 'menu') so the mode-choice menu never flashes
   // on screen for a frame before the auto-start effect below replaces it.
   const [mode, setMode] = useState<Mode>(() => (autoStartExpressive || autoStartMixed) ? 'loading' : 'menu');
-  const [showClip, setShowClip] = useState(!hideReferenceClip);
+  // Always shown by default (including "Test from Memory" quiz sessions) — quizzing a learner on
+  // a handshape they've never been shown a video of is a bad first experience, not a genuine
+  // memory test. "Sign Quiz" on the menu below still lets a user opt into hiding it deliberately.
+  const [showClip, setShowClip] = useState(true);
   const [queue, setQueue] = useState<string[]>([]);
   const [queueIdx, setQueueIdx] = useState(0);
   const [itemTypes, setItemTypes] = useState<QuestionType[]>([]);
@@ -87,6 +92,9 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   const loopStartedRef = useRef<string | null>(null);
   const goldAwardedRef = useRef(false);
   const sessionCompletedTrackedRef = useRef(false);
+  // Which mode to enter once the one-time hand check (if shown) resolves — see startExpressive/
+  // startMixed below.
+  const pendingModeRef = useRef<'expressive' | 'mixed' | null>(null);
 
   const currentSignId = queue[queueIdx];
   const currentSignData = currentSignId ? SIGNS[currentSignId] : null;
@@ -139,36 +147,8 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     [user]
   );
 
-  const handleAttempt = useCallback(
-    (a: AttemptRecord) => {
-      // No single world_id — Practice deliberately mixes signs across worlds for review.
-      track('sign_attempt', {
-        sign_id: a.signId,
-        world_id: null,
-        source: 'practice',
-        rule_passed: a.rulePassed,
-        ai_vetoed: a.aiVetoed,
-        final_passed: a.finalPassed,
-        ai_prediction: a.aiPrediction,
-        ai_confidence: a.aiConfidence,
-        duration_ms: a.durationMs,
-        attempt_number: a.attemptNumber,
-      });
-      if (!user) return;
-      void logAttempt({
-        userId: user.id,
-        signId: a.signId,
-        rulePassed: a.rulePassed,
-        aiPrediction: a.aiPrediction,
-        aiConfidence: a.aiConfidence,
-        aiVetoed: a.aiVetoed,
-        finalPassed: a.finalPassed,
-        source: 'practice',
-        frames: a.frames,
-      });
-    },
-    [user]
-  );
+  // No worldId — Practice deliberately mixes signs across worlds for review.
+  const attemptLog = useAttemptLog({ source: 'practice' });
 
   const { classifier, status: classifierStatus, logVote, lastVote } = useClassifier();
   const recognition = useRecognition({
@@ -176,9 +156,16 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     classifier,
     onVote: logVote,
     onVerified: handleVerified,
-    onAttempt: handleAttempt,
+    onAttempt: attemptLog.recordAttempt,
     screen: 'practice',
   });
+  // startExpressive() below moves past 'menu' into 'expressive' regardless of whether startCam()
+  // actually succeeded (a denied/errored/stalled camera isn't a reason to strand the user on the
+  // mode-picker) — which means this view is the only place a failure ever becomes visible. Without
+  // this check the camera simply never appeared and nothing explained why (matches LessonPage's
+  // identically-named guard).
+  const cameraUnavailable =
+    camStatus === 'denied' || camStatus === 'error' || camStatus === 'stalled' || recognition.status === 'error';
   // First-run only: overlay a camera-framing guide until the user is well positioned.
   const showCamGuide = useFirstRunCameraGuide(recognition.framing?.ok);
 
@@ -250,8 +237,13 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     sessionCompletedTrackedRef.current = false;
     loopStartedRef.current = null;
     track('practice_session_started', { content_type: practiceContentType(autoStartMixed, heading), question_count: pool.length });
-    await startCam();
-    setMode('expressive');
+    const camResult = await startCam();
+    if (camResult === 'active' && shouldShowHandCheck()) {
+      pendingModeRef.current = 'expressive';
+      setMode('handcheck');
+    } else {
+      setMode('expressive');
+    }
   };
 
   // Mixed session: every question is randomly either a camera sign or a multiple-choice
@@ -272,8 +264,13 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     sessionCompletedTrackedRef.current = false;
     loopStartedRef.current = null;
     track('practice_session_started', { content_type: 'mixed', question_count: shuffled.length });
-    await startCam();
-    setMode('mixed');
+    const camResult = await startCam();
+    if (camResult === 'active' && shouldShowHandCheck()) {
+      pendingModeRef.current = 'mixed';
+      setMode('handcheck');
+    } else {
+      setMode('mixed');
+    }
   };
 
   // Perfect run (every sign passed, none skipped) earns a one-time gold bonus on top of the
@@ -352,19 +349,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
       recordSign(currentSignId, false);
-      if (user) {
-        void logAttempt({
-          userId: user.id,
-          signId: currentSignId,
-          rulePassed: false,
-          aiPrediction: null,
-          aiConfidence: null,
-          aiVetoed: false,
-          finalPassed: false,
-          source: 'practice',
-          frames: recognition.getSnapshot(),
-        });
-      }
+      attemptLog.recordMiss(currentSignId, recognition.getSnapshot());
     }
     recorder.discard();
     loopStartedRef.current = null;
@@ -377,7 +362,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   };
 
   return (
-    <div className="min-h-screen bg-z-bg flex flex-col">
+    <div className="min-h-dvh bg-z-bg flex flex-col">
       {/* Hidden video for MediaPipe */}
       <video
         ref={videoRef}
@@ -395,20 +380,26 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
             ? (heading ?? '')
             : mode === 'menu'
               ? 'Review'
-              : mode === 'mixed'
-                ? (heading ?? 'Test Yourself')
-                : mode === 'expressive'
-                  ? (heading ?? (showClip ? 'Sign It' : 'Sign Quiz'))
-                  : mode === 'receptive'
-                    ? 'Sign Quiz'
-                    : (heading ?? 'Done')}
+              : mode === 'handcheck'
+                ? 'Quick Setup'
+                : mode === 'mixed'
+                  ? (heading ?? 'Test Yourself')
+                  : mode === 'expressive'
+                    ? (heading ?? (showClip ? 'Sign It' : 'Sign Quiz'))
+                    : mode === 'receptive'
+                      ? 'Sign Quiz'
+                      : (heading ?? 'Done')}
         </h1>
-        {mode !== 'menu' && mode !== 'done' && mode !== 'loading' && (
+        {mode !== 'menu' && mode !== 'done' && mode !== 'loading' && mode !== 'handcheck' && (
           <span className="ml-auto text-sm text-z-gray-400">{queueIdx + 1}/{queue.length}</span>
         )}
       </div>
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-4 pb-6 flex flex-col">
+      <div
+        className={`flex-1 mx-auto w-full px-4 pb-6 flex flex-col ${
+          currentType === 'expressive' && cardPhase === 'prompt' ? 'max-w-lg lg:max-w-6xl' : 'max-w-lg'
+        }`}
+      >
         <AnimatePresence mode="wait">
           {/* --- LOADING (bridges the gap between mount and auto-start completing) --- */}
           {mode === 'loading' && (
@@ -451,7 +442,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-bold">Sign It</h3>
-                    <p className="text-purple-200 text-sm mt-1">Camera + demo clip to follow along</p>
+                    <p className="text-white text-sm mt-1">Camera + demo clip to follow along</p>
                   </div>
                   <span className="text-3xl">🤟</span>
                 </div>
@@ -477,7 +468,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                 <label className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-z-card border border-white/5 cursor-pointer">
                   <span className="text-sm text-z-gray-200">
                     Record my attempts for replay
-                    <span className="block text-[11px] text-z-gray-500">Stays on your device, never uploaded</span>
+                    <span className="block text-2xs text-z-gray-400">Stays on your device, never uploaded</span>
                   </span>
                   <input
                     type="checkbox"
@@ -491,6 +482,26 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                 </label>
               )}
             </motion.div>
+          )}
+
+          {/* --- HAND CHECK (one-time, first real camera session — see lib/handCheckGate.ts) --- */}
+          {mode === 'handcheck' && (
+            <DominantHandCheck
+              videoRef={videoRef}
+              onConfirm={(hand) => {
+                track('dominant_hand_selected', { hand, skipped: false });
+                setDominantHand(hand);
+                markHandCheckDone();
+                setMode(pendingModeRef.current ?? 'expressive');
+                pendingModeRef.current = null;
+              }}
+              onSkip={() => {
+                track('dominant_hand_selected', { hand: 'right', skipped: true });
+                markHandCheckDone();
+                setMode(pendingModeRef.current ?? 'expressive');
+                pendingModeRef.current = null;
+              }}
+            />
           )}
 
           {/* --- EXPRESSIVE --- */}
@@ -510,19 +521,71 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                     <p className="text-sm text-z-gray-300 mt-2">{currentSignData.description}</p>
                   </div>
 
-                  <WebcamMirror
-                    videoRef={videoRef}
-                    overlayClipUrl={showClip ? currentSignData.clip : undefined}
-                    cosmeticBorderClasses={cosmeticBorderClasses}
-                    frameGuide={showCamGuide ? recognition.framing : null}
-                  />
+                  {/* Mobile: stacked (clip when shown, camera, stats). Desktop (lg+): reference
+                      clip left, webcam center, stats right — same three-column layout as
+                      LessonPage, so the "camera setup" reads identically everywhere it appears.
+                      Sign Quiz mode (showClip false) deliberately hides the clip column — that's
+                      the point of quizzing from memory — so the grid drops to two columns. */}
+                  <div
+                    className={`flex flex-col gap-4 lg:grid lg:gap-6 lg:items-start ${
+                      showClip && currentSignData.clip ? 'lg:grid-cols-[320px_1fr_340px]' : 'lg:grid-cols-[1fr_340px]'
+                    }`}
+                  >
+                    {showClip && currentSignData.clip && (
+                      <div className="lg:order-1">
+                        <ReferenceClip clipUrl={currentSignData.clip} signName={currentSignData.name} compact />
+                      </div>
+                    )}
 
-                  {recognition.result && (
-                    <ParameterChecklist
-                      params={recognition.result.params}
-                      sign={currentEngineSign}
-                    />
-                  )}
+                    <div className="lg:order-2">
+                      {cameraUnavailable ? (
+                        <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center">
+                          <p className="text-sm font-bold text-z-red">
+                            {camStatus === 'denied'
+                              ? 'Camera access denied'
+                              : camStatus === 'stalled'
+                                ? "Camera feed isn't showing"
+                                : 'Camera unavailable'}
+                          </p>
+                          <p className="text-xs text-z-gray-300 mt-1">
+                            {camStatus === 'denied'
+                              ? 'Live coaching needs your camera. Allow camera access in your browser settings, then try again.'
+                              : camStatus === 'stalled'
+                                ? "Your camera is on but no picture is coming through. Try again, or check that no other app is using it."
+                                : 'Something went wrong starting the camera. Try again, or check that no other app is using it.'}
+                          </p>
+                          {/* stopCam() before startCam() forces a fresh getUserMedia() call instead
+                              of reattaching the same (possibly dead) stream — required for the
+                              'stalled' case, harmless for the others since stop() on an idle camera
+                              is a no-op. */}
+                          <button
+                            onClick={() => { stopCam(); startCam(); }}
+                            className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
+                          >
+                            Try again
+                          </button>
+                        </div>
+                      ) : (
+                        <WebcamMirror
+                          videoRef={videoRef}
+                          cosmeticBorderClasses={cosmeticBorderClasses}
+                          frameGuide={showCamGuide ? recognition.framing : null}
+                          aspectClassName="aspect-[var(--cam-ar)] lg:aspect-[4/3]"
+                        />
+                      )}
+                    </div>
+
+                    <div className="lg:order-3">
+                      {recognition.result && !cameraUnavailable && (
+                        <ParameterChecklist
+                          params={recognition.result.params}
+                          sign={currentEngineSign}
+                          holdProgress={recognition.holdProgress}
+                          fillHeight
+                        />
+                      )}
+                    </div>
+                  </div>
 
                   <div className="flex justify-end mt-auto pt-2">
                     <button
@@ -650,27 +713,26 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                 )}
               </div>
               {bonusGoldOnPerfect != null && goldAwarded === 0 && (
-                <p className="text-z-gray-500 text-xs -mt-2">
+                <p className="text-z-gray-400 text-xs -mt-2">
                   Pass every letter without skipping to earn {bonusGoldOnPerfect} gold 🪙
                 </p>
               )}
-              <motion.button
-                onClick={onExit}
-                className="mt-4 px-8 py-3 rounded-2xl font-bold text-white bg-gradient-primary"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
+              <Button onClick={onExit} className="mt-4">
                 Back to Home
-              </motion.button>
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
+      {/* Always-mounted announcer, separate from the toast's own AnimatePresence-gated div — see
+          DESIGN.md "Status messages": a live region must already be in the DOM before its text
+          appears, or a screen reader may miss it. */}
+      <p className="sr-only" role="status" aria-live="polite">{skipMsg ?? ''}</p>
       <AnimatePresence>
         {skipMsg && (
           <motion.div
-            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-50 flex items-center gap-2"
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-z-card border border-white/10 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl z-overlay flex items-center gap-2"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}

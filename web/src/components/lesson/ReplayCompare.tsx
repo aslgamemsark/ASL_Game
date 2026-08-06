@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 import { useClipEnlarge, ClipEnlargeOverlay } from '@/components/shared/ClipEnlarge';
+import { Button } from '@/components/shared/Button';
 import type { ParamScore } from '@/engine/verifier';
 import type { Sign } from '@/engine/schema';
 
@@ -123,9 +124,11 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
         </div>
 
         {sideBySide && (
-          <div
-            className="relative rounded-2xl overflow-hidden bg-z-surface aspect-[4/3] cursor-zoom-in"
+          <button
+            type="button"
             onClick={openRef}
+            aria-label="Enlarge reference clip"
+            className="relative rounded-2xl overflow-hidden bg-z-surface aspect-[4/3] cursor-zoom-in"
           >
             <video
               ref={referenceRef}
@@ -142,7 +145,7 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2">
               <p className="text-white text-xs font-bold">Reference</p>
             </div>
-          </div>
+          </button>
         )}
         {sideBySide && clipUrl && (
           <ClipEnlargeOverlay open={refExpanded} onClose={closeRef} clipUrl={clipUrl} label={`${signName.replace(/_/g, ' ')} reference`} />
@@ -150,7 +153,7 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-[11px] text-z-gray-500">
+        <p className="text-2xs text-z-gray-400">
           Replay stays on your device and is deleted when you continue.
         </p>
         <button
@@ -177,14 +180,9 @@ export function ReplayCompare({ attemptUrl, clipUrl, signName, hint, params, sig
         </>
       )}
 
-      <motion.button
-        onClick={onContinue}
-        className="mt-auto w-full py-3 rounded-2xl font-bold text-white text-base bg-gradient-primary"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.97 }}
-      >
+      <Button onClick={onContinue} fullWidth className="mt-auto">
         Continue
-      </motion.button>
+      </Button>
     </motion.div>
   );
 }

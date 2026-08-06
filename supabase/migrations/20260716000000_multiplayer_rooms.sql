@@ -52,6 +52,21 @@ create policy "rooms_insert_own" on public.multiplayer_rooms
 create policy "rooms_update_own" on public.multiplayer_rooms
   for update to authenticated using (host_id = auth.uid()) with check (host_id = auth.uid());
 
+-- RLS policies filter ROWS; the base table-level GRANT below is what lets a role attempt the
+-- operation at all. Without it, every query fails "permission denied for table
+-- multiplayer_rooms" before RLS is ever evaluated -- found 2026-08-04, first genuinely fresh
+-- `supabase db reset` (this table was the one new-since-launch table whose migration never added
+-- this grant explicitly, unlike world_flags/feedback elsewhere in this migration set). No delete:
+-- rooms are only ever removed via the SECURITY DEFINER cleanup path, which bypasses grants.
+--
+-- service_role included: it has RLS bypass (bypassrls), NOT an automatic table-level GRANT --
+-- those are two independent Postgres privilege checks, and this schema's other tables all clear
+-- the GRANT one for service_role through some external bootstrap this repo's migrations never
+-- captured (no other file grants to service_role explicitly either). Granting it here directly is
+-- what the CI multiplayer suite's admin/service-role client (e2e/support/multiplayerStack.ts)
+-- actually needs, regardless of how that external bootstrap works for everything else.
+grant select, insert, update on public.multiplayer_rooms to authenticated, service_role;
+
 
 -- Atomically validates a code exists and is joinable, claims a slot, and returns the room —
 -- one round trip instead of "select then hope nobody else joined between the check and the

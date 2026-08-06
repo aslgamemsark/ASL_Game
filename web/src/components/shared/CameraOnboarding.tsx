@@ -1,4 +1,6 @@
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion } from 'framer-motion';
+import { Button } from '@/components/shared/Button';
 
 interface Props {
   onContinue: () => void;
@@ -9,15 +11,26 @@ interface Props {
 }
 
 export function CameraOnboarding({ onContinue, onCancel }: Props) {
+  // Escape backs out rather than continuing — this gate asks for the camera, so the dismissive
+  // action is the safe one.
+  const dialog = useDialogA11y({ label: 'Camera access', onClose: onCancel });
+
   return (
     <motion.div
-      className="fixed inset-0 z-50 bg-z-bg/95 backdrop-blur-sm flex items-center justify-center p-6"
+      className="fixed inset-0 z-overlay bg-z-bg/95 backdrop-blur-sm flex items-center justify-center px-6 pt-[calc(1.5rem+var(--sat))] pb-[calc(1.5rem+var(--sab))]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
+      {/* max-h/overflow-y-auto: the bullet list below measures ~650px tall — on an iPhone SE
+          (667px viewport minus this container's p-6) it previously overflowed a fixed, centered,
+          non-scrolling box, leaving the "Allow Camera" button off-screen with no way to reach it
+          (mobile audit, 2026-07-28). Same overflow-first fix OnboardingFlow.tsx already applies to
+          its welcome step. */}
       <motion.div
-        className="max-w-sm w-full bg-z-card border border-white/10 rounded-3xl p-6 text-center"
+        ref={dialog.ref}
+        {...dialog.props}
+        className="max-w-sm w-full max-h-full overflow-y-auto bg-z-card border border-white/10 rounded-3xl p-6 text-center outline-none"
         initial={{ scale: 0.9, y: 20 }}
         animate={{ scale: 1, y: 0 }}
       >
@@ -47,14 +60,9 @@ export function CameraOnboarding({ onContinue, onCancel }: Props) {
           </div>
         </div>
 
-        <motion.button
-          onClick={onContinue}
-          className="w-full py-3 rounded-2xl font-bold text-white text-base bg-gradient-primary"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-        >
+        <Button onClick={onContinue} fullWidth>
           Allow Camera
-        </motion.button>
+        </Button>
 
         <button
           onClick={onCancel}
@@ -63,7 +71,7 @@ export function CameraOnboarding({ onContinue, onCancel }: Props) {
           Not now
         </button>
 
-        <p className="text-[11px] text-z-gray-500 mt-1">
+        <p className="text-2xs text-z-gray-400 mt-1">
           You can revoke camera access anytime in your browser settings. Full details in
           Settings → Privacy &amp; Terms.
         </p>

@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense, type ComponentType } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getSharedCapture } from '@/engine/capture';
-import { useClassifier } from '@/hooks/useClassifier';
 import { HomePage } from '@/pages/HomePage';
 import type { Tab } from '@/components/home/BottomNav';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
@@ -23,8 +22,25 @@ const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then((m) => ({ defa
 const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })));
 const UserProfilePage = lazy(() => import('@/pages/UserProfilePage').then((m) => ({ default: m.UserProfilePage })));
 const AdminPanel = lazy(() => import('@/pages/AdminPanel').then((m) => ({ default: m.AdminPanel })));
-const AvatarLabPage = lazy(() => import('@/avatar/viewer/AvatarLabPage').then((m) => ({ default: m.AvatarLabPage })));
-const CalibrationPage = lazy(() => import('@/pages/CalibrationPage').then((m) => ({ default: m.CalibrationPage })));
+// DEV check inside the import thunk (not just at the render site below): import.meta.env.DEV is
+// statically false in `vite build`, which lets the bundler drop the dynamic import — without it,
+// the dev-only Avatar Lab (three.js + 6.8k lines, a ~660 kB chunk) is emitted into every
+// production deploy even though no production code path can ever fetch it.
+const AvatarLabPage = lazy<ComponentType>(() =>
+  import.meta.env.DEV
+    ? import('@/avatar/viewer/AvatarLabPage').then((m) => ({ default: m.AvatarLabPage as ComponentType }))
+    : Promise.resolve({ default: (() => null) as ComponentType })
+);
+// Same DEV-only treatment as AvatarLabPage above, and for the same reason. Its render branch is
+// already `import.meta.env.DEV`-gated, but that only eliminates the BRANCH — a plain
+// `lazy(() => import(...))` still emits the chunk, and the PWA plugin then precached it, so every
+// production user downloaded a calibration harness no production code path can reach (found in the
+// 2026-07-31 fresh-eyes audit, one line below the comment explaining this exact failure).
+const CalibrationPage = lazy<ComponentType>(() =>
+  import.meta.env.DEV
+    ? import('@/pages/CalibrationPage').then((m) => ({ default: m.CalibrationPage as ComponentType }))
+    : Promise.resolve({ default: (() => null) as ComponentType })
+);
 import { SideNav, type SideNavScreen } from '@/components/shared/SideNav';
 import { ScreenTransition } from '@/components/shared/ScreenTransition';
 import { STORIES } from '@/data/stories';
@@ -38,16 +54,17 @@ import { SetUsernameModal } from '@/components/auth/SetUsernameModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { TrainingConsentModal } from '@/components/auth/TrainingConsentModal';
 import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal';
-import { TermsModal } from '@/components/shared/TermsModal';
-import { Zippy } from '@/components/shared/Zippy';
+import { LoadingScreen } from '@/components/shared/LoadingScreen';
 import { CelebrationHost } from '@/components/shared/CelebrationHost';
+import { OfflineBanner } from '@/components/shared/OfflineBanner';
 import { useScreenView } from '@/analytics';
+import { useBackDismiss } from '@/hooks/useBackDismiss';
 
 type Screen =
   | { type: 'home' }
   | { type: 'onboarding'; startAt?: 'welcome' | 'auth' }
   | { type: 'lesson'; lessonId: string }
-  | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; mixedQuiz?: boolean; bonusGoldOnPerfect?: number; heading?: string; hideReferenceClip?: boolean }
+  | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; mixedQuiz?: boolean; bonusGoldOnPerfect?: number; heading?: string }
   | { type: 'story'; storyId: string }
   | { type: 'speed' }
   | { type: 'shop' }
@@ -62,33 +79,23 @@ type Screen =
 // Focused-task screens suppress the side nav (matches hiding chrome during a lesson).
 const SIDE_NAV_SCREENS: SideNavScreen[] = ['home', 'shop', 'friends', 'leaderboard', 'settings', 'multiplayer'];
 
-// Shared fallback while a lazy-loaded screen's chunk downloads — same visual language as the
-// auth-restore spinner above so a route-split navigation doesn't look like a different app state.
-function ScreenFallback() {
-  return (
-    <div className="min-h-screen bg-z-bg flex items-center justify-center">
-      <div className="text-center">
-        <Zippy expression="loading" size="lg" priority className="mb-4" />
-        <p className="text-z-gray-500 text-sm">Loading…</p>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const { syncError } = useProgressSync();
   const { onboardingComplete } = useUserStore();
   const { user, username, needsUsernameSetup, needsTrainingConsent, passwordRecoveryMode, loading: authLoading, bannedReason, isAdmin } = useAuth();
-  // Warm the MediaPipe + AI-classifier caches once the user has actually reached the app (past
+  // Warm the MediaPipe hand/pose cache once the user has actually reached the app (past
   // onboarding, or a returning signed-in session that skips it) instead of the instant the page
-  // opens — both are module-level singletons (see getSharedCapture, useClassifier's loadOnce), so
-  // this download only ever happens once and whichever lesson/practice/story page mounts next
-  // picks up the already-loading/loaded result. Starting this multi-MB fetch + WASM/WebGL init
-  // immediately on first paint used to make the "Get Started" button feel frozen for several
-  // seconds on a fresh visit (impeccable audit, 2026-07-11) — new visitors shouldn't pay that
-  // cost before they've even started onboarding.
+  // opens — it's a module-level singleton (see getSharedCapture), so this download only ever
+  // happens once and whichever lesson/practice/story page mounts next picks up the
+  // already-loading/loaded result. Starting this multi-MB fetch + WASM init immediately on first
+  // paint used to make the "Get Started" button feel frozen for several seconds on a fresh visit
+  // (impeccable audit, 2026-07-11) — new visitors shouldn't pay that cost before they've even
+  // started onboarding. The AI-classifier warmup that used to sit alongside this was removed
+  // 2026-07-30 and stays removed even though CLASSIFIER_LOAD_ENABLED (config/classifier.ts) is
+  // back on 2026-08-04: LessonPage/PracticePage/StoryPage each call useClassifier() themselves,
+  // so the cost now lands only on users who actually open a camera screen, not on every cold
+  // start. Do not reintroduce an app-wide warmup here.
   const readyForWarmup = onboardingComplete || !!user;
-  useClassifier(readyForWarmup);
   useEffect(() => {
     if (!readyForWarmup) return;
     void getSharedCapture();
@@ -137,20 +144,28 @@ export default function App() {
   // First-run consent gate — checked once per device/browser, not per account, so it still shows
   // for a guest who hasn't signed in yet. Read lazily (not in an effect) so it's already correct
   // on the very first render instead of flashing the real app for one frame first.
-  const [termsAccepted, setTermsAccepted] = useState(
-    () => localStorage.getItem('asl-game-terms-accepted') === '1'
-  );
-  // "Accept later" only hides the gate for this tab's session (not persisted) — the localStorage
-  // flag above stays unset, so the gate reappears on their next visit until they actually accept.
-  const [termsGateDismissed, setTermsGateDismissed] = useState(false);
 
   const goHome = () => setScreen({ type: 'home' });
 
-  // On finishing onboarding, drop brand-new "beginner" learners straight into the Alphabets tab
-  // (learn the letters first) rather than the default Journey/learn tab. skillLevel was just set
-  // by completeOnboarding() inside the flow, so reading it from the store here is current.
+  // Hardware/browser Back from any non-home, non-onboarding screen does exactly what that
+  // screen's own exit affordance already does (home for every screen except Privacy, which
+  // returns to Settings) instead of closing the app/tab — see useBackDismiss for why this was
+  // previously broken on every screen (zero pushState/popstate anywhere in the app). Onboarding is
+  // excluded deliberately: it's the true root on a fresh install, so Back from it should exit, the
+  // same as Back from Home.
+  useBackDismiss(
+    screen.type !== 'home' && screen.type !== 'onboarding',
+    screen.type === 'privacy' ? () => setScreen({ type: 'settings' }) : goHome
+  );
+
+  // On finishing onboarding, route by self-reported skill: brand-new "beginner" learners land on
+  // the Alphabets tab (letters first), everyone else lands on Basic Signs (greetings/courtesy
+  // words) rather than the default Journey/learn tab — a non-beginner already knows some signs,
+  // so a quick "watch it, quiz yourself, or sign it" review is more useful than starting the
+  // lesson tree from scratch. skillLevel was just set by completeOnboarding() inside the flow, so
+  // reading it from the store here (not React state) is current.
   const handleOnboardingComplete = useCallback(() => {
-    setHomeTab(useUserStore.getState().skillLevel === 'beginner' ? 'alphabet' : 'learn');
+    setHomeTab(useUserStore.getState().skillLevel === 'beginner' ? 'alphabet' : 'basicSigns');
     setScreen({ type: 'home' });
   }, []);
   const showSideNav = SIDE_NAV_SCREENS.includes(screen.type as SideNavScreen);
@@ -214,30 +229,30 @@ export default function App() {
 
   // Block render until auth session is restored so returning users never see the onboarding flash.
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-z-bg flex items-center justify-center">
-        <div className="text-center">
-          <Zippy expression="loading" size="lg" priority className="mb-4" />
-          <p className="text-z-gray-500 text-sm">Loading…</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
-  // Blocks everything else — onboarding, sign-in, even a returning signed-in session — until
-  // explicitly accepted or deferred. Checked before the banned-account screen too: a suspended
-  // account still shouldn't see the real app shell flash behind this gate.
-  if (!termsAccepted && !termsGateDismissed) {
-    return (
-      <TermsModal
-        onAccept={() => {
-          localStorage.setItem('asl-game-terms-accepted', '1');
-          setTermsAccepted(true);
-        }}
-        onAcceptLater={() => setTermsGateDismissed(true)}
-      />
-    );
-  }
+  // REMOVED 2026-07-27: this used to `return <TermsModal/>` here, blocking onboarding, sign-in and
+  // even a returning signed-in session behind a legal document as the literal first paint.
+  //
+  // It was the single largest leak in the funnel. Of 26 non-PK users who reached the app shell,
+  // only 13 ever saw a real onboarding step — the modal is the only thing between those two
+  // events, so that 50% left at the wall. Median session for users who never got past it: 5-30s.
+  // The landing page simultaneously advertised "Free, no signup".
+  //
+  // Disclosure now happens where it is actually meaningful, and is strictly more informative than
+  // this modal was:
+  //   - CAMERA + LANDMARK DATA: CameraOnboarding, shown immediately before the camera is switched
+  //     on, states that video never leaves the device and that only numeric landmarks are stored.
+  //     That is contextual consent at the moment of collection, not a wall at t=0.
+  //   - FULL TERMS: accepted at account creation (see the notice on the auth step), which is the
+  //     legally meaningful moment. Guests receive notice; account holders give consent.
+  //   - ON DEMAND: the full text lives on PrivacyPage ("Privacy & Terms"), reachable any time from
+  //     Settings, and is linked from the auth step.
+  //
+  // TermsModal.tsx now has no call sites. Left in the tree rather than deleted in the same change
+  // that removed the gate, so reverting this is a one-line restore if the notice-vs-consent split
+  // turns out to be the wrong call.
 
   // A banned account is force-signed-out inside AuthContext the moment its profile is fetched
   // (client-side enforcement); RLS denies its own reads/writes server-side regardless (see
@@ -245,7 +260,7 @@ export default function App() {
   // of the app — checked before onboarding/home so there's no flash of real content first.
   if (bannedReason) {
     return (
-      <div className="min-h-screen bg-z-bg flex items-center justify-center p-6">
+      <div className="min-h-dvh bg-z-bg flex items-center justify-center overflow-y-auto p-6">
         <div className="text-center max-w-sm">
           <p className="text-5xl mb-4">🚫</p>
           <h1 className="text-xl font-bold mb-2">Account suspended</h1>
@@ -270,7 +285,7 @@ export default function App() {
   // branch out of production entirely.
   if (import.meta.env.DEV && window.location.pathname === '/avatarlab') {
     return (
-      <Suspense fallback={<ScreenFallback />}>
+      <Suspense fallback={<LoadingScreen />}>
         <AvatarLabPage />
       </Suspense>
     );
@@ -280,7 +295,7 @@ export default function App() {
   // --calibrate) — same reasoning as /avatarlab above: a separate tool, not a game screen.
   if (import.meta.env.DEV && window.location.pathname === '/calibrate') {
     return (
-      <Suspense fallback={<ScreenFallback />}>
+      <Suspense fallback={<LoadingScreen />}>
         <CalibrationPage />
       </Suspense>
     );
@@ -293,7 +308,7 @@ export default function App() {
   // COFFEE bug shipped). Same dead-code-elimination guarantee as /avatarlab above.
   if (import.meta.env.DEV && window.location.pathname === '/test-signs') {
     return (
-      <Suspense fallback={<ScreenFallback />}>
+      <Suspense fallback={<LoadingScreen />}>
         <PracticePage
           onExit={() => { window.location.pathname = '/'; }}
           filterSignIds={Object.keys(SIGNS)}
@@ -318,6 +333,7 @@ export default function App() {
           onHome={() => { goHome(); setHomeTab('learn'); }}
           onReview={() => { goHome(); setHomeTab('review'); }}
           onAlphabet={() => { goHome(); setHomeTab('alphabet'); }}
+          onBasicSigns={() => { goHome(); setHomeTab('basicSigns'); }}
           onShop={() => setScreen({ type: 'shop' })}
           onFriends={() => setScreen({ type: 'friends' })}
           onMultiplayer={() => setScreen({ type: 'multiplayer' })}
@@ -327,8 +343,10 @@ export default function App() {
           onSignIn={() => setShowAuth(true)}
         />
       )}
-      <div className={showSideNav ? 'lg:pl-64' : ''}>
-        <Suspense fallback={<ScreenFallback />}>
+      {/* md:, matching SideNav's own breakpoint (see SideNav.tsx's comment) — must switch at the
+          exact same width the nav itself does, or content sits under empty space (or the nav). */}
+      <div className={showSideNav ? 'md:pl-64' : ''}>
+        <Suspense fallback={<LoadingScreen />}>
         <AnimatePresence mode="wait">
           {screen.type === 'onboarding' && (
             <ScreenTransition key="onboarding">
@@ -347,6 +365,8 @@ export default function App() {
                 onOpenMultiplayer={() => setScreen({ type: 'multiplayer' })}
                 onRequireSignIn={() => setShowAuth(true)}
                 onSettings={() => setScreen({ type: 'settings' })}
+                onOpenLeaderboard={() => setScreen({ type: 'leaderboard' })}
+                onOpenFriends={() => setScreen({ type: 'friends' })}
                 tab={homeTab}
                 onTabChange={setHomeTab}
               />
@@ -368,7 +388,6 @@ export default function App() {
                 autoStartMixed={screen.mixedQuiz}
                 bonusGoldOnPerfect={screen.bonusGoldOnPerfect}
                 heading={screen.heading}
-                hideReferenceClip={screen.hideReferenceClip}
               />
             </ScreenTransition>
           )}
@@ -482,13 +501,28 @@ export default function App() {
           its own modal, with a guard against firing on the post-sign-in progress merge. */}
       <CelebrationHost />
 
+      <OfflineBanner />
+
+      {/* Always-mounted announcers for the two toasts below, kept separate from the toasts'
+          own AnimatePresence-gated divs — see DESIGN.md "Status messages": a live region must
+          already be in the DOM before its text appears, or a screen reader may not pick it up.
+          syncError is `polite` (non-urgent, can wait behind whatever's already being read);
+          the challenge is `assertive` because the Join button is only useful while the
+          inviter is still waiting, so it should interrupt rather than queue. */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {syncError ? "Couldn't sync your progress — check your connection" : ''}
+      </p>
+      <p className="sr-only" role="alert" aria-live="assertive">
+        {incomingChallenge ? `Challenge from ${incomingChallenge.from} — 1v1 Sign and Guess` : ''}
+      </p>
+
       {/* Sync failure indicator — non-blocking, visible anywhere in the app. Previously a failed
           write to Supabase was completely silent, so progress could appear to vanish with zero
           explanation. */}
       <AnimatePresence>
         {syncError && (
           <motion.div
-            className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-z-red/15 border border-z-red/40 text-z-red text-xs font-semibold px-4 py-2 rounded-full shadow-lg"
+            className="fixed top-3 left-1/2 -translate-x-1/2 z-overlay bg-z-red/15 border border-z-red/40 text-z-red text-xs font-semibold px-4 py-2 rounded-full shadow-lg"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
@@ -498,11 +532,11 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Incoming challenge notification — visible anywhere in the app */}
+      {/* Incoming challenge notification — visible anywhere in the app. */}
       <AnimatePresence>
         {incomingChallenge && (
           <motion.div
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-z-card border border-z-purple/40 rounded-2xl px-5 py-4 shadow-2xl shadow-z-purple/20 min-w-[280px]"
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-overlay flex items-center gap-3 bg-z-card border border-z-purple/40 rounded-2xl px-5 py-4 shadow-2xl shadow-z-purple/20 min-w-[280px]"
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
@@ -515,7 +549,7 @@ export default function App() {
             </div>
             <div className="flex gap-2">
               <motion.button
-                className="text-xs px-3 py-1.5 rounded-xl font-bold bg-z-purple text-white"
+                className="text-xs px-3 min-h-11 rounded-xl font-bold bg-z-purple text-white flex items-center justify-center"
                 whileTap={{ scale: 0.96 }}
                 onClick={() => {
                   setScreen({ type: 'multiplayer', mode: 'duel', autoJoinCode: incomingChallenge.roomId });
@@ -525,7 +559,7 @@ export default function App() {
                 Join
               </motion.button>
               <button
-                className="text-xs px-3 py-1.5 rounded-xl font-bold border border-white/15 text-z-gray-400"
+                className="text-xs px-3 min-h-11 rounded-xl font-bold border border-white/15 text-z-gray-400 flex items-center justify-center"
                 onClick={() => setIncomingChallenge(null)}
               >
                 Dismiss

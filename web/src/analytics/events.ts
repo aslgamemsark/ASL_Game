@@ -24,11 +24,16 @@ export const EVENTS = {
   password_reset_requested: 'password_reset_requested',
   password_recovery_completed: 'password_recovery_completed',
 
+  // PWA install
+  pwa_install_prompted: 'pwa_install_prompted',
+  pwa_install_result: 'pwa_install_result',
+
   // Onboarding
   onboarding_step_viewed: 'onboarding_step_viewed',
   onboarding_skill_selected: 'onboarding_skill_selected',
   dominant_hand_selected: 'dominant_hand_selected',
   onboarding_completed: 'onboarding_completed',
+  auth_option_selected: 'auth_option_selected',
 
   // Camera
   camera_permission_granted: 'camera_permission_granted',
@@ -53,6 +58,7 @@ export const EVENTS = {
   practice_session_completed: 'practice_session_completed',
   hint_used: 'hint_used',
   sign_attempt: 'sign_attempt',
+  first_sign_success: 'first_sign_success',
 
   // Business completion
   world_completed: 'world_completed',

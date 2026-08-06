@@ -103,7 +103,11 @@ def _static_buffer(hand_factory):
 class TestStaticLetters:
     def test_each_letter_passes_with_its_handshape(self):
         cases = [
-            (LETTER_B, lambda c: make_hand(c, ALL, thumb_out=True)),
+            # B's thumb is folded across the palm, not out — was thumb_out=True under the old
+            # (incorrect) assumption that B/5 differ by finger spread; a real B/5 confusor
+            # recording (2026-07-23) found the actual distinguishing feature is thumb position
+            # (see core/handshape.py's THUMB_TUCKED_LOW/HIGH comment).
+            (LETTER_B, lambda c: make_hand(c, ALL, thumb_out=False)),
             (LETTER_V, lambda c: make_hand(c, ("index", "middle"), spread=1.5)),
             (LETTER_L, lambda c: make_hand(c, ("index",), thumb_out=True)),
             (LETTER_Y, lambda c: make_hand(c, ("pinky",), thumb_out=True)),

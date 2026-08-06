@@ -2,11 +2,20 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import { Capture, getSharedCapture } from '@/engine/capture';
 import { RollingBuffer, HandStabilizer, type Frame } from '@/engine/landmarks';
 import { verify, type VerifyResult, resultPassed } from '@/engine/verifier';
-import { gatePass, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
+import { gateOutcome, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
 import { topK, type SignClassifier } from '@/engine/classifier';
-import { GATE_CONFIDENCE, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
-import type { Sign } from '@/engine/schema';
+import { GATE_CONFIDENCE, GATE_ENFORCED, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
+import { MovementKind, type Sign } from '@/engine/schema';
+import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
+
+// Static signs (movement.kind === NONE) have no motion scorer to naturally pace a pass —
+// scoreMovement returns 1 immediately for them — so without an explicit hold requirement a
+// fleeting, accidentally-correct handshape could pass the instant the smoothing window clears.
+// Signs WITH real movement don't need this: MovementReq.minDurationS already requires their
+// trajectory to develop over time, so the short frame-debounce (PASS_THRESHOLD, below) is
+// enough there to filter single-frame noise.
+const STATIC_HOLD_SECONDS = 2.0;
 
 export type RecognitionStatus = 'loading' | 'ready' | 'running' | 'error';
 
@@ -19,19 +28,56 @@ export interface FramingStatus {
   message: string;
 }
 
-function computeFraming(frame: Frame): FramingStatus {
-  const { leftShoulder, rightShoulder, mouth, width, height } = frame;
+/**
+ * Thresholds calibrated 2026-07-27 against 27,110 frames from attempts the rule verifier ACTUALLY
+ * PASSED (`training_samples` where rule_passed), not from intuition. The previous set rejected
+ * 81.1% of those known-good frames — it was describing a webcam headshot, not a signing space.
+ *
+ * Measured on known-good frames — shoulder-width median 0.409 (p05 0.289, p95 0.607), mouth
+ * median 0.641, shoulder-height median 0.810 — and each old rule's false-positive rate:
+ *   "Raise your camera a touch"  77.0%  ← removed outright, see below
+ *   "Come a little closer"       11.8%  ← 0.32 sat above the p05 of people signing successfully
+ *   "Center yourself in the box"  2.2%  ← kept as-is
+ *   "Move back a little"          0.1%  ← kept as-is
+ * The replacement set below passes 94% of the same frames.
+ */
+const FRAMING = {
+  /** Below this, pose/hand landmarks genuinely start dropping out. p05 of successful frames is
+   *  0.289, so 0.28 sits just under the real working range instead of inside it. */
+  minShoulderWidthRatio: 0.28,
+  maxShoulderWidthRatio: 0.8,
+  maxCenterOffset: 0.16,
+  /** Shoulders this low leave no room for chest-level signs. PLEASE is the lowest sign we teach —
+   *  its hands sit BELOW the shoulder line (median +0.036 of frame height) and 2.93% of its hand
+   *  points already fall off the bottom edge. Advisory only: it never blocks `ok`, because 18% of
+   *  known-good frames are lower than this and those signs still passed. */
+  chestRoomShoulderY: 0.92,
+} as const;
+
+/** Exported for the calibration regression test in tests/framing.test.ts — not part of the hook's
+ *  public surface; consumers read `framing` off the hook's return value. */
+export function computeFraming(frame: Frame): FramingStatus {
+  const { leftShoulder, rightShoulder, width, height } = frame;
+  // The only condition that genuinely stops recognition: no pose at all.
   if (!width || !height || !leftShoulder || !rightShoulder) {
     return { ok: false, message: 'Step into view so I can see you' };
   }
   const shoulderWidthRatio = Math.abs(leftShoulder[0] - rightShoulder[0]) / width;
   const midX = ((leftShoulder[0] + rightShoulder[0]) / 2) / width;
   const centerOffset = Math.abs(midX - 0.5);
-  if (shoulderWidthRatio > 0.8) return { ok: false, message: 'Move back a little' };
-  if (shoulderWidthRatio < 0.32) return { ok: false, message: 'Come a little closer' };
-  if (centerOffset > 0.16) return { ok: false, message: 'Center yourself in the box' };
-  // Keep the face in the upper part of the frame so the chest stays visible below it.
-  if (mouth && mouth[1] / height > 0.55) return { ok: false, message: 'Raise your camera a touch' };
+  const shoulderYRatio = ((leftShoulder[1] + rightShoulder[1]) / 2) / height;
+
+  if (shoulderWidthRatio > FRAMING.maxShoulderWidthRatio) return { ok: false, message: 'Move back a little' };
+  if (shoulderWidthRatio < FRAMING.minShoulderWidthRatio) return { ok: false, message: 'Come a little closer' };
+  if (centerOffset > FRAMING.maxCenterOffset) return { ok: false, message: 'Center yourself in the box' };
+
+  // Deliberately ok:true — a tip, not a correction. The old rule here ("Raise your camera a touch")
+  // fired on 77% of known-good frames, hit all 10 users who ever reached a camera, is unactionable
+  // on a laptop whose webcam is fixed to the lid, and pushed users to frame HIGHER — which crops
+  // the chest and makes exactly the chest-level signs it should protect harder to perform.
+  if (shoulderYRatio > FRAMING.chestRoomShoulderY) {
+    return { ok: true, message: 'Sit back a little so your chest is in view' };
+  }
   return { ok: true, message: 'Perfect — hold it there ✓' };
 }
 
@@ -103,6 +149,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   // doesn't setState on every one of the ~28 frames/sec — only when the guidance actually changes.
   const [framing, setFraming] = useState<FramingStatus | null>(null);
   const framingMsgRef = useRef<string | null>(null);
+  // 0..1 while a static (no-movement) sign's pose is being held toward STATIC_HOLD_SECONDS; null
+  // when not currently holding or when the current sign has real movement (that case is paced by
+  // the movement scorer itself, not a hold timer — see the constant's comment above).
+  const [holdProgress, setHoldProgress] = useState<number | null>(null);
   const passCallbackRef = useRef(opts?.onPass);
   passCallbackRef.current = opts?.onPass;
   const hintCallbackRef = useRef(opts?.onHint);
@@ -158,6 +208,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       bufferRef.current.clear();
       stabilizerRef.current.reset();
       setResult(null);
+      setHoldProgress(null);
       frameCountRef.current = 0;
       loopStartRef.current = performance.now();
       attemptCountRef.current = 0;
@@ -180,12 +231,32 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       const MIN_FRAMES_BEFORE_PASS = 30;
       let passFrames = 0;
       const PASS_THRESHOLD = 6;
+      const isStaticSign = sign.movement.kind === MovementKind.NONE;
+      let holdStartMs: number | null = null;
 
       // Cap MediaPipe processing to ~28fps instead of raw display refresh rate (60-120fps on most
       // mobile screens) — halves battery/thermal load with no effect on the rolling-window
       // verifier, which windows by elapsed time, not frame count.
       const MIN_FRAME_INTERVAL_MS = 1000 / 28;
       let lastProcessMs = 0;
+
+      // Throttle the REACT STATE publish of the per-frame verify() result to 10Hz — a continuous
+      // score stream (not a discrete message like `framing` above, which dedupes by equality
+      // instead) has no single "did it change" boundary, so the fix here is rate, not equality.
+      // 10Hz is not arbitrary: ParameterChecklist's hold-progress bar already animates with a
+      // 100ms linear transition, so a new target arrives right as the previous one finishes —
+      // smooth, continuous motion with no dead time. Found 2026-07-30: `setResult` was firing on
+      // every processed frame (28/sec) with a brand-new object every time (verify() never returns
+      // the same reference twice), forcing every page that reads `result` — and everything below
+      // it in the tree, since there is no React.memo anywhere in this codebase — to re-render the
+      // whole screen 28 times a second for the full duration of every lesson/practice/story/speed/
+      // multiplayer round. The synchronous pass/fail logic below (`resultPassed(vr)`, `firePass()`)
+      // still reads the FRESH untouched `vr` every tick — only the React-visible publish is paced.
+      const RESULT_UPDATE_INTERVAL_MS = 1000 / 10;
+      let lastResultUpdateMs = 0;
+      // Same throttle, tracked independently — holdProgress and result are two separate signals
+      // that happen to update in the same tick, not one derived from the other.
+      let lastHoldUpdateMs = 0;
 
       const tick = () => {
         if (!runningRef.current || !signRef.current) return;
@@ -222,7 +293,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           }
 
           const vr = verify(bufferRef.current, signRef.current);
-          setResult(vr);
+          if (nowMs - lastResultUpdateMs >= RESULT_UPDATE_INTERVAL_MS) {
+            lastResultUpdateMs = nowMs;
+            setResult(vr);
+          }
 
           // Log first few frames for debugging
           if (import.meta.env.DEV && frameCountRef.current <= 3) {
@@ -231,83 +305,120 @@ export function useRecognition(opts?: UseRecognitionOpts) {
             console.log(`[QuickSign] Frame ${frameCountRef.current}: hands=${hands} shoulders=${sw} w=${frame.width}`);
           }
 
-          // Don't allow pass until buffer has enough data
-          if (frameCountRef.current >= MIN_FRAMES_BEFORE_PASS && resultPassed(vr)) {
-            passFrames++;
-            if (passFrames >= PASS_THRESHOLD) {
-              passFrames = 0;
-              const cls = classifierRef.current;
-              if (cls?.enabled && cls.knownSigns.has(sign.name) && !GATE_EXCLUDED_SIGNS.has(sign.name)) {
-                // Gate the rule-pass through the ML classifier (single inference at pass time).
-                if (!gatingRef.current) {
-                  gatingRef.current = true;
-                  const snapshot = bufferRef.current.frames;
-                  const gatedSign = signRef.current;
-                  cls.classify(snapshot)
-                    .then((vote) => {
-                      if (!gatedSign) return;
-                      const passed = gatePass(true, vote, gatedSign.name, gateConfRef.current);
-                      const hint = passed ? null : gateHint(vote, gatedSign.name);
-                      voteCallbackRef.current?.({
-                        prompted: gatedSign.name,
-                        vote,
-                        decision: passed ? 'pass' : 'veto',
-                        topK: vote ? topK(vote, 3) : [],
-                        hint,
-                      });
-                      verifiedCallbackRef.current?.({
-                        signName: gatedSign.name,
-                        params: vr.params,
-                        vote,
-                        decision: passed ? 'pass' : 'veto',
-                      });
-                      attemptCountRef.current += 1;
-                      attemptCallbackRef.current?.({
-                        signId: gatedSign.name,
-                        rulePassed: true,
-                        aiPrediction: vote ? vote.topSign : null,
-                        aiConfidence: vote ? vote.confidence : null,
-                        aiVetoed: !passed,
-                        finalPassed: passed,
-                        frames: snapshot,
-                        durationMs: Math.round(performance.now() - loopStartRef.current),
-                        attemptNumber: attemptCountRef.current,
-                      });
-                      if (passed) {
-                        passCallbackRef.current?.(vr);
-                        hintCallbackRef.current?.(null);
-                      } else {
-                        hintCallbackRef.current?.(hint);
-                      }
-                    })
-                    .catch((e) => console.error('[QuickSign] gate error:', e))
-                    .finally(() => { gatingRef.current = false; });
-                }
-              } else {
-                if (import.meta.env.DEV) console.log('[QuickSign] PASS:', sign.name, vr.params.map(p => `${p.name}=${p.score.toFixed(2)}`).join(' '));
-                verifiedCallbackRef.current?.({
-                  signName: sign.name,
-                  params: vr.params,
-                  vote: null,
-                  decision: 'no-classifier',
-                });
-                attemptCountRef.current += 1;
-                attemptCallbackRef.current?.({
-                  signId: sign.name,
-                  rulePassed: true,
-                  aiPrediction: null,
-                  aiConfidence: null,
-                  aiVetoed: false,
-                  finalPassed: true,
-                  frames: bufferRef.current.frames,
-                  durationMs: Math.round(performance.now() - loopStartRef.current),
-                  attemptNumber: attemptCountRef.current,
-                });
-                passCallbackRef.current?.(vr);
+          // Fires one pass event: gates through the ML classifier when available, otherwise
+          // passes on rules alone. Shared by both the static-hold path and the movement
+          // frame-debounce path below — the two differ only in WHEN this gets called.
+          const firePass = () => {
+            const cls = classifierRef.current;
+            if (cls?.enabled && cls.knownSigns.has(sign.name) && !GATE_EXCLUDED_SIGNS.has(sign.name)) {
+              // Gate the rule-pass through the ML classifier (single inference at pass time).
+              if (!gatingRef.current) {
+                gatingRef.current = true;
+                const snapshot = bufferRef.current.frames;
+                const gatedSign = signRef.current;
+                cls.classify(snapshot)
+                  .then((vote) => {
+                    if (!gatedSign) return;
+                    const { passed, modelVetoed } = gateOutcome(true, vote, gatedSign.name, gateConfRef.current);
+                    // Suppressed whenever the learner passed — a "that looked more like X" note
+                    // next to a success is contradictory, and in shadow mode every attempt the
+                    // model disliked still passes.
+                    const hint = passed ? null : gateHint(vote, gatedSign.name);
+                    voteCallbackRef.current?.({
+                      prompted: gatedSign.name,
+                      vote,
+                      decision: modelVetoed ? 'veto' : 'pass',
+                      enforced: GATE_ENFORCED,
+                      topK: vote ? topK(vote, 3) : [],
+                      hint,
+                    });
+                    verifiedCallbackRef.current?.({
+                      signName: gatedSign.name,
+                      params: vr.params,
+                      vote,
+                      decision: modelVetoed ? 'veto' : 'pass',
+                    });
+                    attemptCountRef.current += 1;
+                    attemptCallbackRef.current?.({
+                      signId: gatedSign.name,
+                      rulePassed: true,
+                      aiPrediction: vote ? vote.topSign : null,
+                      aiConfidence: vote ? vote.confidence : null,
+                      // The model's opinion, NOT the learner's result — these diverge in shadow
+                      // mode and that divergence is exactly the veto-precision measurement.
+                      aiVetoed: modelVetoed,
+                      finalPassed: passed,
+                      frames: snapshot,
+                      durationMs: Math.round(performance.now() - loopStartRef.current),
+                      attemptNumber: attemptCountRef.current,
+                    });
+                    if (passed) {
+                      passCallbackRef.current?.(vr);
+                      hintCallbackRef.current?.(null);
+                    } else {
+                      hintCallbackRef.current?.(hint);
+                    }
+                  })
+                  .catch((e) => console.error('[QuickSign] gate error:', e))
+                  .finally(() => { gatingRef.current = false; });
               }
+            } else {
+              if (import.meta.env.DEV) console.log('[QuickSign] PASS:', sign.name, vr.params.map(p => `${p.name}=${p.score.toFixed(2)}`).join(' '));
+              verifiedCallbackRef.current?.({
+                signName: sign.name,
+                params: vr.params,
+                vote: null,
+                decision: 'no-classifier',
+              });
+              attemptCountRef.current += 1;
+              attemptCallbackRef.current?.({
+                signId: sign.name,
+                rulePassed: true,
+                aiPrediction: null,
+                aiConfidence: null,
+                aiVetoed: false,
+                finalPassed: true,
+                frames: bufferRef.current.frames,
+                durationMs: Math.round(performance.now() - loopStartRef.current),
+                attemptNumber: attemptCountRef.current,
+              });
+              passCallbackRef.current?.(vr);
+            }
+          };
+
+          // Don't allow pass until buffer has enough data
+          const clearedEnough = frameCountRef.current >= MIN_FRAMES_BEFORE_PASS && resultPassed(vr);
+
+          if (isStaticSign) {
+            // Hold-to-pass: the pose must clear the verifier continuously for
+            // STATIC_HOLD_SECONDS (wall-clock, not frame count, so it's consistent regardless of
+            // any dip in processed framerate) before it counts as a pass.
+            if (clearedEnough) {
+              if (holdStartMs === null) holdStartMs = nowMs;
+              const elapsedMs = nowMs - holdStartMs;
+              if (nowMs - lastHoldUpdateMs >= RESULT_UPDATE_INTERVAL_MS) {
+                lastHoldUpdateMs = nowMs;
+                setHoldProgress(clip(elapsedMs / (STATIC_HOLD_SECONDS * 1000), 0, 1));
+              }
+              if (elapsedMs >= STATIC_HOLD_SECONDS * 1000) {
+                holdStartMs = null;
+                setHoldProgress(null);
+                firePass();
+              }
+            } else {
+              holdStartMs = null;
+              setHoldProgress(null);
             }
           } else {
-            passFrames = 0;
+            if (clearedEnough) {
+              passFrames++;
+              if (passFrames >= PASS_THRESHOLD) {
+                passFrames = 0;
+                firePass();
+              }
+            } else {
+              passFrames = 0;
+            }
           }
         } catch (e) {
           console.error('[QuickSign] Tick error:', e);
@@ -340,6 +451,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     loopStartRef.current = performance.now();
     attemptCountRef.current = 0;
     setResult(null);
+    setHoldProgress(null);
   }, []);
 
   useEffect(() => {
@@ -351,5 +463,5 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     };
   }, []);
 
-  return { status, result, framing, init, startLoop, stopLoop, setSign, getSnapshot };
+  return { status, result, framing, holdProgress, init, startLoop, stopLoop, setSign, getSnapshot };
 }

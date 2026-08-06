@@ -72,7 +72,7 @@ export interface MultiplayerSignaling {
    *  scheme for Duel and Room. The room id isn't known until the caller creates/joins a room, so
    *  this takes the channel name directly rather than fixing it at hook-call time. */
   join: (channelName: string) => Promise<void>;
-  startCamera: () => Promise<void>;
+  startCamera: () => Promise<CameraStatus>;
   /** Offerer role — creates a peer connection to `peerId` and sends it a webrtc-offer. */
   connectToPeer: (peerId: string) => Promise<void>;
   disconnectFromPeer: (peerId: string) => void;

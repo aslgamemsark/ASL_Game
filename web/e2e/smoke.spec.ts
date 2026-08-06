@@ -20,9 +20,9 @@ test.describe('app smoke test', () => {
     await expect(page.getByText(/how much asl do you know/i)).toBeVisible();
     await page.getByRole('button', { name: /just starting/i }).click();
 
-    // Dominant-hand picker (added after this test was first written — migration 20260716130000).
-    await expect(page.getByText(/which hand do you sign with/i)).toBeVisible();
-    await page.getByRole('button', { name: /right hand/i }).click();
+    // The dominant-hand picker used to be an onboarding step here. It moved into PracticePage
+    // (2026-07-28 rework) — it needs a live camera, which onboarding deliberately no longer opens.
+    // This test asserted it was still in the flow, so the suite has been red since that landed.
 
     // Onboarding's own "done" celebration auto-advances to Home after ~1.4s (see
     // OnboardingFlow.tsx's setTimeout(onComplete, 1400)). The guest sign-in affordance in the
@@ -36,7 +36,6 @@ test.describe('app smoke test', () => {
     await page.getByRole('button', { name: /get started/i }).click();
     await page.getByRole('button', { name: /continue as guest/i }).click();
     await page.getByRole('button', { name: /just starting/i }).click();
-    await page.getByRole('button', { name: /right hand/i }).click(); // dominant-hand step
     await page.waitForTimeout(1600); // clear onboarding's auto-advance
 
     const signInTrigger = page.getByRole('button', { name: /sign in/i }).first();

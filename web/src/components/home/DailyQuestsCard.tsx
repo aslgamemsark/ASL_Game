@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUserStore } from '@/stores/useUserStore';
+import { ProgressBar } from '@/components/shared/ProgressBar';
 
 const DIFF_STYLE = {
-  easy:   { text: 'text-emerald-400', bg: 'bg-emerald-400/15' },
-  medium: { text: 'text-z-yellow',   bg: 'bg-z-yellow/15'    },
-  hard:   { text: 'text-z-orange',   bg: 'bg-z-orange/15'    },
+  easy:   { text: 'text-z-green',  bg: 'bg-z-green/15'  },
+  medium: { text: 'text-z-yellow', bg: 'bg-z-yellow/15' },
+  hard:   { text: 'text-z-orange', bg: 'bg-z-orange/15' },
 };
 
 export function DailyQuestsCard() {
@@ -35,7 +36,7 @@ export function DailyQuestsCard() {
         <h3 className="font-bold text-sm text-z-gray-300 uppercase tracking-widest">
           Daily Quests
         </h3>
-        <span className={`text-xs font-bold ${allDone ? 'text-emerald-400' : 'text-z-gray-300'}`}>
+        <span className={`text-xs font-bold ${allDone ? 'text-z-green' : 'text-z-gray-300'}`}>
           {allDone ? '✓ All claimed!' : `${claimed}/${dailyQuests.length} done`}
         </span>
       </div>
@@ -58,14 +59,14 @@ export function DailyQuestsCard() {
             <motion.div
               key={quest.id}
               className={`bg-z-card border rounded-2xl p-4 transition-colors ${
-                quest.claimed ? 'border-emerald-500/20' : 'border-white/5'
+                quest.claimed ? 'border-z-green/20' : 'border-white/5'
               }`}
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.18 + i * 0.07 }}
             >
               <div className="flex items-center gap-2 mb-1">
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${style.bg} ${style.text}`}>
+                <span className={`px-2 py-0.5 rounded-full text-3xs font-bold uppercase ${style.bg} ${style.text}`}>
                   {quest.difficulty}
                 </span>
                 <p className="font-semibold text-sm text-z-gray-50 flex-1 truncate">{quest.title}</p>
@@ -74,7 +75,7 @@ export function DailyQuestsCard() {
                   {quest.claimed ? (
                     <motion.span
                       key="check"
-                      className="text-emerald-400 text-sm font-bold flex-shrink-0"
+                      className="text-z-green text-sm font-bold flex-shrink-0"
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: 'spring', stiffness: 300 }}
@@ -108,22 +109,22 @@ export function DailyQuestsCard() {
 
               {/* Progress row */}
               <div className="flex items-center gap-3">
-                <div className="flex-1 h-1.5 bg-z-gray-500/40 rounded-full overflow-hidden">
-                  <motion.div
-                    className={`h-full rounded-full ${quest.claimed ? '' : 'bg-gradient-primary'}`}
-                    style={quest.claimed ? { background: '#34D399' } : undefined}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct * 100}%` }}
-                    transition={{ duration: 0.65, ease: 'easeOut', delay: 0.2 + i * 0.07 }}
-                  />
-                </div>
-                <span className="text-[11px] text-z-gray-400 whitespace-nowrap tabular-nums">
+                <ProgressBar
+                  value={pct}
+                  label={`${quest.title}: ${quest.progress} of ${quest.target}`}
+                  size="xs"
+                  fillClassName={quest.claimed ? 'bg-z-green' : 'bg-gradient-primary'}
+                  trackClassName="bg-z-gray-500/40"
+                  transition={{ duration: 0.65, ease: 'easeOut', delay: 0.2 + i * 0.07 }}
+                  className="flex-1"
+                />
+                <span className="text-2xs text-z-gray-400 whitespace-nowrap tabular-nums">
                   {quest.progress}/{quest.target}
                 </span>
-                <span className="text-[11px] text-z-yellow whitespace-nowrap">
+                <span className="text-2xs text-z-yellow whitespace-nowrap">
                   +{quest.xpReward} XP
                 </span>
-                <span className="text-[11px] text-z-purple-glow whitespace-nowrap">
+                <span className="text-2xs text-z-purple-glow whitespace-nowrap">
                   +{quest.signsReward} 🤟
                 </span>
               </div>

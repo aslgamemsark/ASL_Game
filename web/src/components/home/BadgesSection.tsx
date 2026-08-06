@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ALL_BADGES, getBadge, BADGE_RARITY_COLOR, type BadgeDef } from '@/data/badges';
 import { useUserStore } from '@/stores/useUserStore';
@@ -8,6 +9,12 @@ export function BadgesSection() {
   const { badges, activeBadge, showcaseBadges, setActiveBadge, toggleShowcaseBadge } =
     useUserStore();
   const [selected, setSelected] = useState<BadgeDef | null>(null);
+  // active: !!selected — the sheet is gated on `selected` inside an always-mounted component.
+  const dialog = useDialogA11y({
+    label: selected ? `${selected.title} badge` : 'Badge',
+    onClose: () => setSelected(null),
+    active: !!selected,
+  });
 
   const earned = ALL_BADGES.filter((b) => badges.includes(b.id));
   const locked = ALL_BADGES.filter((b) => !badges.includes(b.id));
@@ -40,7 +47,7 @@ export function BadgesSection() {
       {/* Earned badges */}
       {earned.length > 0 && (
         <>
-          <p className="text-[11px] font-bold text-z-gray-400 uppercase tracking-widest mb-2">
+          <p className="text-2xs font-bold text-z-gray-400 uppercase tracking-widest mb-2">
             Earned · {earned.length}/{ALL_BADGES.length}
           </p>
           <div className="grid grid-cols-4 gap-2 mb-4">
@@ -77,7 +84,7 @@ export function BadgesSection() {
       {/* Locked badges */}
       {locked.length > 0 && (
         <>
-          <p className="text-[11px] font-bold text-z-gray-400 uppercase tracking-widest mb-2">
+          <p className="text-2xs font-bold text-z-gray-400 uppercase tracking-widest mb-2">
             Locked
           </p>
           <div className="grid grid-cols-4 gap-2">
@@ -113,14 +120,16 @@ export function BadgesSection() {
       <AnimatePresence>
         {selected && (
           <motion.div
-            className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center p-4"
+            className="fixed inset-0 bg-black/60 z-overlay flex items-end justify-center p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSelected(null)}
           >
             <motion.div
-              className="bg-z-card rounded-3xl p-6 w-full max-w-sm border border-white/10"
+              ref={dialog.ref}
+              {...dialog.props}
+              className="bg-z-card rounded-3xl p-6 w-full max-w-sm border border-white/10 outline-none"
               initial={{ y: 80, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 80, opacity: 0 }}
@@ -166,7 +175,7 @@ export function BadgesSection() {
                     showcaseBadges.includes(selected.id)
                       ? 'bg-z-orange/20 border-z-orange text-z-orange'
                       : showcaseBadges.length >= 3
-                        ? 'border-white/5 text-z-gray-500 cursor-not-allowed'
+                        ? 'border-white/5 text-z-gray-400 cursor-not-allowed'
                         : 'border-white/10 text-z-gray-300 hover:border-white/20'
                   }`}
                   disabled={!showcaseBadges.includes(selected.id) && showcaseBadges.length >= 3}

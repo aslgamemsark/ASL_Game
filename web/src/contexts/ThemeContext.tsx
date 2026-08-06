@@ -25,6 +25,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
     localStorage.setItem(STORAGE_KEY, theme);
+
+    // `<meta name="theme-color">` colors the browser/PWA chrome — the Android status bar, the
+    // installed-app task-switcher card, the desktop PWA title bar. index.html sets it once as a
+    // static dark value; without this it never changes, so an installed app in light mode still
+    // shows a dark-purple status bar clashing with a light page (found during the mobile-native
+    // polish pass, 2026-07-29). Reads --rt-body-bg rather than duplicating its hex values here —
+    // index.css already owns "what color is the app background per theme"; this only reacts to it.
+    // (iOS itself doesn't read this tag — its status-bar-style is fixed at launch, see index.html's
+    // comment on apple-mobile-web-app-status-bar-style — but Android Chrome and desktop do, live.)
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    themeColorMeta?.setAttribute('content', getComputedStyle(root).getPropertyValue('--rt-body-bg').trim());
   }, [theme]);
 
   function setTheme(next: Theme) {

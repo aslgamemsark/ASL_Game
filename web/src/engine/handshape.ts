@@ -116,6 +116,39 @@ function openConfidence(hand: Hand): number {
   return clip(1.0 - mean(allCurls(hand)), 0, 1);
 }
 
+// B/5 are textbook distinguished by THUMB position, not finger spacing: B holds the thumb folded
+// across the palm; 5 holds it extended out as the 5th spread digit. A real confusor recording
+// (2026-07-23, real user report "B still passes on 5 fingers") found an averaged adjacent-fingertip
+// spread metric barely separates the two shapes even when the 5 take was performed with a
+// deliberately wide, exaggerated spread (median ~0.234 vs ~0.238 hand-scale units — same order as
+// noise), while raw thumb-tip-to-index-MCP distance cleanly does: this user's B measured
+// 0.204-0.270 (median 0.252),
+// their 5 measured 0.267-0.403 (median 0.287) hand-scale units. This band's crossover sits at the
+// midpoint between those two medians (~0.27), NOT reusing thumbExtended's (0.5, 1.2) band — that
+// one targets L/Y's much-farther-out thumb and reads B/5's real range as a flat 0 throughout.
+const THUMB_TUCKED_LOW = 0.25;  // full "tucked" (B) credit at/below this raw distance
+const THUMB_TUCKED_HIGH = 0.29; // full "extended" (5) credit at/above this
+
+function thumbTuckedScore(hand: Hand): number {
+  const d = thumbDist(hand, INDEX_MCP);
+  return clip((THUMB_TUCKED_HIGH - d) / (THUMB_TUCKED_HIGH - THUMB_TUCKED_LOW), 0, 1);
+}
+
+// Letter B: flat open hand, thumb folded across the palm — distinct from 5 (below), the same
+// flat-open shape with the thumb extended out. Before this, both dispatched to plain
+// openConfidence (extension only, no thumb check), so a 5 always passed for a prompted B and vice
+// versa (real user report, 2026-07-23). See the thumb-band comment above for the real calibration
+// data this threshold is measured against.
+function bConfidence(hand: Hand): number {
+  return Math.min(openConfidence(hand), thumbTuckedScore(hand));
+}
+
+// Number 5: flat open hand, thumb extended out as the 5th spread digit — see bConfidence above
+// for the shared history and calibration.
+function fiveConfidence(hand: Hand): number {
+  return Math.min(openConfidence(hand), 1 - thumbTuckedScore(hand));
+}
+
 function clawConfidence(hand: Hand): number {
   const curls = allCurls(hand);
   const m = mean(curls);
@@ -458,8 +491,8 @@ const DISPATCH: Record<string, (hand: Hand) => number> = {
   a: aConfidence,
   index: indexConfidence,
   open: openConfidence,
-  b: openConfidence,
-  '5': openConfidence,
+  b: bConfidence,
+  '5': fiveConfidence,
   claw: clawConfidence,
   flat_o: flatOConfidence,
   f: fConfidence,

@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TopBar } from '@/components/shared/TopBar';
-import { StreakCard } from '@/components/home/StreakCard';
+import { StartJourneyCard } from '@/components/home/StartJourneyCard';
 import { BottomNav, type Tab } from '@/components/home/BottomNav';
 import { PracticeTab } from '@/components/home/PracticeTab';
 import { ProfileTab } from '@/components/home/ProfileTab';
 import { AlphabetTab } from '@/components/home/AlphabetTab';
+import { BasicSignsTab } from '@/components/home/BasicSignsTab';
 import { DailyQuestsCard } from '@/components/home/DailyQuestsCard';
 import { WorldMap } from '@/components/home/WorldMap';
 import { ChestCard } from '@/components/home/ChestCard';
@@ -34,7 +35,6 @@ interface Props {
     mixedQuiz?: boolean;
     bonusGoldOnPerfect?: number;
     heading?: string;
-    hideReferenceClip?: boolean;
   }) => void;
   onStartStory: (id: string) => void;
   onStartSpeed: () => void;
@@ -42,6 +42,11 @@ interface Props {
   onOpenMultiplayer: () => void;
   onRequireSignIn: () => void;
   onSettings: () => void;
+  /** Leaderboard and Friends are top-level screens whose only other entry point is SideNav, which
+   *  is `hidden md:flex` — so without these the two screens are unreachable on every phone. They
+   *  surface on the profile tab rather than in BottomNav, which is already at eight items. */
+  onOpenLeaderboard: () => void;
+  onOpenFriends: () => void;
   tab: Tab;
   onTabChange: (tab: Tab) => void;
 }
@@ -55,6 +60,8 @@ export function HomePage({
   onOpenMultiplayer,
   onRequireSignIn,
   onSettings,
+  onOpenLeaderboard,
+  onOpenFriends,
   tab,
   onTabChange: setTab,
 }: Props) {
@@ -85,10 +92,23 @@ export function HomePage({
     });
   };
 
+  // "Start your journey" CTA below → WorldMap opens this world and scrolls to its first lesson.
+  // 'greetings' is the "Say Hello" world's id (data/worlds.ts) — cleared once WorldMap consumes it.
+  const [openWorldId, setOpenWorldId] = useState<string | null>(null);
+  // useCallback (not an inline arrow at the call site) so the identity stays stable across
+  // HomePage's own re-renders — WorldMap depends on this in a useEffect that debounces the
+  // scroll-into-view behind a short timeout, and an unstable callback there would reset that
+  // timeout on every unrelated re-render, so it could never fire.
+  const handleOpenWorldHandled = useCallback(() => setOpenWorldId(null), []);
+
   return (
-    <div className="min-h-screen bg-z-bg">
+    <div className="min-h-dvh bg-z-bg">
       {/* Guest tapping the avatar gets the sign-in prompt; a signed-in user goes to their Me tab. */}
-      <TopBar onOpenShop={onOpenShop} onOpenProfile={() => (user ? setTab('profile') : onRequireSignIn())} />
+      <TopBar
+        onOpenShop={onOpenShop}
+        onOpenProfile={() => (user ? setTab('profile') : onRequireSignIn())}
+        profileLabel={user ? 'My Profile' : 'Sign in'}
+      />
 
       <div className="max-w-lg mx-auto px-4 pt-4">
         <AnimatePresence mode="wait">
@@ -108,7 +128,7 @@ export function HomePage({
                 onTap={pokeZippy}
                 className="mb-3"
               />
-              <StreakCard />
+              <StartJourneyCard onStart={() => setOpenWorldId('greetings')} />
               <ChestCard />
               <DailyQuestsCard />
               {/* Moved here from Review (2026-07-13) — a timed game mode belongs alongside the
@@ -121,8 +141,7 @@ export function HomePage({
               >
                 <motion.button
                   onClick={onStartSpeed}
-                  className="w-full rounded-2xl p-5 text-left border border-white/5 overflow-hidden relative"
-                  style={{ background: 'linear-gradient(135deg, #1E40AF, #3B82F6)' }}
+                  className="w-full rounded-2xl p-5 text-left border border-white/5 overflow-hidden relative bg-gradient-blue"
                   initial="rest"
                   animate="rest"
                   whileHover="hover"
@@ -136,7 +155,7 @@ export function HomePage({
                   <div className="relative flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-bold text-white">⚡ Speed Challenge</h3>
-                      <p className="text-blue-200 text-sm mt-1">Race the clock · 3× XP in Blitz mode</p>
+                      <p className="text-white/80 text-sm mt-1">Race the clock · 3× XP in Blitz mode</p>
                     </div>
                     <motion.span
                       className="text-3xl inline-block"
@@ -151,6 +170,8 @@ export function HomePage({
               <WorldMap
                 onSelectLesson={onStartLesson}
                 onStartStory={onStartStory}
+                openWorldId={openWorldId}
+                onOpenWorldHandled={handleOpenWorldHandled}
               />
             </motion.div>
           )}
@@ -186,7 +207,28 @@ export function HomePage({
                     mixedQuiz: true,
                     bonusGoldOnPerfect: 15,
                     heading: 'Letter Test',
-                    hideReferenceClip: true,
+                  })
+                }
+              />
+            </motion.div>
+          )}
+
+          {tab === 'basicSigns' && (
+            <motion.div
+              key="basicSigns"
+              initial={{ opacity: 0, x: 22, scale: 0.97 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -22, scale: 0.97 }}
+              transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+            >
+              <BasicSignsTab
+                onStartSignsPractice={(ids) => onStartPractice({ filterSignIds: ids, autoStart: true })}
+                onTestMemory={(ids) =>
+                  onStartPractice({
+                    filterSignIds: ids,
+                    mixedQuiz: true,
+                    bonusGoldOnPerfect: 15,
+                    heading: 'Basic Signs Test',
                   })
                 }
               />
@@ -201,14 +243,22 @@ export function HomePage({
               exit={{ opacity: 0, x: -22, scale: 0.97 }}
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
-              <ProfileTab />
+              <ProfileTab
+                onOpenLeaderboard={onOpenLeaderboard}
+                onOpenFriends={onOpenFriends}
+                onOpenMultiplayer={onOpenMultiplayer}
+                onOpenShop={onOpenShop}
+                onOpenSettings={onSettings}
+              />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      <div className="lg:hidden">
-        <BottomNav active={tab} onChange={setTab} onMultiplayer={onOpenMultiplayer} onShop={onOpenShop} onSettings={onSettings} />
+      {/* md:, matching SideNav's own breakpoint (see that file's comment) — the two must switch at
+          the exact same width or there's a band where neither renders, or both do. */}
+      <div className="md:hidden">
+        <BottomNav active={tab} onChange={setTab} />
       </div>
     </div>
   );

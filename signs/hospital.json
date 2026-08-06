@@ -1,0 +1,47 @@
+{
+  "name": "HOSPITAL",
+  "twoHanded": true,
+  "extraHandMotionFloor": null,
+  "dominant": {
+    "kind": "h",
+    "required": true,
+    "minConfidence": 0.25
+  },
+  "nondominant": {
+    "kind": "open",
+    "required": false,
+    "minConfidence": 0.25
+  },
+  "location": {
+    "anchor": "shoulder",
+    "actingHand": "dominant",
+    "maxDistRatio": 0.4,
+    "minDistRatio": 0.0,
+    "vertical": null,
+    "below": "mouth",
+    "useClosestApproach": false,
+    "required": true,
+    "minConfidence": 0.6
+  },
+  "movement": {
+    "kind": "linear",
+    "actor": "dominant",
+    "pivot": "nondominant",
+    "minTotalRotationDeg": 300.0,
+    "radiusToleranceRatio": 0.4,
+    "direction": null,
+    "minDisplacementRatio": 0.25,
+    "minCycles": 2,
+    "minAmplitudeRatio": 0.05,
+    "minApproachRatio": 0.15,
+    "traceTemplate": [],
+    "traceToleranceDeg": 60.0,
+    "gateToLocation": true,
+    "otherHandMaxMotionRatio": null,
+    "minDurationS": 0.5,
+    "required": true,
+    "minConfidence": 0.6
+  },
+  "orientation": null,
+  "nmm": null
+}

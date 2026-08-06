@@ -9,17 +9,19 @@
     "lint": "oxlint",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:multiplayer": "playwright test --config=playwright.multiplayer.config.ts",
+    "supabase:start": "supabase --workdir .. start && supabase --workdir .. db reset",
+    "supabase:stop": "supabase --workdir .. stop",
     "preview": "vite preview",
     "icons": "node scripts/gen-icons.mjs",
     "optimize:zippy": "node scripts/optimize-zippy.mjs",
-    "audit": "npm audit --audit-level=high"
+    "audit": "npm audit --audit-level=high --omit=dev"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.35",
     "@supabase/supabase-js": "^2.110.0",
     "@tailwindcss/vite": "^4.3.2",
     "@tensorflow/tfjs": "^4.22.0",
-    "@types/three": "^0.185.0",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.42.0",
     "posthog-js": "^1.404.1",
@@ -31,12 +33,14 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",
     "@resvg/resvg-js": "^2.6.2",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.185.0",
     "@vitejs/plugin-react": "^6.0.2",
     "oxlint": "^1.69.0",
     "sharp": "^0.35.3",

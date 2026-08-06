@@ -12,9 +12,18 @@ import {
   POSE_MOUTH_RIGHT,
 } from './landmarks';
 
-// Must match the @mediapipe/tasks-vision version in package.json — the WASM runtime (loaded from
-// the CDN below) and the JS API (from npm) are a matched pair and must not drift apart.
-const MEDIAPIPE_VERSION = '0.10.35';
+// Pinned to the exact @mediapipe/tasks-vision version in package.json (was `@latest` — unpinned on
+// the camera critical path, found 2026-07-30: a CDN tag can change under the app at any time with
+// no warning, and the JS API wrapper (npm) and the WASM binary it drives (CDN) must be the same
+// version — a silent mismatch is exactly the kind of thing that produces confusing, hard-to-repro
+// recognition bugs. Bump this string whenever package.json's @mediapipe/tasks-vision version bumps.
+//
+// Exported solely so tests/mediapipeVersion.test.ts can assert it still equals the INSTALLED
+// version. package.json carries a caret range (^0.10.35), so a routine `npm install` can resolve
+// the JS wrapper to a newer patch while this string keeps pointing the WASM binary at the old one —
+// reintroducing the exact skew the pin was added to prevent, silently. "Remember to bump this
+// string" is not a mechanism; the test is.
+export const MEDIAPIPE_WASM_VERSION = '0.10.35';
 
 export class Capture {
   private hand: HandLandmarker | null = null;
@@ -43,7 +52,7 @@ export class Capture {
     // the JS<->WASM contract would break recognition for every user at once with no deploy on our
     // side. Keep this string in lockstep with package.json's tasks-vision version.
     const vision = await FilesetResolver.forVisionTasks(
-      `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`
+      `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_WASM_VERSION}/wasm`
     );
 
     // Devices without WebGL (older Android/tablets) throw when asked for a GPU delegate — retry
@@ -108,7 +117,7 @@ export class Capture {
   /**
    * `skipPose`: PoseLandmarker inference is a real per-frame cost (a full second model run,
    * separate from and in addition to HandLandmarker) that every caller paid unconditionally even
-   * when they never read `leftShoulder`/`rightShoulder`/`mouth` — e.g. DominantHandStep, which
+   * when they never read `leftShoulder`/`rightShoulder`/`mouth` — e.g. DominantHandCheck, which
    * only ever looks at `frame.hands`. That's wasted latency on every poll tick, not just a UI
    * debounce value to tune (found while diagnosing reported "still feels slow" on real hardware,
    * 2026-07-16). The sign-verification path (useRecognition.ts) still needs pose for shoulder-

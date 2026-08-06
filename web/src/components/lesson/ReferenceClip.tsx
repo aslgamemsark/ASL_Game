@@ -38,7 +38,7 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
     <>
       <motion.div
         className={`relative rounded-2xl overflow-hidden bg-z-card ${
-          compact ? 'w-28 h-28 mx-auto' : 'aspect-square'
+          compact ? 'w-28 h-28 mx-auto lg:w-full lg:h-auto lg:aspect-square lg:mx-0' : 'aspect-square'
         } ${showPlaceholder ? '' : 'cursor-zoom-in'}`}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -54,8 +54,8 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
       >
         {showPlaceholder ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-center px-4">
-            <span className={compact ? 'text-xl' : 'text-3xl'} aria-hidden="true">🎬</span>
-            {!compact && <p className="text-z-gray-300 text-sm font-bold">Demo coming soon</p>}
+            <span className={compact ? 'text-xl lg:text-3xl' : 'text-3xl'} aria-hidden="true">🎬</span>
+            <p className={`text-z-gray-300 text-sm font-bold ${compact ? 'hidden lg:block' : ''}`}>Demo coming soon</p>
           </div>
         ) : (
           <>
@@ -68,22 +68,34 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
               onError={() => setFailed(true)}
               className="w-full h-full object-contain"
             />
-            {/* Discoverability hint for the click/right-click-to-enlarge affordance below. */}
-            <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white/90 text-xs pointer-events-none">
+            {/* Discoverability hint for the click/right-click-to-enlarge affordance below.
+                bg-video-plate, not bg-black/50: this sits on the clip itself, and /50 left the
+                glyph at 3.56:1 against a bright frame. */}
+            <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-video-plate flex items-center justify-center text-white text-xs pointer-events-none">
               ⤢
             </div>
           </>
         )}
-        {!compact && (
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+        {/* The caption used to be a single `from-black/60 to-transparent` fade with the text
+            inside it. On a `to-t` gradient the transparent end is at the TOP — which is exactly
+            where the sign name sits — so the most important label on the surface had the least
+            backing behind it: 1.41:1 against a bright frame. A fade is decoration, not a plate.
+            Split in two: the fade is now a text-free lead-in strip that keeps the soft edge, and
+            the text sits on a real plate underneath it.
+
+            Hidden below `lg` in the compact (desktop three-column) variant, where the clip is a
+            thumbnail alongside the webcam and the sign name is already the page heading. */}
+        <div className={`absolute bottom-0 left-0 right-0 ${compact ? 'hidden lg:block' : ''}`}>
+          <div className="h-6 bg-gradient-to-t from-black/62 to-transparent" aria-hidden="true" />
+          <div className="bg-video-plate p-3">
             <p className="text-white text-sm font-bold">{displayName}</p>
-            <p className="text-white/70 text-xs">{showPlaceholder ? 'No demo video yet — follow the hint below' : 'Watch and follow along — tap to enlarge'}</p>
+            <p className="text-white/85 text-xs">{showPlaceholder ? 'No demo video yet — follow the hint below' : 'Watch and follow along — tap to enlarge'}</p>
           </div>
-        )}
+        </div>
       </motion.div>
 
       {compact && !showPlaceholder && (
-        <p className="text-center text-z-gray-300 text-xs mt-1">Too small to see? Tap to enlarge ⤢</p>
+        <p className="text-center text-z-gray-300 text-xs mt-1 lg:hidden">Too small to see? Tap to enlarge ⤢</p>
       )}
 
       {!showPlaceholder && clipUrl && (

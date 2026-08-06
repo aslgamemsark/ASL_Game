@@ -21,11 +21,132 @@ modals) that had drifted off-token; they broke light-mode contrast since the lig
 redefines `z-red`/`z-green` to different, darker values than Tailwind's own red-400/green-400.
 All fixed — don't reintroduce the pattern.
 
-The app's one deliberate inline-style exception is a single gradient value, now consolidated into
-the `bg-gradient-primary` utility class (`web/src/index.css`, defined via Tailwind v4's
-`@utility`) — use that class instead of writing `style={{ background: 'linear-gradient(135deg, ...)' }}`
-again; 15 call sites across the app had drifted into two near-duplicate hex pairs before this was
-extracted.
+The brand gradient is consolidated into the `bg-gradient-primary` utility class
+(`web/src/index.css`, defined via Tailwind v4's `@utility`) — use that class instead of writing
+`style={{ background: 'linear-gradient(135deg, ...)' }}` again; 15 call sites across the app had
+drifted into two near-duplicate hex pairs before this was extracted.
+
+**Resolved 2026-07-27.** That claim had gone stale — 20 hardcoded `linear-gradient(...)` values had
+reappeared across 15 files, all literal hex and therefore all theme-blind. They are now nine
+`@utility` classes:
+
+| Utility | Used by | Text it carries |
+|---|---|---|
+| `bg-gradient-primary` | primary CTA buttons | `text-white` only (unscrimmed) |
+| `bg-gradient-teal` | alphabet/basics quiz cards, Warm Up tier | `text-white`, `text-white/80` |
+| `bg-gradient-blue` | Speed Challenge entry + Sprint tier | ” |
+| `bg-gradient-violet` | practice entry cards, Blitz tier | ” |
+| `bg-gradient-amber` | Shop purchase buttons | ” |
+| `bg-gradient-ember` | Weak Signs card | ” |
+| `bg-gradient-streak` | streak card | ” |
+| `bg-gradient-locked` | locked / coming-soon world | ” |
+| `bg-gradient-urgent` | Speed timer bar under 40% | no text |
+| `text-gradient-brand` | the QuickSign wordmark | (is the text) |
+
+**Gradient text is banned everywhere except the wordmark.** It is decorative rather than
+meaningful, so it is confined to the logotype, where decorative *is* the meaning — that is why the
+onboarding `h1` and every other heading use solid colour (`OnboardingFlow.tsx:99-101`). This was
+already the convention in a component comment; recording it here so it survives. Design linters
+will flag `text-gradient-brand` as an anti-pattern hit: that is correct, and it is a known scoped
+exception, not a licence to gradient another heading or metric.
+
+**The scrim is baked into the utility, not written at the call site.** Every card used to hand-roll
+`<div className="absolute inset-0 bg-black/NN" />`, and those had drifted to /20, /30, /45 and /50
+— several below what their own gradient needed, and three cards had none. 45% is the family floor:
+what the lightest gradient (amber) needs to carry body text.
+
+**Text on a gradient is white.** `text-white`, or `text-white/80` for a secondary line — never
+lower (white/70 fails on teal at 4.28:1 and amber at 3.94:1), and never an accent token. Accent
+tokens are derived against the theme surfaces and invert between light and dark; these gradients do
+not invert, so a token legible on a dark card is not legible here. `text-z-yellow` on the streak
+card measured 1.95:1 in the light theme for exactly this reason.
+
+Data-driven gradients (`WORLDS[].bgGradient`, a unit's own colour) stay in data and get the same
+floor at the point of use via `WorldMap`'s `scrimmed()` helper — the data describes what a world
+looks like, not how text is made legible on it.
+
+Both rules are enforced by `web/tests/tokenContrast.test.ts` (scrim + stops parsed out of the
+shipped CSS, AA asserted per theme) and `web/tests/designTokens.test.ts` (no literal hex in a
+component gradient; no undefined `bg-gradient-*` class, which Tailwind would otherwise drop
+silently and render as a transparent card with white text on it).
+
+## Dialogs
+
+Every modal dialog goes through `useDialogA11y({ label, onClose })` — spread its `props` onto the
+dialog element and attach its `ref` — or through `ModalShell`, which wraps it and adds the centred
+card chrome. The hook supplies the four things a plain `<div>` does not get for free: `role="dialog"`
++ `aria-modal` so a screen reader announces it, focus moved inside on open, focus trapped while
+open, and Escape to dismiss.
+
+Pass `active` as well when the component stays mounted and gates its own content on an `open` flag
+(`<AnimatePresence>{open && …}`). Without it the trap arms on first render, leaving a live Escape
+listener on a closed dialog and handing focus back to whatever was focused at app boot.
+`LogoutConfirm`, `CelebrationHost`, `ClipEnlarge`, `BadgesSection` and `ShopPage` all have that
+shape.
+
+**The behaviour is deliberately separate from the chrome.** It used to live inside `ModalShell`, and
+that is exactly why it did not spread: a bottom sheet, a full-screen first-run gate and a portal'd
+lightbox cannot be forced through one card wrapper, so seven dialogs simply went without. Of eleven
+dialogs, eight had no dialog semantics at all and three more had the aria attributes but no focus
+trap (2026-07-28).
+
+Enforced by `web/tests/designTokens.test.ts`: any file rendering a `fixed inset-0` overlay must
+reference the hook or the shell. Note this is invisible to axe — a rule engine cannot know a given
+div was meant to be a dialog, so `e2e/a11y.spec.ts` passed clean while all eight were broken.
+
+## Status messages
+
+Dynamic feedback needs a live region or a screen reader gets nothing from it. The app had none
+anywhere before 2026-07-28.
+
+The Sign Coach checklist (`ParameterChecklist`) now carries a `role="status" aria-live="polite"`
+region — it is the product's differentiator and everything it says was said in colour and position
+alone. What it announces is deliberately narrow: **one** correction at a time, only for a parameter
+the coaching gate has marked `confident-fail`, and silence otherwise. Three simultaneous
+instructions read aloud is noise, and 'neutral' ("still working on it") is not worth interrupting
+anyone for. The next correction announces itself as soon as the first clears.
+
+Two rules for any live region added later:
+- **Mount it always, fill it later.** A region inserted into the DOM at the same moment its text
+  appears is unreliably announced — assistive tech has to be observing the node beforehand. Empty
+  string means silence.
+- **Announce transitions, not values.** Re-rendering the same string does not re-announce, which is
+  what keeps a per-frame score display from spamming.
+
+The decision of what to say is a pure function (`coachAnnouncement`) so it is testable without a
+camera; the DOM wiring around it is trivial by comparison.
+
+The sync-error toast, the skip toast (Practice and Lesson), the incoming-challenge notification,
+and lesson success/complete now follow the same two rules — an always-mounted `sr-only` region
+that mirrors the visible toast/phase text, kept separate from the toast's own AnimatePresence-
+gated div so the announcer never gets unmounted between messages. The challenge notification uses
+`role="alert"` (assertive) rather than `role="status"` (polite): the Join button is only useful
+while the inviter is still waiting, so it should interrupt rather than queue behind whatever a
+screen reader is already reading.
+
+## Text over live video
+
+The webcam mirror and the reference clips are the only surfaces whose background is unknown — it
+is whatever the learner's room looks like. Theme tokens are no help, because the video does not
+follow the theme. The only honest floor is the worst case: check every overlay against a blown-out
+WHITE frame and a BLACK one, and require AA in both.
+
+- **`bg-video-plate` is the backing.** Never a hand-rolled `bg-black/NN`. Its 62% comes from the
+  worst case — below 54% a bright frame wins. White on it is 6.2:1 against any frame.
+- **`text-white/85` is the floor** for secondary lines. `white/70` is 4.0:1 and fails.
+- **A fade is not a plate.** ReferenceClip's caption was a single `to-t from-black/60 to-transparent`
+  with the text inside it, which put the sign name — the most important label on the surface — at
+  the *transparent* end, 1.41:1. The fade is now a text-free lead-in strip above a real plate.
+- **State goes on borders and icons, never on the text colour.** Accent tokens invert with the
+  theme and the video does not, so `text-z-green` on video was 1.79:1. The one exception is the
+  selected-hand ✓ badge, `bg-z-green` + `text-z-bg`: those two tokens invert in *opposite*
+  directions, so the pair stays high-contrast in both themes (10.12:1 / 4.55:1). `bg-z-green` +
+  `text-white` was 1.92:1 in the dark theme.
+
+Enforced by `tokenContrast.test.ts` (plate alpha vs. both frame extremes; the ✓ badge and turn chip
+per theme) and `designTokens.test.ts` (no `bg-black/NN` and no sub-85 white text in the five
+video-surface components — modal backdrops, which are `fixed inset-0` and carry no text, are
+excluded by position rather than by an exception list).
 
 | Role | Token | Value |
 |---|---|---|
@@ -41,11 +162,26 @@ extracted.
 | Page background | `--color-z-bg` | `#0D0A1E` |
 | Card / surface / hover | `--color-z-card` / `-surface` / `-surface-hover` | `#18103A` / `#221548` / `#2D1B5C` |
 
+The table above lists DARK values. **Light values are not hue-matches of them and must never be
+"corrected" into hue-matches** — a dark theme needs light accents to be legible on a near-black
+surface, and a light theme needs the same semantic role to be dark. Light values are derived by
+holding each colour's OKLCH hue and chroma and lowering lightness only until it clears AA against
+`z-bg` (`#E7D9FB`), the darkest of the three light surfaces. Hue-matching is exactly how the
+2026-07-27 regression happened: 26 light pairs sat below AA, `z-yellow` (XP) at 1.27:1 and
+`z-green` (sign passed) at 2.82:1 — the learner could not read their own result. See QS-009.
+
+`web/tests/tokenContrast.test.ts` now asserts this mechanically for every text token × surface ×
+theme, parsing the shipped CSS so it cannot drift from what ships. Change a token, run it, and it
+reports the exact ratio. Do not silence it by lightening a surface — that flattens the card/page
+separation the light theme deliberately builds.
+
 **Color strategy: committed.** Purple carries identity; orange = streak/energy, teal = XP/
-knowledge, semantic green/red for pass/fail coaching. **Rule (2026-07-03):** any text sitting on
-a saturated gradient/solid brand background needs an explicit contrast check — two WCAG failures
-were fixed with `bg-black/30` scrims (PracticeTab story card, SpeedChallenge tier cards); reuse
-that scrim technique rather than lightening text.
+knowledge, semantic green/red for pass/fail coaching. **Rule (2026-07-03, floor corrected
+2026-07-27):** any text sitting on a saturated gradient/solid brand background needs an explicit
+contrast check — use a scrim rather than lightening the text. The original `bg-black/30` was
+tuned against one gradient and does not hold for the lighter ones (teal and amber cards fail even
+at full white). The verified floor across the whole card family is **`bg-black/45` +
+`text-white/80` minimum** — 4.62:1 worst case. See QS-010.
 
 ## Typography
 

@@ -1,8 +1,6 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const FOCUSABLE_SELECTOR =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 interface Props {
   children: ReactNode;
@@ -16,55 +14,22 @@ interface Props {
 }
 
 /**
- * Shared modal chrome: backdrop + card positioning (previously hand-rolled identically across
- * AuthModal/SetUsernameModal/TrainingConsentModal/ResetPasswordModal) plus the accessibility
- * behavior none of them had — a keyboard user could previously tab straight through any of these
- * modals into the page behind it, with no Escape-to-close and no aria-modal announcing the modal
- * to a screen reader (production audit, 2026-07-12).
+ * Shared modal chrome: backdrop + centred-card positioning, previously hand-rolled identically
+ * across AuthModal/SetUsernameModal/TrainingConsentModal/ResetPasswordModal (production audit,
+ * 2026-07-12).
+ *
+ * Owns only the chrome. The accessibility behaviour now lives in `useDialogA11y`, because seven
+ * other dialogs in the app need exactly that behaviour but a different layout — bottom sheets and
+ * a full-screen first-run gate can't be forced through this wrapper, and while the behaviour was
+ * welded to it they simply went without (found 2026-07-28).
  */
 export function ModalShell({ children, ariaLabel, onClose }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-
-  // Focus trap: on mount, remember what was focused (to restore on close) and move focus inside
-  // the dialog. On Tab/Shift+Tab, wrap focus between the first and last focusable descendant
-  // instead of letting it escape into the page behind the modal.
-  useEffect(() => {
-    previousFocusRef.current = document.activeElement as HTMLElement | null;
-    const node = containerRef.current;
-    const firstFocusable = node?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
-    (firstFocusable ?? node)?.focus();
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        onClose?.();
-        return;
-      }
-      if (e.key !== 'Tab' || !node) return;
-      const focusables = Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
-      if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      previousFocusRef.current?.focus?.();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const dialog = useDialogA11y<HTMLDivElement>({ label: ariaLabel, onClose });
 
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+        className="fixed inset-0 z-overlay flex items-end sm:items-center justify-center p-4"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       >
         <motion.div
@@ -72,12 +37,20 @@ export function ModalShell({ children, ariaLabel, onClose }: Props) {
           onClick={onClose}
         />
         <motion.div
-          ref={containerRef}
-          role="dialog"
-          aria-modal="true"
-          aria-label={ariaLabel}
-          tabIndex={-1}
-          className="relative w-full max-w-sm bg-z-card border border-white/10 rounded-3xl p-6 shadow-2xl outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light"
+          ref={dialog.ref}
+          {...dialog.props}
+          // `--kb` (set by useDialogA11y from window.visualViewport while this dialog is active)
+          // shifts the card up by the keyboard's occluded height — on iOS the layout viewport this
+          // `fixed inset-0` sheet is positioned against does NOT shrink for the keyboard, so without
+          // this every text input in the app (all of them live inside a ModalShell) opens behind it.
+          // max-h + overflow-y-auto: no modal in the app had either, so any content taller than the
+          // viewport (long forms, CameraOnboarding's bullet list) was simply unreachable/unscrollable.
+          // pb-[calc(...+var(--sab))], not plain `pb-safe`: this card sits flush to the bottom edge
+          // below `sm` (`items-end`), so its own confirm/submit buttons can land under the home
+          // indicator without it — added to the base 1.5rem rather than replacing it (found while
+          // building Sheet.tsx, which shares this exact shape; see that file's longer comment).
+          style={{ marginBottom: 'var(--kb, 0px)' }}
+          className="relative w-full max-w-sm max-h-[85dvh] overflow-y-auto bg-z-card border border-white/10 rounded-3xl p-6 pb-[calc(1.5rem+var(--sab))] shadow-2xl outline-none focus-visible:ring-2 focus-visible:ring-z-purple-light"
           initial={{ y: 40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 40, opacity: 0 }}

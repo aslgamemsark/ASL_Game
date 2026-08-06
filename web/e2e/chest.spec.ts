@@ -51,7 +51,13 @@ test.describe('reward chest', () => {
 });
 
 test.describe('reward chest (reduced motion)', () => {
-  test.use({ colorScheme: 'dark', reducedMotion: 'reduce' });
+  // reducedMotion must go through contextOptions, NOT as a top-level `use` key. Playwright
+  // declares no `reducedMotion` test option (it is a browser.newContext option), so the top-level
+  // form this test shipped with was silently dropped — every "reduced motion" assertion below ran
+  // with motion fully ENABLED and passed anyway, which is worse than having no test. Found
+  // 2026-07-31 when e2e/ was added to the typechecker for the first time; the compiler rejected
+  // the key that the runtime had been quietly ignoring.
+  test.use({ colorScheme: 'dark', contextOptions: { reducedMotion: 'reduce' } });
 
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {

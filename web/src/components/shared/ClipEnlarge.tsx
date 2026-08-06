@@ -1,22 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 
-/** Open/close state for the tap-to-enlarge pattern, plus the Escape-to-close listener — shared by
- *  every clip-enlarging surface so each caller only has to wire up its own trigger (click, tap,
- *  right-click). Pair with `ClipEnlargeOverlay`. */
+/** Open/close state for the tap-to-enlarge pattern — shared by every clip-enlarging surface so
+ *  each caller only has to wire up its own trigger (click, tap, right-click). Pair with
+ *  `ClipEnlargeOverlay`, which owns the actual dialog behavior (focus trap, Escape, hardware
+ *  Back, scroll lock — see useDialogA11y). */
 export function useClipEnlarge() {
   const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!expanded) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setExpanded(false);
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [expanded]);
-
   return { expanded, open: () => setExpanded(true), close: () => setExpanded(false) };
 }
 
@@ -28,29 +20,45 @@ interface ClipEnlargeOverlayProps {
 }
 
 /**
- * Full-viewport portal showing `clipUrl` uncropped (object-contain) over a dark backdrop, with a
- * close button and Esc/backdrop-click to dismiss. Mount once per enlargeable clip; visibility is
- * driven by `open` (pair with `useClipEnlarge`). Extracted from the lesson ReferenceClip's
- * original enlarge overlay so every clip surface (letter detail, practice webcam demo, replay
- * compare) gets the identical viewer instead of three near-duplicate implementations.
+ * Fullscreen, uncropped (object-contain) viewer for a demo clip. Extracted from ReferenceClip.tsx
+ * (2026-07-24) so every clip surface (alphabet detail modal, in-practice webcam overlay, replay
+ * comparison) gets the identical viewer instead of near-duplicate implementations.
+ *
+ * Dialog behavior (focus trap, Escape, hardware Back, body scroll lock, iOS keyboard inset) comes
+ * from useDialogA11y, not hand-rolled here — an Escape-only version of this component briefly
+ * existed and let a keyboard user tab out of the enlarged clip into the page behind it.
  */
 export function ClipEnlargeOverlay({ open, onClose, clipUrl, label }: ClipEnlargeOverlayProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (open && videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+  }, [open]);
+
+  const dialog = useDialogA11y({ label: `${label} demo, enlarged`, onClose, active: open });
+
   if (typeof document === 'undefined') return null;
+
   return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[200] bg-black/85 flex items-center justify-center p-4"
+          className="fixed inset-0 z-takeover bg-black/85 flex items-center justify-center p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${label} demo, enlarged`}
+          ref={dialog.ref}
+          {...dialog.props}
         >
           <motion.div
-            className="relative w-full max-w-2xl aspect-square"
+            // Sized off height as well as width: at max-w-2xl (672px) wide, the square was exactly
+            // at the edge of a 375x667 phone rotated to landscape (667px viewport minus p-4) and
+            // overflowed on anything shorter (mobile audit, 2026-07-28). `h-full` + `max-h-[...]`
+            // bounds it by whichever dimension is actually tighter.
+            className="relative w-auto h-full max-w-2xl max-h-[calc(100dvh-2rem)] aspect-square mx-auto"
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.92, opacity: 0 }}
@@ -58,8 +66,8 @@ export function ClipEnlargeOverlay({ open, onClose, clipUrl, label }: ClipEnlarg
             onClick={(e) => e.stopPropagation()}
           >
             <video
+              ref={videoRef}
               src={clipUrl}
-              autoPlay
               loop
               muted
               playsInline
@@ -72,7 +80,7 @@ export function ClipEnlargeOverlay({ open, onClose, clipUrl, label }: ClipEnlarg
             >
               ✕
             </button>
-            <div className="absolute bottom-3 left-3 right-3 bg-black/60 rounded-xl px-3 py-2">
+            <div className="absolute bottom-3 left-3 right-3 bg-video-plate rounded-xl px-3 py-2">
               <p className="text-white text-sm font-bold">{label}</p>
             </div>
           </motion.div>

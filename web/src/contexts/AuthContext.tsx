@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, supabaseReady } from '@/lib/supabase';
 import { validateUsername } from '@/lib/username';
@@ -59,6 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [bannedReason, setBannedReason] = useState<string | null>(null);
   const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false);
+  /** User id we last reported a `login` for — see the SIGNED_IN handler below. */
+  const loggedInUserRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!supabaseReady) { setLoading(false); return; }
@@ -79,7 +81,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // A real sign-in (not the initial-session restore on page load, which fires its own event).
       // A brand-new account also fires SIGNED_IN — see fetchUsername's !fetched branch below for
       // the separate signup_completed signal; both firing for one first session is intentional.
-      if (event === 'SIGNED_IN' && s) {
+      //
+      // Deduplicated by session id (2026-07-27): Supabase re-emits SIGNED_IN on token refresh and
+      // on tab focus, not only on an actual sign-in, so this fired continuously for anyone who
+      // left the app open — one user generated 222 `login` events in a single day, which made the
+      // event useless for measuring returning users. A refresh keeps the same session id, so
+      // comparing against the last one we reported counts sign-ins rather than token lifecycle.
+      // Keyed on user id, NOT on the token or its expiry — a refresh mints a new access_token and
+      // a new expires_at, so keying on either would still fire on every refresh. The ref is
+      // cleared on SIGNED_OUT below, so signing out and back in (as the same user or a different
+      // one) correctly counts as a new login.
+      if (event === 'SIGNED_IN' && s && loggedInUserRef.current !== s.user.id) {
+        loggedInUserRef.current = s.user.id;
         track('login', { provider: s.user.app_metadata?.provider === 'google' ? 'google' : 'email' });
       }
       if (s) fetchUsername(s.user.id, s.user);
@@ -93,6 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // border until they sign into a different account. Guarded to the SIGNED_OUT event only
         // (not INITIAL_SESSION) so a guest who was never signed in never gets reset on page load.
         if (event === 'SIGNED_OUT') {
+          // Clears the login dedupe above so the next sign-in reports, rather than being
+          // swallowed as a duplicate of the session that just ended.
+          loggedInUserRef.current = null;
           useUserStore.getState().reset();
         }
       }
@@ -156,12 +172,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function signInWithEmail(email: string, password: string): Promise<string | null> {
+  // These nine functions are the ones exposed through AuthContextValue — wrapped in useCallback
+  // (and the Provider's value in useMemo, below) so the context value's identity only changes
+  // when auth state actually changes, not on every AuthProvider render. Previously a fresh object
+  // with fresh function identities every render, forcing all 28 files that call useAuth() to
+  // re-render whenever ANY of them re-rendered for an unrelated reason (2026-07-30 audit).
+  // `fetchUsername` above is intentionally NOT part of this — it's a private helper used only by
+  // this file's own effect, not part of the public context value.
+  const signInWithEmail = useCallback(async (email: string, password: string): Promise<string | null> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return error?.message ?? null;
-  }
+  }, []);
 
-  async function signUpWithEmail(email: string, password: string, username: string): Promise<string | null> {
+  const signUpWithEmail = useCallback(async (email: string, password: string, username: string): Promise<string | null> => {
     const usernameError = await validateUsername(username);
     if (usernameError) return usernameError;
 
@@ -190,9 +213,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       track('signup_completed', { provider: 'email' });
     }
     return null;
-  }
+  }, []);
 
-  async function signInWithGoogle() {
+  const signInWithGoogle = useCallback(async () => {
     // Fired on intent, before the redirect — can't yet distinguish a new account from a returning
     // one (that's resolved after the redirect back, in fetchUsername's !fetched branch / the
     // SIGNED_IN handler above). Documented as an intentional limitation, not a bug.
@@ -208,9 +231,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         queryParams: { prompt: 'select_account' },
       },
     });
-  }
+  }, []);
 
-  async function updateUsername(newUsername: string): Promise<string | null> {
+  const updateUsername = useCallback(async (newUsername: string): Promise<string | null> => {
     if (!session?.user) return 'Not signed in';
     const err = await validateUsername(newUsername, session.user.id);
     if (err) return err;
@@ -223,24 +246,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setNeedsUsernameSetup(false);
     localStorage.setItem(usernameSetupKey(session.user.id), 'true');
     return null;
-  }
+  }, [session]);
 
-  function dismissUsernameSetup() {
+  const dismissUsernameSetup = useCallback(() => {
     setNeedsUsernameSetup(false);
     if (session?.user) {
       localStorage.setItem(usernameSetupKey(session.user.id), 'true');
     }
-  }
+  }, [session]);
 
-  function dismissTrainingConsent(keepOn: boolean) {
+  const dismissTrainingConsent = useCallback((keepOn: boolean) => {
     useUserStore.getState().setCollectTrainingData(keepOn);
     setNeedsTrainingConsent(false);
     if (session?.user) {
       localStorage.setItem(trainingConsentKey(session.user.id), 'true');
     }
-  }
+  }, [session]);
 
-  async function signOut() {
+  const signOut = useCallback(async () => {
     track('logout', {});
     await supabase.auth.signOut();
     // Always wipe local progress on an explicit "Log out", even for a guest with no active
@@ -249,9 +272,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // onboardingComplete back to false (defaultProgress), which App watches to route the now
     // signed-out user to the sign-in screen.
     useUserStore.getState().reset();
-  }
+  }, []);
 
-  async function requestPasswordReset(email: string): Promise<string | null> {
+  const requestPasswordReset = useCallback(async (email: string): Promise<string | null> => {
     track('password_reset_requested', {});
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin,
@@ -260,40 +283,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // can't be used to enumerate accounts) — surface a real error only for things like malformed
     // input or rate-limiting, never "no such user".
     return error?.message ?? null;
-  }
+  }, []);
 
-  async function completePasswordReset(newPassword: string): Promise<string | null> {
+  const completePasswordReset = useCallback(async (newPassword: string): Promise<string | null> => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) return error.message;
     track('password_recovery_completed', {});
     setPasswordRecoveryMode(false);
     return null;
-  }
+  }, []);
 
-  return (
-    <AuthContext.Provider value={{
-      user: session?.user ?? null,
-      session,
-      username,
-      loading,
-      needsUsernameSetup,
-      isAdmin,
-      bannedReason,
-      signInWithEmail,
-      signUpWithEmail,
-      signInWithGoogle,
-      signOut,
-      updateUsername,
-      dismissUsernameSetup,
-      needsTrainingConsent,
-      dismissTrainingConsent,
-      requestPasswordReset,
-      passwordRecoveryMode,
-      completePasswordReset,
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = useMemo<AuthContextValue>(() => ({
+    user: session?.user ?? null,
+    session,
+    username,
+    loading,
+    needsUsernameSetup,
+    isAdmin,
+    bannedReason,
+    signInWithEmail,
+    signUpWithEmail,
+    signInWithGoogle,
+    signOut,
+    updateUsername,
+    dismissUsernameSetup,
+    needsTrainingConsent,
+    dismissTrainingConsent,
+    requestPasswordReset,
+    passwordRecoveryMode,
+    completePasswordReset,
+  }), [
+    session, username, loading, needsUsernameSetup, isAdmin, bannedReason, needsTrainingConsent,
+    passwordRecoveryMode, signInWithEmail, signUpWithEmail, signInWithGoogle, signOut,
+    updateUsername, dismissUsernameSetup, dismissTrainingConsent, requestPasswordReset,
+    completePasswordReset,
+  ]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

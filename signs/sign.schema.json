@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quicksign.app/schemas/sign.schema.json",
+  "title": "ASL Sign Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "twoHanded",
+    "dominant",
+    "location",
+    "movement"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Z_]+$",
+      "description": "Sign identifier (e.g., HELLO, COFFEE, LETTER_A)"
+    },
+    "twoHanded": {
+      "type": "boolean",
+      "default": true
+    },
+    "extraHandMotionFloor": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "default": null
+    },
+    "dominant": {
+      "$ref": "#/$defs/handShapeReq"
+    },
+    "nondominant": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/handShapeReq"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "location": {
+      "$ref": "#/$defs/locationReq"
+    },
+    "movement": {
+      "$ref": "#/$defs/movementReq"
+    },
+    "orientation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/orientationReq"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nmm": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/nmmReq"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "handShapeReq": {
+      "type": "object",
+      "required": [
+        "kind",
+        "required",
+        "minConfidence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "fist",
+            "s",
+            "a",
+            "index",
+            "open",
+            "claw",
+            "flat_o",
+            "c",
+            "e",
+            "m",
+            "letter_s",
+            "letter_h",
+            "letter_n",
+            "p",
+            "q",
+            "r",
+            "u",
+            "w",
+            "x",
+            "y",
+            "v",
+            "l",
+            "b",
+            "d",
+            "f",
+            "g",
+            "i",
+            "k",
+            "t",
+            "5",
+            "point",
+            "middle",
+            "h",
+            "o",
+            "n",
+            "A"
+          ]
+        },
+        "required": {
+          "type": "boolean",
+          "default": true
+        },
+        "minConfidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.6
+        }
+      }
+    },
+    "locationReq": {
+      "type": "object",
+      "required": [
+        "anchor",
+        "actingHand",
+        "maxDistRatio",
+        "minDistRatio",
+        "required",
+        "minConfidence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "type": "string",
+          "enum": [
+            "other_hand",
+            "neutral_space",
+            "chest",
+            "chin",
+            "forehead",
+            "belly",
+            "shoulder"
+          ]
+        },
+        "actingHand": {
+          "type": "string",
+          "enum": [
+            "dominant",
+            "nondominant"
+          ]
+        },
+        "maxDistRatio": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1.0
+        },
+        "minDistRatio": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "vertical": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "above",
+            "below",
+            null
+          ],
+          "default": null
+        },
+        "below": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "mouth",
+            null
+          ],
+          "default": null
+        },
+        "useClosestApproach": {
+          "type": "boolean",
+          "default": false
+        },
+        "required": {
+          "type": "boolean",
+          "default": true
+        },
+        "minConfidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.6
+        }
+      }
+    },
+    "movementReq": {
+      "type": "object",
+      "required": [
+        "kind",
+        "actor",
+        "pivot",
+        "minTotalRotationDeg",
+        "radiusToleranceRatio",
+        "direction",
+        "minDisplacementRatio",
+        "minCycles",
+        "minAmplitudeRatio",
+        "minApproachRatio",
+        "traceTemplate",
+        "traceToleranceDeg",
+        "gateToLocation",
+        "otherHandMaxMotionRatio",
+        "minDurationS",
+        "required",
+        "minConfidence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "none",
+            "linear",
+            "circular",
+            "repeated",
+            "converge",
+            "traced"
+          ]
+        },
+        "actor": {
+          "type": "string",
+          "enum": [
+            "dominant",
+            "nondominant"
+          ]
+        },
+        "pivot": {
+          "type": "string",
+          "enum": [
+            "dominant",
+            "nondominant"
+          ]
+        },
+        "minTotalRotationDeg": {
+          "type": "number",
+          "minimum": 0,
+          "default": 300
+        },
+        "radiusToleranceRatio": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.4
+        },
+        "direction": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "default": null
+        },
+        "minDisplacementRatio": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.3
+        },
+        "minCycles": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2
+        },
+        "minAmplitudeRatio": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.05
+        },
+        "minApproachRatio": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.15
+        },
+        "traceTemplate": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "default": []
+        },
+        "traceToleranceDeg": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 180,
+          "default": 60
+        },
+        "gateToLocation": {
+          "type": "boolean",
+          "default": false
+        },
+        "otherHandMaxMotionRatio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null
+        },
+        "minDurationS": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.6
+        },
+        "required": {
+          "type": "boolean",
+          "default": true
+        },
+        "minConfidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.6
+        }
+      }
+    },
+    "orientationReq": {
+      "type": "object",
+      "required": [
+        "hand",
+        "facing",
+        "required",
+        "minConfidence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "hand": {
+          "type": "string",
+          "enum": [
+            "dominant",
+            "nondominant"
+          ]
+        },
+        "facing": {
+          "type": "string",
+          "enum": [
+            "in",
+            "out",
+            "up",
+            "down",
+            "left",
+            "right"
+          ]
+        },
+        "required": {
+          "type": "boolean",
+          "default": false
+        },
+        "minConfidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5
+        }
+      }
+    },
+    "nmmReq": {
+      "type": "object",
+      "required": [
+        "blendshape",
+        "minScore",
+        "required",
+        "minConfidence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "blendshape": {
+          "type": "string"
+        },
+        "minScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.4
+        },
+        "required": {
+          "type": "boolean",
+          "default": false
+        },
+        "minConfidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5
+        }
+      }
+    }
+  }
+}
