@@ -6,6 +6,11 @@ interface SettingsStore {
   toggleVibration: () => void;
   soundEnabled: boolean;
   toggleSound: () => void;
+  /** Speaks the sign's English name aloud on a successful attempt (see lib/speak.ts). Separate
+   *  from soundEnabled, which gates game SFX — muting effects isn't a request to mute the word
+   *  being taught. */
+  speechEnabled: boolean;
+  toggleSpeech: () => void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -15,6 +20,8 @@ export const useSettingsStore = create<SettingsStore>()(
       toggleVibration: () => set((s) => ({ vibrationEnabled: !s.vibrationEnabled })),
       soundEnabled: true,
       toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
+      speechEnabled: true,
+      toggleSpeech: () => set((s) => ({ speechEnabled: !s.speechEnabled })),
     }),
     {
       name: 'asl-game-settings',

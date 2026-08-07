@@ -662,6 +662,139 @@ real-device/assistive-tech verification items the report lists — neither block
 
 ---
 
+## 🔬 From competitor teardown — `tubakhxn/sign-language-to-voice-system` (2026-08-07)
+
+Source: https://github.com/tubakhxn/sign-language-to-voice-system — "Tuba's Glasses", MIT, one
+638-line Python file (`tubas_glasses.py`), 2 commits. Desktop OpenCV window; MediaPipe **Solutions**
+(legacy) + `pyttsx3` + DeepFace + Claude Haiku over HTTP.
+
+**Its recognition engine is not worth borrowing and must not be copied.** Every sign is a 5-bit
+vector of "is this fingertip's y above its knuckle's y by 5 raw pixels"
+(`pts[tip][1] < pts[base][1] - 5`), classified on a **single frame** — verbatim the COFFEE bug
+`CLAUDE.md` bans. It also cannot reject: 18 one-handed patterns each claim themselves plus their 5
+Hamming-distance-1 neighbours (108 claims over 32 possible states), so `classify()` returns `None`
+only when zero hands are visible — any hand in frame produces a word. Raw pixels on a 640×360
+downscale means it breaks when the user moves closer; we use shoulder-width ratios for exactly this
+reason. The "signs" are invented gestures with English labels (fist = WAR, open palm = TECHNOLOGY),
+not ASL. Two table entries collide (`TECHNOLOGY` and `HELLO` are both `[1,1,1,1,1]`), making HELLO
+unreachable. Its emotion panel is decorative — it never feeds recognition, and when DeepFace fails
+to import the bars are filled with `random.uniform` noise so the UI still looks alive. Its
+`ensure_deps()` runs `pip install` from inside the application and re-execs the process; never ship
+that shape.
+
+What follows are the three things that ARE worth taking. QS-015 first — it is the only one that
+improves every existing sign.
+
+### QS-015 — No audio feedback anywhere in the app
+Problem:
+A learner who performs a sign correctly gets visual confirmation only. Nothing says the English
+word aloud. For a hearing learner building the sign↔word association this is the single cheapest
+reinforcement available, and for a low-vision learner it is the only confirmation they get.
+
+Evidence:
+- `grep -rn "speechSynthesis\|SpeechSynthesisUtterance" web/src` → **zero matches**. The Web Speech
+  API is not used anywhere in the codebase.
+- The teardown source speaks every locked word and the final sentence; it is the one thing that
+  build does which we do not.
+
+Method (theirs, and what to reuse):
+They run a dedicated TTS thread fed by a `queue.Queue`, and crucially `_drain()` the queue before
+every enqueue so a fast learner never builds a backlog of stale words to sit through. That drain
+behaviour is the part worth copying — the engine choice is not, since `pyttsx3` is a desktop
+binding and we have `window.speechSynthesis` natively.
+
+Implementation sketch:
+`speechSynthesis.cancel()` then `speechSynthesis.speak(new SpeechSynthesisUtterance(sign.name))` on
+a pass, called from the same place `trackFirstSignSuccess` is (`LessonPage`/`PracticePage`
+`handleAttempt`, `a.finalPassed` branch). Must be user-toggleable and default-checked against the
+existing reduced-motion/settings pattern — audio that cannot be turned off is worse than no audio.
+
+Status:
+Open — ~an afternoon. Highest value-per-hour of the three.
+
+---
+
+### QS-016 — No way to practise a *sequence* of signs, only isolated ones
+Problem:
+Every mode we have verifies one sign at a time. There is no mode where a learner strings several
+signs together and gets a sentence back. That is a different learning objective from "perform this
+sign correctly" — it is the mode that feels like *using* the language rather than drilling it — and
+it is the strongest idea in the teardown source.
+
+Evidence:
+- All 51 signs in `web/src/data/signs.ts` are verified independently; no sequence buffer exists.
+- Their whole product is this loop, and it is what makes their demo compelling despite a
+  recognition engine that cannot reject anything.
+
+Method (theirs, recorded so this is implementable without re-reading their repo):
+1. **Gloss buffer.** A `words: string[]`, capped at the last 10 entries. Each confirmed sign
+   appends its name.
+2. **Hold-to-lock state machine** (`class Signs`), three states:
+   - `IDLE` → a sign is detected → `HOLDING`, timer starts.
+   - `HOLDING` → same sign held for `HOLD_TIME = 1.5s` → `LOCKED`, word appended, progress bar
+     fills `timer/HOLD_TIME`. A *different* sign resets the timer rather than switching, so
+     wobbling between two candidates commits neither.
+   - `LOCKED` → will not re-arm until the hand **physically leaves frame** for `GAP_TIME = 0.4s`
+     (their comment: `# KEY FIX: physical absence only`). This is the non-obvious part: gating
+     re-arm on "sign changed" instead double-fires the same sign continuously; gating on hand
+     absence is what makes repeated signs enterable.
+3. **Finish gesture.** Both hands open, held 2s, with its own progress bar — commits the sequence
+   without a button. The timer decays at `dt*2` when the pose breaks, so a momentary detection
+   dropout doesn't lose accumulated progress. A `fin_done` latch prevents re-firing while the pose
+   is still held.
+4. **Gloss → sentence.** POST the space-joined gloss to Claude with roughly: *"Sign language gloss
+   words. Make a natural English sentence (max 12 words): {gloss}. Reply with ONLY the sentence."*
+   They use `claude-haiku-4-5-20251001`, `max_tokens: 60`, 8s timeout. They fire the request
+   speculatively on every lock (so the sentence is usually already warm by the time FINISH lands)
+   and then `get_blocking(timeout=4.0)` on FINISH, falling back to whatever's cached.
+5. **Fallback.** Theirs is a hardcoded combo table that reconstructs their demo sentence from
+   almost any subset of its words — **do not copy this**, it is demo scaffolding, and its presence
+   means their LLM path is never actually load-bearing in the video.
+
+What we'd do differently: our verifier already produces a real confirmed-sign event with
+per-parameter scores, so the buffer appends only genuine passes rather than "nearest guess." The
+API call belongs server-side (a Supabase edge function), not in the client with a key in the
+bundle. Their `API_KEY = os.environ.get("ANTHROPIC_API_KEY","")` is fine for a desktop script and
+wrong for us.
+
+Status:
+Open — real feature, needs a design pass before it is scoped. Depends on nothing.
+
+---
+
+### QS-017 — The NMM parameter is fully built and completely dormant
+Problem:
+Non-manual markers are one of the five parameters `CLAUDE.md` calls non-negotiable, and the
+machinery for them exists end to end — but **no sign uses it**, and the capture that would feed it
+is off by default. One fifth of our stated sign model is a no-op in production.
+
+Evidence (verified 2026-08-07):
+- `web/src/engine/capture.ts:41` — `this.wantFaceBlendshapes = options.wantFaceBlendshapes ?? false`
+  — face landmark capture is opt-in and defaults **off**, so `frame.faceBlendshapes` is `null` in
+  production.
+- `web/src/engine/schema.ts:92` defines `NmmReq`; `verifier.ts:442` implements `scoreNmm` and
+  `verifier.ts:508` wires it into the parameter list. The engine side is complete.
+- `grep -n "nmm" web/src/data/signs.ts` → **zero matches** across all 51 signs.
+- `verifier.ts:398` already documents the consequence: with no NMM requirement declared, the
+  parameter scores 0 and is simply skipped.
+
+Why it matters now, not urgently: most of our current 51 signs genuinely do not require an NMM, so
+nothing is being verified wrongly today. But signs that *do* require one cannot be added correctly
+until this is switched on — question forms need a brow raise (`browInnerUp`/`browOuterUpLeft`), and
+MUST/SHOULD carry a mouth marker. The teardown source is what surfaced this: its (decorative) face
+panel prompted the check that found our own real one idle.
+
+Cost to consider before enabling: `FaceLandmarker` is a second per-frame MediaPipe model. It was
+made opt-in deliberately (`capture.ts:37`) so no learner pays that cost without needing it, and the
+2026-07-31 pass already fought a 28 Hz recognition loop. Enable it **per-sign**, driven by whether
+the sign declares an `nmm` block — never globally.
+
+Status:
+Open — blocked on nothing, but should be picked up together with the first sign that actually
+needs an NMM, not before.
+
+---
+
 ## ✅ Verified healthy (do not spend time here)
 
 - **Core Web Vitals.** LCP p75: Mobile 1,992 ms, Desktop 1,783 ms — both inside Google's "good"

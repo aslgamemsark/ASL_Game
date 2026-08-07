@@ -5,6 +5,57 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-07
 
+- **Shipped QS-015 — speak the sign name on a pass** (`web/src/lib/speak.ts` — new,
+  `web/src/lib/tests/speak.test.ts` — new, `web/src/hooks/useRecognition.ts`,
+  `web/src/stores/useSettingsStore.ts`, `web/src/pages/SettingsPage.tsx`). **Why:** identified in
+  the `tubakhxn` teardown as the cheapest reusable idea — the app had zero `speechSynthesis` calls
+  anywhere. **Where:** wired inside `useRecognition`'s two `firePass` sites (classifier-gated and
+  no-classifier paths) rather than at each page's `handleAttempt`, so all six camera surfaces
+  (Lesson/Practice/Story/Speed/Duel/Room) get it for free through the hook they already share —
+  the plan's own "spaghetti" check found this was already a single shared entry point, not six.
+  New `speechEnabled` setting, separate from `soundEnabled` (that gates game SFX, not the word
+  being taught) — same store/Toggle pattern as vibration/sound. `speakSign()` calls
+  `speechSynthesis.cancel()` before `.speak()`, the one mechanism worth taking from the teardown
+  source (their `Voice._drain()`) — without it a fast learner queues behind stale words.
+  **Verified:** `tsc -b` clean, oxlint clean on all touched files, 735/735 unit tests pass (4 new,
+  covering speak/silent-on-toggle-off/cancel-before-speak/no-crash-without-speechSynthesis — Node
+  has no `window`, so tests stub it on `globalThis` directly rather than pulling in jsdom, matching
+  the project's already-declined jsdom+Testing Library decision). **Not verified:** live
+  click-through in the Browser pane — `document.visibilityState` was `"hidden"` (pane not
+  displayed), the same backgrounded-tab rAF-compositing artifact diagnosed earlier this session,
+  which stalls Framer Motion's `AnimatePresence` transitions. Real audio-on-pass behavior also
+  needs an actual camera and a real signer, which this harness can't provide regardless — needs a
+  manual check on a real device.
+
+- **Implementation plan for QS-015/016/017 written; the "spaghetti code" premise checked and
+  rejected on evidence** (`docs/PLAN_QS-015-017.md` — new). **Why:** asked to plan the three items
+  and to fix code that "looks too bad in /graphify". **Mechanism of the false signal:** the graph
+  being reacted to was built from commit `2cda07fb` (2026-07-16) — **156 commits stale**, so it
+  predates the entire 2026-07-31 pass that extracted the design-system primitives — AND only
+  **1,196 of its 6,712 nodes (18%) are `web/src`**; 2,728 are `.claude/skills`, plus `web/dev-dist`
+  build output, docs, the Python engine and the teammate's scenario. The hairball is the toolchain,
+  not the app. **Measured instead:** `web/src` is 245 source files / 35,129 lines = 143 lines per
+  file; top fan-in is `useUserStore`(29)/`AuthContext`(25)/`analytics`(23), which is correct for a
+  store, a context and a facade. **Real finding:** all six camera pages already share
+  `useRecognition` via an `onPass` callback — so QS-015's TTS belongs inside that hook (two call
+  sites, one file), not at six page-level call sites. No refactor scheduled. **Verified:** counts
+  and commit distance cited inline in the plan; no code changed.
+
+- **Teardown of `tubakhxn/sign-language-to-voice-system`, logged as QS-015/016/017**
+  (`docs/PRODUCT_BACKLOG_SAAD.md` — new section). **Why:** evaluating an open-source ASL project
+  for anything reusable. **Finding:** its recognition engine is unusable by our standards — signs
+  are a 5-bit "fingertip above knuckle by 5 raw pixels" vector classified on a **single frame**
+  (the COFFEE bug verbatim), and it structurally cannot reject: 18 patterns × their
+  Hamming-distance-1 neighbours = 108 claims over 32 possible states, so any hand in frame yields a
+  word. Zero lines taken. **Worth taking:** TTS on a pass (QS-015 — we have no `speechSynthesis`
+  call anywhere), and a gloss-buffer → LLM sentence mode (QS-016 — their hold-to-lock state machine
+  and finish gesture are recorded in the entry in enough detail to implement without re-reading
+  their repo). **Watch out:** checking their (decorative) emotion panel surfaced a real gap of ours
+  — NMM is one of the five non-negotiable parameters, `NmmReq`/`scoreNmm` are fully implemented in
+  `schema.ts`/`verifier.ts`, but **no sign declares an `nmm` block** and `capture.ts:41` defaults
+  `wantFaceBlendshapes` to `false`, so the parameter is a no-op in production (QS-017).
+  **Verified:** greps cited inline in each entry; no code changed.
+
 - **Fixed "Try Yourself" for real — three defects, none of them the ones the two previous fixes
   targeted** (`web/src/components/shared/ScreenTransition.tsx`, `web/src/App.tsx`,
   `web/src/hooks/useBackDismiss.ts`, `web/src/components/home/LetterDetailModal.tsx`,
@@ -48,6 +99,14 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   practice chrome present) and fails on each defect independently — it reproduced the bug in real
   Chromium before any fix. Full suite 124 passed / 0 failed across chromium + android + ios;
   731 unit tests; `tsc -b` and `npm run lint` clean; production build clean.
+
+- **Shipped to production and verified there** (PR #9 → `main` `f1a6f78` → `dpl_CpsLLbt…`,
+  aliased to aslgame.vercel.app). **Why it's worth a line:** verification was not "the deploy says
+  READY" — `playwright.prod.config.ts` (new) re-points the existing e2e specs at the live URL with
+  no local webServer, and `tryYourself.spec.ts` passed 4/4 against production on desktop + Pixel 7
+  geometry. `z-confirm flex items-end` also greps out of the live `index-B-ZRBs-5.js`. Run it with
+  `npx playwright test tryYourself.spec.ts --config=playwright.prod.config.ts` (override the target
+  with `PROD_URL`). Not wired into CI — `playwright.config.ts` remains the gate.
 
 - **Deliberately not fixed:** two `a11y.spec.ts` iOS cases (`secondary screens`, `an open dialog`)
   failed on a clean tree as well as a patched one, then passed on a later full run — pre-existing
