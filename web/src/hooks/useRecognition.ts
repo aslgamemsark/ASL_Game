@@ -8,6 +8,7 @@ import { GATE_CONFIDENCE, GATE_ENFORCED, GATE_EXCLUDED_SIGNS } from '@/config/cl
 import { MovementKind, type Sign } from '@/engine/schema';
 import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
+import { speakSign } from '@/lib/speak';
 
 // Static signs (movement.kind === NONE) have no motion scorer to naturally pace a pass —
 // scoreMovement returns 1 immediately for them — so without an explicit hold requirement a
@@ -353,6 +354,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       attemptNumber: attemptCountRef.current,
                     });
                     if (passed) {
+                      speakSign(gatedSign.name);
                       passCallbackRef.current?.(vr);
                       hintCallbackRef.current?.(null);
                     } else {
@@ -382,6 +384,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 durationMs: Math.round(performance.now() - loopStartRef.current),
                 attemptNumber: attemptCountRef.current,
               });
+              speakSign(sign.name);
               passCallbackRef.current?.(vr);
             }
           };

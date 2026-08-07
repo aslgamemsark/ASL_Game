@@ -20,7 +20,7 @@ interface Props {
 export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
   const { theme, setTheme } = useTheme();
   const { user, username, isAdmin } = useAuth();
-  const { vibrationEnabled, toggleVibration, soundEnabled, toggleSound } = useSettingsStore();
+  const { vibrationEnabled, toggleVibration, soundEnabled, toggleSound, speechEnabled, toggleSpeech } = useSettingsStore();
   const { addGold, addSigns, collectTrainingData, setCollectTrainingData } = useUserStore();
   const [showLogout, setShowLogout] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -104,6 +104,14 @@ export function SettingsPage({ onExit, onOpenAdmin, onOpenPrivacy }: Props) {
             icon={vibrationEnabled ? '📳' : '🔕'}
             checked={vibrationEnabled}
             onChange={toggleVibration}
+            className="mb-4"
+          />
+          <Toggle
+            label="Speak sign names"
+            description="Says the word out loud when you sign it correctly"
+            icon={speechEnabled ? '🗣️' : '🤐'}
+            checked={speechEnabled}
+            onChange={toggleSpeech}
           />
         </motion.div>
 
