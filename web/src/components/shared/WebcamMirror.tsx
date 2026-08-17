@@ -63,72 +63,82 @@ interface Props {
 // recognition hook's own `framing` state or `null` — never a fresh literal) — see 2026-07-30
 // audit note on ParameterChecklist for why this matters (zero React.memo anywhere previously).
 export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones, aspectClassName = 'aspect-[var(--cam-ar)]' }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef(0);
+  const displayRef = useRef<HTMLVideoElement>(null);
   // The container previously forced a hardcoded 16:9 box (`aspect-video`) regardless of the
   // stream's real shape. A phone held in portrait commonly delivers a portrait stream (e.g.
   // 480x640), which `object-cover` into a 16:9 box then crops top-and-bottom — exactly where the
   // signer's face and chest are, silently invalidating the frameGuide/handZones percentages below
   // (found in mobile audit, 2026-07-28). Deriving the box from the stream's actual dimensions
-  // (already read every frame for the canvas draw below) means nothing is ever cropped, so those
-  // percentages stay valid on any orientation. Falls back to 16:9 only before the first frame
-  // lands, matching the previous default.
+  // means nothing is ever cropped, so those percentages stay valid on any orientation. Falls back
+  // to 16:9 only before the first frame lands, matching the previous default.
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const lastAspectRef = useRef<number | null>(null);
   const { expanded: overlayExpanded, open: openOverlay, close: closeOverlay } = useClipEnlarge();
 
+  /**
+   * Preview is a real <video> painted by the browser's COMPOSITOR, not a <canvas> painted by us
+   * on the main thread (rewritten 2026-08-18).
+   *
+   * This is the fix for "the camera is laggy/unusable on phones". The old implementation ran a
+   * per-frame `drawImage(video → canvas)` loop on the main thread — the same thread that runs
+   * MediaPipe's hand + pose landmarkers synchronously in useRecognition's tick. Two neural nets
+   * per processed frame can easily take longer than one frame interval on a phone, and while
+   * that inference is running NOTHING else on the main thread can execute — including the draw
+   * loop. So the preview visibly froze in exact lockstep with every inference spike, which is
+   * precisely the reported stutter. No amount of throttling the draw loop can fix that: the
+   * problem is that the preview was main-thread work at all.
+   *
+   * A <video> element is composited off the main thread, so the feed now stays smooth at the
+   * camera's native rate even while the main thread is fully blocked by inference. It also
+   * deletes an entire rAF/rVFC loop, a full-resolution canvas texture, and a per-frame
+   * drawImage. Nothing read pixels back out of that canvas (verified: no getImageData/toDataURL/
+   * toBlob/captureStream anywhere) — it was display-only, so there is nothing else to preserve.
+   *
+   * We attach the SAME MediaStream the caller's (hidden, 0x0) source video already carries rather
+   * than opening a second camera — one getUserMedia, two views of it. The source element stays
+   * exactly where it is because recognition reads frames from it, and on Lesson/Practice it is
+   * deliberately always mounted while this component is conditional.
+   */
   useEffect(() => {
-    const video = videoRef.current;
-    // requestVideoFrameCallback fires once per actual new camera frame (~30/sec) instead of once
-    // per display refresh (60-120Hz on most phones, via requestAnimationFrame) — on a high-refresh
-    // phone screen that's 2-4x fewer draws of what is, between real camera frames, an identical
-    // image. Supported on mobile Chrome/Android and Safari 15.4+/iOS; falls back to rAF elsewhere
-    // (desktop Firefox) since the draw itself is still correct there, just not frame-synced.
-    const useVideoFrameCallback = typeof video?.requestVideoFrameCallback === 'function';
+    const display = displayRef.current;
+    if (!display) return;
 
-    const draw = () => {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (video && canvas && video.readyState >= 2) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          // Setting canvas.width/height clears AND reallocates the entire backing store/GPU
-          // texture, even when set to the same value it already had — doing that unconditionally
-          // here meant every single draw was paying for a full canvas reallocation, not just a
-          // redraw. Found 2026-08-18: this was almost certainly the actual source of "camera is
-          // laggy/unusable" on phones, since the video's dimensions are static for the life of the
-          // stream — only the FIRST frame (and a rare mid-stream resolution change) ever actually
-          // needs this.
-          if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
-          if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
-          ctx.save();
-          ctx.scale(-1, 1);
-          ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-          ctx.restore();
-        }
-        if (video.videoWidth && video.videoHeight) {
-          const ratio = video.videoWidth / video.videoHeight;
-          if (lastAspectRef.current !== ratio) {
-            lastAspectRef.current = ratio;
-            setAspectRatio(ratio);
-          }
-        }
-      }
-      if (useVideoFrameCallback) {
-        rafRef.current = video!.requestVideoFrameCallback(draw) as unknown as number;
-      } else {
-        rafRef.current = requestAnimationFrame(draw);
+    const syncStream = () => {
+      const stream = videoRef.current?.srcObject ?? null;
+      if (display.srcObject !== stream) {
+        display.srcObject = stream;
+        // Muted + playsInline (set on the element) is what lets this autoplay on iOS.
+        if (stream) display.play().catch(() => {});
       }
     };
 
-    if (useVideoFrameCallback) {
-      rafRef.current = video!.requestVideoFrameCallback(draw) as unknown as number;
-    } else {
-      rafRef.current = requestAnimationFrame(draw);
-    }
+    const syncAspect = () => {
+      if (!display.videoWidth || !display.videoHeight) return;
+      const ratio = display.videoWidth / display.videoHeight;
+      if (lastAspectRef.current !== ratio) {
+        lastAspectRef.current = ratio;
+        setAspectRatio(ratio);
+      }
+    };
+
+    syncStream();
+    syncAspect();
+
+    // Assigning srcObject fires no DOM event of its own, and the source may receive its stream
+    // well after this effect runs (camera permission resolving, or a remote-negotiated stream in
+    // multiplayer). A 1Hz re-check is a couple of property comparisons a second — free next to
+    // the per-frame loop this replaced — and makes attachment robust regardless of ordering.
+    const id = setInterval(syncStream, 1000);
+    display.addEventListener('loadedmetadata', syncAspect);
+    display.addEventListener('resize', syncAspect);
+
     return () => {
-      if (useVideoFrameCallback) video?.cancelVideoFrameCallback(rafRef.current);
-      else cancelAnimationFrame(rafRef.current);
+      clearInterval(id);
+      display.removeEventListener('loadedmetadata', syncAspect);
+      display.removeEventListener('resize', syncAspect);
+      // Release this view's hold on the stream. Does NOT stop the tracks — useCamera owns the
+      // stream's lifetime and the source element is still using it.
+      display.srcObject = null;
     };
   }, [videoRef]);
 
@@ -141,7 +151,18 @@ export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUr
         passed === undefined ? '' : `border-2 transition-colors duration-200 ${passed ? 'border-z-green' : 'border-transparent'}`
       }`}
     >
-      <canvas ref={canvasRef} className="w-full h-full object-cover" />
+      {/* scaleX(-1): the mirror flip the canvas used to do with ctx.scale, now a compositor
+          transform that costs nothing per frame. Inline (not a utility class) so it can't be
+          reordered or purged away from the one element whose orientation is load-bearing —
+          frameGuide/handZones below are positioned against a MIRRORED image. */}
+      <video
+        ref={displayRef}
+        autoPlay
+        playsInline
+        muted
+        className="w-full h-full object-cover"
+        style={{ transform: 'scaleX(-1)' }}
+      />
       {frameGuide && (
         <div className="absolute inset-0 pointer-events-none flex flex-col items-center">
           {/* Face-target box in the upper-center — sized/positioned so the chest stays visible

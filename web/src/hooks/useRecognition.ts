@@ -226,14 +226,36 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       setStatus('running');
       if (import.meta.env.DEV) console.log('[QuickSign] Loop started for', sign.name);
 
-      // Require buffer to fill (~1.5s) before allowing a pass.
-      // This prevents instant passes on static signs and gives
-      // movement signs time to accumulate trajectory data.
-      const MIN_FRAMES_BEFORE_PASS = 30;
-      let passFrames = 0;
-      const PASS_THRESHOLD = 6;
+      // Let the rolling buffer fill before allowing a pass — prevents instant passes on static
+      // signs and gives movement signs time to accumulate trajectory data — then require the
+      // verifier to stay cleared briefly so a single fluke frame can't pass.
+      //
+      // Both gates are expressed in TIME, not frame counts (changed 2026-08-18). The processing
+      // rate is adaptive now (see the governor below), and a frame-count gate silently scales with
+      // it — 30 frames is 1.07s at 28fps but 2.5s at 12fps, i.e. it would have made signs hardest
+      // to pass on exactly the slow devices that trigger the backoff. These values are the old
+      // frame counts converted at the original fixed 28fps, so the feel is unchanged on any device
+      // that never backs off.
+      const MIN_MS_BEFORE_PASS = 1070; // was 30 frames @ 28fps
+      const PASS_DEBOUNCE_MS = 215;    // was 6 frames @ 28fps
+      let passStreakStartMs: number | null = null;
       const isStaticSign = sign.movement.kind === MovementKind.NONE;
       let holdStartMs: number | null = null;
+
+      // Pose runs at a FRACTION of the hand rate (2026-08-18). PoseLandmarker is a second full
+      // model inference on top of HandLandmarker every processed frame, and it is only read for
+      // shoulder width (scale normalization), shoulder centre (framing) and mouth position (CHIN-
+      // anchored signs) — all properties of where the signer's BODY is, which changes on the
+      // order of seconds, not the ~36ms the hands do. Running it every 3rd frame removes roughly
+      // a third of total inference cost for no measurable loss: the values are carried forward on
+      // the frames in between, so every frame still has a complete pose for the verifier.
+      //
+      // Worst case a carried-forward shoulder is ~107ms stale (3 frames at 28fps); a real
+      // orientation change also resets frame dimensions, and this self-corrects on the next pose
+      // frame. DominantHandCheck already skipPose's unconditionally for the same reasoning.
+      const POSE_EVERY_N = 3;
+      let processedCount = 0;
+      let lastPose: Pick<Frame, 'leftShoulder' | 'rightShoulder' | 'mouth'> | null = null;
 
       // Cap MediaPipe processing to ~28fps instead of raw display refresh rate (60-120fps on most
       // mobile screens) — halves battery/thermal load with no effect on the rolling-window
@@ -252,6 +274,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       let frameIntervalMs = 1000 / TARGET_FPS_MAX;
       let avgProcessMs = 0;
       let lastProcessMs = 0;
+      // DEV-only pipeline telemetry: inference cost against the frame budget it has to fit inside
+      // is the pair of numbers that actually diagnoses a "laggy camera" report. Throttled to one
+      // line per 5s so it can be left running while playing; compiled out of production builds.
+      let lastPerfLogMs = 0;
 
       // Throttle the REACT STATE publish of the per-frame verify() result to 10Hz — a continuous
       // score stream (not a discrete message like `framing` above, which dedupes by equality
@@ -288,11 +314,35 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
         try {
           const tsMs = performance.now();
-          let frame = cap.process(video, Math.round(tsMs));
+          const wantPose = processedCount % POSE_EVERY_N === 0;
+          processedCount++;
+          let frame = cap.process(video, Math.round(tsMs), { skipPose: !wantPose });
+          if (wantPose) {
+            // Only cache a pose we actually got — a frame where the body wasn't detected must not
+            // wipe the last good one, or the carried-forward frames would lose it too.
+            if (frame.leftShoulder && frame.rightShoulder) {
+              lastPose = {
+                leftShoulder: frame.leftShoulder,
+                rightShoulder: frame.rightShoulder,
+                mouth: frame.mouth,
+              };
+            }
+          } else if (lastPose) {
+            frame.leftShoulder = lastPose.leftShoulder;
+            frame.rightShoulder = lastPose.rightShoulder;
+            frame.mouth = lastPose.mouth;
+          }
           const processDurationMs = performance.now() - tsMs;
           avgProcessMs = avgProcessMs === 0 ? processDurationMs : avgProcessMs * 0.9 + processDurationMs * 0.1;
           if (avgProcessMs > frameIntervalMs * 0.8 && frameIntervalMs < 1000 / TARGET_FPS_MIN) {
             frameIntervalMs = Math.min(frameIntervalMs * 1.15, 1000 / TARGET_FPS_MIN);
+          }
+          if (import.meta.env.DEV && nowMs - lastPerfLogMs > 5000) {
+            lastPerfLogMs = nowMs;
+            console.log(
+              `[QuickSign] inference ~${avgProcessMs.toFixed(1)}ms/frame · budget ${frameIntervalMs.toFixed(0)}ms ` +
+              `(${(1000 / frameIntervalMs).toFixed(0)}fps target) · pose every ${POSE_EVERY_N}`
+            );
           }
           frame = stabilizerRef.current.stabilize(frame);
           bufferRef.current.add(frame);
@@ -406,8 +456,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
             }
           };
 
-          // Don't allow pass until buffer has enough data
-          const clearedEnough = frameCountRef.current >= MIN_FRAMES_BEFORE_PASS && resultPassed(vr);
+          // Don't allow pass until the buffer has had time to fill
+          const clearedEnough = nowMs - loopStartRef.current >= MIN_MS_BEFORE_PASS && resultPassed(vr);
 
           if (isStaticSign) {
             // Hold-to-pass: the pose must clear the verifier continuously for
@@ -431,13 +481,13 @@ export function useRecognition(opts?: UseRecognitionOpts) {
             }
           } else {
             if (clearedEnough) {
-              passFrames++;
-              if (passFrames >= PASS_THRESHOLD) {
-                passFrames = 0;
+              if (passStreakStartMs === null) passStreakStartMs = nowMs;
+              if (nowMs - passStreakStartMs >= PASS_DEBOUNCE_MS) {
+                passStreakStartMs = null;
                 firePass();
               }
             } else {
-              passFrames = 0;
+              passStreakStartMs = null;
             }
           }
         } catch (e) {

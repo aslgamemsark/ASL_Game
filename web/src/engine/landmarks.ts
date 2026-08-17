@@ -130,8 +130,35 @@ export class RollingBuffer {
     return this._frames.length;
   }
 
+  /** Defensive COPY — for snapshots that outlive the buffer (training-data upload, replay). */
   get frames(): Frame[] {
     return [...this._frames];
+  }
+
+  /**
+   * The live internal array — MUST be treated as read-only and never retained past the current
+   * tick (the buffer mutates it in place on every `add`). For hot scoring paths only: `verify()`
+   * runs on every processed frame and used to reach for the copying `frames` getter ~10 times per
+   * call, which at 28fps meant hundreds of throwaway 50+ element arrays a second competing with
+   * MediaPipe for the same main thread and GC (2026-08-18). Use `frames` for anything kept.
+   */
+  peek(): readonly Frame[] {
+    return this._frames;
+  }
+
+  /**
+   * Frames within the last `seconds`, as one slice. Frames are appended in time order, so the
+   * qualifying set is always a contiguous suffix — a backward scan plus a single `slice` replaces
+   * the previous full-array copy + `filter` (two allocations, both proportional to the whole
+   * window, to read a fraction of it).
+   */
+  since(seconds: number): Frame[] {
+    const n = this._frames.length;
+    if (n === 0) return [];
+    const endT = this._frames[n - 1].t;
+    let i = n - 1;
+    while (i > 0 && endT - this._frames[i - 1].t <= seconds) i--;
+    return this._frames.slice(i);
   }
 
   [Symbol.iterator](): Iterator<Frame> {
