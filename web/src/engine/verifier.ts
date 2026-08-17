@@ -122,14 +122,11 @@ export function assignRoles(buffer: RollingBuffer): Record<string, string> {
 }
 
 function recent(buffer: RollingBuffer, seconds: number): Frame[] {
-  const frames = buffer.frames;
-  if (frames.length === 0) return [];
-  const endT = frames[frames.length - 1].t;
-  return frames.filter((f) => endT - f.t <= seconds);
+  return buffer.since(seconds);
 }
 
 function latestShoulderWidth(buffer: RollingBuffer): number | null {
-  const frames = buffer.frames;
+  const frames = buffer.peek();
   for (let i = frames.length - 1; i >= 0; i--) {
     const sw = frameShoulderWidth(frames[i]);
     if (sw) return sw;

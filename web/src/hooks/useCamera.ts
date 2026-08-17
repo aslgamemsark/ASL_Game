@@ -79,7 +79,17 @@ export function useCamera(screen: ScreenName = 'onboarding') {
     setStatus('requesting');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        // frameRate capped at 30 (2026-08-18): phone cameras will happily hand back a 60fps
+        // stream when asked only for a resolution, and every one of those frames costs capture,
+        // decode and compositing — for a pipeline whose recognition loop samples at most 28fps
+        // and whose preview eye can't use the extra. `ideal` (not `exact`) so a device that only
+        // offers a fixed higher rate still works rather than failing the whole request.
+        video: {
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 30, max: 30 },
+        },
         audio: false,
       });
       streamRef.current = stream;
