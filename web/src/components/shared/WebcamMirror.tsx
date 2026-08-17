@@ -78,14 +78,29 @@ export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUr
   const { expanded: overlayExpanded, open: openOverlay, close: closeOverlay } = useClipEnlarge();
 
   useEffect(() => {
+    const video = videoRef.current;
+    // requestVideoFrameCallback fires once per actual new camera frame (~30/sec) instead of once
+    // per display refresh (60-120Hz on most phones, via requestAnimationFrame) — on a high-refresh
+    // phone screen that's 2-4x fewer draws of what is, between real camera frames, an identical
+    // image. Supported on mobile Chrome/Android and Safari 15.4+/iOS; falls back to rAF elsewhere
+    // (desktop Firefox) since the draw itself is still correct there, just not frame-synced.
+    const useVideoFrameCallback = typeof video?.requestVideoFrameCallback === 'function';
+
     const draw = () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       if (video && canvas && video.readyState >= 2) {
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+          // Setting canvas.width/height clears AND reallocates the entire backing store/GPU
+          // texture, even when set to the same value it already had — doing that unconditionally
+          // here meant every single draw was paying for a full canvas reallocation, not just a
+          // redraw. Found 2026-08-18: this was almost certainly the actual source of "camera is
+          // laggy/unusable" on phones, since the video's dimensions are static for the life of the
+          // stream — only the FIRST frame (and a rare mid-stream resolution change) ever actually
+          // needs this.
+          if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+          if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
           ctx.save();
           ctx.scale(-1, 1);
           ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
@@ -99,10 +114,22 @@ export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUr
           }
         }
       }
-      rafRef.current = requestAnimationFrame(draw);
+      if (useVideoFrameCallback) {
+        rafRef.current = video!.requestVideoFrameCallback(draw) as unknown as number;
+      } else {
+        rafRef.current = requestAnimationFrame(draw);
+      }
     };
-    rafRef.current = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(rafRef.current);
+
+    if (useVideoFrameCallback) {
+      rafRef.current = video!.requestVideoFrameCallback(draw) as unknown as number;
+    } else {
+      rafRef.current = requestAnimationFrame(draw);
+    }
+    return () => {
+      if (useVideoFrameCallback) video?.cancelVideoFrameCallback(rafRef.current);
+      else cancelAnimationFrame(rafRef.current);
+    };
   }, [videoRef]);
 
   return (
