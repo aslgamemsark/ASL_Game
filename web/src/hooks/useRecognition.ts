@@ -237,7 +237,19 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       // Cap MediaPipe processing to ~28fps instead of raw display refresh rate (60-120fps on most
       // mobile screens) — halves battery/thermal load with no effect on the rolling-window
       // verifier, which windows by elapsed time, not frame count.
-      const MIN_FRAME_INTERVAL_MS = 1000 / 28;
+      //
+      // Adaptive: if actual per-tick MediaPipe inference time (hand + pose landmarkers) keeps
+      // eating most of that 28fps budget, the device genuinely can't sustain this rate — every
+      // tick then blocks the main thread for close to (or longer than) the gap between ticks,
+      // which is what "laggy/unusable" looks like from the inside, since input handling and the
+      // rest of the page's rendering starve too. Backing the target off toward TARGET_FPS_MIN
+      // trades recognition temporal resolution for a main thread that actually keeps up. Never
+      // recovers back up mid-session — deliberately simple, since a struggling device doesn't get
+      // faster mid-lesson and oscillating the target would cost more than it buys.
+      const TARGET_FPS_MAX = 28;
+      const TARGET_FPS_MIN = 12;
+      let frameIntervalMs = 1000 / TARGET_FPS_MAX;
+      let avgProcessMs = 0;
       let lastProcessMs = 0;
 
       // Throttle the REACT STATE publish of the per-frame verify() result to 10Hz — a continuous
@@ -267,7 +279,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
         }
 
         const nowMs = performance.now();
-        if (nowMs - lastProcessMs < MIN_FRAME_INTERVAL_MS) {
+        if (nowMs - lastProcessMs < frameIntervalMs) {
           rafRef.current = requestAnimationFrame(tick);
           return;
         }
@@ -276,6 +288,11 @@ export function useRecognition(opts?: UseRecognitionOpts) {
         try {
           const tsMs = performance.now();
           let frame = cap.process(video, Math.round(tsMs));
+          const processDurationMs = performance.now() - tsMs;
+          avgProcessMs = avgProcessMs === 0 ? processDurationMs : avgProcessMs * 0.9 + processDurationMs * 0.1;
+          if (avgProcessMs > frameIntervalMs * 0.8 && frameIntervalMs < 1000 / TARGET_FPS_MIN) {
+            frameIntervalMs = Math.min(frameIntervalMs * 1.15, 1000 / TARGET_FPS_MIN);
+          }
           frame = stabilizerRef.current.stabilize(frame);
           bufferRef.current.add(frame);
           frameCountRef.current++;
