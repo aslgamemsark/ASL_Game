@@ -266,6 +266,12 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       // device demonstrably can't sustain base (see engine/visionPacer.ts for the full policy —
       // one-way per loop session, warmup-gated, latest-frame/no-backlog by construction).
       const pacer = new VisionPacer();
+      // DEV-only observability for profiling sessions: exposes the live pacer so
+      // `window.__qsVisionPacer.tier / .framesProcessed / .medianCost` can be watched while
+      // playing. Zero production bytes: import.meta.env.DEV is a build-time constant.
+      if (import.meta.env.DEV) {
+        (window as unknown as { __qsVisionPacer?: VisionPacer }).__qsVisionPacer = pacer;
+      }
 
       // Throttle the REACT STATE publish of the per-frame verify() result to 10Hz — a continuous
       // score stream (not a discrete message like `framing` above, which dedupes by equality
@@ -466,7 +472,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
       rafRef.current = requestAnimationFrame(tick);
     },
-    []
+    [publishResult]
   );
 
   const stopLoop = useCallback(() => {
