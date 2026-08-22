@@ -6,7 +6,7 @@ import { useRecognition } from '@/hooks/useRecognition';
 import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
-import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
+import { LiveSignCoach } from '@/components/lesson/LiveSignCoach';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
@@ -301,14 +301,14 @@ export function StoryPage({ story, onExit }: Props) {
                 </div>
 
                 <div className="lg:order-3">
-                  {recognition.result && (
-                    <ParameterChecklist
-                      params={recognition.result.params}
-                      sign={currentEngineSign}
-                      holdProgress={recognition.holdProgress}
-                      fillHeight
-                    />
-                  )}
+                  {/* Isolated 10 Hz subscriber — see LiveSignCoach/LessonPage notes. */}
+                  <LiveSignCoach
+                    subscribe={recognition.subscribeResult}
+                    getSnapshot={recognition.getResultSnapshot}
+                    sign={currentEngineSign}
+                    holdProgress={recognition.holdProgress}
+                    fillHeight
+                  />
                 </div>
               </div>
 
@@ -423,7 +423,7 @@ export function StoryPage({ story, onExit }: Props) {
 
         </AnimatePresence>
       </div>
-      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} result={recognition.result} />
+      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} subscribe={recognition.subscribeResult} getSnapshot={recognition.getResultSnapshot} />
     </div>
   );
 }

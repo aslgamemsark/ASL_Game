@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import type { GateDecision } from '@/engine/gate';
 import type { ClassifierStatus } from '@/hooks/useClassifier';
-import { paramCleared, type VerifyResult } from '@/engine/verifier';
+import type { VerifyResult } from '@/engine/verifier';
+import { paramCleared } from '@/engine/verifier';
 import { isClassifierDebugEnabled } from '@/config/classifier';
 
 interface Props {
   status: ClassifierStatus;
   lastVote: GateDecision | null;
-  /** Live rule-verifier result (same object driving the on-screen Sign Coach checklist) — shown
-   * here too so a tester can see WHY the rules passed/failed without a separate lookup. */
-  result?: VerifyResult | null;
+  /** Live-result subscription from useRecognition (see LiveSignCoach for why this is an
+   *  isolated subscription rather than a `result` prop — passing the state value here would
+   *  re-render the whole owning page 10×/s just to feed this usually-hidden dev panel). */
+  subscribe: (listener: () => void) => () => void;
+  getSnapshot: () => VerifyResult | null;
 }
 
 /**
@@ -19,8 +22,12 @@ interface Props {
  * default under `vite dev`; opt-in elsewhere via `?debug=1` or a localStorage flag — see that
  * function's comment for why this can't be a build-time DEV-only gate).
  */
-export function ClassifierDevPanel({ status, lastVote, result }: Props) {
+export function ClassifierDevPanel({ status, lastVote, subscribe, getSnapshot }: Props) {
   const [collapsed, setCollapsed] = useState(false);
+  // Subscribing unconditionally (not under the debug flag) keeps hook order stable across
+  // flag flips; the store only notifies at 10 Hz while a loop runs, and this component
+  // returns null before doing any work when debugging is off.
+  const result = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   if (!isClassifierDebugEnabled()) return null;
 
   return (

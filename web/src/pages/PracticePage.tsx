@@ -7,7 +7,7 @@ import { useRecognition } from '@/hooks/useRecognition';
 import { useClassifier } from '@/hooks/useClassifier';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
-import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
+import { LiveSignCoach } from '@/components/lesson/LiveSignCoach';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
@@ -576,9 +576,11 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                     </div>
 
                     <div className="lg:order-3">
-                      {recognition.result && !cameraUnavailable && (
-                        <ParameterChecklist
-                          params={recognition.result.params}
+                      {!cameraUnavailable && (
+                        /* Isolated 10 Hz subscriber — see LiveSignCoach/LessonPage notes. */
+                        <LiveSignCoach
+                          subscribe={recognition.subscribeResult}
+                          getSnapshot={recognition.getResultSnapshot}
                           sign={currentEngineSign}
                           holdProgress={recognition.holdProgress}
                           fillHeight
@@ -744,7 +746,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
           </motion.div>
         )}
       </AnimatePresence>
-      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} result={recognition.result} />
+      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} subscribe={recognition.subscribeResult} getSnapshot={recognition.getResultSnapshot} />
     </div>
   );
 }

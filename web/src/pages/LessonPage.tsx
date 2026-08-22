@@ -14,7 +14,7 @@ import { Zippy } from '@/components/shared/Zippy';
 import { useFirstRunCameraGuide } from '@/hooks/useFirstRunCameraGuide';
 import { pickZippyLine } from '@/data/zippy';
 import { LessonHeader } from '@/components/lesson/LessonHeader';
-import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
+import { LiveSignCoach } from '@/components/lesson/LiveSignCoach';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
 import { ReplayCompare } from '@/components/lesson/ReplayCompare';
 import { useUserStore } from '@/stores/useUserStore';
@@ -432,9 +432,13 @@ export function LessonPage({ lessonId, onExit }: Props) {
                 </div>
 
                 <div className="lg:order-3">
-                  {recognition.result && !cameraUnavailable && (
-                    <ParameterChecklist
-                      params={recognition.result.params}
+                  {!cameraUnavailable && (
+                    /* Isolated 10 Hz subscriber: only this subtree re-renders on each live
+                       result publish — the rest of the page no longer re-renders 10×/s during
+                       the signing phase (see LiveSignCoach's header comment). */
+                    <LiveSignCoach
+                      subscribe={recognition.subscribeResult}
+                      getSnapshot={recognition.getResultSnapshot}
                       sign={currentEngineSign}
                       holdProgress={recognition.holdProgress}
                       fillHeight
@@ -565,7 +569,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
-      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} result={recognition.result} />
+      <ClassifierDevPanel status={classifierStatus} lastVote={lastVote} subscribe={recognition.subscribeResult} getSnapshot={recognition.getResultSnapshot} />
     </div>
   );
 }

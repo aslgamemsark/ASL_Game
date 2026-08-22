@@ -145,7 +145,32 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   const signRef = useRef<Sign | null>(null);
   const runningRef = useRef(false);
   const [status, setStatus] = useState<RecognitionStatus>('loading');
+  // React-visible publish of the per-frame verify() result, throttled to 10 Hz inside the loop
+  // (see RESULT_UPDATE_INTERVAL_MS below — this state predates that throttle and remains for
+  // backward compatibility with existing consumers).
   const [result, setResult] = useState<VerifyResult | null>(null);
+  /**
+   * External store mirror of `result`, published at the same 10 Hz cadence. This exists so the
+   * pages can subscribe to the live result ONLY where it's actually rendered (the Sign Coach
+   * checklist and dev panel) via useSyncExternalStore — everything else in the page tree
+   * (header, prompts, buttons, animations) no longer re-renders at 10 Hz for the whole
+   * signing phase. Found in the shipping-readiness v2 audit: every page consuming `result`
+   * re-rendered its entire tree 10×/s while a recognition loop ran, because the result state
+   * lives in the page-level hook instance.
+   *
+   * Same object reference is handed to both channels; getSnapshot returns a STABLE null or
+   * the last published object (useSyncExternalStore requires referential stability between
+   * updates — verify() never repeats a reference, so each publish is genuinely new data).
+   */
+  const resultStoreRef = useRef<{
+    listeners: Set<() => void>;
+    current: VerifyResult | null;
+  }>({ listeners: new Set(), current: null });
+  const publishResult = useCallback((vr: VerifyResult | null) => {
+    setResult(vr);
+    resultStoreRef.current.current = vr;
+    resultStoreRef.current.listeners.forEach((l) => l());
+  }, []);
   // Framing feedback for the camera-position guide. Deduped by message (see the tick loop) so it
   // doesn't setState on every one of the ~28 frames/sec — only when the guidance actually changes.
   const [framing, setFraming] = useState<FramingStatus | null>(null);
@@ -208,7 +233,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       signRef.current = sign;
       bufferRef.current.clear();
       stabilizerRef.current.reset();
-      setResult(null);
+      publishResult(null);
       setHoldProgress(null);
       frameCountRef.current = 0;
       loopStartRef.current = performance.now();
@@ -296,7 +321,9 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           const vr = verify(bufferRef.current, signRef.current);
           if (nowMs - lastResultUpdateMs >= RESULT_UPDATE_INTERVAL_MS) {
             lastResultUpdateMs = nowMs;
-            setResult(vr);
+            // Dual publish: React state for legacy consumers + external store for the isolated
+            // live-checklist subscription (see resultStoreRef above).
+            publishResult(vr);
           }
 
           // Log first few frames for debugging
@@ -446,6 +473,18 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
   const getSnapshot = useCallback((): Frame[] => bufferRef.current.frames, []);
 
+  /**
+   * Subscribe to the 10 Hz live result WITHOUT re-rendering this hook's owner. Intended for
+   * `useSyncExternalStore` inside a small isolated component (LiveSignCoach) so the page tree
+   * stops re-rendering at 10 Hz — see resultStoreRef above for why this store exists.
+   * Stable identities: safe as effect deps.
+   */
+  const subscribeResult = useCallback((listener: () => void) => {
+    resultStoreRef.current.listeners.add(listener);
+    return () => { resultStoreRef.current.listeners.delete(listener); };
+  }, []);
+  const getResultSnapshot = useCallback(() => resultStoreRef.current.current, []);
+
   const setSign = useCallback((sign: Sign) => {
     signRef.current = sign;
     bufferRef.current.clear();
@@ -453,9 +492,9 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     frameCountRef.current = 0;
     loopStartRef.current = performance.now();
     attemptCountRef.current = 0;
-    setResult(null);
+    publishResult(null);
     setHoldProgress(null);
-  }, []);
+  }, [publishResult]);
 
   useEffect(() => {
     return () => {
@@ -466,5 +505,5 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     };
   }, []);
 
-  return { status, result, framing, holdProgress, init, startLoop, stopLoop, setSign, getSnapshot };
+  return { status, result, framing, holdProgress, init, startLoop, stopLoop, setSign, getSnapshot, subscribeResult, getResultSnapshot };
 }
