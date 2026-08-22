@@ -4,6 +4,7 @@ import { supabase, supabaseReady } from '@/lib/supabase';
 import { validateUsername } from '@/lib/username';
 import { isInappropriate } from '@/lib/profanity';
 import { isAlreadyRegisteredError } from '@/lib/authErrors';
+import { friendlyAuthError } from '@/lib/authErrorMessages';
 import { useUserStore } from '@/stores/useUserStore';
 import { track } from '@/analytics';
 
@@ -181,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // this file's own effect, not part of the public context value.
   const signInWithEmail = useCallback(async (email: string, password: string): Promise<string | null> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return error?.message ?? null;
+    return friendlyAuthError(error?.message ?? null);
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string, username: string): Promise<string | null> => {
@@ -200,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // up again sees a false "check your email" instead of a helpful "you already have an
       // account" — deliberate, since the alternative leaks account existence to anyone.
       if (isAlreadyRegisteredError(error.message)) return null;
-      return error.message;
+      return friendlyAuthError(error.message);
     }
 
     // The trigger auto-creates the profile with a derived username.
@@ -282,7 +283,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Supabase already returns success here even for an email that isn't registered (so this
     // can't be used to enumerate accounts) — surface a real error only for things like malformed
     // input or rate-limiting, never "no such user".
-    return error?.message ?? null;
+    return friendlyAuthError(error?.message ?? null);
   }, []);
 
   const completePasswordReset = useCallback(async (newPassword: string): Promise<string | null> => {
