@@ -437,8 +437,13 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
   };
 
   useEffect(() => {
-    if (phase !== 'signer') { if (loopRef.current) { recognition.stopLoop(); loopRef.current = null; } return; }
-    if (signaling.camStatus === 'active' && matchState?.currentSign && signaling.localVideoRef.current) {
+    if (phase !== 'signer' || signaling.camStatus !== 'active') {
+      // camStatus !== 'active' also stops: a track dying mid-turn must not leave MediaPipe
+      // burning CPU against a dead video (same reasoning as the solo screens).
+      if (loopRef.current) { recognition.stopLoop(); loopRef.current = null; }
+      return;
+    }
+    if (matchState?.currentSign && signaling.localVideoRef.current) {
       const engineSign = ENGINE_SIGNS[matchState.currentSign];
       if (engineSign && loopRef.current !== engineSign.name) {
         recognition.stopLoop();
