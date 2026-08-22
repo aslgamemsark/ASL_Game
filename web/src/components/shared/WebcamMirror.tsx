@@ -78,28 +78,57 @@ export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUr
   const { expanded: overlayExpanded, open: openOverlay, close: closeOverlay } = useClipEnlarge();
 
   useEffect(() => {
+    // Preview render pacing. This loop used to drawImage on EVERY animation frame at the raw
+    // display refresh rate (60 Hz desktop, 90–120 Hz on modern phones), AND reassign
+    // canvas.width/height every frame — assigning either resets the canvas backing store, i.e.
+    // an allocation + full clear per frame even though the stream's dimensions never change
+    // mid-session. All of that sits on the main thread next to MediaPipe's two detectForVideo
+    // calls (hand + pose) and React, so on low-end phones the *preview itself* was competing
+    // with inference for frame budget — part of the reported "camera gets laggy during gameplay"
+    // (shipping-readiness audit, 2026-08-22).
+    //
+    // Fix is render-only (recognition is untouched): resize only on an actual dimension change
+    // (device rotation, camera switch), and cap redraws at PREVIEW_FPS. A 30 fps mirrored feed
+    // is visually indistinguishable from 60+ for this purpose and frees the rest of the frame
+    // budget for inference + React. The rAF cadence stays (cheap, and lets us react to
+    // dimension changes immediately); only the expensive drawImage inside it is paced.
+    const PREVIEW_FPS = 30;
+    const MIN_DRAW_INTERVAL_MS = 1000 / PREVIEW_FPS;
+    let lastDrawMs = 0;
+
     const draw = () => {
+      rafRef.current = requestAnimationFrame(draw);
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      if (video && canvas && video.readyState >= 2) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          ctx.save();
-          ctx.scale(-1, 1);
-          ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-          ctx.restore();
-        }
-        if (video.videoWidth && video.videoHeight) {
-          const ratio = video.videoWidth / video.videoHeight;
-          if (lastAspectRef.current !== ratio) {
-            lastAspectRef.current = ratio;
-            setAspectRatio(ratio);
-          }
-        }
+      if (!video || !canvas || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+        return;
       }
-      rafRef.current = requestAnimationFrame(draw);
+
+      // Track the stream's real shape regardless of draw pacing — it's a cheap number compare,
+      // and callers (aspect-driven layout, frameGuide/handZones percentage overlays) rely on it
+      // tracking the stream promptly, portrait phones included.
+      const ratio = video.videoWidth / video.videoHeight;
+      if (lastAspectRef.current !== ratio) {
+        lastAspectRef.current = ratio;
+        setAspectRatio(ratio);
+      }
+
+      // Resize ONLY when the dimensions actually changed. Unconditional assignment was the
+      // per-frame allocation + clear; guarding it also means skipped draws can't blank the
+      // canvas, since the previous frame simply stays until the next paced draw.
+      if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+      if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+
+      const nowMs = performance.now();
+      if (nowMs - lastDrawMs < MIN_DRAW_INTERVAL_MS) return;
+      lastDrawMs = nowMs;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+      ctx.restore();
     };
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
