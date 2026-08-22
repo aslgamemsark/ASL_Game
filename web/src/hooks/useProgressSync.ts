@@ -219,9 +219,10 @@ export function useProgressSync() {
 // breakdown — used by the multiple-choice receptive practice mode, which has no camera).
 export async function logSignAttempt(userId: string, signId: string, passed: boolean) {
   if (!supabaseReady) return;
-  await supabase.from('sign_attempts').insert(
+  const { error } = await supabase.from('sign_attempts').insert(
     { user_id: userId, sign_id: signId, passed } as Record<string, unknown>
   );
+  if (error) console.error('[telemetry] sign_attempts insert failed:', error.message);
 }
 
 // Call this on every rule-verifier PASS or VETO event (see useRecognition's onVerified) to
@@ -232,7 +233,7 @@ export async function logSignAttempt(userId: string, signId: string, passed: boo
 // computed numeric scores.
 export async function logVerification(userId: string, entry: VerificationEntry) {
   if (!supabaseReady) return;
-  await supabase.from('sign_verification_log').insert(
+  const { error } = await supabase.from('sign_verification_log').insert(
     {
       user_id: userId,
       sign_id: entry.signName,
@@ -241,6 +242,7 @@ export async function logVerification(userId: string, entry: VerificationEntry) 
       classifier_vote: entry.vote as unknown as Record<string, unknown> | null,
     } as Record<string, unknown>
   );
+  if (error) console.error('[telemetry] sign_verification_log insert failed:', error.message);
 }
 
 /**
@@ -275,27 +277,37 @@ export async function logAttempt(payload: AttemptPayload) {
   if (!supabaseReady) return;
   const { userId, signId, rulePassed, aiPrediction, aiConfidence, aiVetoed, finalPassed } = payload;
 
-  await supabase.from('sign_attempts').insert({
-    user_id: userId,
-    sign_id: signId,
-    passed: finalPassed,
-    rule_passed: rulePassed,
-    ai_prediction: aiPrediction,
-    ai_confidence: aiConfidence,
-    ai_vetoed: aiVetoed,
-  } as Record<string, unknown>);
-
-  const collectEnabled = useUserStore.getState().collectTrainingData;
-  if (collectEnabled && payload.frames.length > 0) {
-    await supabase.from('training_samples').insert({
+  // Fire-and-forget telemetry: failures are logged, never rethrown — callers invoke this with
+  // `void` from render-adjacent paths, so a rejection here would surface as a spurious
+  // unhandledrejection (and a misleading session_crashed analytics event) for what is a
+  // non-critical write. Gameplay/progress never depends on these rows landing.
+  try {
+    const { error } = await supabase.from('sign_attempts').insert({
       user_id: userId,
       sign_id: signId,
-      frames: payload.frames as unknown,
+      passed: finalPassed,
       rule_passed: rulePassed,
       ai_prediction: aiPrediction,
       ai_confidence: aiConfidence,
-      final_passed: finalPassed,
-      source: payload.source,
+      ai_vetoed: aiVetoed,
     } as Record<string, unknown>);
+    if (error) console.error('[telemetry] sign_attempts insert failed:', error.message);
+
+    const collectEnabled = useUserStore.getState().collectTrainingData;
+    if (collectEnabled && payload.frames.length > 0) {
+      const { error: tsError } = await supabase.from('training_samples').insert({
+        user_id: userId,
+        sign_id: signId,
+        frames: payload.frames as unknown,
+        rule_passed: rulePassed,
+        ai_prediction: aiPrediction,
+        ai_confidence: aiConfidence,
+        final_passed: finalPassed,
+        source: payload.source,
+      } as Record<string, unknown>);
+      if (tsError) console.error('[telemetry] training_samples insert failed:', tsError.message);
+    }
+  } catch (e) {
+    console.error('[telemetry] attempt logging failed (non-fatal):', e);
   }
 }
