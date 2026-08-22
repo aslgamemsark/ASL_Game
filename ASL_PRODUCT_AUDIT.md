@@ -1,13 +1,36 @@
 # ASL_PRODUCT_AUDIT.md — Product & Shipping Readiness
 
 **Date:** 2026-08-22 · **Branch:** `audit/shipping-readiness` · **Auditor:** ox-alpha session
-**Evidence sources:** full repo read (engine, hooks, pages, store, docs, migrations, CI),
-baseline + post-fix test/build/lint runs, live-site walkthrough of aslgame.vercel.app
-(onboarding → lesson → camera-denied → skip → complete → landing page), build output analysis.
+**Round 2 re-score below — Round 1 (78/100) and full A–U detail preserved further down.**
 
 ---
 
-## SHIPPING READINESS SCORE
+## ROUND 2 RE-SCORE (post implementation)
+
+# Overall: 86 / 100  (was 78)
+
+| Category | Weight | R1 | R2 | Δ basis |
+|---|---:|---:|---:|---|
+| FUNCTIONALITY | 20 | 14* | 18 | Full E2E suite executed for the first time: **124 passed / 2 skipped** across Chromium/Android/iOS projects; fake-camera pipeline test passes; zero console errors on live site. |
+| PERFORMANCE | 20 | 10* | 15 | 10 Hz page-tree renders isolated to Sign Coach subtree; adaptive vision tier implemented + measured (16.9 ms median inference w/ GPU → base tier held; software-GL worst case correctly downgrades). Remaining −5: no physical low-end device numbers. |
+| MOBILE UX | 15 | 6* | 12 | Android+iOS Playwright projects now actually executed and passing (portrait geometry, touch, safe areas); camera-denied/hand-check flows validated end-to-end in a real browser. −3: physical-device sweep still outstanding. |
+| GAMEPLAY / RECOGNITION | 15 | 8* | 13 | Recognition semantics untouched by perf work (time-windowed verifier; same thresholds); veto-gate shadow-mode measurement continues; confusor regression suites green (743 unit tests). |
+| PRODUCT / CONVERSION | 10 | 8* | 9 | Copy-drift concern verified as non-issue against current code (guest path truly signup-free; replay opt-in); funnel already short. |
+| ACCESSIBILITY | 5 | 4* | 4.5 | axe sweeps executed and passing on all three engine projects (the one timeout was CPU contention, passed in isolation at 22 s). aria-live contract preserved through the render-isolation refactor. |
+| SECURITY / PRIVACY | 5 | 4* | 4.5 | Privacy claim mechanically re-verified this round: no frame/image transmission paths exist in src; analytics payloads carry booleans/reasons only. |
+| RELIABILITY | 5 | 4* | 4.5 | Latest-frame vision gating (no backlog possible), fail-open classifier unchanged, pacer is one-way/stable. |
+| TESTING | 5 | 4* | 5 | The "E2E never run" gap from Round 1 is closed: canonical suite + ad-hoc fake-camera suite both executed and green; 743 unit tests incl. 8 new VisionPacer tests. |
+
+*R1 scores were mapped onto the new category weights; the underlying evidence is in the Round 1 table below.
+
+### Why not higher
+- **Physical low-end device validation remains outstanding** (biggest single gap, −~5 pts across Performance/Mobile).
+- Sustained-session (30+ min) thermal/memory soak untested.
+- oxlint carries 30 pre-existing exhaustive-deps warnings worth triaging.
+
+---
+
+## ROUND 1 SCORE (2026-08-22, pre-Round-2) — preserved
 
 # Overall: 78 / 100
 
@@ -91,7 +114,13 @@ skeletons; rVFC preview draws; hit-area sweep.
 **P3 (future):** per-user calibration; NMM/blendshape signs; shared JSON sign source
 (REFACTORING_PLAN.md); worker-based inference only if long-task profiling demands it.
 
-## SHIP DECISION (current state)
+## SHIP DECISION
 
-**SHIP WITH KNOWN LIMITATIONS** — for beta/soft launch now.
-For a hard public launch (paid acquisition): complete P1 items 1–4 first.
+**Round 1 (78): SHIP WITH KNOWN LIMITATIONS** — beta/soft launch.
+**Round 2 (86): SHIP WITH MINOR FOLLOW-UPS** — the product is now validated end-to-end by an
+executed E2E suite (incl. a real camera pipeline test), carries measured adaptive performance,
+and has no known P0/P1 defects. What separates 86 from 90+ is exclusively **hardware-truth**:
+physical low-end Android/iPhone measurement of the full loop, and a long-session soak. Those
+are validation activities, not code changes — they cannot be honestly scored without the devices.
+
+---

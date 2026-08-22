@@ -5,6 +5,12 @@
 **Live site:** https://aslgame.vercel.app/ · **Repo:** `E:\ASL_Game`
 **Read this file first if you are a (human or AI) agent continuing this work.**
 
+> **ROUND 2 UPDATE (same day):** P1 items PERF-002 and PERF-003 are now implemented, tested,
+> and measured; the Playwright E2E suite has been executed for the first time (124 passed);
+> an ad-hoc fake-camera pipeline test exists under `web/e2e-adhoc/`. Shipping score re-scored
+> **78 → 86**. Details in `ASL_SHIPPING_CHANGELOG.md` (Batch 2) and `ASL_PRODUCT_AUDIT.md`
+> (Round 2 re-score). The remaining path to 90+ is physical-device validation, not code.
+
 ---
 
 ## 1. THE SINGLE MOST IMPORTANT FINDING
@@ -93,18 +99,10 @@ lesson screen → camera-denied card → Skip ×5 → Session Complete → back.
 
 ## 5. PRIORITIZED REMAINING WORK (evidence-ranked, no redesign)
 
+### ROUND 2 STATUS: items 2 and 3 below are DONE (see changelog Batch 2). Item 1 is the only thing between the product and a 90+ score.
+
 ### P1 — should fix before pushing hard on acquisition
-1. **Measure before/after of b053c1e on a real low-end Android** (or CPU-throttled DevTools:
-   4× slowdown, 480p fake cam). Acceptance: preview stays ≥ ~24 fps visually, processed FPS
-   holds near 28, no long tasks >50 ms bursts from rendering. Until then the perf claim is
-   "root-caused + logically sound", NOT device-measured. (Rule: no fake perf claims.)
-2. **React.memo pass on hot subtrees** that consume `result` at 10 Hz (Lesson/Practice signing
-   panels, hint chips). Cheap, low-risk, measurable via React Profiler.
-3. **Adaptive vision tiering**: keep 28 fps on capable devices; drop to ~15–20 fps +
-   skip pose model when `frameCountRef` timing shows sustained slow ticks. Gate behind a
-   measured heuristic, not UA sniffing. Design doc exists? No — write one first.
-4. **Playwright e2e against production config** (`playwright.prod.config.ts` exists) incl.
-   fake-device camera (`--use-fake-device-for-media-stream`) to exercise the full loop headless.
+1. **Measure before/after of b053c1e + PERF-002/003 on a real low-end Android** (or CPU-throttled DevTools: 4× slowdown, 480p fake cam). Acceptance: preview stays ≥ ~24 fps visually, processed FPS holds near 28 (base tier) or degrades gracefully via `low` tier, no long tasks >50 ms bursts from rendering. Until then the perf claim is "root-caused + logically sound + emulation-probed", NOT device-measured. (Rule: no fake perf claims.) A DEV-mode probe harness now exists: `window.__qsVisionPacer` + `web/e2e-adhoc/perf-probe.mjs`.
 
 ### P2 — polish/reliability (from code read; each needs its own repro first)
 - LessonPage dep-array-less effect (above) — make intent explicit.
