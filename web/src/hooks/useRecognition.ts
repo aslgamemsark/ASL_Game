@@ -2,6 +2,7 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import { Capture, getSharedCapture } from '@/engine/capture';
 import { RollingBuffer, HandStabilizer, type Frame } from '@/engine/landmarks';
 import { verify, type VerifyResult, resultPassed } from '@/engine/verifier';
+import { VisionPacer } from '@/engine/visionPacer';
 import { gateOutcome, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
 import { topK, type SignClassifier } from '@/engine/classifier';
 import { GATE_CONFIDENCE, GATE_ENFORCED, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
@@ -260,11 +261,11 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       const isStaticSign = sign.movement.kind === MovementKind.NONE;
       let holdStartMs: number | null = null;
 
-      // Cap MediaPipe processing to ~28fps instead of raw display refresh rate (60-120fps on most
-      // mobile screens) — halves battery/thermal load with no effect on the rolling-window
-      // verifier, which windows by elapsed time, not frame count.
-      const MIN_FRAME_INTERVAL_MS = 1000 / 28;
-      let lastProcessMs = 0;
+      // Adaptive vision pacing. Historically a fixed ~28fps cap; since the shipping-readiness
+      // v2 round, VisionPacer measures real per-frame inference cost and drops to 20fps when a
+      // device demonstrably can't sustain base (see engine/visionPacer.ts for the full policy —
+      // one-way per loop session, warmup-gated, latest-frame/no-backlog by construction).
+      const pacer = new VisionPacer();
 
       // Throttle the REACT STATE publish of the per-frame verify() result to 10Hz — a continuous
       // score stream (not a discrete message like `framing` above, which dedupes by equality
@@ -293,15 +294,19 @@ export function useRecognition(opts?: UseRecognitionOpts) {
         }
 
         const nowMs = performance.now();
-        if (nowMs - lastProcessMs < MIN_FRAME_INTERVAL_MS) {
+        if (!pacer.shouldProcess(nowMs)) {
           rafRef.current = requestAnimationFrame(tick);
           return;
         }
-        lastProcessMs = nowMs;
 
         try {
+          const t0 = performance.now();
           const tsMs = performance.now();
           let frame = cap.process(video, Math.round(tsMs));
+          pacer.markProcessed(tsMs);
+          // Feed the ACTUAL inference cost (process + stabilize) into the tier decision. The
+          // stabilizer/buffer work after it is O(hands), noise next to two model passes.
+          pacer.recordCost(performance.now() - t0);
           frame = stabilizerRef.current.stabilize(frame);
           bufferRef.current.add(frame);
           frameCountRef.current++;
