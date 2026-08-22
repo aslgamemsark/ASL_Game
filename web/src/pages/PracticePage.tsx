@@ -176,7 +176,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   // Start recognition loop for expressive questions (plain expressive mode, or a
   // camera-type question within a mixed session)
   useEffect(() => {
-    if (currentType !== 'expressive' || cardPhase !== 'prompt') {
+    if (currentType !== 'expressive' || cardPhase !== 'prompt' || cameraUnavailable) {
+      // cameraUnavailable also stops: a track dying mid-session (unplugged, iOS mute
+      // escalation) must not leave MediaPipe burning CPU on a dead video — same fix as
+      // LessonPage. Recovery re-arms via "Try again" → camStatus 'active'.
       if (loopStartedRef.current) {
         recognition.stopLoop();
         loopStartedRef.current = null;

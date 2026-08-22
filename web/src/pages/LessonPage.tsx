@@ -180,7 +180,12 @@ export function LessonPage({ lessonId, onExit }: Props) {
   }, [recognition.init]);
 
   useEffect(() => {
-    if (phase !== 'signing') {
+    if (phase !== 'signing' || cameraUnavailable) {
+      // Also stop on cameraUnavailable: a track that dies mid-lesson (unplugged, OS revocation,
+      // iOS mute escalation — see useCamera) leaves the loop running against a dead video,
+      // burning MediaPipe CPU producing garbage verify() scores for the recovery card to sit
+      // next to. "Try again" restarts the camera; once camStatus is 'active' again this effect
+      // re-arms the loop.
       if (loopStartedForSign.current) {
         recognition.stopLoop();
         loopStartedForSign.current = null;

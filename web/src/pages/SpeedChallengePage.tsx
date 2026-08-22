@@ -123,7 +123,9 @@ export function SpeedChallengePage({ onExit }: Props) {
 
   // Recognition loop
   useEffect(() => {
-    if (phase !== 'playing' || justPassed) {
+    if (phase !== 'playing' || justPassed || camStatus !== 'active') {
+      // camStatus !== 'active' also stops: a track dying mid-round must not leave MediaPipe
+      // burning CPU against a dead video (same reasoning as LessonPage/PracticePage/Story).
       recognition.stopLoop();
       loopStartedRef.current = null;
       return;
