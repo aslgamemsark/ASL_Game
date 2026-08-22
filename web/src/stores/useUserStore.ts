@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { UserProgress, SkillLevel, Quest, QuestType, SpeedTier, Chest } from '@/types/user';
 import { generateQuestsForToday } from '@/data/quests';
-import { ALL_BADGES, getBadge } from '@/data/badges';
+import { getBadge } from '@/data/badges';
 import { WORLDS, getWorldIdForUnit } from '@/data/worlds';
 import { getUnitIdForLesson } from '@/data/lessons';
 import { track } from '@/analytics';
@@ -519,9 +519,6 @@ export const useUserStore = create<UserStore>()(
           }));
           for (const id of toAward) trackBadgeAwarded(id, get().badges);
         }
-
-        // Suppress unused import warning
-        void ALL_BADGES;
 
         return toAward;
       },

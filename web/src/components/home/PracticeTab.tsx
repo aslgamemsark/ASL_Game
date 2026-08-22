@@ -117,6 +117,16 @@ export function PracticeTab({ onStartPractice, onStartWeakPractice }: Props) {
     return stats && stats.nextReviewAt <= Date.now();
   });
 
+  // Honest copy: a brand-new learner has practiced nothing, so "warm up with your learned
+  // signs" would be false — Quick Session's fallback pool is the first curriculum signs.
+  const learnedCount = signEntries.filter(([id]) => (signAccuracy[id]?.attempts ?? 0) > 0).length;
+  const quickSessionBlurb =
+    dueForReview.length > 0
+      ? `${dueForReview.length} sign${dueForReview.length > 1 ? 's' : ''} to review`
+      : learnedCount > 0
+        ? 'Warm up with your learned signs'
+        : 'Try your first signs — no experience needed';
+
   const weakSignIds = signEntries
     .filter(([id]) => {
       const stats = signAccuracy[id];
@@ -164,9 +174,7 @@ export function PracticeTab({ onStartPractice, onStartWeakPractice }: Props) {
             <div>
               <h3 className="text-lg font-bold text-white">Quick Session</h3>
               <p className="text-white/80 text-sm mt-1">
-                {dueForReview.length > 0
-                  ? `${dueForReview.length} sign${dueForReview.length > 1 ? 's' : ''} to review`
-                  : 'Warm up with your learned signs'}
+                {quickSessionBlurb}
               </p>
             </div>
             <motion.span
