@@ -6,11 +6,15 @@ export const SIGNS: Record<string, SignDef> = {
     twoHanded: false,
     dominant: { kind: 'open', required: true, minConfidence: 0.55 },
     location: {
+      // Display copy only — recognition reads ENGINE_SIGNS.Kept consistent with the engine
+      // and Python core/signs/hello.py, where location is DELIBERATELY ungated (required:
+      // false): "a wave reads the same anywhere in the upper space." The old required:true
+      // here was display-only drift found by the signConsistency regression test.
       anchor: 'forehead',
       actingHand: 'dominant',
       maxDistRatio: 0.6,
       minDistRatio: 0.0,
-      required: true,
+      required: false,
       minConfidence: 0.6,
     },
     movement: {
