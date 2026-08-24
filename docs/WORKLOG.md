@@ -1627,3 +1627,11 @@ re-verify the onboarding funnel afterwards.
 
 ### Remaining work
 See `POST_LAUNCH_ROADMAP.md` (sequenced) and `LAUNCH_CHECKLIST.md` (manual tasks).
+
+### fix: iOS mute gap closed via cameraMutePolicy (ASL-A7) — this commit
+**Mechanism:** scheduleStallCheck escalated only when readyState < 2; iOS backgrounding mutes
+the track while the element keeps readyState ≥ 2, so the onmute path its own comment claimed to
+cover never fired. Decision extracted to hooks/cameraMutePolicy.ts (pure, unit-tested): muted
+track ⇒ escalate regardless of readyState; no track ⇒ defer to readyState < 2. useCamera passes
+the live track's .muted into the policy and labels the event reason='track_muted' (analytics
+type extended). Red-first: cameraMutePolicy.test.ts written before the fix existed.

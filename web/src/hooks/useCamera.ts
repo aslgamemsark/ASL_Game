@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { track, isKillSwitchOn, type ScreenName } from '@/analytics';
 import { setCameraLive } from '@/lib/cameraActivity';
+import { shouldEscalateToStalled } from '@/hooks/cameraMutePolicy';
 
 export type CameraStatus = 'idle' | 'requesting' | 'active' | 'denied' | 'error' | 'stalled';
 
@@ -35,9 +36,14 @@ export function useCamera(screen: ScreenName = 'onboarding') {
   const scheduleStallCheck = useCallback(() => {
     clearStallTimer();
     stallTimerRef.current = setTimeout(() => {
-      if (videoRef.current && videoRef.current.readyState < 2) {
+      const video = videoRef.current;
+      // ASL-A7: judge the TRACK's mute state, not just readyState. iOS backgrounding
+      // mutes the track while the attached element keeps readyState ≥ 2 — the old
+      // inline check never fired there, leaving a frozen mirror with no retry.
+      const trackMuted: boolean | null = streamRef.current?.getVideoTracks()[0]?.muted ?? null;
+      if (shouldEscalateToStalled({ trackMuted, readyState: video?.readyState ?? 0 })) {
         setStatus('stalled');
-        track('camera_stalled', { screen, reason: 'no_frame' });
+        track('camera_stalled', { screen, reason: trackMuted ? 'track_muted' : 'no_frame' });
       }
     }, STALL_TIMEOUT_MS);
   }, [clearStallTimer, screen]);
