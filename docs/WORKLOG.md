@@ -1635,3 +1635,9 @@ cover never fired. Decision extracted to hooks/cameraMutePolicy.ts (pure, unit-t
 track ⇒ escalate regardless of readyState; no track ⇒ defer to readyState < 2. useCamera passes
 the live track's .muted into the policy and labels the event reason='track_muted' (analytics
 type extended). Red-first: cameraMutePolicy.test.ts written before the fix existed.
+
+### perf: cache VisionPacer median (ASL-A5) — this commit
+**Mechanism:** the medianCost getter sorted a fresh copy of the cost window on EVERY read;
+recordCost reads it once per processed frame (~28fps). Impact is tiny (window ≤20 samples) but
+the fix is free and zero-risk: median now cached, invalidated on push/shift, recomputed lazily.
+No behavior change — all 8 pacer tests pass untouched.

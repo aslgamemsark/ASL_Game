@@ -76,9 +76,15 @@ export class VisionPacer {
     return this._tier === 'base' ? this.baseIntervalMs : this.lowIntervalMs;
   }
 
-  /** Median of recent inference-cost samples (the statistic the tier decision uses). */
+  private medianCache: number | null = null;
+
+  /** Median of recent inference-cost samples (the statistic the tier decision uses).
+   *  ASL-A5: cached — recomputed only when the window mutates (push or shift), not on
+   *  every read. recordCost reads this every frame; a fresh sort per read was pure
+   *  waste. Window is small so absolute impact is tiny; correctness is unchanged. */
   get medianCost(): number {
-    return median(this.costs);
+    if (this.medianCache === null) this.medianCache = median(this.costs);
+    return this.medianCache;
   }
 
   get framesProcessed(): number {
@@ -108,6 +114,7 @@ export class VisionPacer {
   recordCost(costMs: number): VisionTier {
     this.costs.push(costMs);
     if (this.costs.length > this.windowSize) this.costs.shift();
+    this.medianCache = null; // window changed — invalidate
 
     if (
       this._tier === 'base' &&
