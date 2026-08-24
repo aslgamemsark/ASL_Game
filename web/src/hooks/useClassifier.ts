@@ -78,6 +78,10 @@ export function useClassifier(enabled: boolean = true) {
     loadOnce().then((r) => {
       if (!active) return;
       setState(r);
+      // Expose the final status for tooling (perf-probe.mjs asserts 'ready' before sampling —
+      // a measurement taken while the classifier failed/disabled would silently exclude
+      // TF.js inference and not be a production number).
+      (window as unknown as { __classifierStatus?: string }).__classifierStatus = r.status;
       if (isClassifierDebugEnabled()) {
         console.log(`[classifier] ${r.status}${r.status === 'ready' ? ' — disambiguation active' : ''}`);
       }

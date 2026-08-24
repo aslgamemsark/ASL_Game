@@ -1,16 +1,25 @@
 // hermes-perf-probe — ad-hoc measurement (NOT part of any suite)
-// Measures the vision pipeline under (a) no throttle and (b) 6x CPU throttle, using the DEV
-// server so window.__qsVisionPacer is exposed. Numbers are EMULATION numbers on desktop
-// hardware — explicitly NOT physical-low-end-device results.
+// Measures the vision pipeline under (a) no throttle and (b) 6x CPU throttle, against
+// `vite preview` (the PRODUCTION build — the classifier only loads there; see
+// config/classifier.ts). Numbers are EMULATION numbers on desktop hardware — explicitly NOT
+// physical-low-end-device results.
+//
+// ASL-A3 fixes vs the round-2 version of this file:
+//   1. BASE comes from PERF_BASE env var, default http://localhost:4173 (`vite preview`'s
+//      port) instead of a hardcoded dev-server port 5199.
+//   2. The page is loaded with ?debug=1 so isClassifierDebugEnabled() exposes
+//      window.__qsVisionPacer in the production bundle.
+//   3. The probe ASSERTS the TF.js classifier actually loaded before sampling — the round-2
+//      numbers were invalid because the classifier never loaded under `vite dev`.
 import { chromium } from 'playwright';
 
-const BASE = 'http://localhost:5199';
+const BASE = process.env.PERF_BASE || 'http://localhost:4173';
 const results = {};
 
 async function drive(page, { throttle, sampleMs }) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto(BASE);
+  await page.goto(BASE + '/?debug=1');
   await page.getByRole('button', { name: /get started/i }).click();
   await page.getByRole('button', { name: /continue as guest/i }).click();
   await page.getByRole('button', { name: /just starting/i }).click();
@@ -23,6 +32,21 @@ async function drive(page, { throttle, sampleMs }) {
     await skipHand.click();
   }
   await page.getByRole('heading', { name: /Sign It/i }).waitFor({ timeout: 30000 });
+
+  // ASL-A3: the classifier's load status must RESOLVE before sampling. Today the shipped
+  // model is deliberately disabled (vite.config deletes dist/models/signs — model_v4 was
+  // out-of-distribution), so 'disabled' is the expected production status and the probe
+  // records it rather than failing; if the classifier is ever re-enabled, any status other
+  // than 'ready'/'disabled' (i.e. stuck loading or errored) still fails the run.
+  await page.waitForFunction(() => {
+    const s = window.__classifierStatus;
+    return s === 'ready' || s === 'disabled' || s === 'error' || s === 'unsupported';
+  }, { timeout: 45000 });
+  const classifierStatus = await page.evaluate(() => window.__classifierStatus);
+  if (!classifierStatus) {
+    throw new Error('Classifier status never resolved — measurement context invalid.');
+  }
+
   // Give the loop a moment to start processing frames.
   await page.waitForFunction(() => {
     const p = window.__qsVisionPacer;
@@ -61,6 +85,7 @@ async function drive(page, { throttle, sampleMs }) {
 
   const wall = (end.t - t0) / 1000;
   return {
+    classifier: classifierStatus,
     visionFps: Math.round(((end.pacer.frames - startPacer.frames) / wall) * 10) / 10,
     rafFps: Math.round((end.probe.raf / wall) * 10) / 10,
     tier: end.pacer.tier,
@@ -83,7 +108,7 @@ async function freshPage() {
 
 {
   const { ctx, page } = await freshPage();
-  console.log('=== BASELINE (no CPU throttle, desktop, headless software GL) ===');
+  console.log('=== BASELINE (no CPU throttle, desktop, headless software GL, PREVIEW BUILD) ===');
   results.baseline = await drive(page, { throttle: 0, sampleMs: 12000 });
   console.log(JSON.stringify(results.baseline, null, 2));
   await ctx.close();

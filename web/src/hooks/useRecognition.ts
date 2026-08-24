@@ -5,7 +5,7 @@ import { verify, type VerifyResult, resultPassed } from '@/engine/verifier';
 import { VisionPacer } from '@/engine/visionPacer';
 import { gateOutcome, gateHint, type GateDecision, type ClassifierVote } from '@/engine/gate';
 import { topK, type SignClassifier } from '@/engine/classifier';
-import { GATE_CONFIDENCE, GATE_ENFORCED, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
+import { GATE_CONFIDENCE, GATE_ENFORCED, GATE_EXCLUDED_SIGNS, isClassifierDebugEnabled } from '@/config/classifier';
 import { MovementKind, type Sign } from '@/engine/schema';
 import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
@@ -266,10 +266,13 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       // device demonstrably can't sustain base (see engine/visionPacer.ts for the full policy —
       // one-way per loop session, warmup-gated, latest-frame/no-backlog by construction).
       const pacer = new VisionPacer();
-      // DEV-only observability for profiling sessions: exposes the live pacer so
+      // Observability for profiling sessions: exposes the live pacer so
       // `window.__qsVisionPacer.tier / .framesProcessed / .medianCost` can be watched while
-      // playing. Zero production bytes: import.meta.env.DEV is a build-time constant.
-      if (import.meta.env.DEV) {
+      // playing. DEV builds always expose it; production/preview builds expose it only when
+      // classifier debugging is opted into (?debug=1 or the localStorage flag — see
+      // config/classifier.ts), so perf-probe.mjs can measure against `vite preview` (the
+      // classifier only loads there) without shipping a always-on global. Zero cost when off.
+      if (import.meta.env.DEV || isClassifierDebugEnabled()) {
         (window as unknown as { __qsVisionPacer?: VisionPacer }).__qsVisionPacer = pacer;
       }
 
