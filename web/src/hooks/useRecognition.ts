@@ -252,12 +252,22 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       setStatus('running');
       if (import.meta.env.DEV) console.log('[QuickSign] Loop started for', sign.name);
 
-      // Require buffer to fill (~1.5s) before allowing a pass.
-      // This prevents instant passes on static signs and gives
-      // movement signs time to accumulate trajectory data.
-      const MIN_FRAMES_BEFORE_PASS = 30;
-      let passFrames = 0;
-      const PASS_THRESHOLD = 6;
+      // Require the loop to have run ~1.07s of wall-clock before allowing a pass.
+      // This prevents instant passes on static signs and gives movement signs
+      // time to accumulate trajectory data.
+      // ASL-A4 (round 4): this was MIN_FRAMES_BEFORE_PASS = 30 — a frame count
+      // that silently stretched to 1.5s when VisionPacer dropped slow devices to
+      // 20fps, penalising exactly the phones the low tier exists to help. The
+      // static-sign hold below already used wall-clock for the same reason; both
+      // gates are now clock-based so behaviour is framerate-independent. Threshold
+      // VALUES are unchanged at base tier (30 frames @ 28fps ≈ 1.07s) per the
+      // CLAUDE.md non-negotiable: no threshold retuning without real-device data.
+      const BASE_TIER_MS_PER_FRAME = 1000 / 28;
+      const MIN_FRAMES_BEFORE_PASS = 30 * BASE_TIER_MS_PER_FRAME;
+      let lastPassingFrameMs: number | null = null;
+      const PASS_THRESHOLD_FRAMES = 6;
+      const passFramesToMs = PASS_THRESHOLD_FRAMES * BASE_TIER_MS_PER_FRAME;
+      let passingRunMs = 0;
       const isStaticSign = sign.movement.kind === MovementKind.NONE;
       let holdStartMs: number | null = null;
 
@@ -431,7 +441,9 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           };
 
           // Don't allow pass until buffer has enough data
-          const clearedEnough = frameCountRef.current >= MIN_FRAMES_BEFORE_PASS && resultPassed(vr);
+          const loopElapsedMs = nowMs - loopStartRef.current;
+          const warmedUp = loopElapsedMs >= MIN_FRAMES_BEFORE_PASS;
+          const clearedEnough = warmedUp && resultPassed(vr);
 
           if (isStaticSign) {
             // Hold-to-pass: the pose must clear the verifier continuously for
@@ -455,13 +467,18 @@ export function useRecognition(opts?: UseRecognitionOpts) {
             }
           } else {
             if (clearedEnough) {
-              passFrames++;
-              if (passFrames >= PASS_THRESHOLD) {
-                passFrames = 0;
+              // ASL-A4: accumulate WALL-CLOCK across consecutive passing frames
+              // (was: count 6 frames, which stretched from ~214ms at base tier to
+              // 300ms at low tier). Delta-based accumulation is exact at any fps.
+              if (lastPassingFrameMs !== null) passingRunMs += nowMs - lastPassingFrameMs;
+              lastPassingFrameMs = nowMs;
+              if (passingRunMs >= passFramesToMs) {
+                passingRunMs = 0;
                 firePass();
               }
             } else {
-              passFrames = 0;
+              passingRunMs = 0;
+              lastPassingFrameMs = null;
             }
           }
         } catch (e) {
