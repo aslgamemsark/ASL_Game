@@ -44,6 +44,32 @@ jobs:
       - run: npm run test
       - run: npm run build
 
+  # Sign-definition drift gate (round-4 B1): signs/*.py is the source of truth;
+  # tools/generate_sign_jsons.py regenerates signs/*.json, and
+  # tools/generate_engine_signs.ts regenerates web/src/engine/signs/index.ts.
+  # If an edited Python sign was never regenerated through both steps, the
+  # committed JSON/TS drifts from the behaviour the Python confusor suite
+  # validated while every other gate stays green. This job regenerates both
+  # layers and fails on any diff. (Verified locally 2026-08-24: zero drift.)
+  sign-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Regenerate sign JSONs from Python source of truth
+        run: python tools/generate_sign_jsons.py
+      - name: Regenerate TypeScript engine signs from JSONs
+        run: npx --yes tsx tools/generate_engine_signs.ts
+      - name: Fail if anything drifted
+        run: |
+          git diff --exit-code --ignore-cr-at-eol -- signs/ web/src/engine/signs/ \
+            || (echo "::error::Generated sign files are out of date. Run: python tools/generate_sign_jsons.py && npx tsx tools/generate_engine_signs.ts, then commit the result." && exit 1)
+
   e2e:
     runs-on: ubuntu-latest
     defaults:
