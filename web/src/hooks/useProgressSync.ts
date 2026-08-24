@@ -217,12 +217,19 @@ export function useProgressSync() {
 
 // Call this when a sign is attempted to log it for leaderboard tracking (no rule/AI/landmark
 // breakdown — used by the multiple-choice receptive practice mode, which has no camera).
+// Same contract as logAttempt: failures are logged, never rethrown — callers fire-and-forget,
+// and a thrown insert must never surface as an unhandledrejection (ASL-A2; c9b8150 only
+// covered logAttempt, leaving this path live on every receptive-practice question).
 export async function logSignAttempt(userId: string, signId: string, passed: boolean) {
   if (!supabaseReady) return;
-  const { error } = await supabase.from('sign_attempts').insert(
-    { user_id: userId, sign_id: signId, passed } as Record<string, unknown>
-  );
-  if (error) console.error('[telemetry] sign_attempts insert failed:', error.message);
+  try {
+    const { error } = await supabase.from('sign_attempts').insert(
+      { user_id: userId, sign_id: signId, passed } as Record<string, unknown>
+    );
+    if (error) console.error('[telemetry] sign_attempts insert failed:', error.message);
+  } catch (e) {
+    console.error('[telemetry] sign_attempts insert failed (non-fatal):', e);
+  }
 }
 
 // Call this on every rule-verifier PASS or VETO event (see useRecognition's onVerified) to
@@ -230,19 +237,24 @@ export async function logSignAttempt(userId: string, signId: string, passed: boo
 // "the scores pass on minor edge cases" complaint needs numbers to fix, not just a feeling.
 // No-ops silently when Supabase isn't configured or the classifier didn't run, matching
 // logSignAttempt's existing gating pattern; never sends video/landmarks, only these already-
-// computed numeric scores.
+// computed numeric scores. Same contract as logAttempt (ASL-A2): failures are logged, never
+// rethrown — LessonPage/PracticePage call this fire-and-forget on every verified event.
 export async function logVerification(userId: string, entry: VerificationEntry) {
   if (!supabaseReady) return;
-  const { error } = await supabase.from('sign_verification_log').insert(
-    {
-      user_id: userId,
-      sign_id: entry.signName,
-      decision: entry.decision,
-      param_scores: entry.params as unknown as Record<string, unknown>,
-      classifier_vote: entry.vote as unknown as Record<string, unknown> | null,
-    } as Record<string, unknown>
-  );
-  if (error) console.error('[telemetry] sign_verification_log insert failed:', error.message);
+  try {
+    const { error } = await supabase.from('sign_verification_log').insert(
+      {
+        user_id: userId,
+        sign_id: entry.signName,
+        decision: entry.decision,
+        param_scores: entry.params as unknown as Record<string, unknown>,
+        classifier_vote: entry.vote as unknown as Record<string, unknown> | null,
+      } as Record<string, unknown>
+    );
+    if (error) console.error('[telemetry] sign_verification_log insert failed:', error.message);
+  } catch (e) {
+    console.error('[telemetry] sign_verification_log insert failed (non-fatal):', e);
+  }
 }
 
 /**
