@@ -5,6 +5,28 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-A8 — the never-run e2e suites now actually run** (`web/e2e/explore.spec.ts` — moved+rewritten,
+  `web/e2e/fakecam.spec.ts` — moved, `web/playwright.config.ts`, `web/src/components/home/LessonNode.tsx`;
+  commit `8909892`). **Mechanism:** both specs sat in `e2e-adhoc/`, which is outside `testDir: './e2e'`,
+  has no npm script, and no CI job — a suite that reads as coverage but executes zero assertions.
+  Moved into the canonical run (CI's `test:e2e` job picks them up by construction). Every probe made
+  unconditional; fixed waits replaced with state-based expectations. Bugs found *by making them run*:
+  module-level `consoleErrors` never reset between tests in a worker (one spec's errors convicted
+  another); bare `/Me/` + `/Leaderboard/` regexes matched "Test from Memory" quiz cards and mis-clicked
+  into a Letter Test on ios (now scoped to the Main nav landmark + end-anchored names, the
+  mobile.spec.ts pattern); Multiplayer/Friends are guest-gated PAGES whose exit affordances differ
+  (MultiplayerHubPage icon="close" → aria-label "Close"; FriendsPage default arrow → "Back") — resolved
+  with `.or()` instead of racing separate isVisible() probes against entrance transitions; the TopBar
+  avatar ("Sign in" label) only opens AuthModal for a guest — clicking it was never navigation, so
+  `openExploreCard` no longer presses it; lesson nodes were emoji-only buttons with no accessible name
+  → LessonNode gained `aria-label="Lesson: <title>"` (a11y fix in its own right) and entry uses
+  `dispatchEvent('click')` because coordinate clicks raced WorldMap's scroll-to-first-lesson plus the
+  idle-float animation (android failure landed on the Basics tab). fakecam scoped to the `chromium`
+  project by NAME — android also runs Chromium but carries no `--use-fake-device` args, and WebKit has
+  no equivalent flag at all. **Evidence:** full canonical suite across all three device projects:
+  140 passed / 4 skipped / 0 failed (4.1 min, production build + preview); chromium 6/6 on the two new
+  specs; vitest 764 passed | 9 todo; `tsc -b` 0 errors; oxlint exit 0.
+
 - **ASL-A1 — recognition's two 10 Hz signals now publish ONLY via external stores; the owning
   page tree renders 0×/s while signing** (`web/src/hooks/externalStore.ts` — new,
   `web/src/hooks/tests/externalStore.test.ts` — new, `web/src/hooks/useRecognition.ts`,
