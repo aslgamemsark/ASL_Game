@@ -3,6 +3,35 @@
 Running record of what changed and why. Maintained continuously during a session, newest first —
 see `.claude/rules/worklog.md` for the rule, including when to compress older months.
 
+## 2026-08-25
+
+- **ASL-A1 — recognition's two 10 Hz signals now publish ONLY via external stores; the owning
+  page tree renders 0×/s while signing** (`web/src/hooks/externalStore.ts` — new,
+  `web/src/hooks/tests/externalStore.test.ts` — new, `web/src/hooks/useRecognition.ts`,
+  `web/src/components/lesson/LiveSignCoach.tsx`, `web/src/pages/CalibrationPage.tsx`,
+  `web/src/pages/{Lesson,Practice,Story}Page.tsx`). **Mechanism (round-4 F1+F2):** `result`
+  was dual-published — React state in the page-level hook AND the external store mirror — so the
+  `setResult` half re-rendered the whole page ~10×/s during signing despite `LiveSignCoach`
+  existing precisely to prevent that; `holdProgress` was still plain page-level state passed as a
+  prop through Lesson/Practice/Story into the checklist. The fix deletes both channels: one
+  `createExternalStore` instance per signal inside `useRecognition` (lazy-init refs, zero new
+  page-visible state), exposed as stable `subscribeResult/getResultSnapshot` +
+  `subscribeHoldProgress/getHoldProgressSnapshot` pairs; `LiveSignCoach` takes a second
+  `useSyncExternalStore`; `/calibrate` gets an isolated `CalibrationLiveScores` subscriber and its
+  frame logger subscribes to the store directly instead of keying an effect on `recognition.result`.
+  `tsc -b` enforced the migration red-first — exactly the 7 predicted consumer errors, then 0.
+  Store tests cover notification, snapshot referential stability (the useSyncExternalStore
+  contract), double-unsubscribe safety, and throwing-listener isolation (publish swallows-and-logs,
+  so one broken subscriber can't starve siblings). **Verified:** gates on `audit/round4-corrections`
+  — tsc clean · oxlint 30w/0e (= branch baseline) · vitest **764 passed + 9 todo** (was 760+9) ·
+  build OK. Live render-count probe on the PREVIEW build with Chrome fake-camera (temp counters in
+  PracticePage + ParameterChecklist + MutationObserver liveness check, all reverted before commit):
+  page renders per 10 s of continuous "signing" went **10 / 12 / 18 → 0 / 0 / 0** across three runs
+  each side, while the isolated checklist subtree kept rendering 19–43× and DOM mutations
+  continued — i.e. publishes flow, only the page stopped churning. **Not verified:** real-hand
+  behavior on physical hardware (fake device produces no landmarks; measurement is desktop
+  emulation, headless software GL).
+
 ## 2026-08-07
 
 - **Shipped QS-015 — speak the sign name on a pass** (`web/src/lib/speak.ts` — new,
