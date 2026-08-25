@@ -61,3 +61,11 @@ the mechanical layer they'd build on is verified clean above.
 
 `node web/e2e-adhoc/probe-sr-camera-screens.mjs` against any :4173 server of `dist/`
 (exit 0 iff all checks pass — currently exits 1 solely due to E3-a's unnamed-checkbox finding).
+
+**Post-report addendum (verification runs):** across five re-runs the two deterministic checks held
+(live views reached; lesson controls all named; E3-a reproduced every time), while the single-scan
+`color-contrast` axe findings appeared in SOME runs only (lesson x1–x6, practice x0–x2) and vanished
+under double-scan with settle-waits (probe-contrast-detail/stability probes: stable set = 0). This
+matches a11y.spec.ts's documented transient behavior exactly — the canonical gate's double-scan
+agreement exists for precisely this reason. The E3 report's "zero serious/critical" claims stand as
+STABLE-state claims; single-scan transients are not regressions.
