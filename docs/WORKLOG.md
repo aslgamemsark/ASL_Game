@@ -5,6 +5,17 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-F3 — Deaf/HoH sensitivity review; inclusion contract honored, 3 polish items for owner**
+  (`OX_ALPHA_F3_DEAF_HOH_SENSITIVITY.md`; commit `5aad8a9`). Full-copy sweep of user-facing strings
+  against PRODUCT.md's stated contract ("never gate anything on audio", AA floor): zero hearing-norm
+  shaming copy ("hear" appears in user-facing copy exactly zero times), visual-first instruction
+  throughout (text sign descriptions + video clips), ASL framed as primary language. Three REPORT-
+  ONLY items: F3-a "Say Hello"/"can you say" spoken-language phrasing (~15 occurrences) where
+  "sign hello" would align with Deaf-culture norms (idiom-defensible either way); F3-b speech
+  default is ON (`speechEnabled: true`) which assumes a hearing user — sensitivity-optimal default
+  would be OFF; F3-c no Deaf/HoH/CODA self-ID options in onboarding (representation gap, not a
+  defect). Cross-referenced E4-a as the one live defect hitting exactly this population.
+
 - **ASL-F2 — failure copy after five straight misses: no escalation exists, quiz misses are
   color-only** (`OX_ALPHA_F2_FAILURE_COPY_FIVE_MISSES.md`; probe
   `web/e2e-adhoc/probe-failure-copies.mjs`; commit `58a58e3`). Static trace: exactly ONE miss/skip
