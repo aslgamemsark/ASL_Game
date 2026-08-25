@@ -5,6 +5,19 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-E2 — keyboard-only full lesson walkthrough: 12/12 PASS**
+  (`OX_ALPHA_E2_KEYBOARD_LESSON.md`; probe `web/e2e-adhoc/probe-keyboard-lesson.mjs`; commit
+  `399d9a0`). Executed Tab/Enter/Space-only journey against the production build at phone width:
+  welcome → onboarding (guest + skill pick) → Home → all five BottomNav items reachable → Practice
+  Letters card → Enter starts the live "Sign It 1/5" lesson view → in-lesson Back exits Home.
+  Focus ring verified painted (`outline solid 2px` via the theme-aware :focus-visible token). No
+  rogue autofocus; no focus traps on the walked path. Two probe-harness false failures were root-
+  caused before being believed as app bugs and are recorded in the report for future keyboard
+  audits: (1) when Tab focus wraps out of the page, `document.activeElement` becomes BODY whose
+  textContent is the whole page — text-matching must exclude BODY; (2) the live lesson heading is
+  "Sign It"/"Sign Quiz" (PracticePage.tsx:392), not intro phrasing. Verdict: no keyboard-
+  operability defects in the walked surface.
+
 - **ASL-E1 — full axe sweep: 19 stable findings, all moderate, 0 serious/critical**
   (`OX_ALPHA_E1_AXE_SWEEP.md`; probe `web/e2e-adhoc/probe-axe-full.mjs`; commit `d5d4920`). Executed
   axe-core audit over 10 guest-reachable surfaces at phone width (Home + 4 tabs + Leaderboard +
