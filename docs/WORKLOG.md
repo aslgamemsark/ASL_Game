@@ -5,6 +5,20 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-D5 — motion & `prefers-reduced-motion` audit; suppression verified live, one minor leak**
+  (`OX_ALPHA_D5_MOTION_REDUCED_MOTION.md`; probe scripts `web/e2e-adhoc/probe-reduced-motion.mjs`,
+  `probe-identify-anim.mjs`; commit `33b4782`). Three suppression layers exist and were each verified
+  against the production build with emulated `reduce` vs `no-preference`: MotionConfig
+  `reducedMotion="user"` (transform loops freeze — empirically shown via BottomNav hover-transform
+  sampling), the CSS `@media (prefers-reduced-motion: reduce)` kill-switch (kills `qs-border-*`
+  keyframes and `animate-pulse` — verified by injected-element probe), and explicit
+  `useReducedMotion()` checks where a flourish gates real UI (ChestIcon reward reveal, Zippy float).
+  All 22 framer `repeat: Infinity` sites classified. **One finding:** ProfileTab's "today" ring
+  (:384–387) animates scale+opacity infinitely; MotionConfig skips its scale but keeps opacity, so a
+  faint opacity pulse persists under reduce — minor (no motion/vestibular concern), fix shape is the
+  codebase's own ChestIcon-style `useReducedMotion()` gate; report-only, owner's call. Game-feel notes:
+  tap/hover feedback consistent on all nav surfaces; celebrations bounded per PRODUCT.md.
+
 - **ASL-D4 — full navigation graph mapped; no orphans, no dead ends**
   (`OX_ALPHA_D4_NAVIGATION_GRAPH.md` at repo root; commit `631caab`). Static trace of the single
   in-app router (`App.tsx` `Screen` union, 15 screen types) with every entry point and exit
