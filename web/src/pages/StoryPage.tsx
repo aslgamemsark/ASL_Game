@@ -47,7 +47,8 @@ const MOOD_ZIPPY: Record<string, ZippyExpression> = {
   surprised: 'celebrating',
 };
 
-export function StoryPage({ story, onExit }: Props) {
+export function StoryPage({
+  story, onExit }: Props) {
   const { addXp, addSigns, addGold, addDailyMinutes, recordSign, completeLesson, checkBadges, awardBadge, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera('story');
@@ -309,7 +310,8 @@ export function StoryPage({ story, onExit }: Props) {
                     subscribe={recognition.subscribeResult}
                     getSnapshot={recognition.getResultSnapshot}
                     sign={currentEngineSign}
-                    holdProgress={recognition.holdProgress}
+                    subscribeHoldProgress={recognition.subscribeHoldProgress}
+                    getHoldProgressSnapshot={recognition.getHoldProgressSnapshot}
                     fillHeight
                   />
                 </div>

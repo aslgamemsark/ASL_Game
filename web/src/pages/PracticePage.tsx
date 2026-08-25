@@ -56,7 +56,8 @@ function practiceContentType(autoStartMixed: boolean | undefined, heading: strin
   return 'review';
 }
 
-export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoStartMixed, bonusGoldOnPerfect, heading }: Props) {
+export function PracticePage({
+ onExit, filterSignIds, autoStartExpressive, autoStartMixed, bonusGoldOnPerfect, heading }: Props) {
   const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession, equippedBorder, setDominantHand } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
@@ -585,7 +586,8 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                           subscribe={recognition.subscribeResult}
                           getSnapshot={recognition.getResultSnapshot}
                           sign={currentEngineSign}
-                          holdProgress={recognition.holdProgress}
+                          subscribeHoldProgress={recognition.subscribeHoldProgress}
+                          getHoldProgressSnapshot={recognition.getHoldProgressSnapshot}
                           fillHeight
                         />
                       )}

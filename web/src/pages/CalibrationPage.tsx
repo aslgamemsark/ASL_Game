@@ -9,12 +9,12 @@
  * Reachable only at /calibrate in dev (see App.tsx's import.meta.env.DEV gate) — never bundled
  * into production, same pattern as /avatarlab.
  */
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useSyncExternalStore } from 'react';
 import { useCamera } from '@/hooks/useCamera';
 import { useRecognition } from '@/hooks/useRecognition';
 import { SIGNS } from '@/engine/signs';
 import { median } from '@/engine/math-utils';
-import type { ParamScore } from '@/engine/verifier';
+import type { VerifyResult } from '@/engine/verifier';
 
 type Phase = 'idle' | 'correct' | 'confusor';
 
@@ -86,6 +86,37 @@ function downloadCsv(signName: string, rows: LogRow[]) {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Isolated subscriber for the 10 Hz live scores (ASL-A1): useSyncExternalStore over the result
+ * store, mirroring LiveSignCoach's pattern — only THIS component re-renders per publish, the
+ * calibration page itself stays quiet. Renders nothing until the first result publishes.
+ */
+function CalibrationLiveScores({ subscribe, getSnapshot }: {
+  subscribe: (listener: () => void) => () => void;
+  getSnapshot: () => VerifyResult | null;
+}) {
+  const result = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  if (!result) return null;
+  return (
+    <>
+      {result.params.map((p) => {
+        const cleared = p.score >= p.threshold;
+        return (
+          <div key={p.name} style={{ fontSize: 12, marginBottom: 4 }}>
+            <span style={{ display: 'inline-block', width: 160 }}>{p.name} [{p.required ? 'req' : 'opt'}]</span>
+            <span style={{ display: 'inline-block', width: 120, background: '#333', borderRadius: 4, overflow: 'hidden', height: 10, verticalAlign: 'middle' }}>
+              <span style={{ display: 'block', height: '100%', width: `${Math.min(100, p.score * 100)}%`, background: cleared ? '#2ecc71' : '#e74c3c' }} />
+            </span>
+            <span style={{ marginLeft: 8, color: cleared ? '#2ecc71' : '#e74c3c' }}>
+              {p.score.toFixed(2)} / {p.threshold.toFixed(2)}
+            </span>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 export function CalibrationPage() {
   const signNames = Object.keys(SIGNS).sort();
   const [signName, setSignName] = useState('COFFEE');
@@ -141,24 +172,29 @@ export function CalibrationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camStatus, signName]);
 
-  // Log every frame's params while a phase is active.
+  // Log every frame's params while a phase is active. ASL-A1: this page no longer re-renders per
+  // publish (the old [recognition.result]-keyed effect died with page-level result state), so the
+  // logger subscribes to the result store directly and reads phaseRef (not state) — correct
+  // across publishes without ever re-subscribing.
   useEffect(() => {
-    const p = phaseRef.current;
-    if (p === 'idle' || !recognition.result) return;
-    const idx = frameIdxRef.current[p]++;
-    for (const param of recognition.result.params) {
-      logRef.current.push({
-        phase: p,
-        frameIdx: idx,
-        paramName: param.name,
-        score: param.score,
-        threshold: param.threshold,
-        required: param.required,
-      });
-    }
-    setLogCount({ correct: frameIdxRef.current.correct, confusor: frameIdxRef.current.confusor });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recognition.result]);
+    return recognition.subscribeResult(() => {
+      const p = phaseRef.current;
+      const vr = recognition.getResultSnapshot();
+      if (p === 'idle' || !vr) return;
+      const idx = frameIdxRef.current[p]++;
+      for (const param of vr.params) {
+        logRef.current.push({
+          phase: p,
+          frameIdx: idx,
+          paramName: param.name,
+          score: param.score,
+          threshold: param.threshold,
+          required: param.required,
+        });
+      }
+      setLogCount({ correct: frameIdxRef.current.correct, confusor: frameIdxRef.current.confusor });
+    });
+  }, [recognition]);
 
   const clearAutoTimers = useCallback(() => {
     if (autoStopRef.current) { clearTimeout(autoStopRef.current); autoStopRef.current = null; }
@@ -240,7 +276,6 @@ export function CalibrationPage() {
     setReport(out);
   }, []);
 
-  const liveParams: ParamScore[] = recognition.result?.params ?? [];
 
   return (
     <div style={{ fontFamily: 'monospace', background: '#111', color: '#eee', minHeight: '100vh', padding: 16 }}>
@@ -326,20 +361,10 @@ export function CalibrationPage() {
 
         <div style={{ minWidth: 420 }}>
           <h2 style={{ fontSize: 14 }}>Live scores</h2>
-          {liveParams.map((p) => {
-            const cleared = p.score >= p.threshold;
-            return (
-              <div key={p.name} style={{ fontSize: 12, marginBottom: 4 }}>
-                <span style={{ display: 'inline-block', width: 160 }}>{p.name} [{p.required ? 'req' : 'opt'}]</span>
-                <span style={{ display: 'inline-block', width: 120, background: '#333', borderRadius: 4, overflow: 'hidden', height: 10, verticalAlign: 'middle' }}>
-                  <span style={{ display: 'block', height: '100%', width: `${Math.min(100, p.score * 100)}%`, background: cleared ? '#2ecc71' : '#e74c3c' }} />
-                </span>
-                <span style={{ marginLeft: 8, color: cleared ? '#2ecc71' : '#e74c3c' }}>
-                  {p.score.toFixed(2)} / {p.threshold.toFixed(2)}
-                </span>
-              </div>
-            );
-          })}
+          <CalibrationLiveScores
+            subscribe={recognition.subscribeResult}
+            getSnapshot={recognition.getResultSnapshot}
+          />
         </div>
       </div>
 

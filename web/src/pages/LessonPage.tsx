@@ -445,7 +445,8 @@ export function LessonPage({ lessonId, onExit }: Props) {
                       subscribe={recognition.subscribeResult}
                       getSnapshot={recognition.getResultSnapshot}
                       sign={currentEngineSign}
-                      holdProgress={recognition.holdProgress}
+                      subscribeHoldProgress={recognition.subscribeHoldProgress}
+                      getHoldProgressSnapshot={recognition.getHoldProgressSnapshot}
                       fillHeight
                     />
                   )}

@@ -8,8 +8,10 @@ interface Props {
   subscribe: (listener: () => void) => () => void;
   getSnapshot: () => VerifyResult | null;
   sign?: Sign | null;
-  /** 0..1 static-sign hold progress (updates at the same 10 Hz cadence as the result). */
-  holdProgress?: number | null;
+  /** Hold-progress store pair — same shape/subscriber contract as the result pair above (ASL-A1:
+   *  the value moved out of page-level state so holding a pose no longer re-renders the page). */
+  subscribeHoldProgress: (listener: () => void) => () => void;
+  getHoldProgressSnapshot: () => number | null;
   /** Passed through to ParameterChecklist (desktop three-column layout spacing). */
   fillHeight?: boolean;
 }
@@ -32,10 +34,12 @@ export const LiveSignCoach = memo(function LiveSignCoach({
   subscribe,
   getSnapshot,
   sign,
-  holdProgress,
+  subscribeHoldProgress,
+  getHoldProgressSnapshot,
   fillHeight,
 }: Props) {
   const result = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const holdProgress = useSyncExternalStore(subscribeHoldProgress, getHoldProgressSnapshot, getHoldProgressSnapshot);
   if (!result) return null;
   return (
     <ParameterChecklist

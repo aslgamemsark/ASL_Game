@@ -10,6 +10,7 @@ import { MovementKind, type Sign } from '@/engine/schema';
 import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
 import { speakSign } from '@/lib/speak';
+import { createExternalStore, type ExternalStore } from './externalStore';
 
 // Static signs (movement.kind === NONE) have no motion scorer to naturally pace a pass —
 // scoreMovement returns 1 immediately for them — so without an explicit hold requirement a
@@ -146,40 +147,35 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   const signRef = useRef<Sign | null>(null);
   const runningRef = useRef(false);
   const [status, setStatus] = useState<RecognitionStatus>('loading');
-  // React-visible publish of the per-frame verify() result, throttled to 10 Hz inside the loop
-  // (see RESULT_UPDATE_INTERVAL_MS below — this state predates that throttle and remains for
-  // backward compatibility with existing consumers).
-  const [result, setResult] = useState<VerifyResult | null>(null);
   /**
-   * External store mirror of `result`, published at the same 10 Hz cadence. This exists so the
-   * pages can subscribe to the live result ONLY where it's actually rendered (the Sign Coach
-   * checklist and dev panel) via useSyncExternalStore — everything else in the page tree
-   * (header, prompts, buttons, animations) no longer re-renders at 10 Hz for the whole
-   * signing phase. Found in the shipping-readiness v2 audit: every page consuming `result`
-   * re-rendered its entire tree 10×/s while a recognition loop ran, because the result state
-   * lives in the page-level hook instance.
+   * External stores for the two 10 Hz signals — the live verify() result and the static-hold
+   * progress — consumed via useSyncExternalStore inside small isolated subscribers (LiveSignCoach,
+   * ClassifierDevPanel, /calibrate panels). ASL-A1 (round-4 F1+F2): `result` used to ALSO be
+   * React state here and holdProgress still was, so every publish re-rendered the owning page's
+   * whole tree ~10×/s during signing. The dual channel is gone: these stores are the ONLY
+   * React-visible path for either signal, and this hook holds zero page-visible state for them.
    *
-   * Same object reference is handed to both channels; getSnapshot returns a STABLE null or
-   * the last published object (useSyncExternalStore requires referential stability between
-   * updates — verify() never repeats a reference, so each publish is genuinely new data).
+   * getSnapshot returns a STABLE null or the last published value (useSyncExternalStore requires
+   * referential stability between updates — verify() never repeats a reference, so each publish
+   * is genuinely new data).
    */
-  const resultStoreRef = useRef<{
-    listeners: Set<() => void>;
-    current: VerifyResult | null;
-  }>({ listeners: new Set(), current: null });
+  const resultStoreRef = useRef<ExternalStore<VerifyResult | null> | null>(null);
+  const holdStoreRef = useRef<ExternalStore<number | null> | null>(null);
+  if (!resultStoreRef.current || !holdStoreRef.current) {
+    resultStoreRef.current = createExternalStore<VerifyResult | null>(null);
+    holdStoreRef.current = createExternalStore<number | null>(null);
+  }
   const publishResult = useCallback((vr: VerifyResult | null) => {
-    setResult(vr);
-    resultStoreRef.current.current = vr;
-    resultStoreRef.current.listeners.forEach((l) => l());
+    // Non-null assertion is safe: the lazy init above ran before any callback can exist.
+    resultStoreRef.current!.publish(vr);
+  }, []);
+  const publishHold = useCallback((progress: number | null) => {
+    holdStoreRef.current!.publish(progress);
   }, []);
   // Framing feedback for the camera-position guide. Deduped by message (see the tick loop) so it
   // doesn't setState on every one of the ~28 frames/sec — only when the guidance actually changes.
   const [framing, setFraming] = useState<FramingStatus | null>(null);
   const framingMsgRef = useRef<string | null>(null);
-  // 0..1 while a static (no-movement) sign's pose is being held toward STATIC_HOLD_SECONDS; null
-  // when not currently holding or when the current sign has real movement (that case is paced by
-  // the movement scorer itself, not a hold timer — see the constant's comment above).
-  const [holdProgress, setHoldProgress] = useState<number | null>(null);
   const passCallbackRef = useRef(opts?.onPass);
   passCallbackRef.current = opts?.onPass;
   const hintCallbackRef = useRef(opts?.onHint);
@@ -235,7 +231,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       bufferRef.current.clear();
       stabilizerRef.current.reset();
       publishResult(null);
-      setHoldProgress(null);
+      publishHold(null);
       frameCountRef.current = 0;
       loopStartRef.current = performance.now();
       attemptCountRef.current = 0;
@@ -454,16 +450,16 @@ export function useRecognition(opts?: UseRecognitionOpts) {
               const elapsedMs = nowMs - holdStartMs;
               if (nowMs - lastHoldUpdateMs >= RESULT_UPDATE_INTERVAL_MS) {
                 lastHoldUpdateMs = nowMs;
-                setHoldProgress(clip(elapsedMs / (STATIC_HOLD_SECONDS * 1000), 0, 1));
+                publishHold(clip(elapsedMs / (STATIC_HOLD_SECONDS * 1000), 0, 1));
               }
               if (elapsedMs >= STATIC_HOLD_SECONDS * 1000) {
                 holdStartMs = null;
-                setHoldProgress(null);
+                publishHold(null);
                 firePass();
               }
             } else {
               holdStartMs = null;
-              setHoldProgress(null);
+              publishHold(null);
             }
           } else {
             if (clearedEnough) {
@@ -492,7 +488,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
       rafRef.current = requestAnimationFrame(tick);
     },
-    [publishResult]
+    [publishResult, publishHold]
   );
 
   const stopLoop = useCallback(() => {
@@ -511,10 +507,15 @@ export function useRecognition(opts?: UseRecognitionOpts) {
    * Stable identities: safe as effect deps.
    */
   const subscribeResult = useCallback((listener: () => void) => {
-    resultStoreRef.current.listeners.add(listener);
-    return () => { resultStoreRef.current.listeners.delete(listener); };
+    return resultStoreRef.current!.subscribe(listener);
   }, []);
-  const getResultSnapshot = useCallback(() => resultStoreRef.current.current, []);
+  const getResultSnapshot = useCallback(() => resultStoreRef.current!.getSnapshot(), []);
+
+  /** Hold-progress store accessors — same contract as the result pair above. */
+  const subscribeHoldProgress = useCallback((listener: () => void) => {
+    return holdStoreRef.current!.subscribe(listener);
+  }, []);
+  const getHoldProgressSnapshot = useCallback(() => holdStoreRef.current!.getSnapshot(), []);
 
   const setSign = useCallback((sign: Sign) => {
     signRef.current = sign;
@@ -524,8 +525,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     loopStartRef.current = performance.now();
     attemptCountRef.current = 0;
     publishResult(null);
-    setHoldProgress(null);
-  }, [publishResult]);
+    publishHold(null);
+  }, [publishResult, publishHold]);
 
   useEffect(() => {
     return () => {
@@ -536,5 +537,5 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     };
   }, []);
 
-  return { status, result, framing, holdProgress, init, startLoop, stopLoop, setSign, getSnapshot, subscribeResult, getResultSnapshot };
+  return { status, framing, init, startLoop, stopLoop, setSign, getSnapshot, subscribeResult, getResultSnapshot, subscribeHoldProgress, getHoldProgressSnapshot };
 }
