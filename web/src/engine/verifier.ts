@@ -122,19 +122,20 @@ export function assignRoles(buffer: RollingBuffer): Record<string, string> {
 }
 
 function recent(buffer: RollingBuffer, seconds: number): Frame[] {
-  const frames = buffer.frames;
-  if (frames.length === 0) return [];
-  const endT = frames[frames.length - 1].t;
-  return frames.filter((f) => endT - f.t <= seconds);
+  // ASL-C2: single slice inside the buffer — was frames-spread + filter (two copies per call,
+  // ~5-10 calls per verify).
+  return buffer.recentFrames(seconds);
 }
 
+// ASL-C2: single copy-free pass — remember the newest non-null width instead of indexing a
+// materialised copy (the old shape spread the whole buffer just to read one frame).
 function latestShoulderWidth(buffer: RollingBuffer): number | null {
-  const frames = buffer.frames;
-  for (let i = frames.length - 1; i >= 0; i--) {
-    const sw = frameShoulderWidth(frames[i]);
-    if (sw) return sw;
+  let latest: number | null = null;
+  for (const f of buffer) {
+    const sw = frameShoulderWidth(f);
+    if (sw) latest = sw;
   }
-  return null;
+  return latest;
 }
 
 function scoreHandshape(buffer: RollingBuffer, handedness: string | null, kind: string): number {

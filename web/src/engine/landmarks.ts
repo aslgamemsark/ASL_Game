@@ -134,6 +134,21 @@ export class RollingBuffer {
     return [...this._frames];
   }
 
+  /** ASL-C2 hot path: frames with `endT - t <= seconds`, allocated as ONE slice. verify() calls
+   *  this ~5-10x per 100ms tick; the old `frames.filter(...)` shape paid a full spread + a filter
+   *  copy each call. Returns a fresh array (never the internal one) so async consumers (the ML
+   *  classifier gate) can hold/mutate their snapshot freely. */
+  recentFrames(seconds: number): Frame[] {
+    const n = this._frames.length;
+    if (n === 0) return [];
+    const endT = this._frames[n - 1].t;
+    let startIdx = n;
+    // Frames are appended in time order, so the recent window is always a suffix — walk back
+    // from the end and slice once.
+    while (startIdx > 0 && endT - this._frames[startIdx - 1].t <= seconds) startIdx--;
+    return this._frames.slice(startIdx);
+  }
+
   [Symbol.iterator](): Iterator<Frame> {
     let i = 0;
     const frames = this._frames;
