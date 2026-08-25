@@ -5,6 +5,18 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-E4 — audio-independence audit; real defect found: blocked audio breaks lesson entry**
+  (`OX_ALPHA_E4_AUDIO_INDEPENDENCE.md`; probe `web/e2e-adhoc/probe-audio-independent.mjs`; commit
+  `4b686ac`). With `AudioContext` hard-blocked (constructor throws — models muted user / no output
+  device / locked-down kiosk), clicking Practice Letters throws inside `sounds.tap()` BEFORE
+  `onStartLettersPractice` runs (AlphabetTab.tsx:50; unguarded chain useSounds → soundEffects →
+  getCtx), so the lesson never starts. Reproduced from both entry cards; result-path calls that
+  execute before scoring (PracticePage.tsx:316) share the pattern and would skip progress writes.
+  HIGH relevance for this audience (Deaf/HoH + school kiosks are exactly the no-audio cases).
+  Fix shape documented for owner (try/catch in getCtx/playNotes = best single layer). What already
+  works, verified live: onboarding survives blocked audio end-to-end; sound/vibration/speech are
+  independently toggleable; speech no-ops safely when unavailable.
+
 - **ASL-E2 — keyboard-only full lesson walkthrough: 12/12 PASS**
   (`OX_ALPHA_E2_KEYBOARD_LESSON.md`; probe `web/e2e-adhoc/probe-keyboard-lesson.mjs`; commit
   `399d9a0`). Executed Tab/Enter/Space-only journey against the production build at phone width:
