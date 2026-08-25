@@ -5,6 +5,19 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-D1 — UI/UX sweep executed: 42 page×viewport×theme combinations, zero overflow, clean visual
+  review** (`OX_ALPHA_D1_UIUX_SWEEP.md`; probe `web/e2e-adhoc/probe-uiux-sweep.mjs`; commit `6d1d7d1`).
+  7 guest-reachable surfaces (Home/Alphabets/Review tabs + Leaderboard/Friends/Multiplayer/Settings)
+  × 3 viewports (phone 390, tablet 820, desktop 1280) × 2 themes (forced via ThemeContext's localStorage
+  key before boot; `<html>` class verified). **Zero horizontal overflow and zero right-edge spills in
+  all 42 combinations.** 42 full-page screenshots captured and 10 sampled across the matrix for visual
+  review — no overlap, cut-off, broken images, or light-theme dark-first failures. Honest limitation
+  recorded in the report: my inline contrast estimator returned null everywhere (gradient/translucent
+  backgrounds defeat a walk-up backgroundColor search), so NO WCAG numeric claim is made — token-level
+  contrast remains delegated to the repo's own tokenContrast.test.ts gate. Camera-flow screens excluded
+  per canonical-suite rationale (fakecam + D3 denied-path cover them); signed-in-only states unswept
+  (needs auth against production Supabase — repo e2e convention avoids it).
+
 - **ASL-D3 — error/edge states audited; every failure surface verified honest + recoverable**
   (`OX_ALPHA_D3_ERROR_EDGE_STATES.md`; executed probe `web/e2e-adhoc/probe-error-states.mjs`,
   companion `probe-camera-denied.mjs`; commit `6021872`). Static inventory of all failure branches
