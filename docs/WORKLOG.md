@@ -5,6 +5,20 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-D4 — full navigation graph mapped; no orphans, no dead ends**
+  (`OX_ALPHA_D4_NAVIGATION_GRAPH.md` at repo root; commit `631caab`). Static trace of the single
+  in-app router (`App.tsx` `Screen` union, 15 screen types) with every entry point and exit
+  affordance pinned to file:line: global surfaces (SideNav ≥768px rows, BottomNav <768px five tabs,
+  TopBar avatar/cart, Me-tab Explore grid, incoming-challenge deep link), per-screen entries and
+  exits (incl. camera-teardown-on-exit paths in lesson/practice/story/speed), hardware Back via
+  `useBackDismiss` (one synthetic pushState while any non-root screen is up; Privacy→Settings is the
+  one non-home back target, mirrored by its header button). Reachability verdicts: no orphan
+  screens, no reachable state without an exit; guest gates on Friends/Multiplayer are honest gate
+  pages; `admin` is double-guarded (entry hidden + render re-checks isAdmin). Two documented quirks,
+  neither a defect: user-profile deliberately exits home rather than tracking origin; SideNav's
+  unused `shop:` handler entry is type-completeness only. Behavioral cross-check: this session's
+  canonical e2e run (158 passed / 0 failed incl. navigation.spec's 12 hardware-Back cases).
+
 - **ASL-D2 — first-run & empty-state walkthrough, now a permanent e2e gate**
   (`web/e2e/firstRun.spec.ts` — new; commit `42c32a8`). Six tests × three device projects walk a
   brand-new guest through every zero-data surface: raw-first-visit onboarding (all three
