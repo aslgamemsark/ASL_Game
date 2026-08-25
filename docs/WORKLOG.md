@@ -5,6 +5,17 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-G2 — time-to-first-success measured: 6.9 s cold-load → live signing view, ~13× under the
+  90 s activation bar** (`OX_ALPHA_G2_TIME_TO_FIRST_SUCCESS.md`; probe `web/e2e-adhoc/probe-ttfs.mjs`;
+  commit `9f0d33f`). Executed wall-clock funnel against the production build (two runs, ±0.2 s):
+  shell interactive 1.9 s → guest onboarding 3 taps → Home 5.5 s → Practice Letters 5.7 s → one-time
+  hand-check dismissible in a tap → **live "Sign this" prompt at 6.9 s** with camera live and the
+  verifier running. Six taps total, zero account friction. The residual variable is human signing
+  time; the fake feed cannot produce an A-handshape so the probe honestly reports time-to-live-view
+  plus the instant Skip escape rather than fabricating a pass number. Scope flags recorded: dev-laptop
+  timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
+  funnel; learner support after activation is F2's domain.
+
 - **ASL-F3 — Deaf/HoH sensitivity review; inclusion contract honored, 3 polish items for owner**
   (`OX_ALPHA_F3_DEAF_HOH_SENSITIVITY.md`; commit `5aad8a9`). Full-copy sweep of user-facing strings
   against PRODUCT.md's stated contract ("never gate anything on audio", AA floor): zero hearing-norm
