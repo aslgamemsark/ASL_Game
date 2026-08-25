@@ -5,6 +5,20 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-D3 — error/edge states audited; every failure surface verified honest + recoverable**
+  (`OX_ALPHA_D3_ERROR_EDGE_STATES.md`; executed probe `web/e2e-adhoc/probe-error-states.mjs`,
+  companion `probe-camera-denied.mjs`; commit `6021872`). Static inventory of all failure branches
+  (camera denied/error/stalled trio, recognizer load failure, global OfflineBanner, leaderboard
+  fetch failure, unknown route, banned terminal state, auth-modal dismissal, empty-data states from
+  D2) cross-checked by a 9-check executed probe against the production build: **9/9 PASS** —
+  unknown route keeps shell; auth modal Escape-recovers; aborted leaderboard endpoint produces the
+  "Couldn't load" card WITH Retry, and Retry recovers once the endpoint returns; offline mid-session
+  keeps the SPA alive with the named status banner that clears on reconnect; camera-denied (gUM
+  NotAllowedError injected pre-module) shows the differentiated card plus Try again. Probe note
+  recorded: the deny path flips state ~2–4 s after Allow, needing a poll loop rather than one
+  waitFor. **No gaps found** — each surface names its actual problem and offers a real remedy.
+  Residual risk noted as server-side scope: multiplayer integrity under partial connectivity.
+
 - **ASL-D5 — motion & `prefers-reduced-motion` audit; suppression verified live, one minor leak**
   (`OX_ALPHA_D5_MOTION_REDUCED_MOTION.md`; probe scripts `web/e2e-adhoc/probe-reduced-motion.mjs`,
   `probe-identify-anim.mjs`; commit `33b4782`). Three suppression layers exist and were each verified
