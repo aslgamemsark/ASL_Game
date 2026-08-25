@@ -5,6 +5,20 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-F2 — failure copy after five straight misses: no escalation exists, quiz misses are
+  color-only** (`OX_ALPHA_F2_FAILURE_COPY_FIVE_MISSES.md`; probe
+  `web/e2e-adhoc/probe-failure-copies.mjs`; commit `58a58e3`). Static trace: exactly ONE miss/skip
+  copy bank in the app — Zippy's `encourage` lines (zippy.ts:100–106, "Always kind; never
+  disappointed") — and NO miss-streak/consecutive-wrong state anywhere in src, so nothing can
+  escalate at 3/5 misses. Executed probe (two Test-from-Memory sessions): all four bank lines
+  observed across 6 skip toasts, zero off-bank strings; 3 real receptive misses showed COLOR-ONLY
+  feedback (red/green paint, no toast); mostly-missed sessions complete to `lessonCompleteEncourage`
+  (warm, never shaming). Findings for owner under `[REPORT]`: F2-a escalation absent by design but
+  a churn risk at high miss streaks + only 4 lines invites repetition; F2-b wrong quiz answers get
+  less support than skips (fix shape: reuse the existing toast component on wrong answers, optional
+  second bank after N consecutive misses). No shaming anywhere — the design contract is honored;
+  the gap is missing extra help, not harshness.
+
 - **ASL-E3 — screen-reader surface audit of the camera screens; one fragile control found**
   (`OX_ALPHA_E3_SR_CAMERA_SCREENS.md`; probe `web/e2e-adhoc/probe-sr-camera-screens.mjs`; commit
   `6efd5c1`). With a fake camera driving real live views: Lesson and Practice both carry the
