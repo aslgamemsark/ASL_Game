@@ -5,6 +5,24 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-D2 — first-run & empty-state walkthrough, now a permanent e2e gate**
+  (`web/e2e/firstRun.spec.ts` — new; commit `42c32a8`). Six tests × three device projects walk a
+  brand-new guest through every zero-data surface: raw-first-visit onboarding (all three
+  skill-level options present), beginner routing to Alphabets with all 26 letter tiles +
+  "Practice Letters" CTA, Journey's "Start your journey" hero with quests honestly at 0/3 and the
+  unlocked "Say Hello" world card at 0/3, Me-tab zeros (Beginner rank, `Badges (0)`) with the full
+  Explore grid present, and Leaderboard/Friends/Multiplayer rendering shells or honest sign-in
+  gates. Determinism notes encoded in the spec: phone viewport (BottomNav labels differ above
+  `lg`); service workers blocked — the PWA SW fetches leaderboard rows itself and WebKit route
+  interception cannot see those requests; `weekly_leaderboard` mocked to an empty PostgREST list,
+  because otherwise the test depends on live production rows and eats a ~15 s supabase-js retry
+  wall. **Audit finding (report-only, owner's call):** the leaderboard failure path shows ~15 s of
+  skeletons before its error card, because postgrest-js retries GETs 4× with exponential backoff
+  AND the page's own column-fallback doubles the sequence — a real-UX number worth a product
+  decision, not silently patched in a test commit. **Evidence:** full canonical suite 158 passed /
+  4 skipped / 0 failed across chromium+android+ios (was 140 before this spec); vitest 769+9todo;
+  tsc 0 errors; oxlint exit 0 / 30 warnings = unchanged baseline.
+
 - **ASL-C2 — per-verify array copies removed from the 10 Hz recognition hot path**
   (`web/src/engine/landmarks.ts`, `web/src/engine/verifier.ts`, `tests/hotpath-no-copy.test.ts` —
   new; commit `cce5f56`). **Mechanism:** `verify()` runs every 100 ms tick and called `recent()`
