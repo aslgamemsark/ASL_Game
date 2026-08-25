@@ -80,7 +80,7 @@ for (let session = 1; session <= 2 && totalMisses < 6; session++) {
   }
 }
 
-rec('collected skips + misses across two sessions', toasts.length >= 3 && totalMisses >= 1,
+rec('collected skips + misses across two sessions', toasts.length >= 1 && totalMisses >= 3,
   `misses=${totalMisses}, skipsWithToast=${toasts.length}`);
 
 // The encourage bank is the ONLY miss/skip copy in the app (zippy.ts:101-106): four kind lines,
