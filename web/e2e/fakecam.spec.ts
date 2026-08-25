@@ -1,23 +1,37 @@
-// hermes-fakecam-e2e — ad-hoc verification (NOT part of the canonical suite)
+// Camera lesson E2E — canonical e2e since ASL-A8 (round-4, 2026-08-25). Was `e2e-adhoc/fakecam.spec.ts`,
+// which never ran (outside testDir, no script, not in CI) even though it was the only end-to-end
+// camera-pipeline test in the repo.
+//
+// Scoped to the `chromium` project: Chromium is the only engine here with a synthetic fake video
+// device (--use-fake-device-for-media-stream, playwright.config.ts). WebKit/Safari has no
+// equivalent flag, so on the ios project getUserMedia would reject and this spec could only ever
+// assert "camera failed" — which the app's own error card already covers. The other specs in e2e/
+// deliberately avoid camera flows for the same reason (see mobile.spec.ts's wasm-CDN filter note).
 import { test, expect } from '@playwright/test';
 
-async function enterAsGuest(page: import('@playwright/test').Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: /get started/i }).click();
-  await page.getByRole('button', { name: /continue as guest/i }).click();
-  await page.getByRole('button', { name: /just starting/i }).click();
-  await expect(page.getByRole('button', { name: /sign in/i }).first()).toBeVisible({ timeout: 15_000 });
-}
-
 test('camera lesson: fake cam activates preview + recognition pipeline without errors', async ({ page }) => {
+  // Scoped to the `chromium` PROJECT by name, not engine: the android project also runs the
+  // Chromium engine, but only the chromium project carries the --use-fake-device launch args
+  // (playwright.config.ts), so there the camera legitimately cannot come up.
+  test.skip(test.info().project.name !== 'chromium',
+    'fake video device is configured only on the chromium project');
+
   const consoleErrors: string[] = [];
   page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   page.on('pageerror', (e) => consoleErrors.push(`pageerror: ${e.message}`));
 
-  await enterAsGuest(page);
-  await page.getByRole('button', { name: /Practice Letters/i }).click();
+  // Guest onboarding → Home.
+  await page.goto('/');
+  await page.getByRole('button', { name: /get started/i }).click();
+  await page.getByRole('button', { name: /continue as guest/i }).click();
+  await page.getByRole('button', { name: /just starting/i }).click();
+  await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
 
-  // First-lesson camera onboarding gate
+  // Alphabet tab → the one-click "Practice Letters" starter (AlphabetTab.tsx).
+  await page.getByRole('button', { name: /Alphabets/ }).first().click();
+  await page.getByRole('button', { name: /Practice Letters/i }).first().click();
+
+  // First-lesson camera onboarding gate mounts when signup-camera-onboarded is unset.
   const allow = page.getByRole('button', { name: /Allow Camera/i });
   if (await allow.isVisible().catch(() => false)) await allow.click();
 

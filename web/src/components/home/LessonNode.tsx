@@ -39,6 +39,9 @@ export function LessonNode({ node, index, unitColor, onSelect, skipCost, signsBa
         <motion.button
           onClick={() => !isLocked && onSelect(node.id)}
           disabled={isLocked}
+          // Named after the node: the button is emoji-only otherwise, which left e2e (and screen
+          // readers, before the visible title below it) with no way to address a specific lesson.
+          aria-label={`Lesson: ${node.title}`}
           className={`
             relative w-[68px] h-[68px] rounded-2xl flex items-center justify-center
             text-2xl font-bold transition-colors border-2

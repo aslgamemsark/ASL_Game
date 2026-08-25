@@ -43,7 +43,19 @@ export default defineConfig({
   // zoom, and visualViewport-keyboard fixes in this codebase can be genuinely verified (no iOS
   // Simulator exists on Windows/Linux CI, so this is the closest real coverage available).
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // Fake camera for the one camera-flow spec in this suite (fakecam.spec.ts): Chromium
+        // synthesizes a live stream so getUserMedia resolves without a prompt. Harmless to specs
+        // that never call getUserMedia; the multiplayer suite keeps its own config because it
+        // needs fake media across TWO contexts plus loopback-only WebRTC (see its header).
+        launchOptions: {
+          args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+        },
+      },
+    },
     { name: 'android', use: { ...devices['Pixel 7'] } },
     { name: 'ios', use: { ...devices['iPhone 14 Pro'] } },
   ],
