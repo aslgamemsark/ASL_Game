@@ -5,6 +5,19 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-E1 — full axe sweep: 19 stable findings, all moderate, 0 serious/critical**
+  (`OX_ALPHA_E1_AXE_SWEEP.md`; probe `web/e2e-adhoc/probe-axe-full.mjs`; commit `d5d4920`). Executed
+  axe-core audit over 10 guest-reachable surfaces at phone width (Home + 4 tabs + Leaderboard +
+  Friends/Multiplayer/Settings + open feedback dialog), double-scan per surface with a11y.spec.ts's
+  settle mechanics. Unlike the canonical gate (serious/critical only), this reports everything: the
+  complete stable-findings list is exactly two moderate rule families — `landmark-one-main` (no
+  `<main>` landmark anywhere; screens render in generic divs) and `region` (all content outside
+  landmarks, x3–x14 per page). Both are one-fix structural items (a `<main>` wrapper in App.tsx would
+  clear both everywhere) — documented for the owner rather than patched under `[REPORT]` scope.
+  Everything else axe covers — names/roles/values, dialog semantics, heading order, alts, keyboard
+  reachability — clean on all surfaces. E3 (screen-reader pass on camera screens) will weigh how much
+  jump-to-main matters for this audience.
+
 - **ASL-D1 — UI/UX sweep executed: 42 page×viewport×theme combinations, zero overflow, clean visual
   review** (`OX_ALPHA_D1_UIUX_SWEEP.md`; probe `web/e2e-adhoc/probe-uiux-sweep.mjs`; commit `6d1d7d1`).
   7 guest-reachable surfaces (Home/Alphabets/Review tabs + Leaderboard/Friends/Multiplayer/Settings)
