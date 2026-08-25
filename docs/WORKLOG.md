@@ -5,6 +5,18 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-E3 — screen-reader surface audit of the camera screens; one fragile control found**
+  (`OX_ALPHA_E3_SR_CAMERA_SCREENS.md`; probe `web/e2e-adhoc/probe-sr-camera-screens.mjs`; commit
+  `6efd5c1`). With a fake camera driving real live views: Lesson and Practice both carry the
+  always-mounted polite/assertive sr-only live-region trio (success/XP/completion announcements on
+  LessonPage.tsx:279-288 + skip messages + ParameterChecklist progress), zero unnamed interactive
+  controls on Lesson, zero serious/critical axe findings on both. ONE finding: Practice's
+  "Record my attempts for replay" checkbox (PracticePage.tsx:477-485) has no explicit label
+  association — works via implicit `<label>` wrapper today but breaks silently if restructured; fix
+  is a single aria-label. Story/Speed verified NOT guest-reachable (Me-tab grid shows neither for a
+  zero-progress account) — their SR pass recorded as owner scope requiring signed-in state. Human-ear
+  NVDA/VoiceOver pass flagged as the remaining manual half; mechanical layer verified clean.
+
 - **ASL-E4 — audio-independence audit; real defect found: blocked audio breaks lesson entry**
   (`OX_ALPHA_E4_AUDIO_INDEPENDENCE.md`; probe `web/e2e-adhoc/probe-audio-independent.mjs`; commit
   `4b686ac`). With `AudioContext` hard-blocked (constructor throws — models muted user / no output
