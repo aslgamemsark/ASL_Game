@@ -41,6 +41,12 @@ for (let session = 1; session <= 2 && totalMisses < 6; session++) {
       console.log(`session${session}: complete screen reached`);
       break;
     }
+    // A badge/level celebration modal can intercept clicks mid-session — dismiss it.
+    const badgeDialog = page.locator('[role="dialog"][aria-label="Badge earned"]');
+    if (await badgeDialog.isVisible().catch(() => false)) {
+      await badgeDialog.locator('button').first().click({ force: true }).catch(() => {});
+      await page.waitForTimeout(500);
+    }
     const choices = page.locator('button.p-4.rounded-2xl.font-bold').filter({ visible: true });
     if ((await choices.count()) >= 4) {
       // Receptive question: click option #1 (~25% right).
@@ -74,7 +80,7 @@ for (let session = 1; session <= 2 && totalMisses < 6; session++) {
   }
 }
 
-rec('collected misses + skips across sessions', totalMisses >= 3,
+rec('collected skips + misses across two sessions', toasts.length >= 3 && totalMisses >= 1,
   `misses=${totalMisses}, skipsWithToast=${toasts.length}`);
 
 // The encourage bank is the ONLY miss/skip copy in the app (zippy.ts:101-106): four kind lines,
