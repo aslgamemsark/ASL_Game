@@ -5,6 +5,20 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-C2 — per-verify array copies removed from the 10 Hz recognition hot path**
+  (`web/src/engine/landmarks.ts`, `web/src/engine/verifier.ts`, `tests/hotpath-no-copy.test.ts` —
+  new; commit `cce5f56`). **Mechanism:** `verify()` runs every 100 ms tick and called `recent()`
+  ~5–10×; each call paid two full-buffer allocations (the `frames` getter spread plus a
+  `.filter()` on top), and `latestShoulderWidth` materialised yet another full copy to read one
+  frame — roughly 15–20 throwaway arrays per second of signing. Fix: `RollingBuffer.recentFrames(s)`
+  returns the recent window as ONE suffix slice (frames are time-ordered → window always
+  contiguous), fresh array per call so async consumers (the ML classifier gate) can hold their
+  snapshot; verifier's `recent()` delegates with byte-identical semantics (pinned by an equivalence
+  test); `latestShoulderWidth` is now a copy-free single pass tracking the newest non-null width.
+  **Red-first:** the regression suite was written against the missing API and failed 5/5 before the
+  fix. **Gates:** vitest 769 passed | 9 todo (+5 new), `tsc -b` 0 errors, oxlint 30 warnings /
+  0 errors = exact pre-change baseline (verified via stash comparison).
+
 - **ASL-A8 — the never-run e2e suites now actually run** (`web/e2e/explore.spec.ts` — moved+rewritten,
   `web/e2e/fakecam.spec.ts` — moved, `web/playwright.config.ts`, `web/src/components/home/LessonNode.tsx`;
   commit `8909892`). **Mechanism:** both specs sat in `e2e-adhoc/`, which is outside `testDir: './e2e'`,
