@@ -28,6 +28,18 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-H3 — difficulty curve analyzed: well-formed, no spikes, one design observation**
+  (`OX_ALPHA_H3_DIFFICULTY_CURVE.md`; analyzer `web/e2e-adhoc/analyze-difficulty.mjs`; commit
+  `4651749`). Structural parse of LESSON_UNITS (16 lessons / 7 units / 51 defined signs): lesson sizes
+  1–8 signs with a median of 3–4; new-sign load 1–5 per lesson; a consolidation (0-new-signs) story/review
+  beat after roughly every two teaching lessons; XP scales with load — XP-per-new-sign stays in a tight
+  3.8–7.5 band across all standard lessons (the 15–20 outliers are small-N 1-sign lessons, not spikes);
+  zero orphan references and full coverage of the 27 taught signs. The finale's 8-sign story is pure
+  review. One design observation for the owner: 24 of 51 signs (letters A–Z minus H/I) live OUTSIDE the
+  lesson curve on the Alphabets tab, whose Practice Letters card teaches only the first 5 letters to new
+  users then randomizes — the letter difficulty "curve" is flat/random by design. Not a defect; a scope
+  question about how central fingerspelling should be.
+
 - **ASL-H2 — core loop traced; spaced repetition verified live end to end**
   (`OX_ALPHA_H2_CORE_LOOP.md`; probe `web/e2e-adhoc/probe-core-loop.mjs` with persistent profile;
   commit `a7796cf`). Static trace: LessonPage → `recordSign` → SM-2-style scheduler
