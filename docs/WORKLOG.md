@@ -28,6 +28,15 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-I2 — SEO/structured data verified against production; 12/12 executed checks PASS, no defects**
+  (`OX_ALPHA_I2_SEO_STRUCTURED_DATA.md`; probe `web/e2e-adhoc/probe-seo.mjs`; commit `dd6b1fd`).
+  Read-only HTTP probe of aslgame.vercel.app exactly as crawlers see it: robots.txt 200 + sitemap
+  declared + sensible Allow/Disallow shape (app shell intentionally unrankable, documented in-file);
+  all 3 sitemap URLs resolve 200; landing.html 3/3 and index.html 2/2 JSON-LD blocks parse valid
+  (FAQ "Is it free? Yes" consistent with I1 honesty verdicts; SoftwareApplication price=0 accurate);
+  og:image resolves on the CDN; manifest parses with name/3 icons/start_url (PWA-complete). One nit:
+  sitemap omits <lastmod> — harmless at this scale.
+
 - **ASL-I1 — landing-page claims audited; one false claim found, rest verified TRUE**
   (`OX_ALPHA_I1_LANDING_CLAIMS.md`; commit `fe04025`). Full read of index.html + landing.html (1,359
   lines) against executed evidence: privacy claims ("camera never leaves your device", "on-device AI")
