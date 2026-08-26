@@ -28,6 +28,19 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-H5 — multiplayer assessed: keep but freeze; content first**
+  (`OX_ALPHA_H5_MULTIPLAYER.md`; commit `9a3b10f`). Surface area counted: DuelPage 857 + RoomPage 767 +
+  FriendsPage 597 + hub/components/lib ≈ **2,700 lines** (~9% of page/lib code), plus the
+  `multiplayer_rooms` schema, `find_public_room` RPC, and the CI-only local-Supabase
+  `multiplayer.spec.ts` suite. Cross-referenced session evidence: D3 shows multiplayer is among the
+  first features to break offline (and match-integrity under partial connectivity is explicitly out of
+  client scope); D2 showed the social/leaderboard layer carries the worst network fragility (retry
+  stalls); G4/H2/H6 show activation, core loop, and retention all operate without it. Value is real
+  (friend duels = word-of-mouth; differentiator) but adds no learning content over the same 51 signs.
+  Verdict: functional and tested → don't delete; feature-freeze it and spend new product effort on
+  content units (H6's bottleneck). Rule of thumb recorded for owner: 1 hour of unique content vs 2,700
+  lines of networked code — grow the former first.
+
 - **ASL-H6 — content depth assessed: ~1 hour of unique content; scope boundary, not a defect**
   (`OX_ALPHA_H6_CONTENT_DEPTH.md`; inventory `web/e2e-adhoc/analyze-retention.mjs`; commit `b6e8a75`).
   Full count: 51 defined signs (27 in lessons + 24-letter fingerspelling set), 16 lessons / 7 units
