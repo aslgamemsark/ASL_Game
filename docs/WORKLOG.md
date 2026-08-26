@@ -28,6 +28,18 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-J4 — analytics PII audit: clean; opt-out verified working; bot-filter gotcha documented**
+  (`OX_ALPHA_J4_ANALYTICS_PII.md`; probe `web/e2e-adhoc/probe-analytics-pii.mjs`; commit `521f727`).
+  PART A: live guest session, every /e/ batch gzip-decoded — 16 events ($groupidentify,
+  screen_viewed, onboarding_*, $autocapture, guest_started, auth_option_selected): ZERO emails/JWTs/
+  supabase token fields in any property; every $current_url sanitized to origin+path (the
+  before_send fragment-redaction holds at runtime); payloads carry only screen/step/skill names +
+  standard PostHog context. Config reviewed: autocapture ON but maskAllInputs, pageview OFF
+  (deliberate screen_viewed instead), person_profiles=identified_only, respect_dnt=true.
+  PART B: persisted opt-out → zero event batches after the initial sync window. Owner note:
+  posthog-js silently drops all captures under automation (webdriver/HeadlessChrome detection) —
+  e2e analytics tests must scrub those markers.
+
 - **ASL-J3 — dependency audit: healthy; 3 patchable advisories, zero dead deps**
   (`OX_ALPHA_J3_DEPENDENCY_AUDIT.md`; usage scanner `web/e2e-adhoc/analyze-deps.mjs`; commit
   `8cc0910`). npm audit: 3 advisories (dompurify moderate XSS, fast-uri high, nanoid high) — ALL
