@@ -28,6 +28,18 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-H4 — reward economy audited; honest and deflation-leaning, no defects**
+  (`OX_ALPHA_H4_REWARD_ECONOMY.md`; extractor `web/e2e-adhoc/analyze-economy.mjs` + executed
+  earn/spend probe `web/e2e-adhoc/probe-economy.mjs`; commit `27e8651`). Sources traced: duel +10,
+  room +8, story max(5, 20−3·skips−hints/2) performance-scaled, chest +5g fixed (+50–199 pet tokens),
+  perfect-session bonus only on the alphabet-memory path, +10000 strictly admin-gated. Sinks: 29 shop
+  items (avatars 5–50g, borders 15–75g, rename card 150g consumable, streak protection 100g) plus
+  world unlocks and the chest skip-timer sink (max(5, hoursLeft×20)). Store guards refuse every
+  underfunded purchase — balances cannot go negative. EXECUTED: an all-skip guest session earned
+  exactly "0 XP earned" on its completion screen (skimming is not rewarded), and a 0-gold guest could
+  not complete any purchase. Inflation risk low: no repeatable farm; signs-vs-gold chest ratio noted
+  as future-proofing only.
+
 - **ASL-H3 — difficulty curve analyzed: well-formed, no spikes, one design observation**
   (`OX_ALPHA_H3_DIFFICULTY_CURVE.md`; analyzer `web/e2e-adhoc/analyze-difficulty.mjs`; commit
   `4651749`). Structural parse of LESSON_UNITS (16 lessons / 7 units / 51 defined signs): lesson sizes
