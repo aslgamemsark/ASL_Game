@@ -28,6 +28,16 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-J1 — client-bundle secret sweep: CLEAN, zero true secrets in dist/**
+  (`OX_ALPHA_J1_BUNDLE_SECRET_SWEEP.md`; probe `web/e2e-adhoc/probe-secret-sweep.mjs`; commit
+  `367dab2`). Executed 8-pattern sweep over 124 built files (service keys, OpenAI/Gemini/Anthropic
+  shapes, JWTs, private-key blocks, bearer tokens, generic api_key/secret assignments): single hit =
+  one JWT in the supabase chunk, decoded and classified — role=anon, iss=supabase, i.e. the
+  **by-design public anon key** (long-lived exp 2036 is normal for static anon keys; RLS carries the
+  security). No service_role key anywhere. Expected-public values confirmed: VITE_SUPABASE_URL and
+  PostHog `phc_` ingest token. Historical J4 concern (once-leaked Supabase JWT) not recurring.
+  Standing discipline note: never add service-role creds to VITE_* env vars.
+
 - **ASL-I4 — competitive positioning: honest wedge found, gap is content not features**
   (`OX_ALPHA_I4_COMPETITIVE_POSITIONING.md`; commit `d703d20`). Landscape surveyed via public
   roundups (Preply/ling-app 2026, MezzoGuild, EducationalAppStore, ASL Bloom): real-time camera
