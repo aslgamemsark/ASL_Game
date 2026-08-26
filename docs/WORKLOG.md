@@ -28,6 +28,17 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-I3 — Play Store TWA readiness: web side passes all prerequisites; Android half is owner scope**
+  (`OX_ALPHA_I3_PLAY_STORE_TWA.md`; commit `d3da2c1`). Checklist vs Bubblewrap requirements, verified
+  statically (vite.config.ts:144-161 manifest block, public/ icon files) + live via I2's production
+  probe: name/short_name ✅, start_url+scope `/` ✅, standalone display ✅, 192/512 icons incl.
+  maskable variant ✅, theme/background colors consistent with index.html ✅, service worker with
+  app-shell precache + navigateFallback + runtime caches for clips/models + autoUpdate registration ✅,
+  Apple TWA meta present ✅. Gaps are all Android-packaging-half and cannot be done from this repo:
+  no `/.well-known/assetlinks.json` (needs the signing key's SHA-256 at packaging time), no signed
+  AAB/Bubblewrap project, and camera-permission rationale inside an installed TWA should be tested on
+  real hardware before submission. No web-code changes warranted.
+
 - **ASL-I2 — SEO/structured data verified against production; 12/12 executed checks PASS, no defects**
   (`OX_ALPHA_I2_SEO_STRUCTURED_DATA.md`; probe `web/e2e-adhoc/probe-seo.mjs`; commit `dd6b1fd`).
   Read-only HTTP probe of aslgame.vercel.app exactly as crawlers see it: robots.txt 200 + sitemap
