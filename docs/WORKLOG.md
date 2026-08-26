@@ -28,6 +28,18 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-H2 — core loop traced; spaced repetition verified live end to end**
+  (`OX_ALPHA_H2_CORE_LOOP.md`; probe `web/e2e-adhoc/probe-core-loop.mjs` with persistent profile;
+  commit `a7796cf`). Static trace: LessonPage → `recordSign` → SM-2-style scheduler
+  (useUserStore.ts:215–253: miss ⇒ interval 1 / ease −0.2, success ⇒ interval ×ease after first
+  6-day step) → PracticeTab due-count copy + `getSignsDueForReview` pool (due-first, weakest fill)
+  → Practice answers re-call `recordSign`, closing the loop. Executed probe (4/4 PASS): visit-1
+  misses persisted (5 letters, all interval=1, nextReviewInDays=1); backdating nextReviewAt +1h and
+  reloading surfaced **"5 signs to review"** on the Review tab with honest copy intact; Quick
+  Session opened the practice flow for exactly those due signs. Observations for owner: Review-tab
+  Quick Session stops at the mode chooser (+1 tap for returning reviewers); success jumps
+  interval 1→6 days — classic SM-2, retention implications deferred to H6/H4 cross-check.
+
 - **ASL-G4 — return-visit path verified: 3.1 s to usable Home, zero friction, state-correct**
   (`OX_ALPHA_G4_RETURN_VISIT.md`; probe `web/e2e-adhoc/probe-return-visit.mjs` with persistent
   profile; commit `74071d9`). Visit 1 establishes a real learner state (onboarding + full Practice
