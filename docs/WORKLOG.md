@@ -28,6 +28,19 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-I4 — competitive positioning: honest wedge found, gap is content not features**
+  (`OX_ALPHA_I4_COMPETITIVE_POSITIONING.md`; commit `d703d20`). Landscape surveyed via public
+  roundups (Preply/ling-app 2026, MezzoGuild, EducationalAppStore, ASL Bloom): real-time camera
+  feedback exists broadly only in Lingvano, behind a subscription and native apps; free competitors
+  (The ASL App, SignSchool) have none. QuickSign's differentiators are each evidence-backed by this
+  session: free + no-signup + browser (G2), per-parameter feedback that's real (I1), privacy as
+  architecture (D3/I1), Deaf-first interaction design (F3/E2/E3/E4), honest failure states (D3/F2/H4).
+  Honest gaps: content depth (~1 h vs hundreds of lessons — H6), native distribution (I3: TWA prepared,
+  unpackaged), grammar/conversation scope, brand trust. Evidence-backed positioning statement recorded:
+  "the only free, no-signup way to practice ASL signs with instant per-parameter feedback in your
+  browser — your camera never leaves your device." Strategic read for owner: the wedge already exists
+  and is proven; content depth remains the single highest-leverage investment.
+
 - **ASL-I3 — Play Store TWA readiness: web side passes all prerequisites; assetlinks already live**
   (`OX_ALPHA_I3_PLAY_STORE_TWA.md`; commit `d3da2c1`, correction `931fee8`). Checklist vs Bubblewrap
   requirements, verified statically (vite.config.ts:144-161 manifest block, public/ icon files) + live
