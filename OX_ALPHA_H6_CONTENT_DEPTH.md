@@ -16,7 +16,7 @@ with this session's executed timings (G2 funnel, G4 return visit, H2 SR math). N
 | Lessons (units) | 16 (7) | one-time XP total: **365 XP** |
 | Stories | **5** | Meet Zippy, Coffee Shop, Rush Hour, Hospital, Classroom |
 | Badges | 23 | achievement layer |
-| Daily quests | 17 definitions | repeatable daily loop |
+| Daily quests | 16 definitions in the generator pool | `generateQuestsForToday()` samples these into a daily set |
 | Ranks | 6 | Beginner → ASL Legend at 10,000 XP |
 
 The mission's "24 signs" framing is conservative: real teachable content is 27 lesson signs + a 26-letter
