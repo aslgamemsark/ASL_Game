@@ -5,6 +5,18 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-25
 
+- **ASL-G3 — camera-permission moment audited across granted/denied/prompt scenarios**
+  (`OX_ALPHA_G3_CAMERA_PERMISSION.md`; probe `web/e2e-adhoc/probe-camera-permission.mjs`; commit
+  `6a79329`). Two distinct first-camera paths verified live: the Lesson-page path shows the
+  exemplary CameraOnboarding primer (local-processing reassurance, training-data disclosure with
+  opt-out, Allow/Not-now/Escape, iPhone-SE overflow fix) before any native bar; the FASTER guest
+  funnel (Alphabets → Practice Letters, G2's 6.9 s path) goes straight to the cold native bar with
+  no app-side context — FINDING G3-a, fix shape = compact primer before PracticePage's expressive
+  start (trade-off: +1 tap on the activation funnel; owner weighs speed vs context). Denial path
+  executed: honest "Camera access denied" card with settings guidance + Try again; recovery to live
+  view verified once access returns. G3-b: protect the primer as-is. G3-c: "Not now" sets no flag,
+  so deliberate decliners see it every entry — minor.
+
 - **ASL-G2 — time-to-first-success measured: 6.9 s cold-load → live signing view, ~13× under the
   90 s activation bar** (`OX_ALPHA_G2_TIME_TO_FIRST_SUCCESS.md`; probe `web/e2e-adhoc/probe-ttfs.mjs`;
   commit `9f0d33f`). Executed wall-clock funnel against the production build (two runs, ±0.2 s):
