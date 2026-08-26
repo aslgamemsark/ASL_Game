@@ -28,6 +28,17 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-I1 — landing-page claims audited; one false claim found, rest verified TRUE**
+  (`OX_ALPHA_I1_LANDING_CLAIMS.md`; commit `fe04025`). Full read of index.html + landing.html (1,359
+  lines) against executed evidence: privacy claims ("camera never leaves your device", "on-device AI")
+  TRUE per D3/client-side recognition; "Free / No signup" TRUE per G2/G4 guest path + no-paywall shop;
+  "tells you exactly which part to fix" TRUE via ParameterChecklist rule verifier; "stories + duels"
+  TRUE per H6/H5 inventories. FINDING I1-a: landing.html:8 meta description says "AI-powered Sign
+  Coach" — the coach is a deterministic rule verifier (`engine/verifier.ts`), zero ML inference;
+  in-product copy never uses "AI-powered" (grep: zero hits). Fix = 3 words on one line; owner call.
+  Minor I1-c: index.html omits the phrase while landing keeps it. "Learn ASL" framing judged
+  acceptable puffery given H1's honest journey.
+
 - **ASL-H1 — learner journey friction map; every claim traced to today's executed probes**
   (`OX_ALPHA_H1_LEARNER_JOURNEY.md`; commit `6618097`). Moment-by-moment first hour: activation 6.9 s
   (G2) → context-free camera ask on fastest path (G3-a) → honest denial/recovery + E4-a audio defect →
