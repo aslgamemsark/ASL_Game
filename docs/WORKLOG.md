@@ -30,6 +30,15 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-26
 
+- **ASL-L1 — coverage map executed; gaps ranked by shipped-risk**
+  (`OX_ALPHA_L1_COVERAGE_MAP.md`; commit `c1029ca`). Ran `npx vitest run --coverage` (v8 provider
+  installed ad-hoc --no-save, suite green): **67.96% stmts / 52.8% branches / 60.86% funcs / 70.71%
+  lines**. Ranked gaps: useRecognition.ts 7.1% (core pipeline), useProgressSync.ts 10.6% (merge/
+  conflict = data-loss class), AuthContext.tsx 0.89% (lockout class), engine/capture.ts 3.84%,
+  useAttemptLog 14.3%, geolocation 17.6%, settingsStore 22.2%. Well-covered: engine rules, store
+  branches, pure transforms — testing philosophy holds. L2 order: progressSync → AuthContext →
+  recognition reducers.
+
 - **ASL-K2 — 34 oxlint warnings triaged; zero shipped-bug indicators**
   (`OX_ALPHA_K2_LINT_WARNING_TRIAGE.md`; commit `9819913`). Executed npx oxlint (34 warnings, 0
   errors vs baseline 30 — the +4 are this session's adhoc probes). Breakdown: 13 exhaustive-deps on
