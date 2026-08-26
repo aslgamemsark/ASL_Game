@@ -28,6 +28,16 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-J3 — dependency audit: healthy; 3 patchable advisories, zero dead deps**
+  (`OX_ALPHA_J3_DEPENDENCY_AUDIT.md`; usage scanner `web/e2e-adhoc/analyze-deps.mjs`; commit
+  `8cc0910`). npm audit: 3 advisories (dompurify moderate XSS, fast-uri high, nanoid high) — ALL
+  fixable non-breaking via `npm audit fix`; recommendation recorded for owner to run it + canonical
+  gates (audit-only mandate here). npm outdated: 22/35 direct deps drift within semver; 3 majors
+  pinned deliberately (MediaPipe tasks-vision 1.0 major = model-API risk, framer-motion 13, @types/node
+  26). Heuristic unused-dep scan: every direct dep traces to src/config/scripts/e2e — the
+  "not-found" list is all legitimate tooling deps (oxlint, typescript, @types/*, sharp+resvg via
+  scripts/gen-icons.mjs). No package.json changes made.
+
 - **ASL-J2 — privacy claim re-verified on the built bundle + live runtime; 11/11 PASS**
   (`OX_ALPHA_J2_PRIVACY_ON_BUILT_BUNDLE.md`; probe `web/e2e-adhoc/probe-privacy-bundle.mjs`; commit
   `b7d5ab7`). PART A static: all 124 dist files scanned — no XHR POST/PUT uploads, no FormData
