@@ -28,6 +28,16 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-H1 — learner journey friction map; every claim traced to today's executed probes**
+  (`OX_ALPHA_H1_LEARNER_JOURNEY.md`; commit `6618097`). Moment-by-moment first hour: activation 6.9 s
+  (G2) → context-free camera ask on fastest path (G3-a) → honest denial/recovery + E4-a audio defect →
+  keyboard/SR pass with F2-b color-only misses → day-2 return at 3.1 s zero-friction (G4) → SM-2 review
+  cycling live (H2) → no failure-copy escalation and ~1 h of novelty then repeat loops (F2/H6).
+  STUCK list: E4-a (audio throw blocks lesson entry — top severity, hits Deaf/HoH audience) and F2-b
+  (quiz misses color-only). BORED list: no miss-streak escalation, content ceiling, +1 tap review
+  re-entry, letters outside the curve. Everything else verified fast/honest/kind. One-liner for owner:
+  unstick E4-a + F2-b, buy novelty with units.
+
 - **ASL-H5 — multiplayer assessed: keep but freeze; content first**
   (`OX_ALPHA_H5_MULTIPLAYER.md`; commit `9a3b10f`). Surface area counted: DuelPage 857 + RoomPage 767 +
   FriendsPage 597 + hub/components/lib ≈ **2,700 lines** (~9% of page/lib code), plus the
