@@ -28,6 +28,18 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-J2 — privacy claim re-verified on the built bundle + live runtime; 11/11 PASS**
+  (`OX_ALPHA_J2_PRIVACY_ON_BUILT_BUNDLE.md`; probe `web/e2e-adhoc/probe-privacy-bundle.mjs`; commit
+  `b7d5ab7`). PART A static: all 124 dist files scanned — no XHR POST/PUT uploads, no FormData
+  blob/file appends, no canvas.toBlob/toDataURL frame capture, no WebSocket media, no base64 video
+  markers; single MediaRecorder hit context-checked = local replay feature only. PART B dynamic:
+  live Practice Letters session with camera streaming, 15 s of outbound traffic recorded — zero
+  requests to non-allowed hosts (PostHog analytics + jsdelivr CDN + googleapis), googleapis hits are
+  INBOUND GETs only (MediaPipe model/wasm CDN download), zero POSTs >50KB (frame-upload scale absent).
+  Camera pipeline confirmed genuinely active during observation. Claim "camera never leaves your
+  device" holds on the shipped artifact. Doc note: list storage.googleapis.com as inbound-only model
+  CDN in privacy disclosures.
+
 - **ASL-J1 — client-bundle secret sweep: CLEAN, zero true secrets in dist/**
   (`OX_ALPHA_J1_BUNDLE_SECRET_SWEEP.md`; probe `web/e2e-adhoc/probe-secret-sweep.mjs`; commit
   `367dab2`). Executed 8-pattern sweep over 124 built files (service keys, OpenAI/Gemini/Anthropic
