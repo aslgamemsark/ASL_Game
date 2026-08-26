@@ -28,6 +28,16 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-H6 — content depth assessed: ~1 hour of unique content; scope boundary, not a defect**
+  (`OX_ALPHA_H6_CONTENT_DEPTH.md`; inventory `web/e2e-adhoc/analyze-retention.mjs`; commit `b6e8a75`).
+  Full count: 51 defined signs (27 in lessons + 24-letter fingerspelling set), 16 lessons / 7 units
+  (365 one-time XP), 5 stories, 23 badges, 17 daily-quest defs, 6 ranks to 10,000 XP. Exhaustion math
+  (using this session's executed timings): ~40 min of lessons + ~25 min of stories ≈ **~1 hour of novel
+  content**; everything past that is repeat loops. SR (verified live, H2) sustains memory but creates no
+  novelty — retention past week one rests on the daily-quest habit loop alone. Verdict: coherent free-v1
+  beginner scope that simply ends; the engine is content-ready and new units (numbers/colors/family/
+  feelings) reuse the entire pipeline — content is the bottleneck, not code.
+
 - **ASL-H4 — reward economy audited; honest and deflation-leaning, no defects**
   (`OX_ALPHA_H4_REWARD_ECONOMY.md`; extractor `web/e2e-adhoc/analyze-economy.mjs` + executed
   earn/spend probe `web/e2e-adhoc/probe-economy.mjs`; commit `27e8651`). Sources traced: duel +10,
