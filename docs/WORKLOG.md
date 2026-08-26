@@ -28,6 +28,17 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-G4 — return-visit path verified: 3.1 s to usable Home, zero friction, state-correct**
+  (`OX_ALPHA_G4_RETURN_VISIT.md`; probe `web/e2e-adhoc/probe-return-visit.mjs` with persistent
+  profile; commit `74071d9`). Visit 1 establishes a real learner state (onboarding + full Practice
+  Letters session via skips); the same profile re-opens the app as visit 2: welcome/onboarding never
+  appears, usable Home in **3.1 s**, TopBar XP counter hydrated from persisted state (xp=0 is the
+  correct restore for an all-skip visit — counter presence proves hydration), Journey tab greets
+  "Welcome back" with the next lesson surfaced, and any content card is one BottomNav tap away.
+  Observations recorded: return lands on Journey rather than last-used tab (defensible, two-line
+  recency change if ever wanted) and guest progress is device-bound by design (Supabase sync exists
+  for signed-in users). No return-visit defects found. Probe note: requires a fresh profile per run.
+
 - **ASL-F3 — Deaf/HoH sensitivity review; inclusion contract honored, 3 polish items for owner**
   (`OX_ALPHA_F3_DEAF_HOH_SENSITIVITY.md`; commit `5aad8a9`). Full-copy sweep of user-facing strings
   against PRODUCT.md's stated contract ("never gate anything on audio", AA floor): zero hearing-norm
