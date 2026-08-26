@@ -28,6 +28,19 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+## 2026-08-26
+
+- **ASL-K2 — 34 oxlint warnings triaged; zero shipped-bug indicators**
+  (`OX_ALPHA_K2_LINT_WARNING_TRIAGE.md`; commit `9819913`). Executed npx oxlint (34 warnings, 0
+  errors vs baseline 30 — the +4 are this session's adhoc probes). Breakdown: 13 exhaustive-deps on
+  camera-loop recognition/stopCam effects across LessonPage/PracticePage/StoryPage/SpeedChallenge/
+  Room/Duel = intentional stable-object pattern (verified identical shape, comments at sites);
+  5 only-export-components = fast-refresh cosmetics only; 12 trivial cleanups concentrated in tests
+  (unused LETTER_N/P/Q imports) + this session's probes (unused vars, useless escapes); misc:
+  AuthContext fetch-on-mount intent, App.tsx boot-once effect, LogoutConfirm unnecessary dep,
+  SkeletonInspector stray expression. Recommended owner order: sweep C/D/E (~10 min), decide on A,
+  ignore B. REPORT ONLY — no code changed.
+
 - **ASL-K1 — dead-code sweep: 320 ts-prune findings triaged; true dead code is small and surgical**
   (`OX_ALPHA_K1_DEAD_CODE_SWEEP.md`; commit `eb2b855`). Executed `npx ts-prune -p
   tsconfig.app.json` (320 findings) + grep triangulation of every non-barrel candidate. Breakdown:
