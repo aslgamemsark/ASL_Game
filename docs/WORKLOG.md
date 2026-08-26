@@ -28,6 +28,20 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   timings exclude first-ever CDN fetch on slow mobile. Verdict: no product problem in the activation
   funnel; learner support after activation is F2's domain.
 
+- **ASL-K1 — dead-code sweep: 320 ts-prune findings triaged; true dead code is small and surgical**
+  (`OX_ALPHA_K1_DEAD_CODE_SWEEP.md`; commit `eb2b855`). Executed `npx ts-prune -p
+  tsconfig.app.json` (320 findings) + grep triangulation of every non-barrel candidate. Breakdown:
+  ~200 `(used in module)` false positives, ~28 barrel re-exports (analytics/index.ts), leaving 91
+  genuinely unimported exports in three classes. (A) ~70 avatar/* exports = tooling for the dev-only
+  /avatarlab route (App.tsx:31) + node scripts + tests — tree-shaken from prod bundle by design,
+  KEEP. (B) True dead code ~350-400 LOC across 8 files: InAppBrowserBanner component (zero importers),
+  Card shared component (zero importers), landmarks helpers handWrist/frameIsComplete/frameFromDict/
+  FINGERTIPS/MCPS/POSE_NOSE, math-utils sub2d/add2d/scale2d, verifier resultFailingRequired/resultGet,
+  motion/tokens DURATION_*/SPRING_*/TAP_SCALE_FIRM. (C) Owner-decision items: engine/signs/coffee.ts
+  duplicates COFFEE already inline in signs/index.ts:15 (safe delete but sign-def territory);
+  LessonPrompt/LessonState/Achievement exported types unused. REPORT ONLY — no code changed;
+  recommended action = owner deletes Category B then runs canonical gate.
+
 - **ASL-J4 — analytics PII audit: clean; opt-out verified working; bot-filter gotcha documented**
   (`OX_ALPHA_J4_ANALYTICS_PII.md`; probe `web/e2e-adhoc/probe-analytics-pii.mjs`; commit `521f727`).
   PART A: live guest session, every /e/ batch gzip-decoded — 16 events ($groupidentify,
