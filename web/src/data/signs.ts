@@ -10,7 +10,7 @@ export const SIGNS: Record<string, SignDef> = {
       actingHand: 'dominant',
       maxDistRatio: 0.6,
       minDistRatio: 0.0,
-      required: true,
+      required: false,
       minConfidence: 0.6,
     },
     movement: {

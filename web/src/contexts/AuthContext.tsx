@@ -4,6 +4,7 @@ import { supabase, supabaseReady } from '@/lib/supabase';
 import { validateUsername } from '@/lib/username';
 import { isInappropriate } from '@/lib/profanity';
 import { isAlreadyRegisteredError } from '@/lib/authErrors';
+import { friendlyAuthError } from '@/lib/authErrorMessages';
 import { useUserStore } from '@/stores/useUserStore';
 import { track } from '@/analytics';
 
@@ -61,17 +62,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false);
   /** User id we last reported a `login` for — see the SIGNED_IN handler below. */
   const loggedInUserRef = useRef<string | null>(null);
+  // Both getSession() and auth-state events fetch profile data asynchronously. Keep the active
+  // account here so a slow response for an account just signed out cannot overwrite the next one.
+  const activeUserRef = useRef<string | null>(null);
+  const authEventVersionRef = useRef(0);
 
   useEffect(() => {
     if (!supabaseReady) { setLoading(false); return; }
 
+    const initialAuthEventVersion = authEventVersionRef.current;
     supabase.auth.getSession().then(({ data }) => {
+      if (authEventVersionRef.current !== initialAuthEventVersion) return;
+      activeUserRef.current = data.session?.user.id ?? null;
       setSession(data.session);
-      if (data.session) fetchUsername(data.session.user.id);
+      if (data.session) fetchUsername(data.session.user.id, data.session.user);
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      authEventVersionRef.current += 1;
+      activeUserRef.current = s?.user.id ?? null;
       setSession(s);
       // Fired once the user follows the emailed reset link and Supabase establishes a
       // short-lived recovery session — App renders a "set new password" modal while this is
@@ -118,11 +128,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function fetchUsername(userId: string, userObj?: User) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('username, is_admin, is_banned, ban_reason')
       .eq('id', userId)
       .single();
+    if (activeUserRef.current !== userId) return;
+    if (error) {
+      console.error('Failed to load profile:', error);
+      return;
+    }
     const row = data as ProfileRow | null;
 
     // Enforcement happens server-side too (RLS denies a banned user's own reads/writes — see
@@ -181,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // this file's own effect, not part of the public context value.
   const signInWithEmail = useCallback(async (email: string, password: string): Promise<string | null> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return error?.message ?? null;
+    return friendlyAuthError(error?.message);
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string, username: string): Promise<string | null> => {
@@ -200,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // up again sees a false "check your email" instead of a helpful "you already have an
       // account" — deliberate, since the alternative leaks account existence to anyone.
       if (isAlreadyRegisteredError(error.message)) return null;
-      return error.message;
+      return friendlyAuthError(error.message);
     }
 
     // The trigger auto-creates the profile with a derived username.
@@ -282,7 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Supabase already returns success here even for an email that isn't registered (so this
     // can't be used to enumerate accounts) — surface a real error only for things like malformed
     // input or rate-limiting, never "no such user".
-    return error?.message ?? null;
+    return friendlyAuthError(error?.message);
   }, []);
 
   const completePasswordReset = useCallback(async (newPassword: string): Promise<string | null> => {

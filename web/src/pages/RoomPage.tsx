@@ -528,8 +528,8 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   };
 
   useEffect(() => {
-    if (phase !== 'signing') { if (loopRef.current) { recognition.stopLoop(); loopRef.current = null; } return; }
-    if (signaling.camStatus === 'active' && currentSignId && signaling.localVideoRef.current) {
+    if (phase !== 'signing' || signaling.camStatus !== 'active') { if (loopRef.current) { recognition.stopLoop(); loopRef.current = null; } return; }
+    if (currentSignId && signaling.localVideoRef.current) {
       const engineSign = ENGINE_SIGNS[currentSignId];
       if (engineSign && loopRef.current !== engineSign.name) {
         recognition.stopLoop();

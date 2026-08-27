@@ -121,11 +121,11 @@ export function StoryPage({ story, onExit }: Props) {
   useEffect(() => { recognition.init(); }, [recognition.init]);
 
   useEffect(() => {
-    if (phase !== 'dialogue') {
+    if (phase !== 'dialogue' || camStatus !== 'active') {
       if (loopStartedRef.current) { recognition.stopLoop(); loopStartedRef.current = null; }
       return;
     }
-    if (camStatus === 'active' && (recognition.status === 'ready' || recognition.status === 'running') && currentEngineSign && videoRef.current) {
+    if ((recognition.status === 'ready' || recognition.status === 'running') && currentEngineSign && videoRef.current) {
       if (loopStartedRef.current !== currentEngineSign.name) {
         recognition.stopLoop();
         recognition.startLoop(videoRef.current, currentEngineSign);
@@ -427,4 +427,3 @@ export function StoryPage({ story, onExit }: Props) {
     </div>
   );
 }
-

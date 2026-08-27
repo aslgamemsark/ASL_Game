@@ -123,7 +123,7 @@ export function SpeedChallengePage({ onExit }: Props) {
 
   // Recognition loop
   useEffect(() => {
-    if (phase !== 'playing' || justPassed) {
+    if (phase !== 'playing' || justPassed || camStatus !== 'active') {
       recognition.stopLoop();
       loopStartedRef.current = null;
       return;
@@ -509,4 +509,3 @@ export function SpeedChallengePage({ onExit }: Props) {
     </div>
   );
 }
-

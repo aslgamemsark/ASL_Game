@@ -41,6 +41,7 @@ export function useProgressSync() {
   const mergeProgress = useUserStore((s) => s.mergeProgress);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncedUserRef = useRef<string | null>(null);
+  const activeUserRef = useRef<string | null>(null);
   // Surfaced to the UI (see App.tsx) so a failed sync isn't silently invisible to the user —
   // previously every Supabase call here ignored `error` entirely, so a dropped upsert looked
   // identical to a successful one (progress just quietly never showed up on another device).
@@ -50,23 +51,30 @@ export function useProgressSync() {
   // transient failure here must not be treated as "no remote progress exists", since the
   // debounced upsert effect would then push default/stale local state over real remote progress.
   useEffect(() => {
-    if (!supabaseReady || !user || syncedUserRef.current === user.id) return;
+    if (!supabaseReady || !user) return;
     const userId = user.id;
+    if (activeUserRef.current !== userId) {
+      activeUserRef.current = userId;
+      syncedUserRef.current = null;
+    }
+    if (syncedUserRef.current === userId) return;
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const load = async (isRetry: boolean): Promise<void> => {
       const [{ data, error: progressError }, { data: profileRow, error: profileError }] = await Promise.all([
         supabase.from('user_progress').select('*').eq('user_id', userId).single(),
         supabase.from('profiles').select('collect_training_data, region').eq('id', userId).single(),
       ]);
+      if (cancelled || activeUserRef.current !== userId) return;
 
       if (progressError) {
         console.error('Failed to load remote progress:', progressError);
         if (!isRetry) {
-          setTimeout(() => void load(true), 2000);
+          retryTimer = setTimeout(() => void load(true), 2000);
           return;
         }
         setSyncError(true);
-        syncedUserRef.current = userId;
         return;
       }
       if (profileError) console.error('Failed to load profile settings:', profileError);
@@ -109,19 +117,24 @@ export function useProgressSync() {
       // never blocks the sync path, and only runs when the profile doesn't have one yet.
       if (profileRow && !(profileRow as { region?: string | null }).region) {
         void detectCountryCode().then((code) => {
-          if (!code) return;
+          if (!code || cancelled || activeUserRef.current !== userId) return;
           void supabase.from('profiles').update({ region: code }).eq('id', userId);
         });
       }
     };
 
     void load(false);
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [user, mergeProgress]);
 
   // Reset sync marker on sign-out so next login re-fetches.
   useEffect(() => {
     if (!user) {
       syncedUserRef.current = null;
+      activeUserRef.current = null;
       setSyncError(false);
     }
   }, [user]);
@@ -132,6 +145,8 @@ export function useProgressSync() {
   useEffect(() => {
     if (!supabaseReady || !user) return;
     const userId = user.id;
+    if (syncedUserRef.current !== userId) return;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const buildPayload = () => ({
       user_id: userId,
@@ -162,14 +177,21 @@ export function useProgressSync() {
     } as Record<string, unknown>);
 
     const push = async (isRetry: boolean): Promise<void> => {
-      const { error } = await supabase
-        .from('user_progress')
-        .upsert(buildPayload(), { onConflict: 'user_id' });
+      if (activeUserRef.current !== userId || syncedUserRef.current !== userId) return;
+      let error: { message: string } | null = null;
+      try {
+        ({ error } = await supabase
+          .from('user_progress')
+          .upsert(buildPayload(), { onConflict: 'user_id' }));
+      } catch (caught) {
+        console.error('Failed to sync progress:', caught);
+        error = { message: 'request failed' };
+      }
 
       if (error) {
         console.error('Failed to sync progress:', error);
         if (!isRetry) {
-          setTimeout(() => void push(true), 2000);
+          retryTimer = setTimeout(() => void push(true), 2000);
           return;
         }
         setSyncError(true);
@@ -183,6 +205,7 @@ export function useProgressSync() {
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (retryTimer) clearTimeout(retryTimer);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -197,12 +220,15 @@ export function useProgressSync() {
   const collectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!supabaseReady || !user) return;
+    if (syncedUserRef.current !== user.id) return;
+    const userId = user.id;
     if (collectTimerRef.current) clearTimeout(collectTimerRef.current);
     collectTimerRef.current = setTimeout(() => {
+      if (activeUserRef.current !== userId || syncedUserRef.current !== userId) return;
       void supabase
         .from('profiles')
         .update({ collect_training_data: store.collectTrainingData })
-        .eq('id', user.id)
+        .eq('id', userId)
         .then(({ error }) => {
           if (error) console.error('Failed to sync training-data preference:', error);
         });
@@ -219,9 +245,14 @@ export function useProgressSync() {
 // breakdown — used by the multiple-choice receptive practice mode, which has no camera).
 export async function logSignAttempt(userId: string, signId: string, passed: boolean) {
   if (!supabaseReady) return;
-  await supabase.from('sign_attempts').insert(
-    { user_id: userId, sign_id: signId, passed } as Record<string, unknown>
-  );
+  try {
+    const { error } = await supabase.from('sign_attempts').insert(
+      { user_id: userId, sign_id: signId, passed } as Record<string, unknown>
+    );
+    if (error) console.error('[telemetry] sign_attempts insert failed:', error.message);
+  } catch (error) {
+    console.error('[telemetry] sign_attempts insert failed (non-fatal):', error);
+  }
 }
 
 // Call this on every rule-verifier PASS or VETO event (see useRecognition's onVerified) to
@@ -232,15 +263,20 @@ export async function logSignAttempt(userId: string, signId: string, passed: boo
 // computed numeric scores.
 export async function logVerification(userId: string, entry: VerificationEntry) {
   if (!supabaseReady) return;
-  await supabase.from('sign_verification_log').insert(
-    {
-      user_id: userId,
-      sign_id: entry.signName,
-      decision: entry.decision,
-      param_scores: entry.params as unknown as Record<string, unknown>,
-      classifier_vote: entry.vote as unknown as Record<string, unknown> | null,
-    } as Record<string, unknown>
-  );
+  try {
+    const { error } = await supabase.from('sign_verification_log').insert(
+      {
+        user_id: userId,
+        sign_id: entry.signName,
+        decision: entry.decision,
+        param_scores: entry.params as unknown as Record<string, unknown>,
+        classifier_vote: entry.vote as unknown as Record<string, unknown> | null,
+      } as Record<string, unknown>
+    );
+    if (error) console.error('[telemetry] sign_verification_log insert failed:', error.message);
+  } catch (error) {
+    console.error('[telemetry] sign_verification_log insert failed (non-fatal):', error);
+  }
 }
 
 /**
@@ -275,27 +311,33 @@ export async function logAttempt(payload: AttemptPayload) {
   if (!supabaseReady) return;
   const { userId, signId, rulePassed, aiPrediction, aiConfidence, aiVetoed, finalPassed } = payload;
 
-  await supabase.from('sign_attempts').insert({
-    user_id: userId,
-    sign_id: signId,
-    passed: finalPassed,
-    rule_passed: rulePassed,
-    ai_prediction: aiPrediction,
-    ai_confidence: aiConfidence,
-    ai_vetoed: aiVetoed,
-  } as Record<string, unknown>);
-
-  const collectEnabled = useUserStore.getState().collectTrainingData;
-  if (collectEnabled && payload.frames.length > 0) {
-    await supabase.from('training_samples').insert({
+  try {
+    const { error } = await supabase.from('sign_attempts').insert({
       user_id: userId,
       sign_id: signId,
-      frames: payload.frames as unknown,
+      passed: finalPassed,
       rule_passed: rulePassed,
       ai_prediction: aiPrediction,
       ai_confidence: aiConfidence,
-      final_passed: finalPassed,
-      source: payload.source,
+      ai_vetoed: aiVetoed,
     } as Record<string, unknown>);
+    if (error) console.error('[telemetry] sign_attempts insert failed:', error.message);
+
+    const collectEnabled = useUserStore.getState().collectTrainingData;
+    if (collectEnabled && payload.frames.length > 0) {
+      const { error: sampleError } = await supabase.from('training_samples').insert({
+        user_id: userId,
+        sign_id: signId,
+        frames: payload.frames as unknown,
+        rule_passed: rulePassed,
+        ai_prediction: aiPrediction,
+        ai_confidence: aiConfidence,
+        final_passed: finalPassed,
+        source: payload.source,
+      } as Record<string, unknown>);
+      if (sampleError) console.error('[telemetry] training_samples insert failed:', sampleError.message);
+    }
+  } catch (error) {
+    console.error('[telemetry] attempt logging failed (non-fatal):', error);
   }
 }

@@ -176,7 +176,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
   // Start recognition loop for expressive questions (plain expressive mode, or a
   // camera-type question within a mixed session)
   useEffect(() => {
-    if (currentType !== 'expressive' || cardPhase !== 'prompt') {
+    if (currentType !== 'expressive' || cardPhase !== 'prompt' || cameraUnavailable) {
       if (loopStartedRef.current) {
         recognition.stopLoop();
         loopStartedRef.current = null;
@@ -748,4 +748,3 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
     </div>
   );
 }
-

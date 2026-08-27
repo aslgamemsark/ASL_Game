@@ -180,7 +180,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
   }, [recognition.init]);
 
   useEffect(() => {
-    if (phase !== 'signing') {
+    if (phase !== 'signing' || cameraUnavailable) {
       if (loopStartedForSign.current) {
         recognition.stopLoop();
         loopStartedForSign.current = null;
@@ -569,4 +569,3 @@ export function LessonPage({ lessonId, onExit }: Props) {
     </div>
   );
 }
-
