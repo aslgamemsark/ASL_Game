@@ -4,20 +4,29 @@ export const SIGNS: Record<string, SignDef> = {
   HELLO: {
     name: 'HELLO',
     twoHanded: false,
-    dominant: { kind: 'open', required: true, minConfidence: 0.55 },
+    // These schema-shaped fields (dominant/location/movement below) are DISPLAY-ONLY — nothing at
+    // runtime reads them (grep confirms zero consumers outside this file). The actual verifier used
+    // during gameplay is engine/signs/index.ts's HELLO, a completely separate definition. This
+    // entry had drifted from it (location.anchor='forehead'/maxDistRatio=0.6 vs the engine's real
+    // NEUTRAL_SPACE/maxDistRatio=3 — the engine doesn't enforce forehead proximity at all) — updated
+    // to match so anyone reading this file for reference sees the real schema, not a stale one.
+    // Reconciled 2026-08-30; see HANDOFF.md for the broader note that other data/signs.ts entries
+    // may have the same kind of drift and haven't all been individually re-checked against
+    // engine/signs/index.ts.
+    dominant: { kind: 'open', required: true, minConfidence: 0.6 },
     location: {
-      anchor: 'forehead',
+      anchor: 'neutral_space',
       actingHand: 'dominant',
-      maxDistRatio: 0.6,
+      maxDistRatio: 3,
       minDistRatio: 0.0,
       required: false,
-      minConfidence: 0.6,
+      minConfidence: 0.45,
     },
     movement: {
       kind: 'repeated',
       actor: 'dominant',
       pivot: 'nondominant',
-      minDurationS: 0.5,
+      minDurationS: 0.6,
       required: true,
     },
     description: 'Open hand near forehead, wave side to side',
