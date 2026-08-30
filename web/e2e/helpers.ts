@@ -13,6 +13,12 @@ import type { Page } from '@playwright/test';
  * never renders, and every spec waiting on it timed out. This mirrors the app's own conditional
  * instead of assuming the step exists — the correct fix, not a workaround, since a real user with
  * Supabase unreachable would see exactly this shortened flow.
+ *
+ * Updated for the 2026-08-30 value-before-signup reorder: skill selection now leads to a
+ * 'firstSign' step (try a real sign, camera-gated) BEFORE auth/Home, not straight to either. No
+ * fake camera device exists in CI (see playwright.config.ts), so this always takes the "Skip for
+ * now" escape hatch rather than attempting the camera flow — exactly what a real user without a
+ * working camera would do, and the one path guaranteed available regardless of environment.
  */
 export async function completeOnboarding(page: Page): Promise<void> {
   await page.goto('/');
@@ -22,6 +28,7 @@ export async function completeOnboarding(page: Page): Promise<void> {
     await guestButton.click();
   }
   await page.getByRole('button', { name: /just starting/i }).click();
+  await page.getByRole('button', { name: /skip for now/i }).click();
   await page.getByRole('button', { name: /Journey/ }).first().waitFor({ state: 'visible', timeout: 15_000 });
 }
 

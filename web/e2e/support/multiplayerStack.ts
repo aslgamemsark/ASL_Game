@@ -188,11 +188,17 @@ export async function signInThroughUi(page: Page, user: TestUser): Promise<void>
 }
 
 /** Walks guest onboarding to Home — the precondition for signInThroughUi. Mirrors smoke.spec.ts's
- *  path; kept here so the multiplayer suite does not import from another spec file. */
+ *  path; kept here so the multiplayer suite does not import from another spec file.
+ *
+ * Updated for the 2026-08-30 value-before-signup reorder: "Get Started" now always leads to skill
+ * selection first (no longer branches on supabaseReady), then a firstSign step (skipped here — no
+ * fake camera device in this stack either, see playwright.multiplayer.config.ts), and only then
+ * the auth step where "Continue as guest" actually lives now. */
 export async function reachHome(page: Page): Promise<void> {
   await page.goto('/');
   await page.getByRole('button', { name: /get started/i }).click();
-  await page.getByRole('button', { name: /continue as guest/i }).click();
   await page.getByRole('button', { name: /just starting/i }).click();
+  await page.getByRole('button', { name: /skip for now/i }).click();
+  await page.getByRole('button', { name: /continue as guest/i }).click();
   await page.getByRole('button', { name: /sign in/i }).first().waitFor({ timeout: 15_000 });
 }

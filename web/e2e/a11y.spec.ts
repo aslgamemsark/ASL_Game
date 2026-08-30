@@ -89,23 +89,30 @@ test.describe('accessibility', () => {
   test.use({ viewport: { width: 430, height: 932 }, contextOptions: { reducedMotion: 'reduce' } });
 
   test('onboarding steps', async ({ page }) => {
-    // The 'auth' step (Google/email/guest) only renders when Supabase is configured
-    // (OnboardingFlow.tsx routes `setStep(supabaseReady ? 'auth' : 'skill')` on "Get Started") —
-    // CI's `e2e` job runs with it deliberately unconfigured (see ci.yml), so this step is
-    // genuinely unreachable there. An honest skip beats a helper that pretends the step exists;
-    // full coverage of this exact test is the job of a future Supabase-configured e2e tier.
+    // The 'auth' step (Google/email/guest) only renders when Supabase is configured — CI's `e2e`
+    // job runs with it deliberately unconfigured (see ci.yml), so this step is genuinely
+    // unreachable there. An honest skip beats a helper that pretends the step exists; full
+    // coverage of this exact test is the job of a future Supabase-configured e2e tier.
     test.skip(!process.env.VITE_SUPABASE_URL, 'auth step only renders when Supabase is configured');
 
+    // 2026-08-30 value-before-signup reorder: welcome -> skill -> firstSign -> auth -> done.
+    // "Get Started" no longer branches on supabaseReady — it always goes to skill first now.
     await page.goto('/');
     await scan(page, 'welcome');
 
     await page.getByRole('button', { name: /get started/i }).click();
-    await expect(page.getByRole('button', { name: /continue as guest/i })).toBeVisible();
-    await scan(page, 'auth step');
-
-    await page.getByRole('button', { name: /continue as guest/i }).click();
     await expect(page.getByText(/how much asl do you know/i)).toBeVisible();
     await scan(page, 'skill step');
+
+    await page.getByRole('button', { name: /just starting/i }).click();
+    await expect(page.getByText(/try your first sign/i)).toBeVisible();
+    await scan(page, 'firstSign step');
+
+    // No fake camera device in CI (playwright.config.ts) — skip, same as a real user without a
+    // working camera would.
+    await page.getByRole('button', { name: /skip for now/i }).click();
+    await expect(page.getByRole('button', { name: /continue as guest/i })).toBeVisible();
+    await scan(page, 'auth step');
   });
 
   test('home tabs', async ({ page }) => {

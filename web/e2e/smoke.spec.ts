@@ -33,6 +33,12 @@ test.describe('app smoke test', () => {
     // (2026-07-28 rework) — it needs a live camera, which onboarding deliberately no longer opens.
     // This test asserted it was still in the flow, so the suite has been red since that landed.
 
+    // firstSign step (2026-08-30 value-before-signup reorder): try a real sign before auth/Home.
+    // No fake camera device in CI (playwright.config.ts) — skip, same as a real user without a
+    // working camera would.
+    await expect(page.getByText(/try your first sign/i)).toBeVisible();
+    await page.getByRole('button', { name: /skip for now/i }).click();
+
     // Onboarding's own "done" celebration auto-advances to Home after ~1.4s (see
     // OnboardingFlow.tsx's setTimeout(onComplete, 1400)). The guest sign-in affordance in the
     // top bar is a stable Home marker (.first() avoids strict-mode on repeated "streak" text).
