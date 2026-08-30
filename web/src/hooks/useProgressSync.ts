@@ -7,8 +7,23 @@ import type { SignStats, SpeedHighScore, Chest } from '@/types/user';
 import type { VerificationEntry } from '@/hooks/useRecognition';
 import type { Frame } from '@/engine/landmarks';
 import type { AttemptSource } from '@/analytics/types';
+import { track } from '@/analytics';
 
 const DEBOUNCE_MS = 3000;
+
+// error_captured was registered in analytics/types.ts but never actually fired anywhere in the
+// app (found during the 2026-08-30 audit) — this is the first wiring of it, for the two places in
+// this file where a Supabase progress sync has already been retried once and genuinely failed
+// (not every transient attempt, which would just be noise). Not exhaustive: other catch blocks in
+// this file (telemetry inserts) and elsewhere in the app remain silent to analytics; this covers
+// the highest-stakes case (a user's XP/streak/gold not making it to the cloud).
+function captureSupabaseError(message: string): void {
+  track('error_captured', {
+    source: 'supabase',
+    message,
+    route: typeof window !== 'undefined' ? window.location.pathname : '',
+  });
+}
 
 type ProgressRow = {
   xp: number; level: number; streak: number;
@@ -74,6 +89,7 @@ export function useProgressSync() {
           retryTimer = setTimeout(() => void load(true), 2000);
           return;
         }
+        captureSupabaseError(`load remote progress failed: ${progressError.message}`);
         setSyncError(true);
         return;
       }
@@ -194,6 +210,7 @@ export function useProgressSync() {
           retryTimer = setTimeout(() => void push(true), 2000);
           return;
         }
+        captureSupabaseError(`push progress sync failed: ${error.message}`);
         setSyncError(true);
         return;
       }
