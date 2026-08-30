@@ -19,6 +19,8 @@ import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { CameraOnboarding } from '@/components/shared/CameraOnboarding';
 import { LETTER_A } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
+import { useFirstRunCameraGuide } from '@/hooks/useFirstRunCameraGuide';
+import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
 
 interface Props {
   onComplete: () => void;
@@ -105,6 +107,13 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
       setTimeout(() => advancePastFirstSign(), 1600);
     },
   });
+  // Face-target framing guide, same as every other camera screen (LessonPage/PracticePage) —
+  // this is a brand-new user's FIRST camera screen ever, so it's arguably more important here
+  // than anywhere else: nothing else has taught them yet how far back to sit or that their chest
+  // needs to stay visible. Also real diagnostic value for a failed pass — if this box never turns
+  // green, hand/pose detection itself isn't succeeding from their distance/lighting, independent
+  // of anything about the sign-matching logic.
+  const showCamGuide = useFirstRunCameraGuide(recognition.framing?.ok);
   useEffect(() => { recognition.init(); }, [recognition.init]);
 
   // Guards startLoop to fire ONCE, not on every render this effect (deliberately dependency-array-
@@ -425,8 +434,27 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                   {firstSignPassed ? 'That\'s ASL fingerspelling — you just did your first sign.' : SIGNS.LETTER_A.hint}
                 </p>
                 <div className="flex justify-center mb-4">
-                  <WebcamMirror videoRef={videoRef} label="You" passed={firstSignPassed} />
+                  <WebcamMirror
+                    videoRef={videoRef}
+                    label="You"
+                    passed={firstSignPassed}
+                    frameGuide={showCamGuide ? recognition.framing : null}
+                  />
                 </div>
+                {/* Live per-parameter feedback — same "Sign Coach" component every other camera
+                    screen uses. Was missing here entirely, so a struggling first-time user had no
+                    visible signal that anything was being measured at all, let alone how close they
+                    were — "I made the sign and nothing happened" gives a real user no way to tell
+                    "handshape scored 0.3" from "the app isn't looking at all." Added 2026-08-30. */}
+                {recognition.result && !firstSignPassed && (
+                  <div className="mb-4 text-left">
+                    <ParameterChecklist
+                      params={recognition.result.params}
+                      sign={LETTER_A}
+                      holdProgress={recognition.holdProgress}
+                    />
+                  </div>
+                )}
                 {!firstSignPassed && (
                   <button
                     onClick={advancePastFirstSign}
