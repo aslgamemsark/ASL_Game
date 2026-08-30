@@ -23,24 +23,26 @@ interface Note {
 }
 
 function playNotes(notes: Note[]) {
-  const audioCtx = getCtx();
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-  for (const { freq, start, duration, type = 'sine', gain = 0.2 } of notes) {
-    const osc = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    osc.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    const t0 = now + start;
-    const t1 = t0 + duration;
-    gainNode.gain.setValueAtTime(0, t0);
-    gainNode.gain.linearRampToValueAtTime(gain, t0 + Math.min(0.015, duration / 4));
-    gainNode.gain.exponentialRampToValueAtTime(0.001, t1);
-    osc.start(t0);
-    osc.stop(t1 + 0.02);
-  }
+  try {
+    const audioCtx = getCtx();
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    for (const { freq, start, duration, type = 'sine', gain = 0.2 } of notes) {
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      const t0 = now + start;
+      const t1 = t0 + duration;
+      gainNode.gain.setValueAtTime(0, t0);
+      gainNode.gain.linearRampToValueAtTime(gain, t0 + Math.min(0.015, duration / 4));
+      gainNode.gain.exponentialRampToValueAtTime(0.001, t1);
+      osc.start(t0);
+      osc.stop(t1 + 0.02);
+    }
+  } catch {}
 }
 
 export const soundEffects = {
