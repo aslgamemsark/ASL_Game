@@ -178,6 +178,23 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
     // the actual fix, closing the gap outright at common short heights (measured: cut off by 6px
     // at 800x660, 56px at 800x568) rather than just making the resulting scroll more reliable.
     <div className="min-h-dvh bg-z-bg flex items-center justify-center px-6 py-6 overflow-y-auto">
+      {/* Hidden source video — required even though WebcamMirror below is what's actually visible.
+          WebcamMirror doesn't open its own camera; it mirrors the SAME MediaStream off this
+          element's srcObject (see WebcamMirror.tsx's own doc comment: "attach the SAME MediaStream
+          the caller's hidden source video already carries"). Without this element in the DOM,
+          useCamera's attachStream() has nothing to attach the stream to — getUserMedia still
+          succeeds, camStatus still reports 'active', but nothing ever displays and the recognition
+          loop's own videoRef.current gate never passes either, so recognition silently never
+          starts. Every other camera screen (LessonPage/PracticePage/StoryPage/SpeedChallengePage)
+          already renders this; missing here since the firstSign step was added (06aa50c) — found
+          2026-08-30 from a real user report ("the camera isn't working").  */}
+      <video
+        ref={videoRef}
+        style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }}
+        muted
+        playsInline
+        autoPlay
+      />
       <AnimatePresence mode="wait">
         {step === 'welcome' && (
           <motion.div
