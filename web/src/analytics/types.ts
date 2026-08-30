@@ -64,9 +64,14 @@ export interface EventPayloads {
   pwa_install_result: { source: 'banner' | 'settings'; outcome: 'accepted' | 'dismissed' };
 
   // Onboarding (components/onboarding/OnboardingFlow.tsx)
-  onboarding_step_viewed: { step: 'welcome' | 'auth' | 'skill' | 'done' };
+  onboarding_step_viewed: { step: 'welcome' | 'auth' | 'skill' | 'firstSign' | 'done' };
   onboarding_skill_selected: { skill_level: 'beginner' | 'intermediate' | 'advanced' };
   onboarding_completed: { skill_level: string; duration_ms: number };
+  /** Fires once, the first time a brand-new visitor's first-ever camera sign attempt (letter A,
+   *  before any account exists) clears the rule verifier — see the 2026-08-30 value-before-signup
+   *  reorder. Distinct from lesson_started/sign_attempt's usual pass tracking, which this predates
+   *  and doesn't go through (no lesson, no XP/gold — see the step's own comment for why). */
+  onboarding_first_sign_passed: { sign_id: string };
   /** Which door the user took at the auth step. `guest_started` already fires for the guest case;
    *  this exists so all three options are comparable in ONE funnel step instead of having to
    *  reconcile guest_started against signup_started against nothing-at-all for Google. Added
