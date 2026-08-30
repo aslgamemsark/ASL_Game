@@ -107,13 +107,24 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
   });
   useEffect(() => { recognition.init(); }, [recognition.init]);
 
+  // Guards startLoop to fire ONCE, not on every render this effect (deliberately dependency-array-
+  // free, matching LessonPage/StoryPage) re-runs on. startLoop "always stops the previous loop
+  // first" — cancels the in-flight rAF tick, clears the rolling buffer, resets the hold-to-pass
+  // timer (see useRecognition.ts) — so calling it repeatedly while conditions stay true (which they
+  // do for the ENTIRE time a user holds a static sign) never let a single hold survive long enough
+  // to reach STATIC_HOLD_SECONDS. Root cause of a real user report ("I made the A sign but nothing
+  // happened") — camera displayed and permission worked fine (see the prior commit's video-element
+  // fix), but recognition itself could never complete a hold. Found 2026-08-30.
+  const loopStartedRef = useRef(false);
   useEffect(() => {
     if (
-      step === 'firstSign' && !firstSignPassed && camStatus === 'active' &&
+      step === 'firstSign' && !firstSignPassed && !loopStartedRef.current && camStatus === 'active' &&
       (recognition.status === 'ready' || recognition.status === 'running') && videoRef.current
     ) {
+      loopStartedRef.current = true;
       recognition.startLoop(videoRef.current, LETTER_A);
     }
+    if (step !== 'firstSign' || firstSignPassed) loopStartedRef.current = false;
   });
 
   // Camera stays off on every step except firstSign — must not linger into auth/done.
