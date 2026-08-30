@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { completeOnboarding } from './helpers';
 
 // Covers what's reachable without a real camera device (see playwright.config.ts comment):
 // first paint, the full onboarding flow as a guest, landing on Home, and the sign-in modal's
@@ -14,7 +15,15 @@ test.describe('app smoke test', () => {
   test('a guest can complete onboarding and reach Home', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: /get started/i }).click();
-    await page.getByRole('button', { name: /continue as guest/i }).click();
+    // The 'auth' step (and this guest button) only renders when Supabase is configured
+    // (OnboardingFlow.tsx) — without it, "Get Started" routes straight to the skill-level step
+    // below, which is exactly the environment CI's `e2e` job runs in (deliberately unconfigured,
+    // see ci.yml). Conditional rather than a hard assertion so this test covers both real
+    // environments instead of only ever passing in one of them.
+    const guestButton = page.getByRole('button', { name: /continue as guest/i });
+    if (await guestButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await guestButton.click();
+    }
 
     // Skill-level picker — pick the first option.
     await expect(page.getByText(/how much asl do you know/i)).toBeVisible();
@@ -32,10 +41,7 @@ test.describe('app smoke test', () => {
   });
 
   test('sign-in modal opens with correct dialog semantics and closes on Escape', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: /get started/i }).click();
-    await page.getByRole('button', { name: /continue as guest/i }).click();
-    await page.getByRole('button', { name: /just starting/i }).click();
+    await completeOnboarding(page);
     await page.waitForTimeout(1600); // clear onboarding's auto-advance
 
     const signInTrigger = page.getByRole('button', { name: /sign in/i }).first();

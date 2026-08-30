@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { completeOnboarding } from './helpers';
 
 /**
  * "Try Yourself" from a detail modal must actually land on Practice and STAY there.
@@ -20,14 +21,6 @@ import { test, expect, type Page } from '@playwright/test';
  * playwright.config.ts); a denied camera still leaves us ON PracticePage, which is what this checks.
  */
 
-async function reachHome(page: Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: /get started/i }).click();
-  await page.getByRole('button', { name: /continue as guest/i }).click();
-  await page.getByRole('button', { name: /just starting/i }).click();
-  await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
-}
-
 async function openTab(page: Page, label: RegExp) {
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: label }).first().click();
 }
@@ -43,7 +36,7 @@ async function expectStaysOffHomeTab(page: Page, tabHeading: RegExp) {
 
 test.describe('Try Yourself from a detail modal', () => {
   test('Alphabet: letter modal -> Try Yourself stays on Practice', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     await openTab(page, /Alphabets/);
 
     await page.getByRole('button', { name: 'A', exact: true }).click();
@@ -56,7 +49,7 @@ test.describe('Try Yourself from a detail modal', () => {
   });
 
   test('Basic Signs: sign modal -> Try Yourself stays on Practice', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     // Desktop SideNav labels it "Basic Signs", the mobile BottomNav "Basics" — both nav components
     // use aria-label="Main", so one regex covers all three device projects.
     await openTab(page, /Basics|Basic Signs/);

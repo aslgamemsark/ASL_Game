@@ -9,6 +9,7 @@ on:
       - 'tests/**'
       - 'supabase/**'
       - 'requirements.txt'
+      - '.github/workflows/**'
   push:
     branches: [main]
     paths:
@@ -18,6 +19,7 @@ on:
       - 'tests/**'
       - 'supabase/**'
       - 'requirements.txt'
+      - '.github/workflows/**'
 
 jobs:
   # node-version 22 (not 20) on all three JS jobs below: @supabase/realtime-js constructs its
@@ -26,7 +28,8 @@ jobs:
   # Node 20 fails with "Node.js detected but native WebSocket not found" regardless of what it
   # actually tests. Found 2026-08-04 when this pinned-to-20 CI ran on a PR for the first time —
   # Code_Fix had never been CI-tested before (this workflow only triggers on PRs and pushes to
-  # main), so the break shipped straight to production undetected.
+  # main), so the break shipped straight to production undetected. Also pinned in
+  # web/package.json's `engines` field now, so a local `npm install` under the wrong Node warns too.
   web:
     runs-on: ubuntu-latest
     defaults:
@@ -44,7 +47,27 @@ jobs:
       - run: npm run test
       - run: npm run build
 
+  # e2e and multiplayer are pull_request-only (2026-08-30) — they were previously ALSO re-run on
+  # every push to main, re-validating the exact commit the PR already validated (this repo merges
+  # via PR, so the push-to-main commit is the same tree) at real Docker+Playwright cost for zero
+  # new information. Vercel's own deploy is triggered by the push independently of this workflow's
+  # result either way, so nothing here gates production. `web` + `python` still run on push as a
+  # fast build/lint/unit-test confirmation of the merged state.
+  #
+  # Deliberately Supabase-UNCONFIGURED (2026-08-30), same as before — do not "fix" this by adding
+  # VITE_SUPABASE_URL/ANON_KEY here. A syntactically-valid but unreachable placeholder was tried and
+  # reverted: it makes `supabaseReady` true, which makes WorldMap.tsx fire a real
+  # `supabase.from('world_flags').select(...)` query the instant Home mounts — against a host that
+  # can't resolve, Chromium logs `net::ERR_NAME_NOT_RESOLVED` as a console error, and every spec in
+  # mobile.spec.ts that asserts zero console errors goes red. That trades 91 known failures for a
+  # smaller set of much more confusing ones. The actual fix is `helpers.ts`'s `completeOnboarding` —
+  # it now tolerates the 'auth' step being skipped, the same way `OnboardingFlow.tsx` itself does
+  # when Supabase isn't configured, so this job passes against the environment it actually has. The
+  # one spec that genuinely requires `supabaseReady === true` (`a11y.spec.ts`'s "onboarding steps",
+  # which explicitly scans the auth step) is `test.skip`-guarded here with the precondition stated,
+  # rather than silently passing on a step it never rendered.
   e2e:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -68,6 +91,7 @@ jobs:
   # needs Docker, which the Windows dev machine this was authored on does not have, so locally the
   # suite skips with an explanatory message and CI is where it actually executes.
   multiplayer:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -87,7 +111,10 @@ jobs:
       - run: npm ci
         working-directory: web
       # Chromium only — the suite is Chromium-only by design (see playwright.multiplayer.config.ts
-      # for why fake-media WebRTC across two contexts is not portable to WebKit).
+      # for why fake-media WebRTC across two contexts is not portable to WebKit). Supabase env for
+      # this job comes from playwright.multiplayer.config.ts's own webServer.env, pointing at the
+      # LOCAL stack started above — the app under test here IS configured, unlike the plain `e2e`
+      # job (see its own comment on why that one deliberately stays unconfigured).
       - run: npx playwright install --with-deps chromium
         working-directory: web
       - run: npm run test:multiplayer

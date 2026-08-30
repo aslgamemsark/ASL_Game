@@ -20,7 +20,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Was 20 — inconsistent with ci.yml's 22, and only survived because this job's own
+          # `npm ci && npm run audit` never imports app code (so never hit the native-WebSocket
+          # requirement @supabase/realtime-js has from Node 22 on, documented in ci.yml). One
+          # `postinstall` script away from reproducing a bug this repo already paid to find.
+          node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { completeOnboarding } from './helpers';
 
 /**
  * Hardware/browser Back button coverage (2026-07-30 audit): zero matches for
@@ -13,14 +14,6 @@ import { test, expect, type Page } from '@playwright/test';
  * non-home screen), a dialog opened on top of Home, and Back exhausted back to Home not exiting.
  */
 
-async function reachHome(page: Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: /get started/i }).click();
-  await page.getByRole('button', { name: /continue as guest/i }).click();
-  await page.getByRole('button', { name: /just starting/i }).click();
-  await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
-}
-
 async function openFromProfileHub(page: Page, label: string) {
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first().click();
   await page.getByRole('button', { name: new RegExp(`${label}$`) }).first().click();
@@ -28,7 +21,7 @@ async function openFromProfileHub(page: Page, label: string) {
 
 test.describe('hardware/browser Back navigation', () => {
   test('Back from a non-home screen returns to Home instead of leaving the app', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     await openFromProfileHub(page, 'Settings');
     await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
 
@@ -40,7 +33,7 @@ test.describe('hardware/browser Back navigation', () => {
   });
 
   test('Back from Leaderboard (reached via the profile hub) returns to Home', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     await openFromProfileHub(page, 'Leaderboard');
     await expect(page.getByRole('heading', { name: /leaderboard/i })).toBeVisible();
 
@@ -50,7 +43,7 @@ test.describe('hardware/browser Back navigation', () => {
   });
 
   test('Back inside the multiplayer hub returns to hub choices before reaching Home', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     await openFromProfileHub(page, 'Multiplayer');
     // Signed-out guest sees the sign-in gate — the screen itself (not hub/duel/room) is still the
     // right level to assert Back returns to Home from directly, since guests can't reach duel/room.
@@ -62,7 +55,7 @@ test.describe('hardware/browser Back navigation', () => {
   });
 
   test('Back closes a dialog opened over Home without leaving Home', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     const signInTrigger = page.getByRole('button', { name: /sign in/i }).first();
     await signInTrigger.click();
 
@@ -76,7 +69,7 @@ test.describe('hardware/browser Back navigation', () => {
   });
 
   test('Back twice from a screen opened over Home exhausts to Home, then the app (no crash)', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     await openFromProfileHub(page, 'Settings');
     await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
 

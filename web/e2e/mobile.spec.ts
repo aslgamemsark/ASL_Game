@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { waitForAnimationsToSettle } from './helpers';
+import { waitForAnimationsToSettle, completeOnboarding } from './helpers';
 
 /**
  * Mobile-parity coverage (2026-07-28 mobile audit). Runs on all three projects
@@ -12,14 +12,6 @@ import { waitForAnimationsToSettle } from './helpers';
  * rest of e2e/ — see playwright.config.ts's comment on why a fake video device is a separate
  * effort.
  */
-
-async function reachHome(page: Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: /get started/i }).click();
-  await page.getByRole('button', { name: /continue as guest/i }).click();
-  await page.getByRole('button', { name: /just starting/i }).click();
-  await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
-}
 
 /**
  * Opens a destination from the profile tab's "Explore" hub.
@@ -53,7 +45,7 @@ test.describe('mobile journeys', () => {
     page.on('pageerror', (e) => { if (!isKnownTestEnvNoise(e.message)) errors.push(e.message); });
     page.on('console', (m) => { if (m.type() === 'error' && !isKnownTestEnvNoise(m.text())) errors.push(m.text()); });
 
-    await reachHome(page);
+    await completeOnboarding(page);
 
     for (const tab of ['Alphabets', 'Basics', 'Review', 'Me']) {
       await page.getByRole('button', { name: new RegExp(tab) }).first().click();
@@ -73,7 +65,7 @@ test.describe('mobile journeys', () => {
   });
 
   test('Settings shows exactly one install state, matching this browser', async ({ page }, testInfo) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     await openFromProfileHub(page, 'Settings');
     await expect(page.getByRole('heading', { name: 'App', exact: true })).toBeVisible();
 
@@ -98,7 +90,7 @@ test.describe('mobile journeys', () => {
    * a desktop-only nav again will now fail here rather than ship invisible.
    */
   test('every top-level destination is reachable at phone width', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
 
     // Scoped to the nav landmark deliberately: an unscoped search matches page content too (a
     // "Test from Memory" card on the Alphabets tab matches /Me/ and precedes the nav in the DOM),
@@ -143,7 +135,7 @@ test.describe('mobile chaos', () => {
   test('rapid repeated taps on bottom nav do not double-navigate or crash', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => { if (!isKnownTestEnvNoise(e.message)) errors.push(e.message); });
-    await reachHome(page);
+    await completeOnboarding(page);
 
     const alphabetsTab = page.getByRole('button', { name: /Alphabets/ }).first();
     for (let i = 0; i < 10; i++) {
@@ -156,7 +148,7 @@ test.describe('mobile chaos', () => {
   });
 
   test('rotating portrait <-> landscape mid-flow keeps the app usable', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     const { width, height } = page.viewportSize()!;
 
     await page.setViewportSize({ width: height, height: width }); // landscape
@@ -171,7 +163,7 @@ test.describe('mobile chaos', () => {
   test('backgrounding and resuming the tab does not crash the app', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => { if (!isKnownTestEnvNoise(e.message)) errors.push(e.message); });
-    await reachHome(page);
+    await completeOnboarding(page);
 
     // Simulates the tab being backgrounded — the real trigger for useCamera.ts's
     // visibilitychange handling (2.6 in the mobile audit). No camera is open on Home, so this
@@ -193,7 +185,7 @@ test.describe('mobile chaos', () => {
   });
 
   test('going offline mid-session does not blank-screen the app', async ({ page, context }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     await context.setOffline(true);
     try {
       await page.getByRole('button', { name: /Alphabets/ }).first().click();
@@ -207,7 +199,7 @@ test.describe('mobile chaos', () => {
   });
 
   test('offline banner appears while offline and clears once back online', async ({ page, context }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     await expect(page.getByRole('status', { name: /offline/i })).not.toBeVisible();
     // context.setOffline flips navigator.onLine and fires the real online/offline events itself —
     // confirmed directly (2026-07-31): no synthetic dispatch needed or wanted.
@@ -221,7 +213,7 @@ test.describe('mobile chaos', () => {
   });
 
   test('opening and interrupting a dialog (rapid open/Escape) leaves no stuck overlay', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     await openFromProfileHub(page, 'Settings');
     const feedbackButton = page.getByRole('button', { name: /send feedback/i });
 
@@ -244,7 +236,7 @@ test.describe('safe-area regression', () => {
   // way to exercise index.css's --sat/--sab custom props (2.1 in the mobile audit) — override them
   // exactly like a real device would, then assert BottomNav's rendered box actually grew.
   test('BottomNav grows to clear an injected bottom safe-area inset', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     const nav = page.locator('[class*="fixed bottom-0"]').first();
 
     const before = await nav.evaluate((el) => el.getBoundingClientRect().height);
@@ -262,7 +254,7 @@ test.describe('safe-area regression', () => {
   // 114px, under-clearing by 18px on exactly the home-indicator phones it was meant to protect.
   // Both replaced with index.css's derived `pb-nav-clear`; this locks the derivation in.
   test('pb-nav-clear covers BottomNav\'s actual (safe-area-grown) height', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     await page.evaluate(() => document.documentElement.style.setProperty('--sab', '34px'));
     await page.waitForTimeout(100);
 
@@ -287,7 +279,7 @@ test.describe('tablet layout', () => {
   test.use({ viewport: { width: 820, height: 1180 } });
 
   test('SideNav renders instead of BottomNav in the tablet band (768-1023px)', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible();
     // BottomNav is the OTHER "Main" nav landmark and stays mounted in the DOM (its wrapper is
     // `md:hidden`, a CSS display:none — not conditional rendering), so a presence check
@@ -336,7 +328,7 @@ test.describe('touch targets', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test('every visible interactive element on Home meets the 44x44 minimum', async ({ page }) => {
-    await reachHome(page);
+    await completeOnboarding(page);
     await assertNoTinyTouchTargets(page);
   });
 
@@ -345,7 +337,7 @@ test.describe('touch targets', () => {
   // non-camera top-level screen.
   for (const label of ['Shop', 'Settings', 'Leaderboard', 'Friends', 'Multiplayer'] as const) {
     test(`every visible interactive element on ${label} meets the 44x44 minimum`, async ({ page }) => {
-      await reachHome(page);
+      await completeOnboarding(page);
       await openFromProfileHub(page, label);
       await assertNoTinyTouchTargets(page);
     });
@@ -355,7 +347,7 @@ test.describe('touch targets', () => {
 test.describe('iOS input zoom guard', () => {
   test('every text input renders at >=16px to prevent iOS Safari auto-zoom', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'ios', 'iOS Safari-specific zoom behavior — only meaningful on the WebKit project');
-    await reachHome(page);
+    await completeOnboarding(page);
     await openFromProfileHub(page, 'Settings');
     await page.getByRole('button', { name: /send feedback/i }).click();
     const textarea = page.locator('textarea');
