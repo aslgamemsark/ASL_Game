@@ -21,6 +21,7 @@ export const EVENTS = {
   signup_completed: 'signup_completed',
   login: 'login',
   logout: 'logout',
+  guest_return: 'guest_return',
   password_reset_requested: 'password_reset_requested',
   password_recovery_completed: 'password_recovery_completed',
 
@@ -100,6 +101,13 @@ export const EVENTS = {
   session_crashed: 'session_crashed',
   unexpected_reload: 'unexpected_reload',
   error_captured: 'error_captured',
+
+  // Static marketing pages — see EventPayloads' comment on these in types.ts.
+  landing_view: 'landing_view',
+  alphabet_landing_view: 'alphabet_landing_view',
+  hero_cta_clicked: 'hero_cta_clicked',
+  feedback_clicked: 'feedback_clicked',
+  scroll_depth: 'scroll_depth',
 } satisfies Record<ActiveEventName, string>;
 
 // FUTURE — documented placeholders only. Never passed to track(); listed here purely so the
