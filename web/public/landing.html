@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // same intent, so one delegated listener covers them without hunting down every instance.
   document.addEventListener('click', function (e) {
     var cta = e.target.closest('.btn-primary');
-    if (cta) posthog.capture('hero_cta_clicked', { label: (cta.textContent || '').trim(), href: cta.getAttribute('href') });
+    if (cta) posthog.capture('hero_cta_clicked', { label: (cta.textContent || '').trim(), href: cta.getAttribute('href'), page: 'landing' });
     var feedback = e.target.closest('a[href*="docs.google.com/forms"]');
     if (feedback) posthog.capture('feedback_clicked', {});
   });
