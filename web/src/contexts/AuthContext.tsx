@@ -83,6 +83,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authEventVersionRef.current += 1;
       activeUserRef.current = s?.user.id ?? null;
       setSession(s);
+      // PRODUCTION OUTAGE FIX (2026-08-30): supabase-js fires an INITIAL_SESSION event through
+      // this callback on every page load, and it can arrive before getSession() above resolves.
+      // When it does, the version bump on the line above makes getSession()'s own .then() see a
+      // stale version and bail out via its early return — without this line, setLoading(false)
+      // was ONLY called from that branch, so it never ran and the app hung on the loading screen
+      // forever. Confirmed live: quicksignn.vercel.app and signup-asl.vercel.app both stuck on
+      // "Loading…" for every visitor, no console error, no network hang — this callback firing at
+      // all means we already have authoritative session state, the same information getSession()
+      // would have given us, so resolving loading here is always correct regardless of which of
+      // the two arrives first.
+      setLoading(false);
       // Fired once the user follows the emailed reset link and Supabase establishes a
       // short-lived recovery session — App renders a "set new password" modal while this is
       // true instead of dropping them straight into the app under a session they didn't
