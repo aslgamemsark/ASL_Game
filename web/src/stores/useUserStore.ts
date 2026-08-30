@@ -69,8 +69,10 @@ export function todayStr() {
 }
 
 // Calendar-day gap between two "YYYY-MM-DD" date strings (UTC-based, matching todayStr()).
-// Parsed as UTC so this is exact regardless of local DST transitions.
-function daysBetween(dateStr1: string, dateStr2: string): number {
+// Parsed as UTC so this is exact regardless of local DST transitions. Exported for
+// analytics/guestReturn.ts, which needs the identical DST-safe math for its own day-gap
+// calculation rather than a second, potentially-drifting implementation.
+export function daysBetween(dateStr1: string, dateStr2: string): number {
   const [y1, m1, d1] = dateStr1.split('-').map(Number);
   const [y2, m2, d2] = dateStr2.split('-').map(Number);
   const t1 = Date.UTC(y1, m1 - 1, d1);

@@ -57,7 +57,8 @@ import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal';
 import { LoadingScreen } from '@/components/shared/LoadingScreen';
 import { CelebrationHost } from '@/components/shared/CelebrationHost';
 import { OfflineBanner } from '@/components/shared/OfflineBanner';
-import { useScreenView } from '@/analytics';
+import { useScreenView, track } from '@/analytics';
+import { checkGuestReturn } from '@/analytics/guestReturn';
 import { useBackDismiss } from '@/hooks/useBackDismiss';
 
 type Screen =
@@ -100,6 +101,17 @@ export default function App() {
     if (!readyForWarmup) return;
     void getSharedCapture();
   }, [readyForWarmup]);
+
+  // Guest D1/D7 return tracking (see analytics/guestReturn.ts) — signed-in users already have this
+  // via `login`'s real session-based dedup, so this is guest-only and gated the same way
+  // readyForWarmup is: only once onboarding is actually done, not mid-flow or on a brand-new visit
+  // (checkGuestReturn itself also returns null for a genuine first-ever visit, this just avoids
+  // calling it at all before there's a meaningful "session" to attribute a return to).
+  useEffect(() => {
+    if (authLoading || user || !onboardingComplete) return;
+    const gapDays = checkGuestReturn();
+    if (gapDays !== null) track('guest_return', { gap_days: gapDays });
+  }, [authLoading, user, onboardingComplete]);
   const [screen, setScreen] = useState<Screen>(
     onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
   );
