@@ -25,14 +25,8 @@ function stripDevOnlyPublicAssets(): Plugin {
         // Landmark fixtures for the Avatar Lab's LandmarkViewer. That whole page is behind
         // `import.meta.env.DEV`, so nothing in a production build can fetch these.
         rm(path.resolve(__dirname, 'dist/dev'), { recursive: true, force: true }),
-        // The trained sign classifier's weights. CLASSIFIER_LOAD_ENABLED is false
-        // (src/config/classifier.ts), so no production code path requests them — they were 421 kB
-        // of deploy artifact that could never be fetched. RE-ENABLING THE CLASSIFIER MEANS
-        // REMOVING THIS LINE as well as flipping that flag, or the model 404s. That is not the
-        // trap it looks like: re-enabling already requires retraining first (the shipped model_v4
-        // is out-of-distribution and was rejecting correct signs — see the flag's own comment), so
-        // new weights have to be deployed regardless.
-        rm(path.resolve(__dirname, 'dist/models/signs'), { recursive: true, force: true }),
+        // The classifier is enabled in shadow mode, so its model files must ship. It remains a
+        // lazy camera-screen download rather than part of the initial app bundle.
       ]);
     },
   };
@@ -167,9 +161,8 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  // tfjs is only reached via a lazy dynamic import in engine/classifier.ts, which Vite's dep
-  // scanner doesn't always pre-bundle — list it so the dev server can serve the optimized dep
-  // on demand (prod build already code-splits it correctly).
+  // tfjs is reached lazily from camera screens; list it so the dev server can serve the optimized
+  // dependency on demand (the production build code-splits it correctly).
   optimizeDeps: {
     include: ['@tensorflow/tfjs'],
   },
