@@ -104,7 +104,20 @@ posthog.init('phc_mDKbcvzVa9vmuV4WLog798KNAJLprfFnfYhH5rWE5wE2', {
   disable_session_recording: true,
   autocapture: false,
   capture_pageview: false,
+  // Matches web/src/analytics/client.ts's posture — a browser's Do Not Track signal disables
+  // capture outright. This static page had neither this nor the opt-out check below, so
+  // landing_view/hero_cta_clicked/scroll_depth kept firing for a visitor who'd already turned
+  // analytics off in the app (Settings -> Privacy) or set DNT, since this file predates and
+  // doesn't share any code with client.ts.
+  respect_dnt: true,
 });
+
+// Same key + same fail-open-to-capture posture as web/src/analytics/consent.ts's
+// isAnalyticsOptedOut() — this file has no build step to import that module directly, so the
+// check is duplicated here rather than shared.
+try {
+  if (localStorage.getItem('quicksign_analytics_opt_out') === 'true') posthog.opt_out_capturing();
+} catch (e) { /* storage blocked — falls back to default (capture), same as consent.ts */ }
 
 document.addEventListener('DOMContentLoaded', function () {
   var params = new URLSearchParams(window.location.search);

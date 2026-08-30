@@ -11,6 +11,8 @@ import { ZIPPY_LINES } from '@/data/zippy';
 import type { SkillLevel } from '@/types/user';
 import { track } from '@/analytics';
 import { Button } from '@/components/shared/Button';
+import { PrivacyPage } from '@/pages/PrivacyPage';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 interface Props {
   onComplete: () => void;
@@ -53,6 +55,17 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
   const [step, setStep] = useState<'welcome' | 'auth' | 'skill' | 'done'>(initialStep);
   const [selectedLevel, setSelectedLevel] = useState<SkillLevel | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  // The auth step's own consent notice claimed a Terms & Privacy link "readable any time in
+  // Settings → Privacy & Terms" — but that text was never actually a link, and Settings isn't
+  // reachable until onboarding finishes, so a guest who wanted to read it before agreeing had no
+  // way to. Rendered as a local overlay (not App.tsx's 'privacy' screen route) so backing out of it
+  // returns here — routing through App.tsx's screen machine would instead land on 'settings' (see
+  // useBackDismiss's privacy case), which is wrong mid-onboarding.
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  // `active: showPrivacy` since this overlay's JSX below stays inline in this component (not a
+  // separately mounted child), matching CameraOnboarding's use of the same hook for the same kind
+  // of full-screen, non-ModalShell overlay.
+  const privacyDialog = useDialogA11y({ label: 'Privacy & Terms', onClose: () => setShowPrivacy(false), active: showPrivacy });
   const { completeOnboarding } = useUserStore();
   const { user, signInWithGoogle } = useAuth();
   const startedAtRef = useRef(Date.now());
@@ -188,16 +201,31 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
             {/* Consent moved here from the old first-paint Terms wall (see App.tsx). Creating an
                 account is the legally meaningful moment; a guest gets notice, not a contract.
                 Camera/landmark disclosure is separate and lives at the camera itself
-                (CameraOnboarding), which is where it is actually actionable. */}
+                (CameraOnboarding), which is where it is actually actionable — and covers the
+                multiplayer exception ("never leaves your device" doesn't hold for Duel/Room, where
+                video streams live to your opponent), so this notice doesn't repeat that claim. */}
             <p className="text-2xs text-z-gray-400 mt-5 leading-relaxed">
-              By creating an account you agree to our Terms &amp; Privacy Policy — readable any time
-              in Settings → Privacy &amp; Terms. Your camera video never leaves your device.
+              By creating an account you agree to our{' '}
+              <button
+                type="button"
+                onClick={() => setShowPrivacy(true)}
+                className="underline hover:text-z-gray-200"
+              >
+                Terms &amp; Privacy Policy
+              </button>
+              , also readable any time in Settings → Privacy &amp; Terms.
             </p>
 
             {showAuthModal && (
               <AuthModal onClose={() => { setShowAuthModal(false); setStep('skill'); }} />
             )}
           </motion.div>
+        )}
+
+        {showPrivacy && (
+          <div ref={privacyDialog.ref} {...privacyDialog.props} className="fixed inset-0 z-overlay outline-none">
+            <PrivacyPage onExit={() => setShowPrivacy(false)} />
+          </div>
         )}
 
         {step === 'skill' && (
