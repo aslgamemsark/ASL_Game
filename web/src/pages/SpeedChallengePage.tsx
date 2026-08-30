@@ -6,6 +6,7 @@ import { useRecognition } from '@/hooks/useRecognition';
 import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
+import { CameraOnboarding } from '@/components/shared/CameraOnboarding';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { Zippy } from '@/components/shared/Zippy';
 import { useUserStore } from '@/stores/useUserStore';
@@ -187,7 +188,25 @@ export function SpeedChallengePage({ onExit }: Props) {
     };
   }, []);
 
+  // One-time camera privacy primer, shared with LessonPage's same 'signup-camera-onboarded' flag
+  // (see CameraOnboarding) — Speed is a real first camera screen too, reachable directly.
+  const [showCameraOnboarding, setShowCameraOnboarding] = useState(false);
+  const pendingTierRef = useRef<SpeedTier | null>(null);
+
+  const handleCameraOnboardingContinue = () => {
+    localStorage.setItem('signup-camera-onboarded', '1');
+    setShowCameraOnboarding(false);
+    const pending = pendingTierRef.current;
+    pendingTierRef.current = null;
+    if (pending) void startGame(pending);
+  };
+
   const startGame = async (selectedTier: SpeedTier) => {
+    if (!localStorage.getItem('signup-camera-onboarded')) {
+      pendingTierRef.current = selectedTier;
+      setShowCameraOnboarding(true);
+      return;
+    }
     setTier(selectedTier);
     // Blitz's 5s-per-sign budget is tight against core/schema's own movement-verification
     // requirement (a rolling window of ~1.5-2s to confirm circular/linear/repeated motion, per
@@ -232,6 +251,15 @@ export function SpeedChallengePage({ onExit }: Props) {
 
   return (
     <div className="min-h-dvh bg-z-bg flex flex-col">
+      <AnimatePresence>
+        {showCameraOnboarding && (
+          <CameraOnboarding
+            onContinue={handleCameraOnboardingContinue}
+            onCancel={() => { setShowCameraOnboarding(false); pendingTierRef.current = null; }}
+          />
+        )}
+      </AnimatePresence>
+
       <video
         ref={videoRef}
         style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }}
