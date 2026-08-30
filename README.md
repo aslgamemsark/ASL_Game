@@ -154,8 +154,13 @@ Engine-level shared constants live in `core/` (e.g. `_RADIUS_CV_FREE` in `core/m
 
 ## Roadmap
 
-- **v1 (this Python prototype):** rule-based math, desktop, scenario by scenario. Still the
-  source of truth for the sign schema — the browser port mirrors it, not the other way around.
+- **v1 (this Python prototype):** rule-based math, desktop, scenario by scenario — the original
+  design reference for the sign schema. Superseded as the *running* source of truth once
+  recognition shipped to the browser (see the next bullet): `web/src/engine/` is what actually
+  runs in production today, and a recognition fix belongs there, not here — this file had claimed
+  the opposite ("the browser port mirrors it, not the other way around") well past the point that
+  stopped being true; see `docs/AI_ONBOARDING.md` §3 for the current, correct framing. This
+  prototype stays alive for ML training and reference, not as the thing to edit for a live bug.
 - **Done:** ported recognition to the browser (`web/`, MediaPipe Tasks Vision / TypeScript);
   added a trained Bi-GRU classifier as a client-side, veto-only disambiguation layer
   (`ml/`, `web/src/engine/classifier.ts`) — see `docs/vault/ML-Pipeline.md`; added Supabase for

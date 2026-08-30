@@ -198,7 +198,7 @@ scenarios/*/main.py (uses signs + verifier)         web/src/hooks/useRecognition
                                                  web/src/hooks/useProgressSync.ts → Supabase
 ```
 
-**Critical rule (CLAUDE.md)**: The Python `core/verifier.py` is the **source of truth** for recognition logic. The TypeScript `engine/verifier.ts` is a port — when they diverge, Python wins. Changes to recognition must be made in Python first, then ported.
+**Correction (2026-08-30 audit)**: This section previously claimed, citing CLAUDE.md, that Python's `core/verifier.py` is the source of truth and recognition changes must be made there first. CLAUDE.md no longer says this (checked directly — zero matches), and it stopped being true once recognition shipped to the browser: **`web/src/engine/verifier.ts` is what runs in production**, `core/verifier.py` is the original design reference, kept for ML training and offline tooling. See `docs/AI_ONBOARDING.md` §3 for the current, correct framing — a live recognition bug belongs in the TS engine, not Python.
 
 ---
 
@@ -228,7 +228,7 @@ The **entire recognition engine is duplicated**:
 - `core/schema.py` ↔ `web/src/engine/schema.ts`
 - `core/landmarks.py` ↔ `web/src/engine/landmarks.ts`
 
-**Risk**: Divergence causes bugs (e.g., COFFEE single-frame bug fixed in Python but not ported to web). CLAUDE.md mandates Python as source of truth but porting is manual.
+**Risk**: Divergence causes bugs (e.g., COFFEE single-frame bug fixed in Python but not ported to web — and the reverse direction is the live risk today, since `web/src/engine/` is what ships; see §5's correction above). Porting between the two stays manual either direction.
 
 ### 6.3 Tight Coupling
 

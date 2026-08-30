@@ -57,11 +57,15 @@ record is lost). See `.claude/rules/worklog.md` for the format and when to compr
 
 ## ARCHITECTURE DECISIONS ALREADY MADE — do not relitigate
 
-- **Runtime: Python prototype now, port to TypeScript/browser later.** v1 runs locally with
-  MediaPipe (**Tasks API**) + OpenCV + numpy. We deliberately use the Tasks API (not the legacy
-  Solutions API) so concepts line up with `@mediapipe/tasks-vision` when recognition is ported
-  to the browser later. Recognition is local/client-side by design — no video or landmark
-  streaming to a server for recognition (latency + cloud cost).
+- **Runtime: the port already happened — `web/src/engine/` (TypeScript) is what ships in
+  production today.** This bullet used to read "Python prototype now, port to TypeScript/browser
+  later," written before that port shipped and never updated (corrected 2026-08-30; see
+  `docs/AI_ONBOARDING.md` §3, and AGENTS.md's identical correction). The Python
+  `core/`/`signs/`/`scenarios/` prototype (MediaPipe Tasks API + OpenCV + numpy) is still live for
+  ML training and reference — the deliberate use of the Tasks API (not the legacy Solutions API)
+  is exactly why the two stayed conceptually portable — but a live recognition bug belongs in
+  `web/src/engine/`, not here. Recognition is local/client-side by design either way — no video or
+  landmark streaming to a server for recognition (latency + cloud cost).
 - **v1 sign recognition is RULE-BASED MATH; the trained ML model (Phase C) is a disambiguation
   LAYER on top — it does not replace the rule engine or the per-parameter Sign Coach.**
   Training datasets: **ASL Citizen** (licensed) and **WLASL** (authorized 2026-06-30 by owner
