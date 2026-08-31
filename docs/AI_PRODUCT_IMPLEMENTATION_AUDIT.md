@@ -70,6 +70,8 @@
 - The canonical `sign_attempt` event and local migration now carry normalized raw-frame quality
   metrics only: required-hand coverage, clipping, pose coverage/scale, time span/gaps, and a
   normalized tracking-stability signal. No landmarks or video are sent in those metrics.
+- Story now presents the same explicit camera-recovery card as other solo flows rather than leaving
+  a frozen preview; retry preserves the neutral interruption outcome.
 
 ## Practice Media Controls
 

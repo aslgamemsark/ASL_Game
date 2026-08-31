@@ -5,6 +5,10 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Added Story camera recovery feedback** (`web/src/pages/StoryPage.tsx`). **Mechanism:** a
+  denied, failed, or stalled story camera now shows an explicit retry card and suppresses stale live
+  coaching. **Verified:** focused outcome test and production build pass.
+
 - **Replayed valid fixtures for camera-evidence calibration** (fixture corpus,
   `docs/AI_PRODUCT_IMPLEMENTATION_AUDIT.md`). **Finding:** accepted HELP/HOSPITAL/MEDICINE/WRITE
   fixtures have incomplete raw-hand coverage, so no universal two-hand cutoff can safely score

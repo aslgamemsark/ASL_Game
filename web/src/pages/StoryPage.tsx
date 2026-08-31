@@ -118,6 +118,7 @@ export function StoryPage({
 
   const { classifier, status: classifierStatus, logVote, lastVote } = useClassifier();
   const recognition = useRecognition({ onPass: handlePass, classifier, onVote: logVote, onAttempt: attemptLog.recordAttempt, screen: 'story' });
+  const cameraUnavailable = camStatus === 'denied' || camStatus === 'error' || camStatus === 'stalled' || recognition.status === 'error';
 
   useEffect(() => { recognition.init(); }, [recognition.init]);
 
@@ -301,23 +302,26 @@ export function StoryPage({
                 </AnimatePresence>
 
                 <div className="lg:order-2">
-                  <WebcamMirror
+                  {cameraUnavailable ? <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center">
+                    <p className="text-sm font-bold text-z-red">Camera unavailable</p>
+                    <p className="text-xs text-z-gray-300 mt-1">This interruption does not count as a missed sign.</p>
+                    <button onClick={() => { recognition.init(); stopCam(); startCam(); }} className="mt-3 min-h-11 px-4 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 rounded-lg">Try again</button>
+                  </div> : <WebcamMirror
                     videoRef={videoRef}
                     cosmeticBorderClasses={cosmeticBorderClasses}
                     aspectClassName="aspect-[var(--cam-ar)] lg:aspect-[4/3]"
-                  />
+                  />}
                 </div>
 
                 <div className="lg:order-3">
-                  {/* Isolated 10 Hz subscriber — see LiveSignCoach/LessonPage notes. */}
-                  <LiveSignCoach
+                  {!cameraUnavailable && <LiveSignCoach
                     subscribe={recognition.subscribeResult}
                     getSnapshot={recognition.getResultSnapshot}
                     sign={currentEngineSign}
                     subscribeHoldProgress={recognition.subscribeHoldProgress}
                     getHoldProgressSnapshot={recognition.getHoldProgressSnapshot}
                     fillHeight
-                  />
+                  />}
                 </div>
               </div>
 
