@@ -73,6 +73,9 @@
   local-only and are discarded by the existing Continue/exit cleanup paths.
 - Practice camera recovery now also offers receptive practice over the current session’s sign pool;
   it deliberately records receptive—not expressive—mastery.
+- Lesson, Practice, Story, and Speed show a “Recognition seems wrong” control after five seconds
+  of stable framing. It logs aggregate scores only, clears the local attempt window, and never
+  grants rewards or changes mastery.
 
 ## Mode-Specific Mastery
 

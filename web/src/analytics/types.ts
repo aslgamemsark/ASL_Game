@@ -116,6 +116,14 @@ export interface EventPayloads {
   // separate event name, so aggregate AI-quality metrics (avg confidence, avg attempts-to-success,
   // avg latency) are one PostHog query over one event instead of stitched across two.
   sign_attempt: SignAttemptBase;
+  recognition_disputed: {
+    sign_id: string;
+    screen: ScreenName;
+    outcome: RecognitionOutcomeKind;
+    primary_reason: string | null;
+    parameter_score: number | null;
+    quality_score: number | null;
+  };
   /** The moment a user first passes ANY sign, ever — the product's real activation event, fired
    *  once per user and never again (guarded by a localStorage flag). `attempts_taken` is how many
    *  tries it cost them. Added 2026-07-27 to make "time to first successful sign" measurable: it

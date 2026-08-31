@@ -602,6 +602,7 @@ export function PracticePage({
                   </div>
 
                   <div className="flex justify-end mt-auto pt-2">
+                    {recognition.disputeReady && <button onClick={recognition.disputeAttempt} className="text-xs text-z-gray-300 underline underline-offset-4 min-h-11 px-2">Recognition seems wrong</button>}
                     <button
                       onClick={handleSkipExpressive}
                       className="text-xs text-z-gray-400 hover:text-z-gray-200 px-3 py-1.5 rounded-lg border border-z-gray-500/30"

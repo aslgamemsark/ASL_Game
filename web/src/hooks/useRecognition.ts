@@ -185,6 +185,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   // Framing feedback for the camera-position guide. Deduped by message (see the tick loop) so it
   // doesn't setState on every one of the ~28 frames/sec — only when the guidance actually changes.
   const [framing, setFraming] = useState<FramingStatus | null>(null);
+  const [disputeReady, setDisputeReady] = useState(false);
+  const disputeReadyRef = useRef(false);
   const framingMsgRef = useRef<string | null>(null);
   const passCallbackRef = useRef(opts?.onPass);
   passCallbackRef.current = opts?.onPass;
@@ -207,6 +209,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   const gatingRef = useRef(false);
   const frameCountRef = useRef(0);
   const lastResultRef = useRef<VerifyResult | null>(null);
+  const goodEvidenceSinceRef = useRef<number | null>(null);
   const screenRef = useRef<ScreenName | undefined>(opts?.screen);
   screenRef.current = opts?.screen;
   // When the loop (re)started, and how many attempts have fired since — reset alongside the other
@@ -246,6 +249,9 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       publishHold(null);
       frameCountRef.current = 0;
       lastResultRef.current = null;
+      goodEvidenceSinceRef.current = null;
+      disputeReadyRef.current = false;
+      setDisputeReady(false);
       loopStartRef.current = performance.now();
       attemptCountRef.current = 0;
 
@@ -350,6 +356,19 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           // same dedup boundary doubles as the analytics sample point — one framing_check per
           // actual guidance change, never per frame.
           const f = computeFraming(frame);
+          if (f.ok) {
+            if (goodEvidenceSinceRef.current === null) goodEvidenceSinceRef.current = nowMs;
+            if (nowMs - goodEvidenceSinceRef.current >= 5000 && !disputeReadyRef.current) {
+              disputeReadyRef.current = true;
+              setDisputeReady(true);
+            }
+          } else {
+            goodEvidenceSinceRef.current = null;
+            if (disputeReadyRef.current) {
+              disputeReadyRef.current = false;
+              setDisputeReady(false);
+            }
+          }
           if (f.message !== framingMsgRef.current) {
             framingMsgRef.current = f.message;
             setFraming(f);
@@ -556,6 +575,31 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     return attempt;
   }, []);
 
+  const disputeAttempt = useCallback(() => {
+    const sign = signRef.current;
+    if (!sign || !disputeReady || !screenRef.current) return false;
+    const result = lastResultRef.current;
+    const required = result?.params.filter((param) => param.required) ?? [];
+    const quality = measureRecognitionEvidence(rawBufferRef.current.frames, sign);
+    track('recognition_disputed', {
+      sign_id: sign.name,
+      screen: screenRef.current,
+      outcome: 'NEEDS_CORRECTION',
+      primary_reason: required.find((param) => param.score < param.threshold)?.name ?? null,
+      parameter_score: required.length ? required.reduce((sum, param) => sum + param.score, 0) / required.length : null,
+      quality_score: (quality.requiredHandCoverage + quality.poseCoverage + quality.stableTrackingRatio + (1 - quality.clippedFrameRatio)) / 4,
+    });
+    bufferRef.current.clear();
+    rawBufferRef.current.clear();
+    stabilizerRef.current.reset();
+    lastResultRef.current = null;
+    loopStartRef.current = performance.now();
+    goodEvidenceSinceRef.current = null;
+    disputeReadyRef.current = false;
+    setDisputeReady(false);
+    return true;
+  }, [disputeReady]);
+
   /**
    * Subscribe to the 10 Hz live result WITHOUT re-rendering this hook's owner. Intended for
    * `useSyncExternalStore` inside a small isolated component (LiveSignCoach) so the page tree
@@ -580,6 +624,9 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     stabilizerRef.current.reset();
     frameCountRef.current = 0;
     lastResultRef.current = null;
+    goodEvidenceSinceRef.current = null;
+    disputeReadyRef.current = false;
+    setDisputeReady(false);
     loopStartRef.current = performance.now();
     attemptCountRef.current = 0;
     publishResult(null);
@@ -595,5 +642,5 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     };
   }, []);
 
-  return { status, framing, init, startLoop, stopLoop, setSign, getSnapshot, finalizeAttempt, subscribeResult, getResultSnapshot, subscribeHoldProgress, getHoldProgressSnapshot };
+  return { status, framing, disputeReady, disputeAttempt, init, startLoop, stopLoop, setSign, getSnapshot, finalizeAttempt, subscribeResult, getResultSnapshot, subscribeHoldProgress, getHoldProgressSnapshot };
 }

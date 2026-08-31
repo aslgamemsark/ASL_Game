@@ -462,6 +462,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
                 <p className="text-xs text-z-gray-400 italic max-w-[60%]">
                   {currentSignData.hint}
                 </p>
+                {recognition.disputeReady && <button onClick={recognition.disputeAttempt} className="text-xs text-z-gray-300 underline underline-offset-4 min-h-11 px-2">Recognition seems wrong</button>}
                 <button
                   onClick={handleSkip}
                   className="text-xs text-z-gray-400 hover:text-z-gray-200 transition-colors px-3 py-1.5 rounded-lg border border-z-gray-500/30"

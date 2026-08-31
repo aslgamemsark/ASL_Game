@@ -5,6 +5,12 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Added recognition-dispute recovery** (`web/src/hooks/useRecognition.ts`, analytics types,
+  Lesson/Practice/Story/Speed pages). **Mechanism:** after five seconds of good framing, the learner
+  can reset a local attempt; analytics receives only sign, screen, outcome, reason, and aggregate
+  scores—never video or landmarks. **Verified:** focused recognition tests, production build, and
+  lint (existing warnings only).
+
 - **Added a camera-free recovery route in Practice** (`web/src/pages/PracticePage.tsx`).
   **Mechanism:** a camera error card can switch the existing session to its receptive questions,
   with no expressive award or mastery write. **Verified:** production build and lint (existing

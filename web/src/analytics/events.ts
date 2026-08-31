@@ -58,6 +58,7 @@ export const EVENTS = {
   practice_session_completed: 'practice_session_completed',
   hint_used: 'hint_used',
   sign_attempt: 'sign_attempt',
+  recognition_disputed: 'recognition_disputed',
   first_sign_success: 'first_sign_success',
 
   // Business completion

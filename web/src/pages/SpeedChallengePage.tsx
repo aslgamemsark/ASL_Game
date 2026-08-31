@@ -440,6 +440,7 @@ export function SpeedChallengePage({ onExit }: Props) {
 
               {/* Skip */}
               <div className="flex justify-end mt-auto pt-1">
+                {recognition.disputeReady && <button onClick={recognition.disputeAttempt} className="text-xs text-z-gray-300 underline underline-offset-4 min-h-11 px-2">Recognition seems wrong</button>}
                 <button
                   onClick={() => {
                     clearTimeout(advanceTimerRef.current);

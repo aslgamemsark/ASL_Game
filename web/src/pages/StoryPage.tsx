@@ -323,6 +323,9 @@ export function StoryPage({
 
               {/* Actions */}
               <div className="flex gap-2 mt-auto pt-1">
+                {recognition.disputeReady && <motion.button onClick={recognition.disputeAttempt}
+                  className="px-3 py-2 text-xs rounded-xl border border-z-gray-400/30 text-z-gray-300 min-h-11"
+                  whileTap={{ scale: 0.96 }}>Recognition seems wrong</motion.button>}
                 {hintLevel < 2 && (
                   <motion.button onClick={handleHint}
                     className="flex-1 py-2 text-xs rounded-xl border border-z-purple/30 text-z-purple-light hover:border-z-purple/60 transition-colors"
