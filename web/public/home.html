@@ -1099,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <h1>Learn ASL by <em>using your hands</em>, not flashcards.</h1>
         <p class="lede">Practice real signs with real-time feedback that tells you exactly what to fix. Powered by on-device AI: your camera never leaves your browser.</p>
         <div class="hero-ctas">
-          <a href="/app?start=first-sign" class="btn btn-primary btn-lg" data-cta-location="hero">Start learning free →</a>
+          <a href="/app?start=first-sign" class="btn btn-primary btn-lg" data-cta-location="hero">Try your first sign →</a>
           <a href="#how-it-works" class="btn btn-ghost btn-lg">See how it works ↓</a>
         </div>
         <p class="hero-trust"><strong>Student-built.</strong> Designed for real practice, not just recognition.</p>
@@ -1111,7 +1111,33 @@ document.addEventListener('DOMContentLoaded', function () {
           <div class="phone-btn vol-down"></div>
           <div class="phone-screen">
             <div class="phone-island" aria-hidden="true"></div>
+            <!--
+              DEMO SLOT — this is the hero's primary proof element (2026-08-31, launch-readiness
+              Phase E). Chosen trust-signal approach: verifiable facts + a REAL screen-recorded demo,
+              not a staged mockup or a stock photo of a "signer." The static screenshot below shows
+              the Home screen (streak/worlds) — real, but not the actual differentiator (live
+              per-parameter recognition feedback, shown further down as a static shot at
+              /shots/signcoach.webp). A short looping clip of that live moment, right here above the
+              fold, is a stronger and more honest piece of proof than either static image.
+
+              To swap in the real recording once it exists:
+                1. Screen-record yourself (or a teammate) signing something and getting live Sign
+                   Coach feedback — the actual in-app UI, not a re-enactment. ~4-8s, looping cleanly.
+                2. Export as .mp4 (H.264) AND .webm for broad codec support, silent (no audio track
+                   needed — it will be muted anyway), sized to roughly match this phone frame
+                   (390x844 or similar 9:19.5 portrait).
+                3. Save both to /public/demo/first-sign.mp4 and /public/demo/first-sign.webm.
+                4. Delete the <img> below and uncomment the <video> block.
+              Until then, the static screenshot stays — a real, working screenshot beats a broken
+              video reference.
+            -->
             <img src="/shots/home.webp" alt="QuickSign home screen showing streak, daily goal, and scenario worlds" loading="eager" width="390" height="844">
+            <!--
+            <video autoplay loop muted playsinline width="390" height="844" poster="/shots/signcoach.webp" aria-label="QuickSign giving real-time feedback on a sign, recorded from the actual app">
+              <source src="/demo/first-sign.webm" type="video/webm">
+              <source src="/demo/first-sign.mp4" type="video/mp4">
+            </video>
+            -->
           </div>
         </div>
       </div>
@@ -1307,7 +1333,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="container">
       <img src="/zippy/celebrating.webp" alt="" loading="lazy">
       <h2>Ready to actually learn to sign?</h2>
-      <a href="/app?start=first-sign" class="btn btn-primary btn-lg" data-cta-location="final">Start learning free →</a>
+      <a href="/app?start=first-sign" class="btn btn-primary btn-lg" data-cta-location="final">Try your first sign →</a>
     </div>
   </section>
 
