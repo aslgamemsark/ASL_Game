@@ -18,6 +18,8 @@ interface Props {
 export function ReferenceClip({ clipUrl, signName, compact }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
+  const [rate, setRate] = useState(1);
+  const [mirrored, setMirrored] = useState(false);
   const { expanded, open, close } = useClipEnlarge();
 
   useEffect(() => {
@@ -30,8 +32,11 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
     }
   }, [clipUrl, failed]);
 
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.playbackRate = rate;
+  }, [rate]);
+
   const showPlaceholder = !clipUrl || failed;
-  const openEnlarged = showPlaceholder ? undefined : open;
   const displayName = signName.replace(/_/g, ' ');
 
   return (
@@ -39,18 +44,9 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
       <motion.div
         className={`relative rounded-2xl overflow-hidden bg-z-card ${
           compact ? 'w-28 h-28 mx-auto lg:w-full lg:h-auto lg:aspect-square lg:mx-0' : 'aspect-square'
-        } ${showPlaceholder ? '' : 'cursor-zoom-in'}`}
+        }`}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        onClick={openEnlarged}
-        onContextMenu={
-          showPlaceholder
-            ? undefined
-            : (e) => {
-                e.preventDefault();
-                open();
-              }
-        }
       >
         {showPlaceholder ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-center px-4">
@@ -65,14 +61,18 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
               loop
               muted
               playsInline
+              controls
               onError={() => setFailed(true)}
               className="w-full h-full object-contain"
+              style={{ transform: mirrored ? 'scaleX(-1)' : undefined }}
             />
-            {/* Discoverability hint for the click/right-click-to-enlarge affordance below.
-                bg-video-plate, not bg-black/50: this sits on the clip itself, and /50 left the
-                glyph at 3.56:1 against a bright frame. */}
-            <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-video-plate flex items-center justify-center text-white text-xs pointer-events-none">
-              ⤢
+            <div className="absolute top-2 right-2 flex gap-1">
+              <button type="button" onClick={() => { if (videoRef.current) { videoRef.current.currentTime = 0; void videoRef.current.play(); } }} aria-label="Restart reference clip" className="min-w-11 min-h-11 rounded-full bg-video-plate text-white">↺</button>
+              <button type="button" onClick={() => setMirrored((value) => !value)} aria-pressed={mirrored} aria-label="Mirror reference clip" className="min-w-11 min-h-11 rounded-full bg-video-plate text-white">⇄</button>
+              <button type="button" onClick={open} aria-label="Enlarge reference clip" className="min-w-11 min-h-11 rounded-full bg-video-plate text-white">⤢</button>
+            </div>
+            <div className="absolute top-14 right-2 flex gap-1 bg-video-plate rounded-lg p-1">
+              {[0.5, 0.75, 1].map((value) => <button key={value} type="button" onClick={() => setRate(value)} aria-pressed={rate === value} className="min-w-11 min-h-11 text-xs text-white rounded">{value}×</button>)}
             </div>
           </>
         )}
@@ -89,13 +89,13 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
           <div className="h-6 bg-gradient-to-t from-black/62 to-transparent" aria-hidden="true" />
           <div className="bg-video-plate p-3">
             <p className="text-white text-sm font-bold">{displayName}</p>
-            <p className="text-white/85 text-xs">{showPlaceholder ? 'No demo video yet — follow the hint below' : 'Watch and follow along — tap to enlarge'}</p>
+            <p className="text-white/85 text-xs">{showPlaceholder ? 'No demo video yet — follow the hint below' : 'Use the controls to review the sign'}</p>
           </div>
         </div>
       </motion.div>
 
       {compact && !showPlaceholder && (
-        <p className="text-center text-z-gray-300 text-xs mt-1 lg:hidden">Too small to see? Tap to enlarge ⤢</p>
+        <p className="text-center text-z-gray-300 text-xs mt-1 lg:hidden">Use ⤢ to enlarge</p>
       )}
 
       {!showPlaceholder && clipUrl && (

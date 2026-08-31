@@ -5,6 +5,11 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Completed native practice-media controls** (`web/src/components/lesson/ReferenceClip.tsx`,
+  `web/src/components/lesson/ReplayCompare.tsx`). **Mechanism:** reused browser video controls for
+  play/pause and scrubbing, with small local controls for restart, playback rate, mirror, and
+  enlarged viewing. **Verified:** production build and lint (existing warnings only).
+
 - **Made camera interruptions neutral for solo recognition** (`web/src/hooks/useRecognition.ts`,
   `web/src/lib/recognition/outcome.ts`, Lesson/Practice/Story/Speed pages). **Mechanism:** raw
   capture frames are retained before hand stabilization; a running loop that loses its camera now

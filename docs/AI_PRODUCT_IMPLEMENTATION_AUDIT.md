@@ -62,6 +62,13 @@
   their combo on a neutral timeout or interruption.
 - Threshold-based raw-frame quality decisions remain disabled pending fixture calibration.
 
+## Practice Media Controls
+
+- Reference clips now use native playback controls and provide restart, 0.5×/0.75×/1× speed,
+  mirror, and enlarged-view controls with labelled 44px targets.
+- Local attempt replay keeps native scrubbing and now exposes its mirror state. Recordings remain
+  local-only and are discarded by the existing Continue/exit cleanup paths.
+
 ## Mode-Specific Mastery
 
 - Legacy aggregate SRS remains intact while new attempts record receptive or expressive evidence.
