@@ -42,6 +42,19 @@ test.describe('runtime health', () => {
     expect(errors, 'console/network errors on landing').toEqual([]);
   });
 
+  // Same vite-preview caveat as the landing test above: /asl-alphabet (the clean URL) only exists
+  // via vercel.json's rewrite, which this local build doesn't apply — hits the underlying static
+  // file directly instead. The clean-URL redirect/rewrite pair is a live curl check, not this.
+  test('asl-alphabet page: loads, hero visible, no broken images, no console errors', async ({ page }) => {
+    const errors = collectErrors(page);
+    await page.goto('/asl-alphabet.html', { waitUntil: 'networkidle' });
+    await expect(page.locator('h1').first()).toBeVisible();
+    const brokenImgs = await page.$$eval('img', (imgs) =>
+      imgs.filter((i) => i.complete && i.naturalWidth === 0 && i.getAttribute('src')).map((i) => i.getAttribute('src')));
+    expect(brokenImgs, 'broken images on asl-alphabet').toEqual([]);
+    expect(errors, 'console/network errors on asl-alphabet').toEqual([]);
+  });
+
   // The app itself now lives at /app, not / — see the Phase A URL migration.
   test('app boots as guest with no console errors or 4xx responses', async ({ page }) => {
     const errors = collectErrors(page);

@@ -3,11 +3,12 @@
 # Add each new static marketing page here explicitly as it ships (matches the pattern already used
 # for CSP headers in vercel.json — both files need the same new-page entry).
 #
-# /landing.html is deliberately NOT allowed here (2026-08-31): it 301s to / now (see vercel.json),
-# so it has nothing of its own for a crawler to index — only the redirect target, /, should be.
+# /landing.html and /asl-alphabet.html are deliberately NOT allowed here (2026-08-31): both now 301
+# to their clean-URL equivalent (/ and /asl-alphabet — see vercel.json), so neither has anything of
+# its own left for a crawler to index; only the redirect targets should be.
 User-agent: *
 Allow: /$
-Allow: /asl-alphabet.html
+Allow: /asl-alphabet$
 Disallow: /
 
 Sitemap: https://quicksignn.vercel.app/sitemap.xml

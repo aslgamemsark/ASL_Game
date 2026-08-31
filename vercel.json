@@ -8,12 +8,21 @@
       "source": "/landing.html",
       "destination": "/",
       "permanent": true
+    },
+    {
+      "source": "/asl-alphabet.html",
+      "destination": "/asl-alphabet",
+      "permanent": true
     }
   ],
   "rewrites": [
     {
       "source": "/",
       "destination": "/home.html"
+    },
+    {
+      "source": "/asl-alphabet",
+      "destination": "/asl-alphabet.html"
     },
     {
       "source": "/((?!.*\\.[a-zA-Z0-9]+$).*)",
@@ -51,7 +60,7 @@
       ]
     },
     {
-      "source": "/(home|asl-alphabet).html",
+      "source": "/(home\\.html|asl-alphabet(\\.html)?)",
       "headers": [
         {
           "key": "Content-Security-Policy",
@@ -80,7 +89,7 @@
       ]
     },
     {
-      "source": "/((?!$|home\\.html$|asl-alphabet\\.html$).*)",
+      "source": "/((?!$|home\\.html$|asl-alphabet(\\.html)?$).*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
