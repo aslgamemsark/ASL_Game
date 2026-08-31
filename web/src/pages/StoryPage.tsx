@@ -76,13 +76,13 @@ export function StoryPage({
   const currentSignData = currentLine ? SIGNS[currentLine.requiredSignId] : null;
 
   const handlePass = useCallback(
-    (_result: VerifyResult) => {
+    (result: VerifyResult) => {
       if (phase !== 'dialogue') return;
       setPhase('response');
       sounds.correct();
       burst();
       if (currentLine) {
-        recordSign({ signId: currentLine.requiredSignId, mode: 'expressive', correct: true });
+        recordSign({ signId: currentLine.requiredSignId, mode: 'expressive', correct: true, params: Object.fromEntries(result.params.filter((param) => param.required).map((param) => [param.name, { score: param.score, threshold: param.threshold }])) });
         addDailyMinutes(2);
         const xp = 10;
         const signsEarned = 15;
@@ -162,7 +162,7 @@ export function StoryPage({
   const handleSkip = () => {
     if (!currentLine) return;
     const attempt = recognition.finalizeAttempt('skip', camStatus);
-    if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentLine.requiredSignId, mode: 'expressive', correct: false });
+    if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentLine.requiredSignId, mode: 'expressive', correct: false, params: attempt?.verifier ? Object.fromEntries(attempt.verifier.params.filter((param) => param.required).map((param) => [param.name, { score: param.score, threshold: param.threshold }])) : undefined });
     setSkipsUsed((p) => p + 1);
     setFailMsg(pickZippyLine('encourage'));
     setPhase('fail');

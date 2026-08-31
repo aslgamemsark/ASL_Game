@@ -108,6 +108,7 @@ export interface AttemptRecord {
   aiVetoed: boolean;
   finalPassed: boolean;
   outcome: RecognitionOutcomeKind;
+  verifier: VerifyResult | null;
   frames: Frame[];
   /** Ms since this sign's recognition loop started — how long the user was trying this sign. */
   durationMs: number;
@@ -203,6 +204,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   gateConfRef.current = opts?.gateConfidence ?? GATE_CONFIDENCE;
   const gatingRef = useRef(false);
   const frameCountRef = useRef(0);
+  const lastResultRef = useRef<VerifyResult | null>(null);
   const screenRef = useRef<ScreenName | undefined>(opts?.screen);
   screenRef.current = opts?.screen;
   // When the loop (re)started, and how many attempts have fired since — reset alongside the other
@@ -241,6 +243,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       publishResult(null);
       publishHold(null);
       frameCountRef.current = 0;
+      lastResultRef.current = null;
       loopStartRef.current = performance.now();
       attemptCountRef.current = 0;
 
@@ -354,6 +357,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           }
 
           const vr = verify(bufferRef.current, signRef.current);
+          lastResultRef.current = vr;
           if (nowMs - lastResultUpdateMs >= RESULT_UPDATE_INTERVAL_MS) {
             lastResultUpdateMs = nowMs;
             // Dual publish: React state for legacy consumers + external store for the isolated
@@ -412,6 +416,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       aiVetoed: modelVetoed,
                       finalPassed: passed,
                       outcome: decideRecognitionOutcome({ recognitionPassed: passed, scorable: true, reasons: [] }).kind,
+                      verifier: vr,
                       frames: snapshot,
                       durationMs: Math.round(performance.now() - loopStartRef.current),
                       attemptNumber: attemptCountRef.current,
@@ -444,6 +449,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 aiVetoed: false,
                 finalPassed: true,
                 outcome: 'PASS',
+                verifier: vr,
                 frames: bufferRef.current.frames,
                 durationMs: Math.round(performance.now() - loopStartRef.current),
                 attemptNumber: attemptCountRef.current,
@@ -536,6 +542,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       aiVetoed: false,
       finalPassed: false,
       outcome: outcome.kind,
+      verifier: lastResultRef.current,
       frames: bufferRef.current.frames,
       durationMs: Math.round(performance.now() - loopStartRef.current),
       attemptNumber: attemptCountRef.current,
@@ -567,6 +574,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     rawBufferRef.current.clear();
     stabilizerRef.current.reset();
     frameCountRef.current = 0;
+    lastResultRef.current = null;
     loopStartRef.current = performance.now();
     attemptCountRef.current = 0;
     publishResult(null);

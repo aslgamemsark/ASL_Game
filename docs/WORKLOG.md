@@ -5,6 +5,11 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Connected verifier evidence to expressive mastery** (`web/src/hooks/useRecognition.ts`,
+  Lesson/Practice/Story/Speed pages). **Mechanism:** a finalized attempt retains its last verifier
+  result locally, and required parameter scores flow into the existing normalized mastery EMA for
+  expressive attempts only. **Verified:** focused outcome/store tests and production build pass.
+
 - **Completed native practice-media controls** (`web/src/components/lesson/ReferenceClip.tsx`,
   `web/src/components/lesson/ReplayCompare.tsx`). **Mechanism:** reused browser video controls for
   play/pause and scrubbing, with small local controls for restart, playback rate, mirror, and

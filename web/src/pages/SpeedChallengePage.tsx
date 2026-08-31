@@ -82,7 +82,7 @@ export function SpeedChallengePage({ onExit }: Props) {
   );
 
   const handlePass = useCallback(
-    (_result: VerifyResult) => {
+    (result: VerifyResult) => {
       if (phaseRef.current !== 'playing' || justPassedRef.current) return;
       setJustPassed(true);
       clearInterval(timerRef.current);
@@ -90,7 +90,7 @@ export function SpeedChallengePage({ onExit }: Props) {
       burst();
 
       if (currentSignId) {
-        recordSign({ signId: currentSignId, mode: 'expressive', correct: true });
+        recordSign({ signId: currentSignId, mode: 'expressive', correct: true, params: Object.fromEntries(result.params.filter((param) => param.required).map((param) => [param.name, { score: param.score, threshold: param.threshold }])) });
       }
 
       setScore((p) => p + 1);
@@ -157,7 +157,7 @@ export function SpeedChallengePage({ onExit }: Props) {
           clearInterval(timerRef.current);
           if (currentSignId) {
             const attempt = recognition.finalizeAttempt('timeout', camStatus);
-            if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false });
+            if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false, params: attempt?.verifier ? Object.fromEntries(attempt.verifier.params.filter((param) => param.required).map((param) => [param.name, { score: param.score, threshold: param.threshold }])) : undefined });
           }
           if (camStatus === 'active') setCombo(0);
           loopStartedRef.current = null;
@@ -444,7 +444,7 @@ export function SpeedChallengePage({ onExit }: Props) {
                   onClick={() => {
                     clearTimeout(advanceTimerRef.current);
                     const attempt = recognition.finalizeAttempt('skip', camStatus);
-                    if (currentSignId && attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false });
+                    if (currentSignId && attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false, params: attempt?.verifier ? Object.fromEntries(attempt.verifier.params.filter((param) => param.required).map((param) => [param.name, { score: param.score, threshold: param.threshold }])) : undefined });
                     if (attempt?.outcome !== 'NOT_SCORABLE') setCombo(0);
                     advanceSign(false);
                   }}

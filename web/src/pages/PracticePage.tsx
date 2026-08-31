@@ -125,7 +125,7 @@ export function PracticePage({
       sounds.correct();
       burst();
       if (currentSignId) {
-        recordSign({ signId: currentSignId, mode: 'expressive', correct: true });
+        recordSign({ signId: currentSignId, mode: 'expressive', correct: true, params: Object.fromEntries(result.params.filter((param) => param.required).map((param) => [param.name, { score: param.score, threshold: param.threshold }])) });
       }
       addXp(5);
       setSessionXp((p) => p + 5);
@@ -354,7 +354,7 @@ export function PracticePage({
     setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
       const attempt = recognition.finalizeAttempt('skip', camStatus);
-      if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false });
+      if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false, params: attempt?.verifier ? Object.fromEntries(attempt.verifier.params.filter((param) => param.required).map((param) => [param.name, { score: param.score, threshold: param.threshold }])) : undefined });
     }
     recorder.discard();
     loopStartedRef.current = null;

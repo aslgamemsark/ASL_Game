@@ -74,3 +74,5 @@
 - Legacy aggregate SRS remains intact while new attempts record receptive or expressive evidence.
 - Expressive parameter evidence uses normalized score-to-threshold EMA; absent mode records remain
   unknown rather than being treated as zero.
+- The four solo expressive flows now pass each required verifier parameter into that EMA for both
+  successful and corrective attempts. Receptive answers still cannot write expressive parameters.
