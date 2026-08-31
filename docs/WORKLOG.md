@@ -5,6 +5,11 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Defaulted training-data collection to off** (`web/src/stores/useUserStore.ts`,
+  `web/src/stores/tests/mergeProgress.test.ts`). **Why:** no consent choice must be treated as
+  opt-out. The consent modal already mapped dismiss/Escape to off, but the store default was true.
+  **Verified:** a new store-default test failed before the change and passes after it.
+
 - **QuickSign product-trust Batch 0 started** (`web/index.html`, `web/public/landing.html`,
   `web/public/asl-alphabet.html`, `web/public/sitemap.xml`, `web/public/robots.txt`,
   `web/playwright.prod.config.ts`, `web/src/App.tsx`, `web/src/components/home/ProfileTab.tsx`,

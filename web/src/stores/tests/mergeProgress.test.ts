@@ -30,6 +30,10 @@ beforeEach(() => {
 });
 
 describe('mergeProgress', () => {
+  it('keeps training-data collection off until the learner explicitly opts in', () => {
+    expect(useUserStore.getState().collectTrainingData).toBe(false);
+  });
+
   it('keeps the higher of local/remote for xp, level, and streak (never regresses on a lower remote)', () => {
     useUserStore.setState({ xp: 500, level: 6, streak: 10 });
     useUserStore.getState().mergeProgress({ xp: 100, level: 2, streak: 3 });

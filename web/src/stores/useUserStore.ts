@@ -50,7 +50,7 @@ function defaultProgress(): UserProgress {
     equippedAvatar: null,
     friends: [],
     renameCards: 0,
-    collectTrainingData: true,
+    collectTrainingData: false,
   };
 }
 

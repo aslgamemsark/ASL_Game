@@ -31,3 +31,8 @@
 - No quality threshold becomes punitive until every existing valid fixture stays scorable and the
   corresponding degraded fixture is rejected.
 - No Face Landmarker/NMM quality gate is added: no current canonical sign requires NMM scoring.
+
+## Privacy Hardening
+
+- Default landmark-training collection is now off. The existing consent modal and Settings control
+  remain the explicit opt-in path; dismissal and Escape already resolve to off.
