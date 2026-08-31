@@ -14,9 +14,9 @@ export interface RecognitionEvidence {
 const EDGE_MARGIN = 0.02;
 
 function clipped(frame: Frame): boolean {
-  return frame.hands.some((hand) => hand.points.some(([x, y]) =>
+  return frame.hands.some((hand) => hand.points.some(([x, y]) => (x !== 0 || y !== 0) && (
     x <= frame.width * EDGE_MARGIN || x >= frame.width * (1 - EDGE_MARGIN)
-    || y <= frame.height * EDGE_MARGIN || y >= frame.height * (1 - EDGE_MARGIN),
+    || y <= frame.height * EDGE_MARGIN || y >= frame.height * (1 - EDGE_MARGIN)),
   ));
 }
 

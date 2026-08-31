@@ -5,6 +5,11 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Corrected raw-frame clipping measurement** (`web/src/lib/recognition/evidence.ts`).
+  **Mechanism:** synthetic fixture placeholder coordinates are no longer treated as frame-edge
+  landmarks, preserving meaningful clipping evidence for calibration. **Verified:** focused
+  evidence test and production build pass.
+
 - **Generated fixture-backed minimal-pair candidates** (`docs/MINIMAL_PAIR_CANDIDATES.md`).
   **Mechanism:** records only contrasts directly named by existing confusor fixtures and their
   current verifier parameter category; it intentionally creates no learner-facing ASL lesson.
