@@ -156,6 +156,28 @@ document.addEventListener('DOMContentLoaded', function () {
     referrer: document.referrer || null,
   });
 
+  // First-touch / session-touch attribution — same storage keys and JSON shape as
+  // web/src/analytics/attribution.ts, written here because this page has no build step to import
+  // that module directly. Same-origin storage is what lets the app (client.ts) pick this up after
+  // the visitor continues to /app, without any URL plumbing between the two. Write-once for
+  // first-touch, overwritten every UTM-bearing load for session-touch — see attribution.ts's own
+  // comment for why both horizons exist.
+  try {
+    if (params.has('utm_source') || params.has('utm_medium') || params.has('utm_campaign') || params.has('utm_content') || params.has('utm_term')) {
+      var touch = {
+        utm_source: params.get('utm_source'),
+        utm_medium: params.get('utm_medium'),
+        utm_campaign: params.get('utm_campaign'),
+        utm_content: params.get('utm_content'),
+        utm_term: params.get('utm_term'),
+        referrer: document.referrer || null,
+        landing_path: window.location.pathname,
+      };
+      sessionStorage.setItem('qs_session_touch', JSON.stringify(touch));
+      if (!localStorage.getItem('qs_first_touch')) localStorage.setItem('qs_first_touch', JSON.stringify(touch));
+    }
+  } catch (e) { /* storage blocked — attribution is best-effort, never fatal */ }
+
   // Any primary CTA ("Start learning free") anywhere on the page — there are several, all the
   // same intent, so one delegated listener covers them without hunting down every instance.
   document.addEventListener('click', function (e) {

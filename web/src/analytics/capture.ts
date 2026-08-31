@@ -1,6 +1,7 @@
 import { getPosthog, whenAnalyticsReady } from './client';
 import { EVENTS } from './events';
 import { setAnalyticsOptedOut, isAnalyticsOptedOut } from './consent';
+import { firstTouchProperties } from './attribution';
 import type { ActiveEventName, EventPayloads } from './types';
 
 /**
@@ -45,7 +46,11 @@ export function identifyUser(
 ): void {
   const ph = getPosthog();
   if (!ph) return;
-  ph.identify(userId, props);
+  // Third argument is PostHog's $set_once — applied to the person profile only if it has never
+  // been set before, so a later identify() (a different device, a re-login) can't clobber the
+  // channel that ORIGINALLY brought this person in. `register()` in client.ts already attaches the
+  // same values to every anonymous event; this is what makes them survive onto the Person too.
+  ph.identify(userId, props, firstTouchProperties());
   if (props.country) ph.group('country', props.country);
   if (props.language) ph.group('language', props.language);
 }

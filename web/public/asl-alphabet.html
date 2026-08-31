@@ -120,6 +120,27 @@ try {
 } catch (e) { /* storage blocked — falls back to default (capture), same as consent.ts */ }
 document.addEventListener('DOMContentLoaded', function () {
   posthog.capture('alphabet_landing_view', { referrer: document.referrer || null });
+
+  // First-touch / session-touch attribution — same mechanism as home.html, see that file's comment
+  // for the full reasoning. This page had no UTM handling at all before; a search/social visitor
+  // landing here directly (not via /) was previously invisible to attribution entirely.
+  try {
+    var params = new URLSearchParams(window.location.search);
+    if (params.has('utm_source') || params.has('utm_medium') || params.has('utm_campaign') || params.has('utm_content') || params.has('utm_term')) {
+      var touch = {
+        utm_source: params.get('utm_source'),
+        utm_medium: params.get('utm_medium'),
+        utm_campaign: params.get('utm_campaign'),
+        utm_content: params.get('utm_content'),
+        utm_term: params.get('utm_term'),
+        referrer: document.referrer || null,
+        landing_path: window.location.pathname,
+      };
+      sessionStorage.setItem('qs_session_touch', JSON.stringify(touch));
+      if (!localStorage.getItem('qs_first_touch')) localStorage.setItem('qs_first_touch', JSON.stringify(touch));
+    }
+  } catch (e) { /* storage blocked — attribution is best-effort, never fatal */ }
+
   document.addEventListener('click', function (e) {
     var cta = e.target.closest('.btn-primary');
     // { label, href, page } — same shape landing.html's hero_cta_clicked sends (page added there

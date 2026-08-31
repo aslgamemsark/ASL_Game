@@ -9,9 +9,15 @@ import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { installGlobalErrorReporting, checkUnexpectedReload } from '@/lib/errorReporting';
 import { initAnalytics } from '@/analytics';
+import { captureAttribution } from '@/analytics/attribution';
 import { AnalyticsIdentityBridge } from '@/analytics/AnalyticsIdentityBridge';
 
 installGlobalErrorReporting();
+// Synchronous and before initAnalytics: captures this load's UTMs (if any) into first-touch and
+// session-touch storage so they exist before client.ts's `loaded` callback reads them to register
+// PostHog super properties. Also covers a visitor arriving at /app directly with UTMs still on the
+// URL (e.g. a deep-linked CTA), not just ones who passed through a marketing page first.
+captureAttribution();
 // initAnalytics is async (dynamically imports posthog-js so the initial render below isn't stuck
 // behind fetching it — see client.ts). Not awaited: checkUnexpectedReload's track() call is
 // queue-safe now (whenAnalyticsReady in client.ts), and any load failure is still visible instead

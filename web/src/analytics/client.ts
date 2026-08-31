@@ -1,6 +1,7 @@
 import type { PostHog } from 'posthog-js';
 import { isAnalyticsOptedOut } from './consent';
 import { trafficType } from './trafficType';
+import { firstTouchProperties, sessionTouchProperties } from './attribution';
 
 /**
  * The PostHog singleton — internal to the analytics module. Nothing outside `analytics/` should
@@ -137,6 +138,13 @@ export async function initAnalytics(): Promise<void> {
         deployment_environment: __DEPLOY_ENV__,
         build_timestamp: __BUILD_TIMESTAMP__,
         traffic_type: trafficType(),
+        // Attribution (see attribution.ts) — registered as super properties so every event fired
+        // from this point on, on any screen, carries which channel first brought this browser here
+        // and which channel drove this particular session. Read from local/sessionStorage rather
+        // than parsed fresh here, so this also picks up UTMs captured on the marketing page BEFORE
+        // the app ever loaded (same-origin storage is what stitches marketing -> app together).
+        ...firstTouchProperties(),
+        ...sessionTouchProperties(),
       });
       // beta_cohort is a PostHog Group (not a person property) — every user in this launch is a
       // member, which is what lets a future post-beta cohort be compared against this one later.

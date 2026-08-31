@@ -9,4 +9,6 @@ export { useScreenView } from './useScreenView';
 export { useFeatureFlag } from './useFeatureFlag';
 export { FEATURE_FLAGS, KILL_SWITCH_DEFAULT, isKillSwitchOn, type FeatureFlagKey } from './featureFlags';
 export { EVENTS, FUTURE_EVENTS } from './events';
+export { captureAttribution, getFirstTouch, getSessionTouch, firstTouchProperties, sessionTouchProperties } from './attribution';
+export type { Attribution } from './attribution';
 export type { EventPayloads, ActiveEventName, ScreenName, SignAttemptBase, MultiplayerBase } from './types';
