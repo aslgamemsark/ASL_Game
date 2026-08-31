@@ -11,6 +11,7 @@ import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
 import { speakSign } from '@/lib/speak';
 import { decideAttemptBoundaryOutcome, decideRecognitionOutcome, type RecognitionOutcomeKind, type RecognitionReason } from '@/lib/recognition/outcome';
+import { measureRecognitionEvidence, type RecognitionEvidence } from '@/lib/recognition/evidence';
 import { createExternalStore, type ExternalStore } from './externalStore';
 
 // Static signs (movement.kind === NONE) have no motion scorer to naturally pace a pass —
@@ -109,6 +110,7 @@ export interface AttemptRecord {
   finalPassed: boolean;
   outcome: RecognitionOutcomeKind;
   verifier: VerifyResult | null;
+  quality: RecognitionEvidence;
   frames: Frame[];
   /** Ms since this sign's recognition loop started — how long the user was trying this sign. */
   durationMs: number;
@@ -417,6 +419,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       finalPassed: passed,
                       outcome: decideRecognitionOutcome({ recognitionPassed: passed, scorable: true, reasons: [] }).kind,
                       verifier: vr,
+                      quality: measureRecognitionEvidence(rawBufferRef.current.frames, gatedSign),
                       frames: snapshot,
                       durationMs: Math.round(performance.now() - loopStartRef.current),
                       attemptNumber: attemptCountRef.current,
@@ -450,6 +453,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 finalPassed: true,
                 outcome: 'PASS',
                 verifier: vr,
+                quality: measureRecognitionEvidence(rawBufferRef.current.frames, sign),
                 frames: bufferRef.current.frames,
                 durationMs: Math.round(performance.now() - loopStartRef.current),
                 attemptNumber: attemptCountRef.current,
@@ -543,6 +547,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       finalPassed: false,
       outcome: outcome.kind,
       verifier: lastResultRef.current,
+      quality: measureRecognitionEvidence(rawBufferRef.current.frames, sign),
       frames: bufferRef.current.frames,
       durationMs: Math.round(performance.now() - loopStartRef.current),
       attemptNumber: attemptCountRef.current,

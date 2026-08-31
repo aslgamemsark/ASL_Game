@@ -7,6 +7,7 @@ import type { SignStats, SpeedHighScore, Chest } from '@/types/user';
 import type { VerificationEntry } from '@/hooks/useRecognition';
 import type { Frame } from '@/engine/landmarks';
 import type { RecognitionOutcomeKind } from '@/lib/recognition/outcome';
+import type { RecognitionEvidence } from '@/lib/recognition/evidence';
 import type { AttemptSource } from '@/analytics/types';
 
 const DEBOUNCE_MS = 3000;
@@ -276,6 +277,7 @@ export interface AttemptPayload {
   aiVetoed: boolean;
   finalPassed: boolean;
   outcome: RecognitionOutcomeKind;
+  quality: RecognitionEvidence;
   source: TrainingDataSource;
   /** Landmark snapshot for this attempt. Persisted only if the user hasn't opted out. */
   frames: Frame[];
@@ -284,12 +286,12 @@ export interface AttemptPayload {
 /**
  * Logs a camera-driven recognition attempt: always writes the lightweight `sign_attempts` row
  * (powers analytics + leaderboard), and additionally writes the landmark snapshot to
- * `training_samples` when the user has training-data collection enabled (default on, opt-out
+ * `training_samples` when the user has explicitly enabled training-data collection (default off,
  * in Profile -> Insights). Fire-and-forget — never awaited from the render path.
  */
 export async function logAttempt(payload: AttemptPayload) {
   if (!supabaseReady) return;
-  const { userId, signId, rulePassed, aiPrediction, aiConfidence, aiVetoed, finalPassed, outcome } = payload;
+  const { userId, signId, rulePassed, aiPrediction, aiConfidence, aiVetoed, finalPassed, outcome, quality } = payload;
 
   // Fire-and-forget telemetry: failures are logged, never rethrown — callers invoke this with
   // `void` from render-adjacent paths, so a rejection here would surface as a spurious
@@ -305,6 +307,7 @@ export async function logAttempt(payload: AttemptPayload) {
       ai_confidence: aiConfidence,
       ai_vetoed: aiVetoed,
       outcome,
+      quality_metrics: quality,
     } as Record<string, unknown>);
     if (error) console.error('[telemetry] sign_attempts insert failed:', error.message);
 

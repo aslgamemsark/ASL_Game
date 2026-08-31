@@ -73,6 +73,7 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
         ai_confidence: attempt.aiConfidence,
         duration_ms: attempt.durationMs,
         attempt_number: attempt.attemptNumber,
+        quality_metrics: attempt.quality,
       });
       // Activation. Fires at most once per browser ever — trackFirstSignSuccess owns that guard —
       // so calling it on every pass from every surface is both safe and the only way the metric
@@ -97,6 +98,7 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
         aiVetoed: attempt.aiVetoed,
         finalPassed: attempt.finalPassed,
         outcome: attempt.outcome,
+        quality: attempt.quality,
         source: persistedSource,
         frames: attempt.frames,
       });

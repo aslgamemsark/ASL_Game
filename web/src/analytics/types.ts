@@ -1,4 +1,5 @@
 import type { RecognitionOutcomeKind } from '@/lib/recognition/outcome';
+import type { RecognitionEvidence } from '@/lib/recognition/evidence';
 
 /**
  * Typed payload for every event this app is allowed to emit. `track()` in capture.ts is generic
@@ -40,6 +41,7 @@ export interface SignAttemptBase {
   duration_ms: number;
   /** How many attempts (including this one) the user has made at this sign in the current session. */
   attempt_number: number;
+  quality_metrics: RecognitionEvidence;
 }
 
 export interface MultiplayerBase {

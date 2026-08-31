@@ -61,6 +61,9 @@
   `NOT_SCORABLE`; it remains analytics-only and does not update progress. Speed rounds also retain
   their combo on a neutral timeout or interruption.
 - Threshold-based raw-frame quality decisions remain disabled pending fixture calibration.
+- The canonical `sign_attempt` event and local migration now carry normalized raw-frame quality
+  metrics only: required-hand coverage, clipping, pose coverage/scale, time span/gaps, and a
+  normalized tracking-stability signal. No landmarks or video are sent in those metrics.
 
 ## Practice Media Controls
 

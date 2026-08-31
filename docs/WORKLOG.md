@@ -5,6 +5,13 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Added raw-frame quality evidence to attempt telemetry** (`web/src/lib/recognition/evidence.ts`,
+  `web/src/hooks/useRecognition.ts`, analytics/progress hooks). **Mechanism:** the shared loop
+  measures normalized coverage, framing, timing, clipping, and stability from its pre-stabilized
+  buffer and routes metrics through the existing event/nullable database field. **Verified:**
+  focused evidence/outcome/attempt-log tests and production build pass. **Watch out:** evidence is
+  shadow-only until the fixture calibration gate is complete.
+
 - **Connected verifier evidence to expressive mastery** (`web/src/hooks/useRecognition.ts`,
   Lesson/Practice/Story/Speed pages). **Mechanism:** a finalized attempt retains its last verifier
   result locally, and required parameter scores flow into the existing normalized mastery EMA for
