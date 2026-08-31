@@ -126,7 +126,11 @@ export function StoryPage({
       // camStatus !== 'active' also stops: a track dying mid-story (unplugged, iOS mute
       // escalation — see useCamera) must not leave MediaPipe burning CPU against a dead video.
       // Resuming dialogue re-arms once the camera reports active again.
-      if (loopStartedRef.current) { recognition.stopLoop(); loopStartedRef.current = null; }
+      if (loopStartedRef.current) {
+        recognition.finalizeAttempt('camera_interruption', camStatus);
+        recognition.stopLoop();
+        loopStartedRef.current = null;
+      }
       return;
     }
     if ((recognition.status === 'ready' || recognition.status === 'running') && currentEngineSign && videoRef.current) {
@@ -157,7 +161,7 @@ export function StoryPage({
 
   const handleSkip = () => {
     if (!currentLine) return;
-    const attempt = recognition.finalizeAttempt('skip');
+    const attempt = recognition.finalizeAttempt('skip', camStatus);
     if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentLine.requiredSignId, mode: 'expressive', correct: false });
     setSkipsUsed((p) => p + 1);
     setFailMsg(pickZippyLine('encourage'));

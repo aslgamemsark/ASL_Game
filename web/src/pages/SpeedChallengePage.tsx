@@ -126,6 +126,9 @@ export function SpeedChallengePage({ onExit }: Props) {
     if (phase !== 'playing' || justPassed || camStatus !== 'active') {
       // camStatus !== 'active' also stops: a track dying mid-round must not leave MediaPipe
       // burning CPU against a dead video (same reasoning as LessonPage/PracticePage/Story).
+      if (loopStartedRef.current && !justPassed && camStatus !== 'active') {
+        recognition.finalizeAttempt('camera_interruption', camStatus);
+      }
       recognition.stopLoop();
       loopStartedRef.current = null;
       return;
@@ -153,10 +156,10 @@ export function SpeedChallengePage({ onExit }: Props) {
         if (prev <= 0.11) {
           clearInterval(timerRef.current);
           if (currentSignId) {
-            const attempt = recognition.finalizeAttempt('timeout');
+            const attempt = recognition.finalizeAttempt('timeout', camStatus);
             if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false });
           }
-          setCombo(0);
+          if (camStatus === 'active') setCombo(0);
           loopStartedRef.current = null;
           advanceTimerRef.current = setTimeout(() => advanceSign(false), 300);
           return 0;
@@ -440,8 +443,9 @@ export function SpeedChallengePage({ onExit }: Props) {
                 <button
                   onClick={() => {
                     clearTimeout(advanceTimerRef.current);
-                    if (currentSignId) recordSign({ signId: currentSignId, mode: 'expressive', correct: false });
-                    setCombo(0);
+                    const attempt = recognition.finalizeAttempt('skip', camStatus);
+                    if (currentSignId && attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false });
+                    if (attempt?.outcome !== 'NOT_SCORABLE') setCombo(0);
                     advanceSign(false);
                   }}
                   className="text-xs text-z-gray-400 hover:text-z-gray-50 min-h-11 px-3 rounded-lg border border-z-gray-500/30"

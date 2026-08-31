@@ -5,6 +5,13 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Made camera interruptions neutral for solo recognition** (`web/src/hooks/useRecognition.ts`,
+  `web/src/lib/recognition/outcome.ts`, Lesson/Practice/Story/Speed pages). **Mechanism:** raw
+  capture frames are retained before hand stabilization; a running loop that loses its camera now
+  finalizes as `NOT_SCORABLE` and Speed keeps its combo. **Verified:** focused outcome/store tests,
+  production build, lint (existing warnings only). **Watch out:** quality thresholds remain off
+  until fixture calibration proves they do not reject a valid signer.
+
 - **Separated receptive and expressive attempt evidence** (`web/src/types/user.ts`,
   `web/src/stores/useUserStore.ts`, `web/src/stores/tests/recordSign.test.ts`, Lesson/Practice/
   Story/Speed pages). **Mechanism:** the store preserves the legacy aggregate schedule while adding

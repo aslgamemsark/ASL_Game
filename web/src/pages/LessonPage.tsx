@@ -187,6 +187,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
       // next to. "Try again" restarts the camera; once camStatus is 'active' again this effect
       // re-arms the loop.
       if (loopStartedForSign.current) {
+        recognition.finalizeAttempt('camera_interruption', camStatus);
         recognition.stopLoop();
         loopStartedForSign.current = null;
       }
@@ -250,7 +251,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
     setSkipMsg(pickZippyLine('encourage'));
     setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
-      const attempt = recognition.finalizeAttempt('skip');
+      const attempt = recognition.finalizeAttempt('skip', camStatus);
       if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false });
     }
     recorder.discard();

@@ -5,6 +5,8 @@ export type RecognitionOutcomeKind = (typeof RECOGNITION_OUTCOME_KINDS)[number];
 /** Environmental reasons that prevent a reliable learner assessment. */
 export type RecognitionReason =
   | 'CAMERA_UNAVAILABLE'
+  | 'MISSING_REQUIRED_POSE'
+  | 'MISSING_REQUIRED_FACE'
   | 'MISSING_REQUIRED_HAND'
   | 'FRAME_CLIPPED'
   | 'INSUFFICIENT_TEMPORAL_SAMPLES'
@@ -26,6 +28,7 @@ export interface RecognitionOutcomeInput {
 export interface RecognitionOutcome {
   kind: RecognitionOutcomeKind;
   reasons: readonly RecognitionReason[];
+  primaryReason: RecognitionReason | null;
 }
 
 /**
@@ -34,15 +37,16 @@ export interface RecognitionOutcome {
  */
 export function decideRecognitionOutcome(input: RecognitionOutcomeInput): RecognitionOutcome {
   if (!input.scorable) {
-    return { kind: 'NOT_SCORABLE', reasons: [...input.reasons] };
+    const reasons = [...input.reasons];
+    return { kind: 'NOT_SCORABLE', reasons, primaryReason: reasons[0] ?? 'CAMERA_UNAVAILABLE' };
   }
 
   return input.recognitionPassed
-    ? { kind: 'PASS', reasons: [] }
-    : { kind: 'NEEDS_CORRECTION', reasons: [] };
+    ? { kind: 'PASS', reasons: [], primaryReason: null }
+    : { kind: 'NEEDS_CORRECTION', reasons: [], primaryReason: null };
 }
 
 /** Explicit camera interruptions are neutral: there is no learner evidence to score. */
-export function decideAttemptBoundaryOutcome(_trigger: 'camera_interruption'): RecognitionOutcome {
-  return { kind: 'NOT_SCORABLE', reasons: ['CAMERA_UNAVAILABLE'] };
+export function decideAttemptBoundaryOutcome(reason: Extract<RecognitionReason, 'CAMERA_UNAVAILABLE' | 'CAMERA_STALLED' | 'CAMERA_RESTARTED'> = 'CAMERA_UNAVAILABLE'): RecognitionOutcome {
+  return { kind: 'NOT_SCORABLE', reasons: [reason], primaryReason: reason };
 }

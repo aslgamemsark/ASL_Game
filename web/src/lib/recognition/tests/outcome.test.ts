@@ -3,9 +3,10 @@ import { decideAttemptBoundaryOutcome, decideRecognitionOutcome } from '../outco
 
 describe('recognition outcomes', () => {
   it('keeps a camera interruption neutral', () => {
-    expect(decideAttemptBoundaryOutcome('camera_interruption')).toEqual({
+    expect(decideAttemptBoundaryOutcome()).toEqual({
       kind: 'NOT_SCORABLE',
       reasons: ['CAMERA_UNAVAILABLE'],
+      primaryReason: 'CAMERA_UNAVAILABLE',
     });
   });
 

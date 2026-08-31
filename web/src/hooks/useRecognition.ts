@@ -10,7 +10,7 @@ import { MovementKind, type Sign } from '@/engine/schema';
 import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
 import { speakSign } from '@/lib/speak';
-import { decideAttemptBoundaryOutcome, decideRecognitionOutcome, type RecognitionOutcomeKind } from '@/lib/recognition/outcome';
+import { decideAttemptBoundaryOutcome, decideRecognitionOutcome, type RecognitionOutcomeKind, type RecognitionReason } from '@/lib/recognition/outcome';
 import { createExternalStore, type ExternalStore } from './externalStore';
 
 // Static signs (movement.kind === NONE) have no motion scorer to naturally pace a pass —
@@ -146,6 +146,9 @@ interface UseRecognitionOpts {
 export function useRecognition(opts?: UseRecognitionOpts) {
   const captureRef = useRef<Capture | null>(null);
   const bufferRef = useRef(new RollingBuffer(2.0));
+  // Raw capture evidence stays separate from the verifier buffer: HandStabilizer may add a
+  // remembered hand, which helps verification but must never make a missing hand look observed.
+  const rawBufferRef = useRef(new RollingBuffer(2.0));
   const stabilizerRef = useRef(new HandStabilizer(0.3));
   const rafRef = useRef<number>(0);
   const signRef = useRef<Sign | null>(null);
@@ -233,6 +236,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
       signRef.current = sign;
       bufferRef.current.clear();
+      rawBufferRef.current.clear();
       stabilizerRef.current.reset();
       publishResult(null);
       publishHold(null);
@@ -326,6 +330,13 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           // Feed the ACTUAL inference cost (process + stabilize) into the tier decision. The
           // stabilizer/buffer work after it is O(hands), noise next to two model passes.
           pacer.recordCost(performance.now() - t0);
+          rawBufferRef.current.add({
+            ...frame,
+            hands: frame.hands.map((hand) => ({ ...hand, points: hand.points.map((point) => [...point]) })),
+            leftShoulder: frame.leftShoulder && [...frame.leftShoulder],
+            rightShoulder: frame.rightShoulder && [...frame.rightShoulder],
+            mouth: frame.mouth && [...frame.mouth],
+          });
           frame = stabilizerRef.current.stabilize(frame);
           bufferRef.current.add(frame);
           frameCountRef.current++;
@@ -500,17 +511,21 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   const stopLoop = useCallback(() => {
     runningRef.current = false;
     cancelAnimationFrame(rafRef.current);
-    signRef.current = null;
     setStatus((s) => (s === 'running' ? 'ready' : s));
   }, []);
 
   const getSnapshot = useCallback((): Frame[] => bufferRef.current.frames, []);
 
-  const finalizeAttempt = useCallback((trigger: AttemptTrigger): AttemptRecord | null => {
+  const finalizeAttempt = useCallback((trigger: AttemptTrigger, cameraStatus: 'active' | 'denied' | 'error' | 'stalled' | 'idle' | 'requesting' = 'active'): AttemptRecord | null => {
     const sign = signRef.current;
     if (!sign) return null;
-    const outcome = trigger === 'camera_interruption'
-      ? decideAttemptBoundaryOutcome(trigger)
+    const cameraReason: RecognitionReason | null = cameraStatus === 'stalled'
+      ? 'CAMERA_STALLED'
+      : cameraStatus === 'active'
+        ? null
+        : 'CAMERA_UNAVAILABLE';
+    const outcome = trigger === 'camera_interruption' || cameraReason
+      ? decideAttemptBoundaryOutcome(cameraReason ?? 'CAMERA_UNAVAILABLE')
       : decideRecognitionOutcome({ recognitionPassed: false, scorable: true, reasons: [] });
     attemptCountRef.current += 1;
     const attempt: AttemptRecord = {
@@ -549,6 +564,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   const setSign = useCallback((sign: Sign) => {
     signRef.current = sign;
     bufferRef.current.clear();
+    rawBufferRef.current.clear();
     stabilizerRef.current.reset();
     frameCountRef.current = 0;
     loopStartRef.current = performance.now();

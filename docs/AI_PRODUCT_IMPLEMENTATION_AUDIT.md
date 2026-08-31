@@ -50,8 +50,17 @@
   attempt and flow through the existing `sign_attempt` analytics event.
 - Lesson, Practice, Story, and Speed now send skip/timeout outcomes through one
   `useRecognition.finalizeAttempt` path; unscorable outcomes are analytics-only and never persist.
-- `NOT_SCORABLE` is deliberately not emitted yet: camera evidence must be calculated from raw
-  frames and calibrated against existing valid/degraded fixtures first.
+- `NOT_SCORABLE` is emitted for explicit camera interruptions only. Threshold-based camera
+  evidence remains disabled until raw frames are calibrated against valid/degraded fixtures.
+
+## Camera Interruption Safety
+
+- The recognition loop now retains a separate raw-frame window before stabilization. Stabilized
+  hands may continue to help the verifier, but cannot become observed camera evidence.
+- A denied, errored, stalled, or restarted solo camera finalizes the active attempt as
+  `NOT_SCORABLE`; it remains analytics-only and does not update progress. Speed rounds also retain
+  their combo on a neutral timeout or interruption.
+- Threshold-based raw-frame quality decisions remain disabled pending fixture calibration.
 
 ## Mode-Specific Mastery
 

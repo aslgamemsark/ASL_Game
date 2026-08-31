@@ -182,6 +182,7 @@ export function PracticePage({
       // escalation) must not leave MediaPipe burning CPU on a dead video — same fix as
       // LessonPage. Recovery re-arms via "Try again" → camStatus 'active'.
       if (loopStartedRef.current) {
+        recognition.finalizeAttempt('camera_interruption', camStatus);
         recognition.stopLoop();
         loopStartedRef.current = null;
       }
@@ -352,7 +353,7 @@ export function PracticePage({
     setSkipMsg(pickZippyLine('encourage'));
     setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
-      const attempt = recognition.finalizeAttempt('skip');
+      const attempt = recognition.finalizeAttempt('skip', camStatus);
       if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false });
     }
     recorder.discard();
