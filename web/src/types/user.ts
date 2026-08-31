@@ -86,6 +86,39 @@ export interface SignStats {
   nextReviewAt: number;
   interval: number;
   easeFactor: number;
+  /** Missing on pre-mode records: their receptive and expressive history is unknown, not zero. */
+  byMode?: Partial<Record<SignPracticeMode, ModeSignStats>>;
+}
+
+export type SignPracticeMode = 'receptive' | 'expressive';
+
+export interface SignParameterEvidence {
+  score: number;
+  threshold: number;
+}
+
+export interface ParameterMastery {
+  attempts: number;
+  score: number;
+  lastAttempt: number;
+}
+
+export interface ModeSignStats {
+  attempts: number;
+  successes: number;
+  lastAttempt: number;
+  nextReviewAt: number;
+  interval: number;
+  easeFactor: number;
+  /** Expressive-only evidence. Receptive records deliberately never populate this field. */
+  parameters?: Record<string, ParameterMastery>;
+}
+
+export interface SignAttemptInput {
+  signId: string;
+  mode: SignPracticeMode;
+  correct: boolean;
+  params?: Record<string, SignParameterEvidence>;
 }
 
 export interface Achievement {

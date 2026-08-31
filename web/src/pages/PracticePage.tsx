@@ -125,7 +125,7 @@ export function PracticePage({
       sounds.correct();
       burst();
       if (currentSignId) {
-        recordSign(currentSignId, true);
+        recordSign({ signId: currentSignId, mode: 'expressive', correct: true });
       }
       addXp(5);
       setSessionXp((p) => p + 5);
@@ -315,7 +315,7 @@ export function PracticePage({
     const correct = answerId === currentSignId;
     if (correct) { sounds.correct(); burst(); } else { sounds.wrong(); }
     if (currentSignId) {
-      recordSign(currentSignId, correct);
+      recordSign({ signId: currentSignId, mode: 'receptive', correct });
       if (user) logSignAttempt(user.id, currentSignId, correct);
     }
     if (correct) {
@@ -353,7 +353,7 @@ export function PracticePage({
     setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
       const attempt = recognition.finalizeAttempt('skip');
-      if (attempt?.outcome !== 'NOT_SCORABLE') recordSign(currentSignId, false);
+      if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false });
     }
     recorder.discard();
     loopStartedRef.current = null;

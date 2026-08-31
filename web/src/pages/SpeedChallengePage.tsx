@@ -90,7 +90,7 @@ export function SpeedChallengePage({ onExit }: Props) {
       burst();
 
       if (currentSignId) {
-        recordSign(currentSignId, true);
+        recordSign({ signId: currentSignId, mode: 'expressive', correct: true });
       }
 
       setScore((p) => p + 1);
@@ -154,7 +154,7 @@ export function SpeedChallengePage({ onExit }: Props) {
           clearInterval(timerRef.current);
           if (currentSignId) {
             const attempt = recognition.finalizeAttempt('timeout');
-            if (attempt?.outcome !== 'NOT_SCORABLE') recordSign(currentSignId, false);
+            if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false });
           }
           setCombo(0);
           loopStartedRef.current = null;
@@ -440,7 +440,7 @@ export function SpeedChallengePage({ onExit }: Props) {
                 <button
                   onClick={() => {
                     clearTimeout(advanceTimerRef.current);
-                    if (currentSignId) recordSign(currentSignId, false);
+                    if (currentSignId) recordSign({ signId: currentSignId, mode: 'expressive', correct: false });
                     setCombo(0);
                     advanceSign(false);
                   }}

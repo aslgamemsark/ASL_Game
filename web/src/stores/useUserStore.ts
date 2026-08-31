@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { UserProgress, SkillLevel, Quest, QuestType, SpeedTier, Chest } from '@/types/user';
+import type { UserProgress, SkillLevel, Quest, QuestType, SpeedTier, Chest, SignAttemptInput, SignParameterEvidence, SignStats } from '@/types/user';
 import { generateQuestsForToday } from '@/data/quests';
 import { getBadge } from '@/data/badges';
 import { WORLDS, getWorldIdForUnit } from '@/data/worlds';
@@ -9,6 +9,7 @@ import { track } from '@/analytics';
 
 const STREAK_MILESTONES = [7, 30, 100];
 const MILESTONE_GOLD: Record<number, number> = { 7: 5, 30: 15, 100: 50 };
+const PARAMETER_MASTERY_ALPHA = 0.3;
 
 const SKILL_UNLOCK_LESSONS: Record<SkillLevel, string[]> = {
   beginner: [],
@@ -52,6 +53,72 @@ function defaultProgress(): UserProgress {
     renameCards: 0,
     collectTrainingData: false,
   };
+}
+
+// Creates a fresh aggregate or mode schedule with the legacy SRS defaults.
+function createSignStats(): Omit<SignStats, 'byMode'> {
+  return { attempts: 0, successes: 0, lastAttempt: 0, nextReviewAt: 0, interval: 1, easeFactor: 2.5 };
+}
+
+// Advances one independent review schedule. Aggregate and mode schedules share these rules so
+// introducing modes cannot silently change the established SRS behavior.
+function advanceSignStats(prev: Omit<SignStats, 'byMode'>, correct: boolean, now: number): Omit<SignStats, 'byMode'> {
+  let { interval, easeFactor } = prev;
+  if (correct) {
+    interval = interval === 1 ? 6 : Math.round(interval * easeFactor);
+    easeFactor = Math.max(1.3, easeFactor + 0.1);
+  } else {
+    interval = 1;
+    easeFactor = Math.max(1.3, easeFactor - 0.2);
+  }
+  return {
+    attempts: prev.attempts + 1,
+    successes: prev.successes + (correct ? 1 : 0),
+    lastAttempt: now,
+    nextReviewAt: now + interval * 24 * 60 * 60 * 1000,
+    interval,
+    easeFactor,
+  };
+}
+
+// Updates expressive-only parameter evidence; invalid verifier values are ignored at this boundary.
+function updateParameterMastery(
+  parameters: Record<string, { attempts: number; score: number; lastAttempt: number }> | undefined,
+  evidence: Record<string, SignParameterEvidence> | undefined,
+  now: number,
+) {
+  if (!evidence) return parameters;
+  const next = { ...parameters };
+  for (const [name, { score, threshold }] of Object.entries(evidence)) {
+    if (!Number.isFinite(score) || !Number.isFinite(threshold) || threshold <= 0) continue;
+    const normalized = Math.max(0, Math.min(1, score / threshold));
+    const prev = next[name];
+    next[name] = {
+      attempts: (prev?.attempts ?? 0) + 1,
+      score: prev ? prev.score * (1 - PARAMETER_MASTERY_ALPHA) + normalized * PARAMETER_MASTERY_ALPHA : normalized,
+      lastAttempt: now,
+    };
+  }
+  return next;
+}
+
+// Merges aggregate progress by recency without treating absent legacy mode data as zero evidence.
+function mergeSignStats(local: SignStats | undefined, remote: SignStats): SignStats {
+  if (!local) return remote;
+  const aggregate = remote.lastAttempt > local.lastAttempt ? remote : local;
+  const byMode = {} as NonNullable<SignStats['byMode']>;
+  for (const mode of ['receptive', 'expressive'] as const) {
+    const localMode = local.byMode?.[mode];
+    const remoteMode = remote.byMode?.[mode];
+    if (!localMode) {
+      if (remoteMode) byMode[mode] = remoteMode;
+    } else if (!remoteMode || localMode.lastAttempt >= remoteMode.lastAttempt) {
+      byMode[mode] = localMode;
+    } else {
+      byMode[mode] = remoteMode;
+    }
+  }
+  return Object.keys(byMode).length > 0 ? { ...aggregate, byMode } : aggregate;
 }
 
 // Local calendar day (YYYY-MM-DD), not UTC — using toISOString() here would
@@ -103,7 +170,10 @@ interface UserStore extends UserProgress {
    *  callers don't need to check the flag first. */
   markFirstLessonCelebrated: () => void;
   skipLesson: (lessonId: string, cost: number) => boolean;
-  recordSign: (signId: string, correct: boolean) => void;
+  recordSign: {
+    (signId: string, correct: boolean): void;
+    (attempt: SignAttemptInput): void;
+  };
   checkStreak: () => number[];
   reset: () => void;
   mergeProgress: (remote: Partial<UserProgress>) => void;
@@ -212,43 +282,34 @@ export const useUserStore = create<UserStore>()(
         return true;
       },
 
-      recordSign: (signId, correct) => {
+      recordSign: (input: string | SignAttemptInput, legacyCorrect?: boolean) => {
+        const attempt: Omit<SignAttemptInput, 'mode'> & { mode?: SignAttemptInput['mode'] } = typeof input === 'string'
+          ? { signId: input, correct: legacyCorrect === true }
+          : input;
         set((s) => {
-          const prev = s.signAccuracy[signId] ?? {
-            attempts: 0,
-            successes: 0,
-            lastAttempt: 0,
-            nextReviewAt: 0,
-            interval: 1,
-            easeFactor: 2.5,
-          };
-
-          let { interval, easeFactor } = prev;
-          if (correct) {
-            interval = interval === 1 ? 6 : Math.round(interval * easeFactor);
-            easeFactor = Math.max(1.3, easeFactor + 0.1);
-          } else {
-            interval = 1;
-            easeFactor = Math.max(1.3, easeFactor - 0.2);
-          }
-
           const now = Date.now();
+          const prev = s.signAccuracy[attempt.signId] ?? createSignStats();
+          const aggregate = advanceSignStats(prev, attempt.correct, now);
+          const byMode = attempt.mode
+            ? {
+                ...prev.byMode,
+                [attempt.mode]: {
+                  ...advanceSignStats(prev.byMode?.[attempt.mode] ?? createSignStats(), attempt.correct, now),
+                  ...(attempt.mode === 'expressive'
+                    ? { parameters: updateParameterMastery(prev.byMode?.expressive?.parameters, attempt.params, now) }
+                    : {}),
+                },
+              }
+            : undefined;
           return {
             signAccuracy: {
               ...s.signAccuracy,
-              [signId]: {
-                attempts: prev.attempts + 1,
-                successes: prev.successes + (correct ? 1 : 0),
-                lastAttempt: now,
-                nextReviewAt: now + interval * 24 * 60 * 60 * 1000,
-                interval,
-                easeFactor,
-              },
+              [attempt.signId]: byMode ? { ...aggregate, byMode } : prev.byMode ? { ...aggregate, byMode: prev.byMode } : aggregate,
             },
-            totalCorrectSigns: s.totalCorrectSigns + (correct ? 1 : 0),
+            totalCorrectSigns: s.totalCorrectSigns + (attempt.correct ? 1 : 0),
           };
         });
-        if (correct) get().updateQuestProgress('sign_correct', 1);
+        if (attempt.correct) get().updateQuestProgress('sign_correct', 1);
         get().checkBadges();
       },
 
@@ -345,8 +406,7 @@ export const useUserStore = create<UserStore>()(
           if (remote.signAccuracy) {
             const acc = { ...local.signAccuracy };
             for (const [id, rs] of Object.entries(remote.signAccuracy)) {
-              const ls = local.signAccuracy[id];
-              if (!ls || rs.lastAttempt > ls.lastAttempt) acc[id] = rs;
+              acc[id] = mergeSignStats(local.signAccuracy[id], rs);
             }
             merged.signAccuracy = acc;
           }

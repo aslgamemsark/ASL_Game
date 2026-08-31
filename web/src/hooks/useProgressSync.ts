@@ -6,6 +6,7 @@ import { useUserStore } from '@/stores/useUserStore';
 import type { SignStats, SpeedHighScore, Chest } from '@/types/user';
 import type { VerificationEntry } from '@/hooks/useRecognition';
 import type { Frame } from '@/engine/landmarks';
+import type { RecognitionOutcomeKind } from '@/lib/recognition/outcome';
 import type { AttemptSource } from '@/analytics/types';
 
 const DEBOUNCE_MS = 3000;
@@ -274,6 +275,7 @@ export interface AttemptPayload {
   aiConfidence: number | null;
   aiVetoed: boolean;
   finalPassed: boolean;
+  outcome: RecognitionOutcomeKind;
   source: TrainingDataSource;
   /** Landmark snapshot for this attempt. Persisted only if the user hasn't opted out. */
   frames: Frame[];
@@ -287,7 +289,7 @@ export interface AttemptPayload {
  */
 export async function logAttempt(payload: AttemptPayload) {
   if (!supabaseReady) return;
-  const { userId, signId, rulePassed, aiPrediction, aiConfidence, aiVetoed, finalPassed } = payload;
+  const { userId, signId, rulePassed, aiPrediction, aiConfidence, aiVetoed, finalPassed, outcome } = payload;
 
   // Fire-and-forget telemetry: failures are logged, never rethrown — callers invoke this with
   // `void` from render-adjacent paths, so a rejection here would surface as a spurious
@@ -302,6 +304,7 @@ export async function logAttempt(payload: AttemptPayload) {
       ai_prediction: aiPrediction,
       ai_confidence: aiConfidence,
       ai_vetoed: aiVetoed,
+      outcome,
     } as Record<string, unknown>);
     if (error) console.error('[telemetry] sign_attempts insert failed:', error.message);
 

@@ -96,6 +96,7 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
         aiConfidence: attempt.aiConfidence,
         aiVetoed: attempt.aiVetoed,
         finalPassed: attempt.finalPassed,
+        outcome: attempt.outcome,
         source: persistedSource,
         frames: attempt.frames,
       });

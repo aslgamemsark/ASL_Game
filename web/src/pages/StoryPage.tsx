@@ -82,7 +82,7 @@ export function StoryPage({
       sounds.correct();
       burst();
       if (currentLine) {
-        recordSign(currentLine.requiredSignId, true);
+        recordSign({ signId: currentLine.requiredSignId, mode: 'expressive', correct: true });
         addDailyMinutes(2);
         const xp = 10;
         const signsEarned = 15;
@@ -158,7 +158,7 @@ export function StoryPage({
   const handleSkip = () => {
     if (!currentLine) return;
     const attempt = recognition.finalizeAttempt('skip');
-    if (attempt?.outcome !== 'NOT_SCORABLE') recordSign(currentLine.requiredSignId, false);
+    if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentLine.requiredSignId, mode: 'expressive', correct: false });
     setSkipsUsed((p) => p + 1);
     setFailMsg(pickZippyLine('encourage'));
     setPhase('fail');

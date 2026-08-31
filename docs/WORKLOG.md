@@ -5,6 +5,24 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Separated receptive and expressive attempt evidence** (`web/src/types/user.ts`,
+  `web/src/stores/useUserStore.ts`, `web/src/stores/tests/recordSign.test.ts`, Lesson/Practice/
+  Story/Speed pages). **Mechanism:** the store preserves the legacy aggregate schedule while adding
+  optional per-mode schedules; only expressive attempts can update normalized per-parameter EMA
+  evidence. **Verified:** 15 focused store tests and the production build pass.
+
+- **Wired scorable outcomes into local persistence** (`web/src/hooks/useProgressSync.ts`,
+  `web/src/hooks/useAttemptLog.ts`). **Mechanism:** the existing `sign_attempts` insert now carries
+  the canonical outcome column; `NOT_SCORABLE` remains excluded before either attempt or training
+  persistence. **Verified:** focused tests and production build pass. **Not applied:** the matching
+  database migration is still local-only.
+
+- **Added a local recognition-outcome migration**
+  (`supabase/migrations/20260831195044_recognition_attempt_outcomes.sql`). **Mechanism:** adds
+  nullable outcome/reason/quality columns, backfills legacy boolean attempts, and validates the
+  three canonical outcomes. **Why:** preserve compatibility while the client outcome pipeline is
+  incrementally wired. **Not applied:** database-owner approval remains required.
+
 - **Began the canonical recognition-outcome contract** (`web/src/lib/recognition/outcome.ts`,
   `web/src/hooks/useRecognition.ts`, `web/src/hooks/useAttemptLog.ts`,
   `web/src/analytics/types.ts`). **Mechanism:** accepted recognition attempts now carry a typed

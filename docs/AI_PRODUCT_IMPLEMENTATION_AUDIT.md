@@ -37,6 +37,13 @@
 - Default landmark-training collection is now off. The existing consent modal and Settings control
   remain the explicit opt-in path; dismissal and Escape already resolve to off.
 
+## Persistence
+
+- Added local migration `20260831195044_recognition_attempt_outcomes.sql` for nullable outcome,
+  reason, and quality-metric columns plus legacy backfill. It has not been applied.
+- Persisted scorable attempt outcomes into the migration’s `outcome` column; neutral outcomes are
+  intentionally excluded from both `sign_attempts` persistence and `training_samples`.
+
 ## Recognition Outcome Contract — In Progress
 
 - Canonical `PASS` and `NEEDS_CORRECTION` values now accompany every rule-pass/classifier-veto
@@ -45,3 +52,9 @@
   `useRecognition.finalizeAttempt` path; unscorable outcomes are analytics-only and never persist.
 - `NOT_SCORABLE` is deliberately not emitted yet: camera evidence must be calculated from raw
   frames and calibrated against existing valid/degraded fixtures first.
+
+## Mode-Specific Mastery
+
+- Legacy aggregate SRS remains intact while new attempts record receptive or expressive evidence.
+- Expressive parameter evidence uses normalized score-to-threshold EMA; absent mode records remain
+  unknown rather than being treated as zero.

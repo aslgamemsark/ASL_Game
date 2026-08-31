@@ -135,7 +135,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
       addXp(xp);
       addDailyMinutes(1.5);
       if (currentSignId) {
-        recordSign(currentSignId, true);
+        recordSign({ signId: currentSignId, mode: 'expressive', correct: true });
       }
 
       // Same reasoning as PracticePage: don't race a hidden auto-advance timer against the
@@ -251,7 +251,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
     setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
       const attempt = recognition.finalizeAttempt('skip');
-      if (attempt?.outcome !== 'NOT_SCORABLE') recordSign(currentSignId, false);
+      if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false });
     }
     recorder.discard();
     loopStartedForSign.current = null;
