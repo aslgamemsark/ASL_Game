@@ -5,6 +5,11 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Added neutral-attempt reason telemetry** (`web/src/hooks/useRecognition.ts`,
+  `web/src/hooks/useAttemptLog.ts`, analytics types). **Mechanism:** `NOT_SCORABLE` camera events
+  retain their primary reason in the existing attempt event without changing their no-persistence
+  rule. **Verified:** focused outcome/attempt-log tests and production build pass.
+
 - **Corrected raw-frame clipping measurement** (`web/src/lib/recognition/evidence.ts`).
   **Mechanism:** synthetic fixture placeholder coordinates are no longer treated as frame-edge
   landmarks, preserving meaningful clipping evidence for calibration. **Verified:** focused

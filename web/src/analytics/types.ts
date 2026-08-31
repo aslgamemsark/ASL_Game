@@ -35,6 +35,7 @@ export interface SignAttemptBase {
   ai_vetoed: boolean;
   final_passed: boolean;
   outcome: RecognitionOutcomeKind;
+  not_scorable_reason: string | null;
   ai_prediction: string | null;
   ai_confidence: number | null;
   /** Wall-clock ms from recognition loop start to this attempt's outcome. */

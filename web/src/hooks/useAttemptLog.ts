@@ -69,6 +69,7 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
         ai_vetoed: attempt.aiVetoed,
         final_passed: attempt.finalPassed,
         outcome: attempt.outcome,
+        not_scorable_reason: attempt.outcome === 'NOT_SCORABLE' ? attempt.reasons[0] ?? null : null,
         ai_prediction: attempt.aiPrediction,
         ai_confidence: attempt.aiConfidence,
         duration_ms: attempt.durationMs,

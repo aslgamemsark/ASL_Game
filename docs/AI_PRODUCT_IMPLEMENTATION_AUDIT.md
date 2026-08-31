@@ -48,6 +48,8 @@
 
 - Canonical `PASS` and `NEEDS_CORRECTION` values now accompany every rule-pass/classifier-veto
   attempt and flow through the existing `sign_attempt` analytics event.
+- Neutral events include their primary camera reason in analytics while remaining excluded from
+  persistence and model data.
 - Lesson, Practice, Story, and Speed now send skip/timeout outcomes through one
   `useRecognition.finalizeAttempt` path; unscorable outcomes are analytics-only and never persist.
 - `NOT_SCORABLE` is emitted for explicit camera interruptions only. Threshold-based camera

@@ -109,6 +109,7 @@ export interface AttemptRecord {
   aiVetoed: boolean;
   finalPassed: boolean;
   outcome: RecognitionOutcomeKind;
+  reasons: readonly RecognitionReason[];
   verifier: VerifyResult | null;
   quality: RecognitionEvidence;
   frames: Frame[];
@@ -437,6 +438,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       aiVetoed: modelVetoed,
                       finalPassed: passed,
                       outcome: decideRecognitionOutcome({ recognitionPassed: passed, scorable: true, reasons: [] }).kind,
+                      reasons: [],
                       verifier: vr,
                       quality: measureRecognitionEvidence(rawBufferRef.current.frames, gatedSign),
                       frames: snapshot,
@@ -471,6 +473,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 aiVetoed: false,
                 finalPassed: true,
                 outcome: 'PASS',
+                reasons: [],
                 verifier: vr,
                 quality: measureRecognitionEvidence(rawBufferRef.current.frames, sign),
                 frames: bufferRef.current.frames,
@@ -565,6 +568,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       aiVetoed: false,
       finalPassed: false,
       outcome: outcome.kind,
+      reasons: outcome.reasons,
       verifier: lastResultRef.current,
       quality: measureRecognitionEvidence(rawBufferRef.current.frames, sign),
       frames: bufferRef.current.frames,
