@@ -569,6 +569,12 @@ export function PracticePage({
                           >
                             Try again
                           </button>
+                          <button
+                            onClick={() => { stopCam(); setCardPhase('prompt'); setMode('receptive'); }}
+                            className="mt-2 text-xs font-bold text-z-gray-100 underline underline-offset-4 min-h-11 px-3"
+                          >
+                            Practice without camera
+                          </button>
                         </div>
                       ) : (
                         <WebcamMirror

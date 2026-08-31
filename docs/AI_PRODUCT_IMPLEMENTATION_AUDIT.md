@@ -71,6 +71,8 @@
   mirror, and enlarged-view controls with labelled 44px targets.
 - Local attempt replay keeps native scrubbing and now exposes its mirror state. Recordings remain
   local-only and are discarded by the existing Continue/exit cleanup paths.
+- Practice camera recovery now also offers receptive practice over the current session’s sign pool;
+  it deliberately records receptive—not expressive—mastery.
 
 ## Mode-Specific Mastery
 

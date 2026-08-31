@@ -5,6 +5,11 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Added a camera-free recovery route in Practice** (`web/src/pages/PracticePage.tsx`).
+  **Mechanism:** a camera error card can switch the existing session to its receptive questions,
+  with no expressive award or mastery write. **Verified:** production build and lint (existing
+  warnings only).
+
 - **Added raw-frame quality evidence to attempt telemetry** (`web/src/lib/recognition/evidence.ts`,
   `web/src/hooks/useRecognition.ts`, analytics/progress hooks). **Mechanism:** the shared loop
   measures normalized coverage, framing, timing, clipping, and stability from its pre-stabilized
