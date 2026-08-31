@@ -33,6 +33,7 @@ export const EVENTS = {
   onboarding_step_viewed: 'onboarding_step_viewed',
   onboarding_skill_selected: 'onboarding_skill_selected',
   onboarding_first_sign_passed: 'onboarding_first_sign_passed',
+  first_sign_started: 'first_sign_started',
   dominant_hand_selected: 'dominant_hand_selected',
   onboarding_completed: 'onboarding_completed',
   auth_option_selected: 'auth_option_selected',

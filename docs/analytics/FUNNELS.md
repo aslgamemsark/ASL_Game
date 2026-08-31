@@ -5,12 +5,24 @@ the PostHog MCP connector — see the session's final report for live links; rec
 if a link goes stale.
 
 ## Activation funnel
-`landing_view` (landing.html) → `hero_cta_clicked` → `screen_viewed` (screen=home, first app open)
-→ `onboarding_completed` → `lesson_started` (first) → `sign_attempt` (final_passed=true, first) →
-`lesson_completed` (first) → return `screen_viewed` on a later calendar day (Day-2 retention).
 
-Breakdown by `skill_level` (from `onboarding_completed`) shows whether beginners drop off faster
-than intermediate/advanced users.
+Rebuilt 2026-08-31 (launch-readiness Phase A/C) around the real URL architecture (`/` = marketing,
+`/app` = product) and the value-before-signup order (a real sign attempt happens INSIDE onboarding,
+before `onboarding_completed`, not after it):
+
+`landing_view` (`/`) → `hero_cta_clicked` → `screen_viewed` (screen=onboarding, first app open) →
+`first_sign_started` → `sign_attempt` (source=onboarding, final_passed=true) / `first_sign_success`
+(the product's real activation event — fires once per browser, from whichever surface produces it
+first) → `onboarding_completed` → `lesson_started` (first real lesson) → `lesson_completed` (first)
+→ return `screen_viewed` on a later calendar day (Day-2 retention).
+
+Every event from `hero_cta_clicked` onward carries first-touch/session-touch UTM properties (see
+EVENT_REFERENCE.md's Attribution section) as PostHog super properties — breaking this funnel down
+by `first_touch_utm_source`/`_medium`/`_campaign` answers "which channel actually produces activated
+users," not just "which channel produces clicks."
+
+Breakdown by `skill_level` (from `onboarding_skill_selected`, which now fires before the first-sign
+step) shows whether beginners drop off faster than intermediate/advanced users.
 
 ## Learning funnel
 `lesson_started` → `sign_attempt` → `lesson_completed` (vs. `lesson_skipped`). Segment by

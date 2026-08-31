@@ -16,8 +16,11 @@ export type ScreenName =
   | 'multiplayer' | 'settings' | 'leaderboard' | 'admin' | 'privacy' | 'user-profile';
 
 /** Every mode that can produce a sign attempt. Distinct from ScreenName: Duel and Room are two
- *  modes of the single 'multiplayer' screen, and attempt analytics needs to tell them apart. */
-export type AttemptSource = 'lesson' | 'practice' | 'story' | 'speed' | 'duel' | 'room';
+ *  modes of the single 'multiplayer' screen, and attempt analytics needs to tell them apart.
+ *  'onboarding' added 2026-08-31: the first-sign step (OnboardingFlow.tsx) runs the same
+ *  recognition loop as every other signing screen, and was previously invisible to sign_attempt /
+ *  first_sign_success entirely — the funnel's single most important step was unmeasured. */
+export type AttemptSource = 'lesson' | 'practice' | 'story' | 'speed' | 'duel' | 'room' | 'onboarding';
 
 /** A sign-recognition attempt's outcome, shared by every screen that runs the recognition loop
  *  (Lesson/Practice/Story/Speed/Duel/Room) — see engine/gate.ts for what rule-pass/veto mean. */
@@ -76,6 +79,11 @@ export interface EventPayloads {
    *  reorder. Distinct from lesson_started/sign_attempt's usual pass tracking, which this predates
    *  and doesn't go through (no lesson, no XP/gold — see the step's own comment for why). */
   onboarding_first_sign_passed: { sign_id: string };
+  /** The interactive attempt actually begins — the recognition loop has started sampling frames
+   *  against LETTER_A, not merely that the step rendered. Distinct from onboarding_step_viewed
+   *  (fires on render, before the camera is even necessarily on) so a real drop between "saw the
+   *  step" and "the loop actually started" — e.g. a slow camera permission grant — is visible. */
+  first_sign_started: { sign_id: string };
   /** Which door the user took at the auth step. `guest_started` already fires for the guest case;
    *  this exists so all three options are comparable in ONE funnel step instead of having to
    *  reconcile guest_started against signup_started against nothing-at-all for Google. Added
@@ -195,9 +203,24 @@ export interface EventPayloads {
   // 2026-08-30) purely for documentation/schema-consistency: querying PostHog for these needs to
   // know their real shape, and hero_cta_clicked previously fired with two DIFFERENT shapes from
   // the two pages ({label,href} vs {label,page}) until reconciled to this one shared shape.
-  landing_view: { utm_source: string | null; utm_medium: string | null; utm_campaign: string | null; referrer: string | null };
+  // utm_content/utm_term added 2026-08-31 (Phase C, launch-readiness plan) — the full UTM set
+  // attribution.ts persists was only partially reaching this event; querying landing_view for
+  // content/term-level attribution (e.g. distinguishing two ad variants under the same campaign)
+  // was impossible until now.
+  landing_view: {
+    utm_source: string | null; utm_medium: string | null; utm_campaign: string | null;
+    utm_content: string | null; utm_term: string | null; referrer: string | null;
+  };
   alphabet_landing_view: { referrer: string | null };
-  hero_cta_clicked: { label: string; href: string | null; page: 'landing' | 'asl-alphabet' };
+  // cta_location/destination added 2026-08-31 (Phase C): the page has several CTAs with the same
+  // label ("Start learning free") at different scroll depths — `label` alone couldn't tell a hero
+  // click from a footer click, which is exactly what "where on the page do people actually convert"
+  // needs. `destination` records where the click was headed (almost always /app) so a future CTA
+  // experiment that links elsewhere doesn't need a second event to compare against.
+  hero_cta_clicked: {
+    label: string; href: string | null; page: 'landing' | 'asl-alphabet';
+    cta_location: 'nav' | 'hero' | 'final' | 'footer' | 'other'; destination: string | null;
+  };
   feedback_clicked: Record<string, never>;
   scroll_depth: { depth: 25 | 50 | 75 | 100 };
 }

@@ -143,10 +143,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
   document.addEventListener('click', function (e) {
     var cta = e.target.closest('.btn-primary');
-    // { label, href, page } — same shape landing.html's hero_cta_clicked sends (page added there
-    // too, 2026-08-30) so a PostHog query grouping by this event name doesn't need to branch on
-    // which static page it came from.
-    if (cta) posthog.capture('hero_cta_clicked', { label: (cta.textContent || '').trim(), href: cta.getAttribute('href'), page: 'asl-alphabet' });
+    // Same shape home.html's hero_cta_clicked sends (page added 2026-08-30, cta_location/
+    // destination added 2026-08-31) so a PostHog query grouping by this event name doesn't need to
+    // branch on which static page it came from.
+    if (cta) {
+      posthog.capture('hero_cta_clicked', {
+        label: (cta.textContent || '').trim(),
+        href: cta.getAttribute('href'),
+        page: 'asl-alphabet',
+        cta_location: cta.getAttribute('data-cta-location') || 'other',
+        destination: cta.getAttribute('href'),
+      });
+    }
   });
 });
 </script>
@@ -165,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <a href="/#how-it-works">How it works</a>
       <a href="/#worlds">Worlds</a>
       <a href="/#faq">FAQ</a>
-      <a href="/app" class="btn btn-primary">Start learning free</a>
+      <a href="/app" class="btn btn-primary" data-cta-location="nav">Start learning free</a>
     </div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="navLinks">☰</button>
   </div>
@@ -184,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <h1 style="font-size: clamp(2rem, 4.2vw, 3rem); line-height: 1.15; max-width: 20ch;">The ASL alphabet: all 26 letters, explained</h1>
       <p class="lede" style="max-width: 60ch;">Fingerspelling is usually the first thing new signers learn — one handshape per letter of the English alphabet, used for names, places, and words that don't have their own sign yet. Below is every letter with a plain-language description of the handshape, plus a free way to practice each one with real feedback.</p>
       <div class="hero-ctas">
-        <a href="/app" class="btn btn-primary btn-lg">Practice the alphabet free →</a>
+        <a href="/app" class="btn btn-primary btn-lg" data-cta-location="hero">Practice the alphabet free →</a>
         <a href="/" class="btn btn-ghost btn-lg">See the full app ↗</a>
       </div>
     </div>
@@ -302,7 +310,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="container">
       <img src="/zippy/celebrating.webp" alt="" loading="lazy">
       <h2>Ready to practice every letter?</h2>
-      <a href="/app" class="btn btn-primary btn-lg">Start learning free →</a>
+      <a href="/app" class="btn btn-primary btn-lg" data-cta-location="final">Start learning free →</a>
     </div>
   </section>
 

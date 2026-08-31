@@ -153,6 +153,8 @@ document.addEventListener('DOMContentLoaded', function () {
     utm_source: params.get('utm_source'),
     utm_medium: params.get('utm_medium'),
     utm_campaign: params.get('utm_campaign'),
+    utm_content: params.get('utm_content'),
+    utm_term: params.get('utm_term'),
     referrer: document.referrer || null,
   });
 
@@ -180,9 +182,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Any primary CTA ("Start learning free") anywhere on the page — there are several, all the
   // same intent, so one delegated listener covers them without hunting down every instance.
+  // cta_location comes from each link's own data-cta-location attribute (set in the markup) rather
+  // than inferred from DOM ancestry here — simpler and doesn't break if a section gets reordered.
   document.addEventListener('click', function (e) {
     var cta = e.target.closest('.btn-primary');
-    if (cta) posthog.capture('hero_cta_clicked', { label: (cta.textContent || '').trim(), href: cta.getAttribute('href'), page: 'landing' });
+    if (cta) {
+      posthog.capture('hero_cta_clicked', {
+        label: (cta.textContent || '').trim(),
+        href: cta.getAttribute('href'),
+        page: 'landing',
+        cta_location: cta.getAttribute('data-cta-location') || 'other',
+        destination: cta.getAttribute('href'),
+      });
+    }
     var feedback = e.target.closest('a[href*="docs.google.com/forms"]');
     if (feedback) posthog.capture('feedback_clicked', {});
   });
@@ -1067,7 +1079,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <a href="#multiplayer">Multiplayer</a>
       <a href="/asl-alphabet.html">ASL Alphabet</a>
       <a href="#faq">FAQ</a>
-      <a href="/app" class="btn btn-primary">Start learning free</a>
+      <a href="/app" class="btn btn-primary" data-cta-location="nav">Start learning free</a>
     </div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="navLinks">☰</button>
   </div>
@@ -1087,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <h1>Learn ASL by <em>using your hands</em>, not flashcards.</h1>
         <p class="lede">Practice real signs with real-time feedback that tells you exactly what to fix. Powered by on-device AI: your camera never leaves your browser.</p>
         <div class="hero-ctas">
-          <a href="/app" class="btn btn-primary btn-lg">Start learning free →</a>
+          <a href="/app" class="btn btn-primary btn-lg" data-cta-location="hero">Start learning free →</a>
           <a href="#how-it-works" class="btn btn-ghost btn-lg">See how it works ↓</a>
         </div>
         <p class="hero-trust"><strong>Student-built.</strong> Designed for real practice, not just recognition.</p>
@@ -1295,7 +1307,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="container">
       <img src="/zippy/celebrating.webp" alt="" loading="lazy">
       <h2>Ready to actually learn to sign?</h2>
-      <a href="/app" class="btn btn-primary btn-lg">Start learning free →</a>
+      <a href="/app" class="btn btn-primary btn-lg" data-cta-location="final">Start learning free →</a>
     </div>
   </section>
 

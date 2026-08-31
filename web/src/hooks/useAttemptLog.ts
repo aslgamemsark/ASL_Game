@@ -53,6 +53,10 @@ const PERSISTED_SOURCES: Record<AttemptSource, TrainingDataSource | null> = {
   speed: 'speed',
   duel: null,
   room: null,
+  // Analytics-only, like duel/room: onboarding's first-sign attempt is a brand-new visitor who
+  // usually has no account yet (that's the whole point of value-before-signup), so there is no
+  // Supabase user to attach a training-data row to at this point in the flow.
+  onboarding: null,
 };
 
 /** The Supabase source a screen's attempts persist under, or null when it is analytics-only.

@@ -15,6 +15,7 @@ import { PrivacyPage } from '@/pages/PrivacyPage';
 import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { useCamera } from '@/hooks/useCamera';
 import { useRecognition } from '@/hooks/useRecognition';
+import { useAttemptLog } from '@/hooks/useAttemptLog';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { CameraOnboarding } from '@/components/shared/CameraOnboarding';
 import { LETTER_A } from '@/engine/signs/index';
@@ -98,8 +99,17 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
   const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera('onboarding');
   const [firstSignPassed, setFirstSignPassed] = useState(false);
   const [showCameraOnboarding, setShowCameraOnboarding] = useState(false);
+  // Feeds the same shared pipeline every other signing screen uses (LessonPage/PracticePage/etc):
+  // fires `sign_attempt` for every rule-pass and, on the genuine first one, `first_sign_success` —
+  // the product's real activation event. Before this, the first-sign step (a brand-new visitor's
+  // very first camera attempt) was invisible to both: only the onboarding-specific
+  // `onboarding_first_sign_passed` fired, so the canonical activation event never recorded a
+  // guest's actual first success. Analytics-only here (see useAttemptLog's PERSISTED_SOURCES) —
+  // there is usually no account yet at this point in the flow.
+  const attemptLog = useAttemptLog({ source: 'onboarding' });
   const recognition = useRecognition({
     screen: 'onboarding',
+    onAttempt: attemptLog.recordAttempt,
     onPass: () => {
       if (firstSignPassed) return; // startLoop keeps sampling after a pass; ignore repeats
       setFirstSignPassed(true);
@@ -132,6 +142,11 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
     ) {
       loopStartedRef.current = true;
       recognition.startLoop(videoRef.current, LETTER_A);
+      // Fires once the interactive attempt genuinely begins (the loop is sampling frames), not
+      // when the step merely renders (onboarding_step_viewed, above) — a real gap can open between
+      // those two when camera permission is slow, and that gap is exactly the friction Phase D of
+      // the launch-readiness plan is measuring.
+      track('first_sign_started', { sign_id: LETTER_A.name });
     }
     if (step !== 'firstSign' || firstSignPassed) loopStartedRef.current = false;
   });
