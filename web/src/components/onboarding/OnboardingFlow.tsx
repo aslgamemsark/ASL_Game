@@ -421,7 +421,43 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
             exit={{ opacity: 0, y: -30 }}
             transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
-            {camStatus !== 'active' ? (
+            {camStatus === 'denied' || camStatus === 'error' || camStatus === 'stalled' ? (
+              // Mirrors LessonPage.tsx's camera-failure card (same three states, same recovery
+              // action) — this step previously kept showing the generic "Turn on camera" button
+              // here, which on a hard permission denial just silently re-fails: getUserMedia()
+              // rejects instantly without ever showing the browser's prompt again, so a user who
+              // denied by mistake had no way to tell what to do next. Found in the launch-readiness
+              // audit (2026-08-31) — this is a first-time visitor's FIRST camera screen ever, so a
+              // dead end here is the worst possible place for one.
+              <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center">
+                <p className="text-sm font-bold text-z-red">
+                  {camStatus === 'denied'
+                    ? 'Camera access denied'
+                    : camStatus === 'error'
+                      ? 'Camera unavailable'
+                      : "Camera feed isn't showing"}
+                </p>
+                <p className="text-xs text-z-gray-300 mt-1">
+                  {camStatus === 'denied'
+                    ? 'Your first sign needs camera access. Allow it in your browser’s site settings (usually the icon left of the address bar), then try again.'
+                    : camStatus === 'error'
+                      ? 'Something went wrong starting the camera. Try again, or check that no other app is using it.'
+                      : "Your camera is on but no picture is coming through. Try again, or check that no other app is using it."}
+                </p>
+                <button
+                  onClick={() => { recognition.init(); stopCam(); void startCam(); }}
+                  className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
+                >
+                  Try again
+                </button>
+                <button
+                  onClick={advancePastFirstSign}
+                  className="block mx-auto text-z-gray-400 text-sm mt-3 py-1 underline"
+                >
+                  Skip for now — I'll try this later
+                </button>
+              </div>
+            ) : camStatus !== 'active' ? (
               <>
                 <div className="flex justify-center mb-3">
                   <Zippy expression="teaching" size="md" />
@@ -479,12 +515,6 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                   </button>
                 )}
               </>
-            )}
-
-            {(camStatus === 'denied' || camStatus === 'error' || camStatus === 'stalled') && (
-              <p className="text-z-gray-400 text-sm mt-4">
-                Camera not available — that's okay, you can try this later. <button onClick={advancePastFirstSign} className="underline">Continue</button>
-              </p>
             )}
 
             {showCameraOnboarding && (

@@ -63,7 +63,7 @@ import { useBackDismiss } from '@/hooks/useBackDismiss';
 
 type Screen =
   | { type: 'home' }
-  | { type: 'onboarding'; startAt?: 'welcome' | 'auth' }
+  | { type: 'onboarding'; startAt?: 'welcome' | 'auth' | 'skill' }
   | { type: 'lesson'; lessonId: string }
   | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; mixedQuiz?: boolean; bonusGoldOnPerfect?: number; heading?: string }
   | { type: 'story'; storyId: string }
@@ -112,9 +112,19 @@ export default function App() {
     const gapDays = checkGuestReturn();
     if (gapDays !== null) track('guest_return', { gap_days: gapDays });
   }, [authLoading, user, onboardingComplete]);
-  const [screen, setScreen] = useState<Screen>(
-    onboardingComplete ? { type: 'home' } : { type: 'onboarding' }
-  );
+  const [screen, setScreen] = useState<Screen>(() => {
+    if (onboardingComplete) return { type: 'home' };
+    // Deep-link from the marketing CTA (`/app?start=first-sign`, see public/home.html's hero) —
+    // skips straight past the welcome screen to skill selection, the step immediately before the
+    // first-sign attempt. Not all the way to firstSign itself: skill_level still needs a real
+    // answer for later content routing (App routes 'beginner' to the Alphabet tab), and asking it
+    // is one screen, not the multi-screen welcome preamble a click from an already-convinced
+    // landing-page visitor shouldn't have to sit through again. Read once, on the very first
+    // render — this is a landing-time signal, not something that should re-trigger on every
+    // internal onboarding re-render.
+    const startAt = new URLSearchParams(window.location.search).get('start') === 'first-sign' ? 'skill' : undefined;
+    return { type: 'onboarding', startAt };
+  });
   // One screen_viewed per navigation — every Screen union member is a valid ScreenName (kept in
   // sync deliberately; a new Screen variant that isn't in analytics/types.ts's ScreenName is a
   // type error here, not a silently-untracked screen).

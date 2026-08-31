@@ -241,6 +241,17 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       let passStreakStartMs: number | null = null;
       const isStaticSign = sign.movement.kind === MovementKind.NONE;
       let holdStartMs: number | null = null;
+      // Grace window (added 2026-08-31, launch-readiness audit): a hold in progress used to reset
+      // to zero on the very next frame that didn't clear the verifier — a blink, a hand
+      // momentarily leaving frame, or a single misread landmark could discard up to 1.9s of a real
+      // 2s hold. That is a plausible silent activation killer for a first-timer who has never held
+      // a static handshape steady for a camera before. Tolerating a brief gap (frames keep failing
+      // for up to HOLD_GRACE_MS) without resetting holdStartMs means the elapsed-time math still
+      // includes that gap once clearing resumes — mildly generous, but the 2s floor itself is
+      // untouched, so this cannot turn a fleeting, accidentally-correct handshape into a pass; it
+      // only protects an already-in-progress genuine hold from one bad frame.
+      const HOLD_GRACE_MS = 300;
+      let holdGraceDeadlineMs: number | null = null;
 
       // Pose runs at a FRACTION of the hand rate (2026-08-18). PoseLandmarker is a second full
       // model inference on top of HandLandmarker every processed frame, and it is only read for
@@ -464,6 +475,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
             // STATIC_HOLD_SECONDS (wall-clock, not frame count, so it's consistent regardless of
             // any dip in processed framerate) before it counts as a pass.
             if (clearedEnough) {
+              holdGraceDeadlineMs = null;
               if (holdStartMs === null) holdStartMs = nowMs;
               const elapsedMs = nowMs - holdStartMs;
               if (nowMs - lastHoldUpdateMs >= RESULT_UPDATE_INTERVAL_MS) {
@@ -475,8 +487,16 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 setHoldProgress(null);
                 firePass();
               }
+            } else if (holdStartMs !== null) {
+              // Mid-hold and this frame didn't clear — within the grace window, so hold onto
+              // progress instead of discarding it (see HOLD_GRACE_MS above).
+              if (holdGraceDeadlineMs === null) holdGraceDeadlineMs = nowMs + HOLD_GRACE_MS;
+              if (nowMs > holdGraceDeadlineMs) {
+                holdStartMs = null;
+                holdGraceDeadlineMs = null;
+                setHoldProgress(null);
+              }
             } else {
-              holdStartMs = null;
               setHoldProgress(null);
             }
           } else {
