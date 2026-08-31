@@ -13,6 +13,14 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   until raw-frame evidence thresholds are fixture-calibrated. **Verified:** outcome-domain test and
   production build pass.
 
+- **Consolidated solo skip/timeout attempt logging** (`web/src/hooks/useRecognition.ts`,
+  `web/src/hooks/useAttemptLog.ts`, `web/src/pages/LessonPage.tsx`,
+  `web/src/pages/PracticePage.tsx`, `web/src/pages/StoryPage.tsx`,
+  `web/src/pages/SpeedChallengePage.tsx`). **Why:** those screens independently wrote misses,
+  allowing outcome semantics to drift. **Mechanism:** `finalizeAttempt` is now the sole explicit
+  attempt boundary; `NOT_SCORABLE` rows remain analytics-only and never train or affect persistence.
+  **Verified:** focused outcome/attempt-routing tests and production build pass.
+
 - **Defaulted training-data collection to off** (`web/src/stores/useUserStore.ts`,
   `web/src/stores/tests/mergeProgress.test.ts`). **Why:** no consent choice must be treated as
   opt-out. The consent modal already mapped dismiss/Escape to off, but the store default was true.

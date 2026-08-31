@@ -4,6 +4,7 @@ export type RecognitionOutcomeKind = (typeof RECOGNITION_OUTCOME_KINDS)[number];
 
 /** Environmental reasons that prevent a reliable learner assessment. */
 export type RecognitionReason =
+  | 'CAMERA_UNAVAILABLE'
   | 'MISSING_REQUIRED_HAND'
   | 'FRAME_CLIPPED'
   | 'INSUFFICIENT_TEMPORAL_SAMPLES'
@@ -39,4 +40,9 @@ export function decideRecognitionOutcome(input: RecognitionOutcomeInput): Recogn
   return input.recognitionPassed
     ? { kind: 'PASS', reasons: [] }
     : { kind: 'NEEDS_CORRECTION', reasons: [] };
+}
+
+/** Explicit camera interruptions are neutral: there is no learner evidence to score. */
+export function decideAttemptBoundaryOutcome(_trigger: 'camera_interruption'): RecognitionOutcome {
+  return { kind: 'NOT_SCORABLE', reasons: ['CAMERA_UNAVAILABLE'] };
 }

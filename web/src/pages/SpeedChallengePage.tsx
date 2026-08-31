@@ -153,8 +153,8 @@ export function SpeedChallengePage({ onExit }: Props) {
         if (prev <= 0.11) {
           clearInterval(timerRef.current);
           if (currentSignId) {
-            recordSign(currentSignId, false);
-            attemptLog.recordMiss(currentSignId, recognition.getSnapshot());
+            const attempt = recognition.finalizeAttempt('timeout');
+            if (attempt?.outcome !== 'NOT_SCORABLE') recordSign(currentSignId, false);
           }
           setCombo(0);
           loopStartedRef.current = null;
@@ -511,4 +511,3 @@ export function SpeedChallengePage({ onExit }: Props) {
     </div>
   );
 }
-

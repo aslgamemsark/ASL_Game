@@ -4,7 +4,6 @@ import { track, trackFirstSignSuccess } from '@/analytics';
 import { logAttempt, type TrainingDataSource } from '@/hooks/useProgressSync';
 import type { AttemptRecord } from '@/hooks/useRecognition';
 import type { AttemptSource } from '@/analytics/types';
-import type { Frame } from '@/engine/landmarks';
 
 /**
  * Records what happened on one prompted sign, for every screen that runs the recognition loop.
@@ -20,14 +19,6 @@ export interface AttemptLog {
    * classifier's veto). Pass the record exactly as useRecognition's onAttempt supplied it.
    */
   recordAttempt: (attempt: AttemptRecord) => void;
-  /**
-   * The user never produced the sign — they skipped it, or the round timed out. Persisted as a
-   * failed attempt with no AI verdict (the classifier never got a rule-pass to weigh in on), but
-   * deliberately NOT sent to analytics: `sign_attempt` backs avg-attempts-to-success and
-   * avg-latency, which a miss has no meaningful duration or attempt count to contribute to.
-   * `frames` is whatever the loop had buffered (useRecognition.getSnapshot()); may be empty.
-   */
-  recordMiss: (signId: string, frames: Frame[]) => void;
 }
 
 interface Options {
@@ -96,7 +87,7 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
           attemptsTaken: attempt.attemptNumber,
         });
       }
-      if (!user || !persistedSource) return;
+      if (attempt.outcome === 'NOT_SCORABLE' || !user || !persistedSource) return;
       void logAttempt({
         userId: user.id,
         signId: attempt.signId,
@@ -112,23 +103,5 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
     [user, worldId, source, persistedSource]
   );
 
-  const recordMiss = useCallback(
-    (signId: string, frames: Frame[]) => {
-      if (!user || !persistedSource) return;
-      void logAttempt({
-        userId: user.id,
-        signId,
-        rulePassed: false,
-        aiPrediction: null,
-        aiConfidence: null,
-        aiVetoed: false,
-        finalPassed: false,
-        source: persistedSource,
-        frames,
-      });
-    },
-    [user, persistedSource]
-  );
-
-  return useMemo(() => ({ recordAttempt: record, recordMiss }), [record, recordMiss]);
+  return useMemo(() => ({ recordAttempt: record }), [record]);
 }

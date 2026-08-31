@@ -10,7 +10,7 @@ import { MovementKind, type Sign } from '@/engine/schema';
 import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
 import { speakSign } from '@/lib/speak';
-import { decideRecognitionOutcome, type RecognitionOutcomeKind } from '@/lib/recognition/outcome';
+import { decideAttemptBoundaryOutcome, decideRecognitionOutcome, type RecognitionOutcomeKind } from '@/lib/recognition/outcome';
 import { createExternalStore, type ExternalStore } from './externalStore';
 
 // Static signs (movement.kind === NONE) have no motion scorer to naturally pace a pass —
@@ -114,6 +114,8 @@ export interface AttemptRecord {
   /** 1-indexed count of attempts at this sign since the loop last (re)started for it. */
   attemptNumber: number;
 }
+
+export type AttemptTrigger = 'recognition_pass' | 'classifier_veto' | 'skip' | 'timeout' | 'camera_interruption';
 
 interface UseRecognitionOpts {
   onPass?: (result: VerifyResult) => void;
@@ -504,6 +506,29 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
   const getSnapshot = useCallback((): Frame[] => bufferRef.current.frames, []);
 
+  const finalizeAttempt = useCallback((trigger: AttemptTrigger): AttemptRecord | null => {
+    const sign = signRef.current;
+    if (!sign) return null;
+    const outcome = trigger === 'camera_interruption'
+      ? decideAttemptBoundaryOutcome(trigger)
+      : decideRecognitionOutcome({ recognitionPassed: false, scorable: true, reasons: [] });
+    attemptCountRef.current += 1;
+    const attempt: AttemptRecord = {
+      signId: sign.name,
+      rulePassed: false,
+      aiPrediction: null,
+      aiConfidence: null,
+      aiVetoed: false,
+      finalPassed: false,
+      outcome: outcome.kind,
+      frames: bufferRef.current.frames,
+      durationMs: Math.round(performance.now() - loopStartRef.current),
+      attemptNumber: attemptCountRef.current,
+    };
+    attemptCallbackRef.current?.(attempt);
+    return attempt;
+  }, []);
+
   /**
    * Subscribe to the 10 Hz live result WITHOUT re-rendering this hook's owner. Intended for
    * `useSyncExternalStore` inside a small isolated component (LiveSignCoach) so the page tree
@@ -541,5 +566,5 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     };
   }, []);
 
-  return { status, framing, init, startLoop, stopLoop, setSign, getSnapshot, subscribeResult, getResultSnapshot, subscribeHoldProgress, getHoldProgressSnapshot };
+  return { status, framing, init, startLoop, stopLoop, setSign, getSnapshot, finalizeAttempt, subscribeResult, getResultSnapshot, subscribeHoldProgress, getHoldProgressSnapshot };
 }

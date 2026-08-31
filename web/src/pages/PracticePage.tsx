@@ -352,8 +352,8 @@ export function PracticePage({
     setSkipMsg(pickZippyLine('encourage'));
     setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
-      recordSign(currentSignId, false);
-      attemptLog.recordMiss(currentSignId, recognition.getSnapshot());
+      const attempt = recognition.finalizeAttempt('skip');
+      if (attempt?.outcome !== 'NOT_SCORABLE') recordSign(currentSignId, false);
     }
     recorder.discard();
     loopStartedRef.current = null;
@@ -755,4 +755,3 @@ export function PracticePage({
     </div>
   );
 }
-

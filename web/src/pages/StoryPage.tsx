@@ -157,8 +157,8 @@ export function StoryPage({
 
   const handleSkip = () => {
     if (!currentLine) return;
-    recordSign(currentLine.requiredSignId, false);
-    attemptLog.recordMiss(currentLine.requiredSignId, recognition.getSnapshot());
+    const attempt = recognition.finalizeAttempt('skip');
+    if (attempt?.outcome !== 'NOT_SCORABLE') recordSign(currentLine.requiredSignId, false);
     setSkipsUsed((p) => p + 1);
     setFailMsg(pickZippyLine('encourage'));
     setPhase('fail');
@@ -432,4 +432,3 @@ export function StoryPage({
     </div>
   );
 }
-

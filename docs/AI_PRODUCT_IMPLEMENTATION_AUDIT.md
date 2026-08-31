@@ -41,5 +41,7 @@
 
 - Canonical `PASS` and `NEEDS_CORRECTION` values now accompany every rule-pass/classifier-veto
   attempt and flow through the existing `sign_attempt` analytics event.
+- Lesson, Practice, Story, and Speed now send skip/timeout outcomes through one
+  `useRecognition.finalizeAttempt` path; unscorable outcomes are analytics-only and never persist.
 - `NOT_SCORABLE` is deliberately not emitted yet: camera evidence must be calculated from raw
   frames and calibrated against existing valid/degraded fixtures first.
