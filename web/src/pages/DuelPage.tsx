@@ -440,7 +440,13 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
     if (phase !== 'signer' || signaling.camStatus !== 'active') {
       // camStatus !== 'active' also stops: a track dying mid-turn must not leave MediaPipe
       // burning CPU against a dead video (same reasoning as the solo screens).
-      if (loopRef.current) { recognition.stopLoop(); loopRef.current = null; }
+      if (loopRef.current) {
+        if (phase === 'signer' && signaling.camStatus !== 'active') {
+          recognition.finalizeAttempt('camera_interruption', signaling.camStatus);
+        }
+        recognition.stopLoop();
+        loopRef.current = null;
+      }
       return;
     }
     if (matchState?.currentSign && signaling.localVideoRef.current) {

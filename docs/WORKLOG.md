@@ -5,6 +5,10 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Logged interrupted multiplayer signer attempts** (`web/src/pages/DuelPage.tsx`,
+  `web/src/pages/RoomPage.tsx`). **Mechanism:** both loops finalize a neutral camera outcome before
+  stopping. **Verified:** focused multiplayer camera-outcome test and production build pass.
+
 - **Recorded the attempt trigger in shared recognition analytics** (`web/src/lib/recognition/outcome.ts`,
   `web/src/hooks/useRecognition.ts`, `web/src/hooks/useAttemptLog.ts`). **Mechanism:** every
   emitted attempt now distinguishes a recognition pass, classifier veto, skip, timeout, or camera

@@ -531,7 +531,13 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     if (phase !== 'signing' || signaling.camStatus !== 'active') {
       // camStatus !== 'active' also stops: a track dying mid-turn must not leave MediaPipe
       // burning CPU against a dead video (same reasoning as DuelPage/solo screens).
-      if (loopRef.current) { recognition.stopLoop(); loopRef.current = null; }
+      if (loopRef.current) {
+        if (phase === 'signing' && signaling.camStatus !== 'active') {
+          recognition.finalizeAttempt('camera_interruption', signaling.camStatus);
+        }
+        recognition.stopLoop();
+        loopRef.current = null;
+      }
       return;
     }
     if (currentSignId && signaling.localVideoRef.current) {

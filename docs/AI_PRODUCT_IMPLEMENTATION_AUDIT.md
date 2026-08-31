@@ -65,6 +65,8 @@
   persistence and model data.
 - Lesson, Practice, Story, and Speed now send skip/timeout outcomes through one
   `useRecognition.finalizeAttempt` path; unscorable outcomes are analytics-only and never persist.
+- Duel and Room now also emit that neutral outcome before a signer's interrupted camera loop stops;
+  their existing round scoring remains unchanged.
 - `NOT_SCORABLE` is emitted for explicit camera interruptions only. Threshold-based camera
   evidence remains disabled until raw frames are calibrated against valid/degraded fixtures.
 
