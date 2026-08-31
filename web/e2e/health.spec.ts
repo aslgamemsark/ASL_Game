@@ -5,6 +5,16 @@ import { test, expect, type Page } from '@playwright/test';
 // hardcoded Google Fonts URL that 404'd and dropped the whole app to a system fallback font
 // (caught by a Playwright health pass, 2026-07-19). Everything here is reachable without a camera.
 
+// `waitUntil: 'load'` everywhere below, not 'networkidle' (changed 2026-08-31): this app has
+// long-lived background network activity by design (PostHog, geo-IP lookups, MediaPipe/model
+// polling on some screens), so 'networkidle' either never resolves or resolves only once the
+// machine has spare capacity to let those settle — under any real concurrent load (the whole suite
+// running, not just this file) it reliably timed out at 60s, always on this file, never on a real
+// assertion failure. Every test below already asserts on real, specific content afterward
+// (visible text, an element, a captured request list) — that assertion IS the synchronization
+// point; waiting for total network silence first was redundant and, empirically, the less reliable
+// of the two. Playwright's own docs discourage 'networkidle' for exactly this reason.
+//
 // Third-party / expected noise we don't want to fail on.
 const IGNORE = [/React DevTools/i, /\[vite\]/i, /Service Worker/i, /workbox/i, /manifest/i];
 const benign = (t: string) => IGNORE.some((re) => re.test(t));
@@ -34,7 +44,7 @@ test.describe('runtime health', () => {
   // would just silently fail on every run for a reason unrelated to what it's meant to catch.
   test('landing page: loads, hero visible, no broken images, no console errors', async ({ page }) => {
     const errors = collectErrors(page);
-    await page.goto('/home.html', { waitUntil: 'networkidle' });
+    await page.goto('/home.html', { waitUntil: 'load' });
     await expect(page.locator('h1').first()).toBeVisible();
     const brokenImgs = await page.$$eval('img', (imgs) =>
       imgs.filter((i) => i.complete && i.naturalWidth === 0 && i.getAttribute('src')).map((i) => i.getAttribute('src')));
@@ -47,7 +57,7 @@ test.describe('runtime health', () => {
   // file directly instead. The clean-URL redirect/rewrite pair is a live curl check, not this.
   test('asl-alphabet page: loads, hero visible, no broken images, no console errors', async ({ page }) => {
     const errors = collectErrors(page);
-    await page.goto('/asl-alphabet.html', { waitUntil: 'networkidle' });
+    await page.goto('/asl-alphabet.html', { waitUntil: 'load' });
     await expect(page.locator('h1').first()).toBeVisible();
     const brokenImgs = await page.$$eval('img', (imgs) =>
       imgs.filter((i) => i.complete && i.naturalWidth === 0 && i.getAttribute('src')).map((i) => i.getAttribute('src')));
@@ -60,7 +70,7 @@ test.describe('runtime health', () => {
     const errors = collectErrors(page);
     const bad: string[] = [];
     page.on('response', (r) => { if (r.status() >= 400) bad.push(`${r.status()} ${r.url()}`); });
-    await page.goto('/app', { waitUntil: 'networkidle' });
+    await page.goto('/app', { waitUntil: 'load' });
     await expect(page.getByText(/Welcome to QuickSign/i)).toBeVisible();
     expect(bad, '4xx/5xx responses on app boot').toEqual([]);
     expect(errors, 'console/network errors on app boot').toEqual([]);
@@ -72,7 +82,7 @@ test.describe('runtime health', () => {
       const u = r.url();
       if (u.includes('fonts.gstatic.com') || u.includes('fonts.googleapis.com')) thirdPartyFont.push(u);
     });
-    await page.goto('/app', { waitUntil: 'networkidle' });
+    await page.goto('/app', { waitUntil: 'load' });
     // Fonts load lazily; wait for the FontFaceSet to settle before asserting availability.
     const loaded = await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('16px Quicksand'); });
     expect(loaded, 'Quicksand should be loaded, not falling back to system font').toBe(true);
@@ -80,7 +90,7 @@ test.describe('runtime health', () => {
   });
 
   test('an unknown route does not blank-screen', async ({ page }) => {
-    await page.goto('/this-route-does-not-exist', { waitUntil: 'networkidle' });
+    await page.goto('/this-route-does-not-exist', { waitUntil: 'load' });
     const text = (await page.locator('body').innerText()).trim();
     expect(text.length, 'unknown route rendered a blank page').toBeGreaterThan(4);
   });
@@ -94,7 +104,7 @@ test.describe('runtime health', () => {
   test('no PostHog network activity when analytics is unconfigured', async ({ page }) => {
     const posthogRequests: string[] = [];
     page.on('request', (r) => { if (r.url().includes('.i.posthog.com')) posthogRequests.push(r.url()); });
-    await page.goto('/app', { waitUntil: 'networkidle' });
+    await page.goto('/app', { waitUntil: 'load' });
     await page.getByRole('button', { name: /get started/i }).click().catch(() => {});
     expect(posthogRequests, 'PostHog request fired without a configured key').toEqual([]);
   });
