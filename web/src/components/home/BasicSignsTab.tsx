@@ -12,8 +12,17 @@ interface Props {
 
 export function BasicSignsTab({ onStartSignsPractice, onTestMemory }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [handshape, setHandshape] = useState('');
+  const [location, setLocation] = useState('');
+  const [movement, setMovement] = useState('');
   const selectedSign = selected ? SIGNS[selected] : undefined;
   const sounds = useSounds();
+  const explorerSigns = Object.entries(SIGNS).filter(([, sign]) =>
+    (!handshape || sign.dominant.kind === handshape)
+    && (!location || sign.location.anchor === location)
+    && (!movement || sign.movement.kind === movement),
+  );
+  const selectClass = 'bg-z-card border border-white/10 rounded-lg min-h-11 px-2 text-sm text-z-gray-100';
 
   return (
     <div className="px-4 pb-nav-clear">
@@ -78,6 +87,25 @@ export function BasicSignsTab({ onStartSignsPractice, onTestMemory }: Props) {
           );
         })}
       </div>
+
+      <section className="mb-5" aria-labelledby="sign-explorer-heading">
+        <h3 id="sign-explorer-heading" className="font-bold text-xs mb-3 text-z-gray-400 uppercase tracking-widest">Explore approved signs</h3>
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <select value={handshape} onChange={(event) => setHandshape(event.target.value)} aria-label="Filter signs by handshape" className={selectClass}>
+            <option value="">Handshape</option>{[...new Set(Object.values(SIGNS).map((sign) => sign.dominant.kind))].sort().map((value) => <option key={value}>{value}</option>)}
+          </select>
+          <select value={location} onChange={(event) => setLocation(event.target.value)} aria-label="Filter signs by location" className={selectClass}>
+            <option value="">Location</option>{[...new Set(Object.values(SIGNS).map((sign) => sign.location.anchor))].sort().map((value) => <option key={value}>{value}</option>)}
+          </select>
+          <select value={movement} onChange={(event) => setMovement(event.target.value)} aria-label="Filter signs by movement" className={selectClass}>
+            <option value="">Movement</option>{[...new Set(Object.values(SIGNS).map((sign) => sign.movement.kind))].sort().map((value) => <option key={value}>{value}</option>)}
+          </select>
+        </div>
+        <p className="text-xs text-z-gray-400 mb-2">{explorerSigns.length} matching signs</p>
+        <div className="flex flex-wrap gap-2">
+          {explorerSigns.map(([id, sign]) => <button key={id} onClick={() => { sounds.tap(); setSelected(id); }} className="min-h-11 px-3 rounded-xl bg-z-card border border-white/5 text-sm font-bold text-z-gray-100">{sign.name.replace(/_/g, ' ')}</button>)}
+        </div>
+      </section>
 
       {/* Test from memory */}
       <motion.div

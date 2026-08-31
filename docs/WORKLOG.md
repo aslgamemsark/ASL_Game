@@ -5,6 +5,11 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Added the approved-sign reverse explorer** (`web/src/components/home/BasicSignsTab.tsx`).
+  **Mechanism:** native filter controls query existing sign definitions by dominant handshape,
+  location anchor, and movement before opening the existing detail modal. **Verified:** production
+  build and lint (existing warnings only).
+
 - **Added recognition-dispute recovery** (`web/src/hooks/useRecognition.ts`, analytics types,
   Lesson/Practice/Story/Speed pages). **Mechanism:** after five seconds of good framing, the learner
   can reset a local attempt; analytics receives only sign, screen, outcome, reason, and aggregate

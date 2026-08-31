@@ -77,6 +77,11 @@
   of stable framing. It logs aggregate scores only, clears the local attempt window, and never
   grants rewards or changes mastery.
 
+## Learning Depth From Approved Content
+
+- The Basic Signs screen now includes a reverse explorer over the existing canonical sign data,
+  filterable by handshape, location, and movement. It adds no signs, variants, or ASL claims.
+
 ## Mode-Specific Mastery
 
 - Legacy aggregate SRS remains intact while new attempts record receptive or expressive evidence.
