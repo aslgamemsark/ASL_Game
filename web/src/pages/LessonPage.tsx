@@ -29,6 +29,7 @@ import { getWorldIdForUnit } from '@/data/worlds';
 import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
 import { track } from '@/analytics';
+import { ShareButton } from '@/components/shared/ShareButton';
 
 type Phase = 'intro' | 'signing' | 'success' | 'replay' | 'complete';
 
@@ -541,6 +542,15 @@ export function LessonPage({ lessonId, onExit }: Props) {
               <Button onClick={onExit} size="lg" className="mt-6">
                 Continue
               </Button>
+              {/* Share loop (launch-readiness Phase G) — gated to the FIRST-ever lesson completion
+                  specifically: it's the single most genuinely exciting, most shareable moment in
+                  this screen, and the smallest-useful-version scope this was built to ("a
+                  shareable result after the first sign / a fingerspelling run", not every
+                  completion). This screen doesn't auto-advance (unlike onboarding's own first-sign
+                  celebration), so there's real time for it to be noticed and used. */}
+              {isFirstLessonComplete && (
+                <ShareButton context="first_lesson_complete" className="mt-1" />
+              )}
             </motion.div>
           )}
         </AnimatePresence>

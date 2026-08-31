@@ -91,6 +91,7 @@ export const EVENTS = {
   // Engagement
   friend_added: 'friend_added',
   friend_removed: 'friend_removed',
+  share_clicked: 'share_clicked',
 
   // Feedback
   feedback_submitted: 'feedback_submitted',

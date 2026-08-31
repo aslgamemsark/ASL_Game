@@ -177,6 +177,14 @@ export interface EventPayloads {
   // Engagement
   friend_added: Record<string, never>;
   friend_removed: Record<string, never>;
+  /** The share loop (ShareButton.tsx, added 2026-08-31) — a single event covers both outcomes
+   *  (native OS share sheet vs clipboard fallback), per NAMING_CONVENTION.md's "one event per real
+   *  occurrence, not per outcome". `context` is where the affordance appeared — a union of one
+   *  today (LessonPage's first-lesson-complete screen) so a second wiring (e.g. onboarding's own
+   *  first-sign celebration, deliberately skipped for now — see ShareButton.tsx) is a real,
+   *  compile-checked addition here, not silently reusing an unrelated value. Does NOT fire on a
+   *  share-sheet cancel (AbortError) — that's a no-op, not a share. */
+  share_clicked: { context: 'first_lesson_complete'; method: 'share_sheet' | 'clipboard' };
 
   // Beta feedback (components/shared/FeedbackModal.tsx). `feedback_submitted` always fires;
   // `bug_reported`/`feature_requested` ALSO fire when the category matches — deliberate, not

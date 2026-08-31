@@ -87,6 +87,14 @@ One event family for both Duel (2p) and Room (up to 4p), disambiguated by `mode`
 ## Engagement
 `friend_added`, `friend_removed` — no properties (identity carries the rest).
 
+**`share_clicked`** (`components/shared/ShareButton.tsx`, added 2026-08-31) — the share loop's
+smallest useful version (launch-readiness Phase G). One event covers both outcomes: `method`
+(`share_sheet` on mobile via the Web Share API, `clipboard` as the desktop fallback), `context`
+(where the button appeared — today only `first_lesson_complete`, LessonPage's first-ever-lesson
+celebration screen). Does not fire on a share-sheet cancel. The shared link points at `/` with
+`utm_source=share&utm_medium=referral&utm_campaign=first_lesson_share`, so a referred visitor's
+first-touch attribution correctly credits the sharer's channel, not "direct."
+
 ## Feedback (beta)
 | Event | Fires when |
 |---|---|
