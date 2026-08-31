@@ -5,6 +5,9 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Verified the multiplayer regression harness starts cleanly.** The 27 cases skipped as designed
+  because no local Supabase test stack is running; no hosted service was contacted or changed.
+
 - **Patched audited transitive dependencies** (`web/package-lock.json`). **Mechanism:** npm's
   lockfile-only remediation updates DOMPurify and nanoid without adding a dependency. **Verified:**
   fresh install, full 780-test suite, build, and `npm audit --omit=dev` all pass; lint retains only

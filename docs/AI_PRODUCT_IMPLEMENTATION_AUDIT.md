@@ -26,6 +26,8 @@
 - `npm run lint` completed with existing warnings only; no errors or new warning category.
 - `npm audit --omit=dev` is clean after lockfile-only updates for transitive DOMPurify and nanoid
   advisories.
+- `npm run test:multiplayer` starts its isolated local configuration cleanly; its 27 cases skip
+  because the required local Supabase stack is not running.
 - Focused Chromium Playwright checks passed: desktop Explore visibility/navigation and one main
   landmark.
 - Vercel deployment-to-commit mapping remains unverified locally; see `HUMAN_ACTIONS.md`.
