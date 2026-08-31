@@ -21,7 +21,11 @@
 
 ### Evidence
 
-- `npm run build` passed on 2026-08-31.
+- `npm test -- --run` passed: 780 tests, 9 documented TODOs.
+- `npm run build` passed on 2026-09-01.
+- `npm run lint` completed with existing warnings only; no errors or new warning category.
+- `npm audit --omit=dev` is clean after lockfile-only updates for transitive DOMPurify and nanoid
+  advisories.
 - Focused Chromium Playwright checks passed: desktop Explore visibility/navigation and one main
   landmark.
 - Vercel deployment-to-commit mapping remains unverified locally; see `HUMAN_ACTIONS.md`.

@@ -5,6 +5,11 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Patched audited transitive dependencies** (`web/package-lock.json`). **Mechanism:** npm's
+  lockfile-only remediation updates DOMPurify and nanoid without adding a dependency. **Verified:**
+  fresh install, full 780-test suite, build, and `npm audit --omit=dev` all pass; lint retains only
+  existing warnings.
+
 - **Added Story camera recovery feedback** (`web/src/pages/StoryPage.tsx`). **Mechanism:** a
   denied, failed, or stalled story camera now shows an explicit retry card and suppresses stale live
   coaching. **Verified:** focused outcome test and production build pass.
