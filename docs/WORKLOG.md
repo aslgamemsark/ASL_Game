@@ -5,6 +5,11 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Replayed valid fixtures for camera-evidence calibration** (fixture corpus,
+  `docs/AI_PRODUCT_IMPLEMENTATION_AUDIT.md`). **Finding:** accepted HELP/HOSPITAL/MEDICINE/WRITE
+  fixtures have incomplete raw-hand coverage, so no universal two-hand cutoff can safely score
+  learners. The metric stays shadow-only rather than becoming a false penalty.
+
 - **Added neutral-attempt reason telemetry** (`web/src/hooks/useRecognition.ts`,
   `web/src/hooks/useAttemptLog.ts`, analytics types). **Mechanism:** `NOT_SCORABLE` camera events
   retain their primary reason in the existing attempt event without changing their no-persistence

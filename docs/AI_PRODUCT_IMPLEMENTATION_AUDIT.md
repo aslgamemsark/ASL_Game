@@ -31,6 +31,10 @@
 - No quality threshold becomes punitive until every existing valid fixture stays scorable and the
   corresponding degraded fixture is rejected.
 - No Face Landmarker/NMM quality gate is added: no current canonical sign requires NMM scoring.
+- Replay of the 31 existing `*_correct.json` fixtures found that valid HELP, HOSPITAL, MEDICINE,
+  and WRITE recordings can have incomplete raw-hand coverage. A universal `Sign.twoHanded`
+  coverage threshold would therefore create false `NOT_SCORABLE` outcomes. That metric remains
+  visible in shadow telemetry; it is not punitive.
 
 ## Privacy Hardening
 
