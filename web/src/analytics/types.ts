@@ -1,3 +1,5 @@
+import type { RecognitionOutcomeKind } from '@/lib/recognition/outcome';
+
 /**
  * Typed payload for every event this app is allowed to emit. `track()` in capture.ts is generic
  * over this map, so passing the wrong shape for an event — or a made-up event name — is a
@@ -31,6 +33,7 @@ export interface SignAttemptBase {
    *  can never turn a rule-fail into a pass, so this is only ever meaningful when rule_passed. */
   ai_vetoed: boolean;
   final_passed: boolean;
+  outcome: RecognitionOutcomeKind;
   ai_prediction: string | null;
   ai_confidence: number | null;
   /** Wall-clock ms from recognition loop start to this attempt's outcome. */

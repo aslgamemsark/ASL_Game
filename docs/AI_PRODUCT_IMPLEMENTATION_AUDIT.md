@@ -36,3 +36,10 @@
 
 - Default landmark-training collection is now off. The existing consent modal and Settings control
   remain the explicit opt-in path; dismissal and Escape already resolve to off.
+
+## Recognition Outcome Contract — In Progress
+
+- Canonical `PASS` and `NEEDS_CORRECTION` values now accompany every rule-pass/classifier-veto
+  attempt and flow through the existing `sign_attempt` analytics event.
+- `NOT_SCORABLE` is deliberately not emitted yet: camera evidence must be calculated from raw
+  frames and calibrated against existing valid/degraded fixtures first.

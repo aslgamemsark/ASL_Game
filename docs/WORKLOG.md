@@ -5,6 +5,14 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Began the canonical recognition-outcome contract** (`web/src/lib/recognition/outcome.ts`,
+  `web/src/hooks/useRecognition.ts`, `web/src/hooks/useAttemptLog.ts`,
+  `web/src/analytics/types.ts`). **Mechanism:** accepted recognition attempts now carry a typed
+  `PASS` or `NEEDS_CORRECTION` outcome into the one existing `sign_attempt` event, instead of
+  adding parallel analytics streams. **Watch out:** `NOT_SCORABLE` remains intentionally deferred
+  until raw-frame evidence thresholds are fixture-calibrated. **Verified:** outcome-domain test and
+  production build pass.
+
 - **Defaulted training-data collection to off** (`web/src/stores/useUserStore.ts`,
   `web/src/stores/tests/mergeProgress.test.ts`). **Why:** no consent choice must be treated as
   opt-out. The consent modal already mapped dismiss/Escape to off, but the store default was true.

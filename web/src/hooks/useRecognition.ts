@@ -10,6 +10,7 @@ import { MovementKind, type Sign } from '@/engine/schema';
 import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
 import { speakSign } from '@/lib/speak';
+import { decideRecognitionOutcome, type RecognitionOutcomeKind } from '@/lib/recognition/outcome';
 import { createExternalStore, type ExternalStore } from './externalStore';
 
 // Static signs (movement.kind === NONE) have no motion scorer to naturally pace a pass —
@@ -106,6 +107,7 @@ export interface AttemptRecord {
   aiConfidence: number | null;
   aiVetoed: boolean;
   finalPassed: boolean;
+  outcome: RecognitionOutcomeKind;
   frames: Frame[];
   /** Ms since this sign's recognition loop started — how long the user was trying this sign. */
   durationMs: number;
@@ -396,6 +398,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       // mode and that divergence is exactly the veto-precision measurement.
                       aiVetoed: modelVetoed,
                       finalPassed: passed,
+                      outcome: decideRecognitionOutcome({ recognitionPassed: passed, scorable: true, reasons: [] }).kind,
                       frames: snapshot,
                       durationMs: Math.round(performance.now() - loopStartRef.current),
                       attemptNumber: attemptCountRef.current,
@@ -427,6 +430,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 aiConfidence: null,
                 aiVetoed: false,
                 finalPassed: true,
+                outcome: 'PASS',
                 frames: bufferRef.current.frames,
                 durationMs: Math.round(performance.now() - loopStartRef.current),
                 attemptNumber: attemptCountRef.current,
