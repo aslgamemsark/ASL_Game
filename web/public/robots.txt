@@ -10,4 +10,4 @@ Allow: /asl-alphabet.html
 Allow: /$
 Disallow: /
 
-Sitemap: https://aslgame.vercel.app/sitemap.xml
+Sitemap: https://quicksignn.vercel.app/sitemap.xml

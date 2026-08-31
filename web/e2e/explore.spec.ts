@@ -53,6 +53,19 @@ async function openExploreCard(page: Page, label: string) {
 // a11y.spec.ts:142.
 const meTab = (page: Page) => page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first();
 
+test('desktop navigation keeps Explore hidden while every destination remains reachable', async ({ page }) => {
+  await enterAsGuest(page);
+
+  await meTab(page).click();
+  await expect(page.getByRole('heading', { name: 'Explore', exact: true })).toBeHidden();
+
+  const nav = page.getByRole('navigation', { name: 'Main' }).first();
+  for (const label of ['Leaderboard', 'Multiplayer', 'Friends', 'Settings']) {
+    await expect(nav.getByRole('button', { name: new RegExp(`${label}$`) })).toBeVisible();
+  }
+  await expect(page.getByRole('button', { name: 'Open shop' })).toBeVisible();
+});
+
 test('explore: Leaderboard, Multiplayer and Friends render content and exit back home', async ({ page }) => {
   await enterAsGuest(page);
 

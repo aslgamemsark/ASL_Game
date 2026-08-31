@@ -10,7 +10,7 @@ given throughout for when you need to actually change something._
 **QuickSign** is a gamified web app that teaches American Sign Language (ASL) and checks, via the
 user's own webcam, whether they actually produced each sign correctly — not just whether they can
 recognize it in a video. It's built by a two-person student team (Saad + a teammate, ARKhan) as a
-React/TypeScript single-page app, live in production at **https://aslgame.vercel.app**, currently
+React/TypeScript single-page app, live in production at **https://quicksignn.vercel.app**, currently
 prepping a public Reddit launch. The core technical differentiator, and the thing every design
 decision below serves, is: **most ASL apps show a video and ask "which sign is this?" (recognition).
 QuickSign watches the user sign and tells them which specific part — handshape, location, movement,

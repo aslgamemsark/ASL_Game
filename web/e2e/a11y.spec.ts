@@ -104,6 +104,11 @@ test.describe('accessibility', () => {
   // it is. WCAG 1.4.3 governs the settled state, so measuring it is also the more correct scan.
   test.use({ viewport: { width: 430, height: 932 }, contextOptions: { reducedMotion: 'reduce' } });
 
+  test('the app exposes one main landmark', async ({ page }) => {
+    await reachHome(page);
+    await expect(page.getByRole('main')).toHaveCount(1);
+  });
+
   test('onboarding steps', async ({ page }) => {
     await page.goto('/');
     await scan(page, 'welcome');

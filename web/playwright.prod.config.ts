@@ -8,7 +8,7 @@ export default defineConfig({
   workers: 2,
   timeout: 60_000,
   reporter: 'list',
-  use: { baseURL: process.env.PROD_URL ?? 'https://aslgame.vercel.app' },
+  use: { baseURL: process.env.PROD_URL ?? 'https://quicksignn.vercel.app' },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'android', use: { ...devices['Pixel 7'] } },

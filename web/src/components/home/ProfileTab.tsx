@@ -112,15 +112,16 @@ export function ProfileTab({ onOpenLeaderboard, onOpenFriends, onOpenMultiplayer
         )}
       </motion.div>
 
-      {/* Everything that is not a Home learning tab. On a phone this is the ONLY entry point for
-          Leaderboard and Friends (SideNav, their only other caller, is `hidden md:flex`), and the
-          primary one for Multiplayer and Settings since trimming BottomNav to five tabs.
+      {/* Phone-only: SideNav owns these destinations from md upward. On a phone this is the ONLY
+          entry point for Leaderboard and Friends (SideNav, their only other caller, is
+          `hidden md:flex`), and the primary one for Multiplayer and Settings since trimming
+          BottomNav to five tabs.
 
           Every destination is a labelled card, not an icon: an icon-only affordance is what made
           Shop hard to find in the first place. Shop appears here as well as in the TopBar cart —
           deliberate redundancy, because the cart is the one icon-only entry point left. */}
       <motion.div
-        className="mb-5"
+        className="mb-5 md:hidden"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.03 }}

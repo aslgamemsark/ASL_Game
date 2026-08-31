@@ -345,7 +345,7 @@ export default function App() {
       )}
       {/* md:, matching SideNav's own breakpoint (see SideNav.tsx's comment) — must switch at the
           exact same width the nav itself does, or content sits under empty space (or the nav). */}
-      <div className={`relative${showSideNav ? ' md:pl-64' : ''}`}>
+      <main className={`relative${showSideNav ? ' md:pl-64' : ''}`}>
         {/* Not mode="wait": that makes the incoming screen strictly wait for the outgoing one's
             exit animation to finish, so a slow-loading screen chunk holds the old screen on
             display for as long as the download takes.
@@ -491,7 +491,7 @@ export default function App() {
             </ScreenTransition>
           )}
         </AnimatePresence>
-      </div>
+      </main>
 
       {/* Username setup modal for Google/OAuth users */}
       {needsUsernameSetup && <SetUsernameModal onClose={() => {}} />}

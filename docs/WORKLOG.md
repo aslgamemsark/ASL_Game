@@ -3,6 +3,20 @@
 Running record of what changed and why. Maintained continuously during a session, newest first —
 see `.claude/rules/worklog.md` for the rule, including when to compress older months.
 
+## 2026-08-31
+
+- **QuickSign product-trust Batch 0 started** (`web/index.html`, `web/public/landing.html`,
+  `web/public/asl-alphabet.html`, `web/public/sitemap.xml`, `web/public/robots.txt`,
+  `web/playwright.prod.config.ts`, `web/src/App.tsx`, `web/src/components/home/ProfileTab.tsx`,
+  focused Playwright specs, `docs/AI_PRODUCT_IMPLEMENTATION_AUDIT.md`,
+  `docs/HUMAN_ACTIONS.md`). **Why:** production moved to `quicksignn.vercel.app`; the old origin
+  remained in crawler metadata and release checks. The phone-only Explore grid duplicated desktop
+  SideNav destinations, and the SPA exposed no main landmark. **Mechanism:** updated production
+  origin references, added one screen-content `<main>`, and hid Explore at `md` while retaining
+  every mobile route. **Verified:** production build plus focused Chromium desktop-nav and main
+  landmark checks. **Watch out:** deployment commit mapping still needs release-owner confirmation;
+  no deployment, remote migration, or untracked-file change was made.
+
 ## 2026-08-25
 
 - **ASL-G3 — camera-permission moment audited across granted/denied/prompt scenarios**
