@@ -31,6 +31,16 @@ export async function completeOnboarding(page: Page): Promise<void> {
   }
   await page.getByRole('button', { name: /just starting/i }).click();
   await page.getByRole('button', { name: /skip for now/i }).click();
+  // A SECOND "Continue as guest" can appear here (OnboardingFlow's 'auth' step, "Nice work! Keep
+  // it saved?") — shown only when supabaseReady is true. CI's e2e job runs with Supabase
+  // deliberately unconfigured (see this function's own comment above) so it never appears there,
+  // but a local run with real credentials in .env.local (Vite bakes them in at build time, and
+  // playwright.config.ts's webServer builds fresh) does reach it — without this, the helper hangs
+  // waiting for Home in an environment-dependent way that has nothing to do with what it's testing.
+  const secondGuestButton = page.getByRole('button', { name: /continue as guest/i });
+  if (await secondGuestButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await secondGuestButton.click();
+  }
   await page.getByRole('button', { name: /Journey/ }).first().waitFor({ state: 'visible', timeout: 15_000 });
 }
 

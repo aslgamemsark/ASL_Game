@@ -54,11 +54,15 @@ export default defineConfig({
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    // Force-unconfigure PostHog for this build: process.env wins over .env.local in Vite's env
-    // precedence, so this guarantees the privacy-guard e2e test (health.spec.ts) is deterministic
-    // regardless of whether the developer's local .env.local carries a real key for manual
-    // analytics testing (see docs/analytics/DEVELOPER_GUIDE.md) — and prevents e2e runs from
-    // sending real test traffic to the production PostHog project.
-    env: { VITE_POSTHOG_KEY: '' },
+    // Force-unconfigure PostHog AND Supabase for this build: process.env wins over .env.local in
+    // Vite's env precedence, so this guarantees both the privacy-guard e2e test (health.spec.ts)
+    // and every onboarding-flow spec are deterministic regardless of what a developer's local
+    // .env.local carries for manual testing (see docs/analytics/DEVELOPER_GUIDE.md) — prevents e2e
+    // runs from sending real test traffic to production PostHog, AND matches ci.yml's own
+    // deliberately-unconfigured Supabase posture. Without the Supabase half (found 2026-08-31): a
+    // developer machine with real credentials in .env.local reaches OnboardingFlow's extra 'auth'
+    // step (Google/email/guest) that CI never sees, and helpers.ts's completeOnboarding — written
+    // for CI's shorter flow — hangs waiting for a screen that never gets past it.
+    env: { VITE_POSTHOG_KEY: '', VITE_SUPABASE_URL: '', VITE_SUPABASE_ANON_KEY: '' },
   },
 });

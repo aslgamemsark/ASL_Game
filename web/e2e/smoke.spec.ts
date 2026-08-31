@@ -39,6 +39,14 @@ test.describe('app smoke test', () => {
     await expect(page.getByText(/try your first sign/i)).toBeVisible();
     await page.getByRole('button', { name: /skip for now/i }).click();
 
+    // A SECOND "Continue as guest" can appear here (the 'auth' step, "Nice work! Keep it saved?")
+    // — same conditional-on-Supabase-config reasoning as the first one above, just later in the
+    // flow (it only shows after a first-sign attempt, successful or skipped).
+    const secondGuestButton = page.getByRole('button', { name: /continue as guest/i });
+    if (await secondGuestButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await secondGuestButton.click();
+    }
+
     // Onboarding's own "done" celebration auto-advances to Home after ~1.4s (see
     // OnboardingFlow.tsx's setTimeout(onComplete, 1400)). The guest sign-in affordance in the
     // top bar is a stable Home marker (.first() avoids strict-mode on repeated "streak" text).
