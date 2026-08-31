@@ -5,6 +5,10 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Generated fixture-backed minimal-pair candidates** (`docs/MINIMAL_PAIR_CANDIDATES.md`).
+  **Mechanism:** records only contrasts directly named by existing confusor fixtures and their
+  current verifier parameter category; it intentionally creates no learner-facing ASL lesson.
+
 - **Added the approved-sign reverse explorer** (`web/src/components/home/BasicSignsTab.tsx`).
   **Mechanism:** native filter controls query existing sign definitions by dominant handshape,
   location anchor, and movement before opening the existing detail modal. **Verified:** production

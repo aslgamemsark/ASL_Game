@@ -81,6 +81,8 @@
 
 - The Basic Signs screen now includes a reverse explorer over the existing canonical sign data,
   filterable by handshape, location, and movement. It adds no signs, variants, or ASL claims.
+- `MINIMAL_PAIR_CANDIDATES.md` records fixture-backed candidates for human ASL review only; none
+  are exposed as lessons.
 
 ## Mode-Specific Mastery
 
