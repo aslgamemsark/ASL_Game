@@ -2,6 +2,17 @@ export const RECOGNITION_OUTCOME_KINDS = ['PASS', 'NEEDS_CORRECTION', 'NOT_SCORA
 
 export type RecognitionOutcomeKind = (typeof RECOGNITION_OUTCOME_KINDS)[number];
 
+/** The explicit moment that closed an attempt. Keep this shared with analytics. */
+export const ATTEMPT_TRIGGERS = [
+  'recognition_pass',
+  'classifier_veto',
+  'skip',
+  'timeout',
+  'camera_interruption',
+] as const;
+
+export type AttemptTrigger = (typeof ATTEMPT_TRIGGERS)[number];
+
 /** Environmental reasons that prevent a reliable learner assessment. */
 export type RecognitionReason =
   | 'CAMERA_UNAVAILABLE'

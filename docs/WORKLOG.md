@@ -5,6 +5,11 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Recorded the attempt trigger in shared recognition analytics** (`web/src/lib/recognition/outcome.ts`,
+  `web/src/hooks/useRecognition.ts`, `web/src/hooks/useAttemptLog.ts`). **Mechanism:** every
+  emitted attempt now distinguishes a recognition pass, classifier veto, skip, timeout, or camera
+  interruption. **Verified:** focused outcome test and production build pass.
+
 - **Verified the multiplayer regression harness starts cleanly.** The 27 cases skipped as designed
   because no local Supabase test stack is running; no hosted service was contacted or changed.
 

@@ -10,7 +10,7 @@ import { MovementKind, type Sign } from '@/engine/schema';
 import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
 import { speakSign } from '@/lib/speak';
-import { decideAttemptBoundaryOutcome, decideRecognitionOutcome, type RecognitionOutcomeKind, type RecognitionReason } from '@/lib/recognition/outcome';
+import { decideAttemptBoundaryOutcome, decideRecognitionOutcome, type AttemptTrigger, type RecognitionOutcomeKind, type RecognitionReason } from '@/lib/recognition/outcome';
 import { measureRecognitionEvidence, type RecognitionEvidence } from '@/lib/recognition/evidence';
 import { createExternalStore, type ExternalStore } from './externalStore';
 
@@ -108,6 +108,7 @@ export interface AttemptRecord {
   aiConfidence: number | null;
   aiVetoed: boolean;
   finalPassed: boolean;
+  trigger: AttemptTrigger;
   outcome: RecognitionOutcomeKind;
   reasons: readonly RecognitionReason[];
   verifier: VerifyResult | null;
@@ -118,8 +119,6 @@ export interface AttemptRecord {
   /** 1-indexed count of attempts at this sign since the loop last (re)started for it. */
   attemptNumber: number;
 }
-
-export type AttemptTrigger = 'recognition_pass' | 'classifier_veto' | 'skip' | 'timeout' | 'camera_interruption';
 
 interface UseRecognitionOpts {
   onPass?: (result: VerifyResult) => void;
@@ -437,6 +436,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       // mode and that divergence is exactly the veto-precision measurement.
                       aiVetoed: modelVetoed,
                       finalPassed: passed,
+                      trigger: modelVetoed ? 'classifier_veto' : 'recognition_pass',
                       outcome: decideRecognitionOutcome({ recognitionPassed: passed, scorable: true, reasons: [] }).kind,
                       reasons: [],
                       verifier: vr,
@@ -472,6 +472,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 aiConfidence: null,
                 aiVetoed: false,
                 finalPassed: true,
+                trigger: 'recognition_pass',
                 outcome: 'PASS',
                 reasons: [],
                 verifier: vr,
@@ -567,6 +568,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       aiConfidence: null,
       aiVetoed: false,
       finalPassed: false,
+      trigger,
       outcome: outcome.kind,
       reasons: outcome.reasons,
       verifier: lastResultRef.current,

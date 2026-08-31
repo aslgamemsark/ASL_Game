@@ -58,6 +58,9 @@
 
 - Canonical `PASS` and `NEEDS_CORRECTION` values now accompany every rule-pass/classifier-veto
   attempt and flow through the existing `sign_attempt` analytics event.
+- Every attempt now records its explicit trigger (`recognition_pass`, classifier veto, skip,
+  timeout, or camera interruption), so outcome metrics can distinguish a learner correction from
+  a neutral camera recovery without introducing a parallel event.
 - Neutral events include their primary camera reason in analytics while remaining excluded from
   persistence and model data.
 - Lesson, Practice, Story, and Speed now send skip/timeout outcomes through one

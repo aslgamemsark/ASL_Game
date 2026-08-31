@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { decideAttemptBoundaryOutcome, decideRecognitionOutcome } from '../outcome';
+import { ATTEMPT_TRIGGERS, decideAttemptBoundaryOutcome, decideRecognitionOutcome } from '../outcome';
 
 describe('recognition outcomes', () => {
+  it('names every attempt boundary that analytics must distinguish', () => {
+    expect(ATTEMPT_TRIGGERS).toEqual([
+      'recognition_pass',
+      'classifier_veto',
+      'skip',
+      'timeout',
+      'camera_interruption',
+    ]);
+  });
+
   it('keeps a camera interruption neutral', () => {
     expect(decideAttemptBoundaryOutcome()).toEqual({
       kind: 'NOT_SCORABLE',

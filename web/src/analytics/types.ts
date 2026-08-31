@@ -1,4 +1,4 @@
-import type { RecognitionOutcomeKind } from '@/lib/recognition/outcome';
+import type { AttemptTrigger, RecognitionOutcomeKind } from '@/lib/recognition/outcome';
 import type { RecognitionEvidence } from '@/lib/recognition/evidence';
 
 /**
@@ -34,6 +34,7 @@ export interface SignAttemptBase {
    *  can never turn a rule-fail into a pass, so this is only ever meaningful when rule_passed. */
   ai_vetoed: boolean;
   final_passed: boolean;
+  attempt_trigger: AttemptTrigger;
   outcome: RecognitionOutcomeKind;
   not_scorable_reason: string | null;
   ai_prediction: string | null;
