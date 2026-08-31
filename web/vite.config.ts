@@ -97,7 +97,13 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         navigateFallback: 'index.html',
         // Never route cross-origin/API or direct asset requests through the SPA fallback.
-        navigateFallbackDenylist: [/^\/api\//, /\/[^/?]+\.[^/?]+$/],
+        // `/^\/$/` is new (2026-08-31): `/` now serves the static marketing page (home.html via
+        // vercel.json's rewrite), not the SPA. Without this, an already-installed PWA's cached
+        // service worker would keep intercepting `/` navigations and serving the OLD precached
+        // index.html instead of letting the request reach the marketing page — the exact
+        // "installed clients strand on the app shell at /" failure mode called out when this
+        // migration was planned.
+        navigateFallbackDenylist: [/^\/api\//, /^\/$/, /\/[^/?]+\.[^/?]+$/],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/clips/'),
@@ -150,8 +156,13 @@ export default defineConfig({
         background_color: '#0D0A1E',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
-        scope: '/',
+        // `id` defaults to `start_url` per the Web App Manifest spec, and is what Chrome uses to
+        // decide whether this manifest is an update to an existing install or a brand-new app.
+        // Pinned explicitly to the OLD start_url so changing start_url below does not strand every
+        // already-installed user as an orphaned "new" install with no icon/history continuity.
+        id: '/',
+        start_url: '/app',
+        scope: '/app',
         categories: ['education', 'games'],
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

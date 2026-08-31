@@ -249,7 +249,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        // `/` now serves the static marketing page, not the SPA — the redirect must land on
+        // the app shell so supabase-js's detectSessionInUrl can actually read the auth fragment.
+        redirectTo: `${window.location.origin}/app`,
         // Without this, Google silently reuses whatever account is already active in the
         // browser and never shows the account chooser — a real problem on a shared/family
         // device where switching accounts (e.g. going from a parent's to a kid's) needs to
@@ -303,7 +305,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const requestPasswordReset = useCallback(async (email: string): Promise<string | null> => {
     track('password_reset_requested', {});
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
+      // Same reasoning as signInWithGoogle: `/` is now static marketing, so the recovery link
+      // must land on `/app` for the SPA to pick up the recovery session from the URL fragment.
+      redirectTo: `${window.location.origin}/app`,
     });
     // Supabase already returns success here even for an email that isn't registered (so this
     // can't be used to enumerate accounts) — surface a real error only for things like malformed

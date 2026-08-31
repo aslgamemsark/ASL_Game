@@ -21,7 +21,9 @@ import type { Page } from '@playwright/test';
  * working camera would do, and the one path guaranteed available regardless of environment.
  */
 export async function completeOnboarding(page: Page): Promise<void> {
-  await page.goto('/');
+  // /app, not / — the app shell moved off the root path in the Phase A URL migration; / is now
+  // the static marketing page and has none of this onboarding UI.
+  await page.goto('/app');
   await page.getByRole('button', { name: /get started/i }).click();
   const guestButton = page.getByRole('button', { name: /continue as guest/i });
   if (await guestButton.isVisible({ timeout: 2_000 }).catch(() => false)) {

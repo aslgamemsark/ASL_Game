@@ -97,7 +97,7 @@ test.describe('accessibility', () => {
 
     // 2026-08-30 value-before-signup reorder: welcome -> skill -> firstSign -> auth -> done.
     // "Get Started" no longer branches on supabaseReady — it always goes to skill first now.
-    await page.goto('/');
+    await page.goto('/app');
     await scan(page, 'welcome');
 
     await page.getByRole('button', { name: /get started/i }).click();
@@ -147,7 +147,7 @@ test.describe('accessibility', () => {
       // Back to Home via a reload, not history: these are screen-state transitions in a single
       // route, so goBack() leaves the app where it was. onboardingComplete is persisted, so a
       // reload lands on Home rather than replaying onboarding.
-      await page.goto('/');
+      await page.goto('/app');
       await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
     }
   });
@@ -188,7 +188,7 @@ test.describe('accessibility (desktop)', () => {
       await page.waitForTimeout(800);
       await scan(page, `desktop ${name}`);
 
-      await page.goto('/');
+      await page.goto('/app');
       await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
     }
   });

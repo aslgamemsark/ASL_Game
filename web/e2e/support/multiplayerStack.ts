@@ -195,7 +195,7 @@ export async function signInThroughUi(page: Page, user: TestUser): Promise<void>
  * fake camera device in this stack either, see playwright.multiplayer.config.ts), and only then
  * the auth step where "Continue as guest" actually lives now. */
 export async function reachHome(page: Page): Promise<void> {
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: /get started/i }).click();
   await page.getByRole('button', { name: /just starting/i }).click();
   await page.getByRole('button', { name: /skip for now/i }).click();

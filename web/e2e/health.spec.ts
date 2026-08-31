@@ -25,9 +25,16 @@ function collectErrors(page: Page): string[] {
 }
 
 test.describe('runtime health', () => {
+  // `/` -> public/home.html and the `/landing.html` -> `/` 301 are both Vercel-edge behavior
+  // (vercel.json rewrites/redirects) that `vite preview` — what this suite's webServer runs
+  // (see playwright.config.ts) — never applies; only the real Vercel deploy does. So this hits the
+  // static file directly (Vite copies public/* into dist/ verbatim, unchanged by the rewrite), and
+  // the rewrite/redirect topology itself is verified with live curl checks against the deployed
+  // preview instead (see the launch-readiness plan's Verification section) — not here, where it
+  // would just silently fail on every run for a reason unrelated to what it's meant to catch.
   test('landing page: loads, hero visible, no broken images, no console errors', async ({ page }) => {
     const errors = collectErrors(page);
-    await page.goto('/landing.html', { waitUntil: 'networkidle' });
+    await page.goto('/home.html', { waitUntil: 'networkidle' });
     await expect(page.locator('h1').first()).toBeVisible();
     const brokenImgs = await page.$$eval('img', (imgs) =>
       imgs.filter((i) => i.complete && i.naturalWidth === 0 && i.getAttribute('src')).map((i) => i.getAttribute('src')));
@@ -35,11 +42,12 @@ test.describe('runtime health', () => {
     expect(errors, 'console/network errors on landing').toEqual([]);
   });
 
+  // The app itself now lives at /app, not / — see the Phase A URL migration.
   test('app boots as guest with no console errors or 4xx responses', async ({ page }) => {
     const errors = collectErrors(page);
     const bad: string[] = [];
     page.on('response', (r) => { if (r.status() >= 400) bad.push(`${r.status()} ${r.url()}`); });
-    await page.goto('/', { waitUntil: 'networkidle' });
+    await page.goto('/app', { waitUntil: 'networkidle' });
     await expect(page.getByText(/Welcome to QuickSign/i)).toBeVisible();
     expect(bad, '4xx/5xx responses on app boot').toEqual([]);
     expect(errors, 'console/network errors on app boot').toEqual([]);
@@ -51,7 +59,7 @@ test.describe('runtime health', () => {
       const u = r.url();
       if (u.includes('fonts.gstatic.com') || u.includes('fonts.googleapis.com')) thirdPartyFont.push(u);
     });
-    await page.goto('/', { waitUntil: 'networkidle' });
+    await page.goto('/app', { waitUntil: 'networkidle' });
     // Fonts load lazily; wait for the FontFaceSet to settle before asserting availability.
     const loaded = await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('16px Quicksand'); });
     expect(loaded, 'Quicksand should be loaded, not falling back to system font').toBe(true);
@@ -65,12 +73,15 @@ test.describe('runtime health', () => {
   });
 
   // Analytics privacy guard: this test env has no VITE_POSTHOG_KEY set (see analytics/client.ts's
-  // gating), so zero requests to PostHog should ever fire — a regression here would mean either
-  // the gate broke, or something started capturing before consent/config were ready.
+  // gating), so zero requests to PostHog should ever fire from the APP — a regression here would
+  // mean either the gate broke, or something started capturing before consent/config were ready.
+  // Targets /app specifically: the static marketing page at / has its own hardcoded PostHog key
+  // (by design — it predates the app bundle and has no env/build step to read from) and fires
+  // regardless of this test env's config, so it is not this test's concern.
   test('no PostHog network activity when analytics is unconfigured', async ({ page }) => {
     const posthogRequests: string[] = [];
     page.on('request', (r) => { if (r.url().includes('.i.posthog.com')) posthogRequests.push(r.url()); });
-    await page.goto('/', { waitUntil: 'networkidle' });
+    await page.goto('/app', { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: /get started/i }).click().catch(() => {});
     expect(posthogRequests, 'PostHog request fired without a configured key').toEqual([]);
   });

@@ -25,7 +25,7 @@ test.describe('reward chest', () => {
       };
       localStorage.setItem('asl-game-progress', JSON.stringify({ state, version: 0 }));
     });
-    await page.goto('/');
+    await page.goto('/app');
   });
 
   test('shows a ready chest with a filled cooldown ring and no legacy emoji', async ({ page }) => {
@@ -75,7 +75,7 @@ test.describe('reward chest (reduced motion)', () => {
       };
       localStorage.setItem('asl-game-progress', JSON.stringify({ state, version: 0 }));
     });
-    await page.goto('/');
+    await page.goto('/app');
   });
 
   test('opening the chest skips the flourish and reveals the reward immediately', async ({ page }) => {

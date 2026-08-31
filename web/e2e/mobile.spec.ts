@@ -54,7 +54,7 @@ test.describe('mobile journeys', () => {
 
     await openFromProfileHub(page, 'Shop');
     await expect(page.getByRole('heading', { name: 'Shop', exact: true })).toBeVisible();
-    await page.goto('/');
+    await page.goto('/app');
     await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
 
     await openFromProfileHub(page, 'Settings');

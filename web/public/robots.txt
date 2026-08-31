@@ -1,13 +1,13 @@
-# Was `Disallow: /` (blocking the whole site from every crawler) — fine while there was nothing
-# public to find, but marketing pages are a discoverable surface. The app itself (everything else
-# under /) stays disallowed: it's an interactive product behind a camera prompt, not content to
-# rank — see docs on this decision in CLAUDE.md-adjacent SEO notes. Add each new static marketing
-# page here explicitly as it ships (matches the pattern already used for CSP headers in
-# vercel.json — both files need the same new-page entry).
+# Marketing pages are a discoverable surface; the app itself (everything else under /, including
+# /app) stays disallowed — it's an interactive product behind a camera prompt, not content to rank.
+# Add each new static marketing page here explicitly as it ships (matches the pattern already used
+# for CSP headers in vercel.json — both files need the same new-page entry).
+#
+# /landing.html is deliberately NOT allowed here (2026-08-31): it 301s to / now (see vercel.json),
+# so it has nothing of its own for a crawler to index — only the redirect target, /, should be.
 User-agent: *
-Allow: /landing.html
-Allow: /asl-alphabet.html
 Allow: /$
+Allow: /asl-alphabet.html
 Disallow: /
 
 Sitemap: https://quicksignn.vercel.app/sitemap.xml

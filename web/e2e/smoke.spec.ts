@@ -7,13 +7,13 @@ import { completeOnboarding } from './helpers';
 // this is the real thing, in a real browser, with real keyboard events).
 test.describe('app smoke test', () => {
   test('loads and shows the welcome screen', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/app');
     await expect(page.getByText('Welcome to QuickSign')).toBeVisible();
     await expect(page.getByRole('button', { name: /get started/i })).toBeVisible();
   });
 
   test('a guest can complete onboarding and reach Home', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/app');
     await page.getByRole('button', { name: /get started/i }).click();
     // The 'auth' step (and this guest button) only renders when Supabase is configured
     // (OnboardingFlow.tsx) — without it, "Get Started" routes straight to the skill-level step

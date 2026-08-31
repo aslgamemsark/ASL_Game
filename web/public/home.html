@@ -4,17 +4,45 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- Returning-user / installed-PWA auto-continue (2026-08-31). This page is static marketing, but
+     two audiences should never see it: (1) an installed PWA re-launching — `display-mode: standalone`
+     is Chrome/Edge/Android's own signal for that, no heuristics needed; (2) a returning visitor with
+     real local progress, i.e. someone this page's job (convince a stranger to try it) is already
+     done for. Both continue straight to /app, carrying the query string along so any UTM this
+     landing was reached with still reaches the app's attribution capture. Inline and synchronous,
+     before any CSS/asset request, so a matching visitor never sees the marketing page paint at all. -->
+<script>
+(function () {
+  try {
+    var standalone = window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true; // iOS Safari's own (non-standard) signal
+    var returning = false;
+    var raw = localStorage.getItem('asl-game-progress');
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      returning = !!(parsed && parsed.state && parsed.state.onboardingComplete);
+    }
+    if (standalone || returning) {
+      window.location.replace('/app' + window.location.search);
+    }
+  } catch (e) {
+    // Storage can throw (private mode, disabled cookies) — fall through to the normal marketing
+    // page rather than leaving a visitor on a blank screen.
+  }
+})();
+</script>
+
 <title>QuickSign — Learn ASL by Actually Signing</title>
 <meta name="description" content="Practice American Sign Language with real-time feedback that tells you exactly what to fix. Learn through stories, multiplayer duels, and an AI-powered Sign Coach. Free. No signup required.">
 <meta name="theme-color" content="#0D0A1E">
 <meta name="robots" content="index,follow">
-<link rel="canonical" href="https://quicksignn.vercel.app/landing.html">
+<link rel="canonical" href="https://quicksignn.vercel.app/">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="QuickSign — Learn ASL by Actually Signing">
 <meta property="og:description" content="Real-time ASL feedback that tells you exactly what to fix. Free, private, no signup.">
 <meta property="og:image" content="https://quicksignn.vercel.app/og-image.png">
-<meta property="og:url" content="https://quicksignn.vercel.app/landing.html">
+<meta property="og:url" content="https://quicksignn.vercel.app/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="QuickSign — Learn ASL by Actually Signing">
 <meta name="twitter:description" content="Real-time ASL feedback that tells you exactly what to fix. Free, private, no signup.">
@@ -35,7 +63,7 @@
   "@context": "https://schema.org",
   "@type": "Organization",
   "name": "QuickSign",
-  "url": "https://quicksignn.vercel.app/landing.html",
+  "url": "https://quicksignn.vercel.app/",
   "logo": "https://quicksignn.vercel.app/pwa-512x512.png"
 }
 </script>
@@ -1017,7 +1045,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <a href="#multiplayer">Multiplayer</a>
       <a href="/asl-alphabet.html">ASL Alphabet</a>
       <a href="#faq">FAQ</a>
-      <a href="https://quicksignn.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Start learning free</a>
+      <a href="/app" class="btn btn-primary">Start learning free</a>
     </div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="navLinks">☰</button>
   </div>
@@ -1037,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <h1>Learn ASL by <em>using your hands</em>, not flashcards.</h1>
         <p class="lede">Practice real signs with real-time feedback that tells you exactly what to fix. Powered by on-device AI: your camera never leaves your browser.</p>
         <div class="hero-ctas">
-          <a href="https://quicksignn.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg">Start learning free →</a>
+          <a href="/app" class="btn btn-primary btn-lg">Start learning free →</a>
           <a href="#how-it-works" class="btn btn-ghost btn-lg">See how it works ↓</a>
         </div>
         <p class="hero-trust"><strong>Student-built.</strong> Designed for real practice, not just recognition.</p>
@@ -1245,7 +1273,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="container">
       <img src="/zippy/celebrating.webp" alt="" loading="lazy">
       <h2>Ready to actually learn to sign?</h2>
-      <a href="https://quicksignn.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg">Start learning free →</a>
+      <a href="/app" class="btn btn-primary btn-lg">Start learning free →</a>
     </div>
   </section>
 
@@ -1262,7 +1290,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="footer-copy">
       <a href="/asl-alphabet.html" style="color: var(--muted); text-decoration: none;">ASL Alphabet</a>
       &nbsp;·&nbsp;
-      <a href="https://quicksignn.vercel.app/" target="_blank" rel="noopener noreferrer" style="color: var(--purple-light); font-weight: 700; text-decoration: none;">QuickSign ↗</a>
+      <a href="/app" style="color: var(--purple-light); font-weight: 700; text-decoration: none;">QuickSign ↗</a>
       &nbsp;·&nbsp; © 2026 QuickSign
     </div>
   </div>
