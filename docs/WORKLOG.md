@@ -9,6 +9,8 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   **Mechanism:** one stable primary framing issue is announced after 600 ms; frame-by-frame noise
   and positive status are suppressed. **Verified:** focused accessibility test and production build pass.
 
+- **Confirmed the final unit-test count:** 785 active tests pass, with 9 existing TODOs.
+
 - **Re-ran the broad local gates.** **Verified:** all 784 active unit tests pass (9 existing TODOs)
   and lint has only its existing warnings. The full browser runner starts 168 cases but the desktop
   tool loses its process handle before reporting a result; it is not recorded as a pass.

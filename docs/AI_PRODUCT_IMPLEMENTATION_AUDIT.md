@@ -21,7 +21,7 @@
 
 ### Evidence
 
-- `npm test -- --run` passed: 784 tests, 9 documented TODOs.
+- `npm test -- --run` passed: 785 tests, 9 documented TODOs.
 - `npm run build` passed on 2026-09-01.
 - `npm run lint` completed with existing warnings only; no errors or new warning category.
 - `npm audit --omit=dev` is clean after lockfile-only updates for transitive DOMPurify and nanoid
