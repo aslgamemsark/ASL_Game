@@ -1,0 +1,35 @@
+# Gitleaks configuration for QuickSign (added 2026-09-01, security audit).
+#
+# A secret scanner that reports a known-false positive on every single run gets muted, and a muted
+# scanner is worse than none — it is the appearance of a control without the control. This repo has
+# exactly one such known false positive, allowlisted below with justification, so that any future
+# hit is a real one worth stopping the build for.
+
+[extend]
+useDefault = true
+
+[[rules]]
+  # Supabase project API keys. The `anon` key is public BY DESIGN — it ships in the browser bundle
+  # and is not a secret (RLS, not key secrecy, is the authorization boundary; see
+  # SECURITY_AUDIT/ARCHITECTURE.md). A `service_role` key is the opposite: it carries the bypassrls
+  # attribute and would defeat every RLS policy in this schema at once. Only the latter is a finding.
+  id = "supabase-service-role-key"
+  description = "Supabase service_role key (bypasses ALL row-level security)"
+  regex = '''(?i)service_role["'\s:=]+eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'''
+  tags = ["supabase", "critical"]
+
+[allowlist]
+  description = "Known-public local development credentials — verified, not assumed"
+  paths = [
+    # web/e2e/support/multiplayerStack.ts contains two JWTs whose decoded payloads carry
+    # "iss": "supabase-demo" — the universally-published Supabase CLI local-development keypair.
+    # It is byte-identical on every machine that has ever run `supabase start`, is printed to the
+    # terminal by that command, and is documented publicly by Supabase. It grants nothing: it is
+    # only valid against a local stack that does not exist outside a developer's own machine.
+    # assertLocalOnly() in that same file additionally refuses to point these at a non-local host
+    # unless E2E_ALLOW_REMOTE_SUPABASE is explicitly set.
+    #
+    # Scoped to this one file on purpose. If the same demo keys appear anywhere else, that is a new
+    # fact worth a human look, and this allowlist will not hide it.
+    '''web/e2e/support/multiplayerStack\.ts''',
+  ]

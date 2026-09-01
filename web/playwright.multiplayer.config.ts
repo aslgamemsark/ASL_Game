@@ -30,7 +30,13 @@ const STACK_ANON_KEY =
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: /multiplayer\.spec\.ts/,
+  // security-rls.spec.ts joins this config (2026-09-01 security audit) because it needs exactly
+  // what this config already provides and the default e2e config deliberately does not: a real
+  // local Supabase stack with migrations applied, plus synthetic accounts to authenticate as.
+  // Those authorization regressions cannot be expressed against the unconfigured `e2e` job — with
+  // no database there is no RLS to test. It stays serial with the rest for the same reason they
+  // are: it mutates shared room/progress rows.
+  testMatch: /(multiplayer|security-rls)\.spec\.ts/,
   // Serial. Every test truncates the shared room registry and the per-user join throttle counters
   // between cases; parallel workers would delete each other's fixtures mid-test and fail in a way
   // that looks like a product race condition rather than a test-isolation bug.
