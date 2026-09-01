@@ -3,6 +3,51 @@
 Running record of what changed and why. Maintained continuously during a session, newest first —
 see `.claude/rules/worklog.md` for the rule, including when to compress older months.
 
+## 2026-09-01
+
+- **Reconciled product trust with current main** (local merge `69f0da4`, merging `origin/main`
+  `50850b7`). **Mechanism:** retained main's compositor camera preview, adaptive recognition/pose
+  pacing, auth recovery, privacy onboarding, and progress-sync fixes while preserving product-trust
+  outcomes, raw evidence, mode mastery, and camera recovery. No remote action was performed.
+
+- **Made attempt finalization explicit and exactly-once** (`attemptLifecycle.ts`,
+  `useRecognition.ts`, camera pages). **Mechanism:** each active loop owns a token that one boundary
+  can claim; normal UI transitions only stop the loop, real camera failures finalize neutrally, and
+  stale classifier promises/duplicate callbacks are rejected. **Verified:** 8 behavioral lifecycle
+  tests plus the full unit suite.
+
+- **Made Speed interruptions truly neutral** (`SpeedChallengePage.tsx`, `speedRoundClock.ts`).
+  **Mechanism:** the 100 ms clock does not tick without an active camera, preserving current sign,
+  remaining time, queue position, and combo until recovery. **Verified:** focused clock behavior tests.
+
+- **Removed false expressive parameter evidence from skip/timeout** (Lesson, Practice, Story,
+  Speed). **Mechanism:** scorable skips/timeouts may keep their sign-level miss, but always record
+  `params: undefined`; unscorable boundaries still write no mastery. **Verified:** store consequence
+  and lifecycle tests.
+
+- **Corrected recognition evidence and legacy semantics** (`evidence.ts`, SRS ordering, local
+  outcome migration). **Mechanism:** per-frame scale normalization, honest shadow-only wrist motion,
+  aggregate scheduling when mode is omitted, and PASS-only legacy backfill. Historical false rows
+  remain nullable/unknown. The migration remains unapplied.
+
+- **Hardened dispute, media, privacy, and release behavior.** Disputes now require sustained raw-good
+  verifier disagreement and no longer claim a correction outcome; compact reference media leaves
+  only Enlarge, while the expanded view supplies restart/mirror/rate/scrubbing controls with a
+  WebKit-safe range fallback; new speech defaults off; pre-consent landmark-upload and
+  unscorable-persistence guards have behavioral tests; production builds strip uncleared classifier
+  weights while rule recognition remains available.
+
+- **Versioned attempt evidence minimally.** New analytics/local migration fields identify evidence
+  schema `1` and recognition semantics `rules-v1`, allowing a later threshold/verifier change to
+  distinguish old records without adding a larger versioning platform. Expressive parameter
+  mastery records carry the same provenance; legacy mastery remains explicitly unknown.
+
+- **Local gates:** Vitest 78 files / 837 passed / 9 expected-fail / 10 todo; production build passed
+  with classifier model absent from `dist`; lint completed with warnings and no errors; production
+  dependency audit found 0 vulnerabilities. Full Playwright completed with 161 passed, 7
+  intentional skips, and 0 failed across all 168 cases. The local-only multiplayer command exited
+  0 with 27 capability skips because the local Supabase stack was not running.
+
 ## 2026-08-31
 
 - **Added debounced camera-quality announcements** (`useRecognition` and solo signing pages).
@@ -71,9 +116,10 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
   build and lint (existing warnings only).
 
 - **Added recognition-dispute recovery** (`web/src/hooks/useRecognition.ts`, analytics types,
-  Lesson/Practice/Story/Speed pages). **Mechanism:** after five seconds of good framing, the learner
-  can reset a local attempt; analytics receives only sign, screen, outcome, reason, and aggregate
-  scores—never video or landmarks. **Verified:** focused recognition tests, production build, and
+  Lesson/Practice/Story/Speed pages). **Mechanism (corrected 2026-09-01):** after five seconds of
+  sustained verifier disagreement with good raw evidence, the learner can reset a local attempt;
+  analytics records bounded aggregate evidence without claiming an outcome—never video or landmarks.
+  **Verified:** focused recognition tests, production build, and
   lint (existing warnings only).
 
 - **Added a camera-free recovery route in Practice** (`web/src/pages/PracticePage.tsx`).
@@ -83,7 +129,7 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 - **Added raw-frame quality evidence to attempt telemetry** (`web/src/lib/recognition/evidence.ts`,
   `web/src/hooks/useRecognition.ts`, analytics/progress hooks). **Mechanism:** the shared loop
-  measures normalized coverage, framing, timing, clipping, and stability from its pre-stabilized
+  measures normalized coverage, framing, timing, clipping, and wrist motion from its pre-stabilized
   buffer and routes metrics through the existing event/nullable database field. **Verified:**
   focused evidence/outcome/attempt-log tests and production build pass. **Watch out:** evidence is
   shadow-only until the fixture calibration gate is complete.
@@ -119,8 +165,8 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 - **Added a local recognition-outcome migration**
   (`supabase/migrations/20260831195044_recognition_attempt_outcomes.sql`). **Mechanism:** adds
-  nullable outcome/reason/quality columns, backfills legacy boolean attempts, and validates the
-  three canonical outcomes. **Why:** preserve compatibility while the client outcome pipeline is
+  nullable outcome/reason/quality columns, backfills only legacy successes as PASS (legacy false
+  stays NULL/unknown), and validates the three canonical outcomes. **Why:** preserve compatibility while the client outcome pipeline is
   incrementally wired. **Not applied:** database-owner approval remains required.
 
 - **Began the canonical recognition-outcome contract** (`web/src/lib/recognition/outcome.ts`,
