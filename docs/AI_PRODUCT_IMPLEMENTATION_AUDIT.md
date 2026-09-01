@@ -83,6 +83,8 @@
 
 - Lesson, Story, and Speed recovery cards now route to the existing receptive Practice experience
   for their current sign pool. That route neither requests a camera nor writes expressive mastery.
+- A shared 600 ms debounce announces only a stable primary framing issue through a polite live
+  region on Lesson, Practice, Story, and Speed; good/unchanged frames are not narrated.
 - The recognition loop now retains a separate raw-frame window before stabilization. Stabilized
   hands may continue to help the verifier, but cannot become observed camera evidence.
 - A denied, errored, stalled, or restarted solo camera finalizes the active attempt as

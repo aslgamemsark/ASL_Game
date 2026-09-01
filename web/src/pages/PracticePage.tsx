@@ -389,6 +389,7 @@ export function PracticePage({
 
   return (
     <div className="min-h-dvh bg-z-bg flex flex-col">
+      <p className="sr-only" role="status" aria-live="polite">{recognition.qualityAnnouncement ?? ''}</p>
       {/* Hidden video for MediaPipe */}
       <video
         ref={videoRef}

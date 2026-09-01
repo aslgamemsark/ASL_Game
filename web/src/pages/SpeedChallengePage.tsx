@@ -238,6 +238,7 @@ export function SpeedChallengePage({ onExit, onPracticeWithoutCamera }: Props) {
 
   return (
     <div className="min-h-dvh bg-z-bg flex flex-col">
+      <p className="sr-only" role="status" aria-live="polite">{recognition.qualityAnnouncement ?? ''}</p>
       <video
         ref={videoRef}
         style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }}

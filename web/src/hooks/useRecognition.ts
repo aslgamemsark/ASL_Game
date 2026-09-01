@@ -185,6 +185,16 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   // Framing feedback for the camera-position guide. Deduped by message (see the tick loop) so it
   // doesn't setState on every one of the ~28 frames/sec — only when the guidance actually changes.
   const [framing, setFraming] = useState<FramingStatus | null>(null);
+  const [qualityAnnouncement, setQualityAnnouncement] = useState<string | null>(null);
+  useEffect(() => {
+    const issue = framing && !framing.ok ? framing.message : null;
+    if (!issue) {
+      setQualityAnnouncement(null);
+      return;
+    }
+    const timer = window.setTimeout(() => setQualityAnnouncement(issue), 600);
+    return () => window.clearTimeout(timer);
+  }, [framing]);
   const [disputeReady, setDisputeReady] = useState(false);
   const disputeReadyRef = useRef(false);
   const framingMsgRef = useRef<string | null>(null);
@@ -648,5 +658,5 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     };
   }, []);
 
-  return { status, framing, disputeReady, disputeAttempt, init, startLoop, stopLoop, setSign, getSnapshot, finalizeAttempt, subscribeResult, getResultSnapshot, subscribeHoldProgress, getHoldProgressSnapshot };
+  return { status, framing, qualityAnnouncement, disputeReady, disputeAttempt, init, startLoop, stopLoop, setSign, getSnapshot, finalizeAttempt, subscribeResult, getResultSnapshot, subscribeHoldProgress, getHoldProgressSnapshot };
 }

@@ -285,6 +285,7 @@ export function LessonPage({ lessonId, onExit, onPracticeWithoutCamera }: Props)
 
   return (
     <div className="min-h-dvh bg-z-bg flex flex-col">
+      <p className="sr-only" role="status" aria-live="polite">{recognition.qualityAnnouncement ?? ''}</p>
       {/* Always mounted, separate from the phase panels' own AnimatePresence — see DESIGN.md
           "Status messages": a live region must already be in the DOM before its text appears. */}
       <p className="sr-only" role="status" aria-live="polite">{phaseAnnouncement}</p>
