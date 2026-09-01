@@ -152,7 +152,8 @@ export function SpeedChallengePage({ onExit, onPracticeWithoutCamera }: Props) {
 
   // Per-sign countdown timer
   useEffect(() => {
-    if (phase !== 'playing' || justPassed || !shouldTickSpeedRoundClock(camStatus === 'active')) return;
+    const recognitionActive = recognition.status === 'running' && loopStartedRef.current === currentEngineSign?.name;
+    if (phase !== 'playing' || justPassed || !shouldTickSpeedRoundClock(camStatus === 'active', recognitionActive)) return;
     clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
@@ -173,7 +174,7 @@ export function SpeedChallengePage({ onExit, onPracticeWithoutCamera }: Props) {
     }, 100);
     return () => clearInterval(timerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, queueIdx, justPassed, camStatus]);
+  }, [phase, queueIdx, justPassed, camStatus, recognition.status, currentEngineSign?.name]);
 
   // Record result + badges when done
   useEffect(() => {

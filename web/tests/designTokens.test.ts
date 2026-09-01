@@ -166,6 +166,13 @@ describe('overlays on live video', () => {
  * screen, say), that is the moment to reconsider the heuristic rather than to add an exception.
  */
 describe('modal dialogs', () => {
+  it('keeps a play-pause control when Safari cannot use native enlarged-video controls', () => {
+    const source = FILES.find(({ rel }) => rel === 'components/shared/ClipEnlarge.tsx')?.source ?? '';
+    expect(source).toContain(
+      "aria-label={playing ? 'Pause enlarged clip' : 'Play enlarged clip'}"
+    );
+  });
+
   it('every full-screen overlay routes through useDialogA11y or ModalShell', () => {
     const missing = FILES.filter(
       ({ source }) =>

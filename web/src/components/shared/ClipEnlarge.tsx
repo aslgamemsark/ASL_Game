@@ -41,12 +41,14 @@ export function ClipEnlargeOverlay({ open, onClose, clipUrl, label }: ClipEnlarg
   const [controlsReady, setControlsReady] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [playing, setPlaying] = useState(true);
   const nativeControls = supportsNativeVideoControls();
 
   useEffect(() => {
     setControlsReady(false);
     setDuration(0);
     setCurrentTime(0);
+    setPlaying(true);
     if (open && videoRef.current) {
       videoRef.current.play().catch(() => {});
     }
@@ -92,9 +94,13 @@ export function ClipEnlargeOverlay({ open, onClose, clipUrl, label }: ClipEnlarg
                 setControlsReady(Number.isFinite(mediaDuration) && mediaDuration > 0);
               }}
               onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
               className={`w-full h-full object-contain rounded-2xl bg-z-card ${mirrored ? '-scale-x-100' : ''}`}
             />
             {controlsReady && !nativeControls && (
+              <div className="absolute bottom-2 left-3 right-3 flex items-center gap-2">
+              <button type="button" onClick={() => { const video = videoRef.current; if (!video) return; if (video.paused) void video.play(); else video.pause(); }} aria-label={playing ? 'Pause enlarged clip' : 'Play enlarged clip'} className="min-w-11 min-h-11 rounded bg-video-plate text-white">{playing ? 'Ⅱ' : '▶'}</button>
               <input
                 type="range"
                 min={0}
@@ -107,8 +113,9 @@ export function ClipEnlargeOverlay({ open, onClose, clipUrl, label }: ClipEnlarg
                   if (videoRef.current) videoRef.current.currentTime = nextTime;
                 }}
                 aria-label="Scrub enlarged clip"
-                className="absolute bottom-2 left-3 right-3 w-[calc(100%-1.5rem)] min-h-11"
+                className="min-h-11 flex-1"
               />
+              </div>
             )}
             <div className="absolute top-2 left-2 flex gap-1 bg-video-plate rounded-lg p-1">
               <button type="button" onClick={() => { if (videoRef.current) { videoRef.current.currentTime = 0; void videoRef.current.play(); } }} aria-label="Restart enlarged clip" className="min-w-11 min-h-11 rounded text-white">↺</button>

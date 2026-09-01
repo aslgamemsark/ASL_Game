@@ -89,7 +89,6 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
         ai_confidence: attempt.aiConfidence,
         duration_ms: attempt.durationMs,
         attempt_number: attempt.attemptNumber,
-        quality_metrics: attempt.quality,
         evidence_schema_version: EVIDENCE_SCHEMA_VERSION,
         recognition_version: RECOGNITION_VERSION,
       });

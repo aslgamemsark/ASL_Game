@@ -47,12 +47,13 @@ export function PrivacyPage({ onExit }: Props) {
             </li>
             <li>
               Numeric hand-landmark coordinates (never video or images) from your practice
-              attempts — used to improve future recognition models. This is on by default and can
-              be turned off anytime in Settings → Privacy.
+              attempts — used to improve future recognition models only after you explicitly opt
+              in. You can turn this off anytime in Settings → Privacy.
             </li>
             <li>
-              Anonymous product-usage analytics (which screens you visit, feature usage) to help
-              us improve the app — no video, images, or camera data are ever included.
+              Anonymous product-usage analytics (screens, features, prompted sign IDs, outcomes,
+              and timing) to help us improve the app — no video, images, landmark coordinates, or
+              raw camera-quality measurements are included.
             </li>
           </ul>
         </section>
@@ -61,8 +62,9 @@ export function PrivacyPage({ onExit }: Props) {
           <h2 className="font-bold text-z-gray-50 mb-2">Anonymous usage analytics</h2>
           <p>
             We use PostHog to see which screens and features get used, and to record and replay
-            sessions so we can see where people get stuck — never video, and never sign/landmark
-            data. Anything you type (passwords, emails, usernames, chat) is masked before it's
+            sessions so we can see where people get stuck — never video or landmark coordinates.
+            Attempt events may include the prompted sign ID and result. Anything you type
+            (passwords, emails, usernames, chat) is masked before it's
             captured, so replays show navigation and clicks, never what you typed. Events aren't
             tied to your identity until you sign in. Turn this off anytime in Settings → Privacy.
           </p>

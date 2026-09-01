@@ -1,5 +1,6 @@
 import { frameShoulderWidth, type Frame } from '@/engine/landmarks';
 import type { Sign } from '@/engine/schema';
+import type { RecognitionReason } from './outcome';
 
 export interface RecognitionEvidence {
   requiredHandCoverage: number;
@@ -9,6 +10,18 @@ export interface RecognitionEvidence {
   durationSeconds: number;
   maxFrameGapSeconds: number;
   normalizedWristMotion: number;
+}
+
+/** Hard evidence gate. Calibrated ratios remain shadow-only; zero observations are not guesses. */
+export function evaluateRecognitionScorability(evidence: RecognitionEvidence, frameCount: number): {
+  scorable: boolean;
+  reasons: RecognitionReason[];
+} {
+  const reasons: RecognitionReason[] = [];
+  if (evidence.requiredHandCoverage === 0) reasons.push('MISSING_REQUIRED_HAND');
+  if (evidence.poseCoverage === 0) reasons.push('MISSING_REQUIRED_POSE');
+  if (frameCount < 2 || evidence.durationSeconds === 0) reasons.push('INSUFFICIENT_TEMPORAL_SAMPLES');
+  return { scorable: reasons.length === 0, reasons };
 }
 
 const EDGE_MARGIN = 0.02;

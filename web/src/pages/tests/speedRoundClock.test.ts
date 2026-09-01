@@ -3,8 +3,9 @@ import { shouldTickSpeedRoundClock, tickSpeedRoundClock } from '../speedRoundClo
 
 describe('Speed round clock', () => {
   it('pauses scheduling while the camera is unavailable', () => {
-    expect(shouldTickSpeedRoundClock(false)).toBe(false);
-    expect(shouldTickSpeedRoundClock(true)).toBe(true);
+    expect(shouldTickSpeedRoundClock(false, true)).toBe(false);
+    expect(shouldTickSpeedRoundClock(true, false)).toBe(false);
+    expect(shouldTickSpeedRoundClock(true, true)).toBe(true);
   });
 
   it('resumes the same sign and only times out with an active camera', () => {

@@ -3,8 +3,8 @@ export interface SpeedRoundClock {
   timeLeft: number;
 }
 
-export function shouldTickSpeedRoundClock(cameraActive: boolean): boolean {
-  return cameraActive;
+export function shouldTickSpeedRoundClock(cameraActive: boolean, recognitionActive: boolean): boolean {
+  return cameraActive && recognitionActive;
 }
 
 /** One 100 ms Speed tick, called only while the camera policy permits timing. */

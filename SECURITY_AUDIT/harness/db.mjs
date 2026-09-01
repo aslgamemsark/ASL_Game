@@ -1,9 +1,10 @@
-import { PGlite } from 'file:///D:/ASL_Game/web/node_modules/@electric-sql/pglite/dist/index.js';
+import { PGlite } from '../../web/node_modules/@electric-sql/pglite/dist/index.js';
 import { BOOTSTRAP } from './bootstrap.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const MIG_DIR = path.resolve('D:/ASL_Game/supabase/migrations');
+const MIG_DIR = fileURLToPath(new URL('../../supabase/migrations/', import.meta.url));
 
 /** Applies every repo migration in filename order, as supabase_admin (like `supabase db reset`). */
 export async function freshDb({ quiet = true, excludeMigrations = [] } = {}) {

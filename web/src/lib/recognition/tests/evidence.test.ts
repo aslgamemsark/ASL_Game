@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { COFFEE } from '@/engine/signs';
 import type { Frame } from '@/engine/landmarks';
-import { measureRecognitionEvidence } from '../evidence';
+import { evaluateRecognitionScorability, measureRecognitionEvidence } from '../evidence';
 
 const frame = (t: number, hands = 2, x = 50): Frame => ({
   t, width: 100, height: 100,
@@ -37,5 +37,18 @@ describe('raw recognition evidence', () => {
 
   it('does not mislabel a missing hand as wrist motion', () => {
     expect(measureRecognitionEvidence([frame(0), frame(0.1, 0)], COFFEE).normalizedWristMotion).toBe(0);
+  });
+
+  it('rejects only unequivocally absent raw evidence before calibration', () => {
+    const evidence = measureRecognitionEvidence([frame(0, 0)], COFFEE);
+    expect(evaluateRecognitionScorability(evidence, 1)).toEqual({
+      scorable: false,
+      reasons: ['MISSING_REQUIRED_HAND', 'INSUFFICIENT_TEMPORAL_SAMPLES'],
+    });
+  });
+
+  it('keeps measured-but-uncalibrated quality metrics in shadow mode', () => {
+    const evidence = measureRecognitionEvidence([frame(0), frame(0.5, 2, 1)], COFFEE);
+    expect(evaluateRecognitionScorability(evidence, 2)).toEqual({ scorable: true, reasons: [] });
   });
 });

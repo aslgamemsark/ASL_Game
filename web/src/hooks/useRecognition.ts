@@ -11,7 +11,7 @@ import { clip } from '@/engine/math-utils';
 import { track, type ScreenName } from '@/analytics';
 import { speakSign } from '@/lib/speak';
 import { decideAttemptBoundaryOutcome, decideRecognitionOutcome, type AttemptTrigger, type RecognitionOutcomeKind, type RecognitionReason } from '@/lib/recognition/outcome';
-import { measureRecognitionEvidence, type RecognitionEvidence } from '@/lib/recognition/evidence';
+import { evaluateRecognitionScorability, measureRecognitionEvidence, type RecognitionEvidence } from '@/lib/recognition/evidence';
 import { advanceDisputeReadiness, advanceQualityAnnouncement, beginAttempt, cancelAttempt, createAttemptLifecycle, createQualityAnnouncementState, finishAttempt, isFinalizableBoundary, rearmAfterVerifierDisagreement, type RecognitionCameraStatus } from '@/lib/recognition/attemptLifecycle';
 import { createExternalStore, type ExternalStore } from './externalStore';
 
@@ -459,6 +459,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                     const hint = passed ? null : gateHint(vote, gatedSign.name);
                     const trigger = passed ? 'recognition_pass' : 'classifier_veto';
                     if (!claimAttempt(trigger, attemptToken)) return;
+                    const quality = measureRecognitionEvidence(rawBufferRef.current.frames, gatedSign);
+                    const evidenceGate = evaluateRecognitionScorability(quality, rawBufferRef.current.frames.length);
+                    const outcome = decideRecognitionOutcome({ recognitionPassed: passed, ...evidenceGate });
+                    const finalPassed = outcome.kind === 'PASS';
                     voteCallbackRef.current?.({
                       prompted: gatedSign.name,
                       vote,
@@ -482,17 +486,17 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       // The model's opinion, NOT the learner's result — these diverge in shadow
                       // mode and that divergence is exactly the veto-precision measurement.
                       aiVetoed: modelVetoed,
-                      finalPassed: passed,
+                      finalPassed,
                       trigger,
-                      outcome: decideRecognitionOutcome({ recognitionPassed: passed, scorable: true, reasons: [] }).kind,
-                      reasons: [],
+                      outcome: outcome.kind,
+                      reasons: outcome.reasons,
                       verifier: vr,
-                      quality: measureRecognitionEvidence(rawBufferRef.current.frames, gatedSign),
+                      quality,
                       frames: snapshot,
                       durationMs: Math.round(performance.now() - loopStartRef.current),
                       attemptNumber: attemptCountRef.current,
                     });
-                    if (passed) {
+                    if (finalPassed) {
                       speakSign(gatedSign.name);
                       passCallbackRef.current?.(vr);
                       hintCallbackRef.current?.(null);
@@ -505,6 +509,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
               }
             } else {
               if (!claimAttempt('recognition_pass', attemptToken)) return;
+              const quality = measureRecognitionEvidence(rawBufferRef.current.frames, sign);
+              const evidenceGate = evaluateRecognitionScorability(quality, rawBufferRef.current.frames.length);
+              const outcome = decideRecognitionOutcome({ recognitionPassed: true, ...evidenceGate });
+              const finalPassed = outcome.kind === 'PASS';
               if (import.meta.env.DEV) console.log('[QuickSign] PASS:', sign.name, vr.params.map(p => `${p.name}=${p.score.toFixed(2)}`).join(' '));
               verifiedCallbackRef.current?.({
                 signName: sign.name,
@@ -519,18 +527,20 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 aiPrediction: null,
                 aiConfidence: null,
                 aiVetoed: false,
-                finalPassed: true,
+                finalPassed,
                 trigger: 'recognition_pass',
-                outcome: 'PASS',
-                reasons: [],
+                outcome: outcome.kind,
+                reasons: outcome.reasons,
                 verifier: vr,
-                quality: measureRecognitionEvidence(rawBufferRef.current.frames, sign),
+                quality,
                 frames: bufferRef.current.frames,
                 durationMs: Math.round(performance.now() - loopStartRef.current),
                 attemptNumber: attemptCountRef.current,
               });
-              speakSign(sign.name);
-              passCallbackRef.current?.(vr);
+              if (finalPassed) {
+                speakSign(sign.name);
+                passCallbackRef.current?.(vr);
+              }
             }
           };
 
@@ -601,9 +611,11 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       : cameraStatus === 'active'
         ? null
         : 'CAMERA_UNAVAILABLE';
+    const quality = measureRecognitionEvidence(rawBufferRef.current.frames, sign);
+    const evidenceGate = evaluateRecognitionScorability(quality, rawBufferRef.current.frames.length);
     const outcome = trigger === 'camera_interruption' || cameraReason
       ? decideAttemptBoundaryOutcome(cameraReason ?? 'CAMERA_UNAVAILABLE')
-      : decideRecognitionOutcome({ recognitionPassed: false, scorable: true, reasons: [] });
+      : decideRecognitionOutcome({ recognitionPassed: false, ...evidenceGate });
     attemptCountRef.current += 1;
     const attempt: AttemptRecord = {
       signId: sign.name,
@@ -616,7 +628,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       outcome: outcome.kind,
       reasons: outcome.reasons,
       verifier: lastResultRef.current,
-      quality: measureRecognitionEvidence(rawBufferRef.current.frames, sign),
+      quality,
       frames: bufferRef.current.frames,
       durationMs: Math.round(performance.now() - loopStartRef.current),
       attemptNumber: attemptCountRef.current,
