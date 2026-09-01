@@ -11,6 +11,16 @@ import { ZIPPY_LINES } from '@/data/zippy';
 import type { SkillLevel } from '@/types/user';
 import { track } from '@/analytics';
 import { Button } from '@/components/shared/Button';
+import { PrivacyPage } from '@/pages/PrivacyPage';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
+import { useCamera } from '@/hooks/useCamera';
+import { useRecognition } from '@/hooks/useRecognition';
+import { WebcamMirror } from '@/components/shared/WebcamMirror';
+import { CameraOnboarding } from '@/components/shared/CameraOnboarding';
+import { LETTER_A } from '@/engine/signs/index';
+import { SIGNS } from '@/data/signs';
+import { useFirstRunCameraGuide } from '@/hooks/useFirstRunCameraGuide';
+import { LiveSignCoach } from '@/components/lesson/LiveSignCoach';
 
 interface Props {
   onComplete: () => void;
@@ -18,6 +28,13 @@ interface Props {
    *  routing a just-signed-out user here, so they land on the sign-in/sign-up step directly. */
   initialStep?: 'welcome' | 'auth' | 'skill';
 }
+
+// Survives a Google OAuth redirect (a full page reload — see the 'auth' step below): the skill
+// level is picked BEFORE auth now (value-before-signup reorder, 2026-08-30), so if that in-memory
+// state were lost on redirect-return, a Google sign-in mid-onboarding would have to ask again.
+// sessionStorage rather than the persisted user store — this is scratch state for one onboarding
+// pass, not app data, and must not survive into a later, separate session.
+const PENDING_LEVEL_KEY = 'quicksign-onboarding-pending-level';
 
 const SKILLS: {
   level: SkillLevel;
@@ -50,31 +67,119 @@ const SKILLS: {
 ];
 
 export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
-  const [step, setStep] = useState<'welcome' | 'auth' | 'skill' | 'done'>(initialStep);
-  const [selectedLevel, setSelectedLevel] = useState<SkillLevel | null>(null);
+  const [step, setStep] = useState<'welcome' | 'auth' | 'skill' | 'firstSign' | 'done'>(initialStep);
+  const [selectedLevel, setSelectedLevel] = useState<SkillLevel | null>(() => {
+    try { return (sessionStorage.getItem(PENDING_LEVEL_KEY) as SkillLevel | null) ?? null; } catch { return null; }
+  });
   const [showAuthModal, setShowAuthModal] = useState(false);
+  // The auth step's own consent notice claimed a Terms & Privacy link "readable any time in
+  // Settings → Privacy & Terms" — but that text was never actually a link, and Settings isn't
+  // reachable until onboarding finishes, so a guest who wanted to read it before agreeing had no
+  // way to. Rendered as a local overlay (not App.tsx's 'privacy' screen route) so backing out of it
+  // returns here — routing through App.tsx's screen machine would instead land on 'settings' (see
+  // useBackDismiss's privacy case), which is wrong mid-onboarding.
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  // `active: showPrivacy` since this overlay's JSX below stays inline in this component (not a
+  // separately mounted child), matching CameraOnboarding's use of the same hook for the same kind
+  // of full-screen, non-ModalShell overlay.
+  const privacyDialog = useDialogA11y({ label: 'Privacy & Terms', onClose: () => setShowPrivacy(false), active: showPrivacy });
   const { completeOnboarding } = useUserStore();
   const { user, signInWithGoogle } = useAuth();
   const startedAtRef = useRef(Date.now());
 
+  // First-sign step: value before signup (2026-08-30 reorder) — a brand-new visitor tries one real
+  // sign before ever being asked to create an account, using the same camera machinery every other
+  // recognition screen uses (LessonPage/PracticePage/StoryPage). No classifier here deliberately:
+  // this is a single, generous, static-handshape attempt for someone who has never signed anything
+  // before — an ML veto layer (off by default anyway, see config/classifier.ts) has no useful role
+  // in a first impression. Letter A: the beginner track's own default first stop (App.tsx routes
+  // 'beginner' straight to the Alphabet tab), a static handshape (no timing/movement to get right),
+  // and the simplest possible "did that work?" moment.
+  const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera('onboarding');
+  const [firstSignPassed, setFirstSignPassed] = useState(false);
+  const [showCameraOnboarding, setShowCameraOnboarding] = useState(false);
+  const recognition = useRecognition({
+    screen: 'onboarding',
+    onPass: () => {
+      if (firstSignPassed) return; // startLoop keeps sampling after a pass; ignore repeats
+      setFirstSignPassed(true);
+      track('onboarding_first_sign_passed', { sign_id: LETTER_A.name });
+      setTimeout(() => advancePastFirstSign(), 1600);
+    },
+  });
+  // Face-target framing guide, same as every other camera screen (LessonPage/PracticePage) —
+  // this is a brand-new user's FIRST camera screen ever, so it's arguably more important here
+  // than anywhere else: nothing else has taught them yet how far back to sit or that their chest
+  // needs to stay visible. Also real diagnostic value for a failed pass — if this box never turns
+  // green, hand/pose detection itself isn't succeeding from their distance/lighting, independent
+  // of anything about the sign-matching logic.
+  const showCamGuide = useFirstRunCameraGuide(recognition.framing?.ok);
+  useEffect(() => { recognition.init(); }, [recognition.init]);
+
+  // Guards startLoop to fire ONCE, not on every render this effect (deliberately dependency-array-
+  // free, matching LessonPage/StoryPage) re-runs on. startLoop "always stops the previous loop
+  // first" — cancels the in-flight rAF tick, clears the rolling buffer, resets the hold-to-pass
+  // timer (see useRecognition.ts) — so calling it repeatedly while conditions stay true (which they
+  // do for the ENTIRE time a user holds a static sign) never let a single hold survive long enough
+  // to reach STATIC_HOLD_SECONDS. Root cause of a real user report ("I made the A sign but nothing
+  // happened") — camera displayed and permission worked fine (see the prior commit's video-element
+  // fix), but recognition itself could never complete a hold. Found 2026-08-30.
+  const loopStartedRef = useRef(false);
+  useEffect(() => {
+    if (
+      step === 'firstSign' && !firstSignPassed && !loopStartedRef.current && camStatus === 'active' &&
+      (recognition.status === 'ready' || recognition.status === 'running') && videoRef.current
+    ) {
+      loopStartedRef.current = true;
+      recognition.startLoop(videoRef.current, LETTER_A);
+    }
+    if (step !== 'firstSign' || firstSignPassed) loopStartedRef.current = false;
+  });
+
+  // Camera stays off on every step except firstSign — must not linger into auth/done.
+  useEffect(() => {
+    if (step !== 'firstSign') { stopCam(); recognition.stopLoop(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+  useEffect(() => () => { stopCam(); recognition.stopLoop(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const beginFirstSign = () => {
+    if (!localStorage.getItem('signup-camera-onboarded')) {
+      setShowCameraOnboarding(true);
+      return;
+    }
+    void startCam();
+  };
+
   useEffect(() => { track('onboarding_step_viewed', { step }); }, [step]);
 
-  // Covers the Google OAuth redirect-and-return: the page reloads with an active session,
-  // so if the user lands back here already signed in, skip straight past the auth step.
+  // Covers the Google OAuth redirect-and-return: the page reloads with an active session, so if
+  // the user lands back here already signed in, resume past the auth step (skill selection already
+  // happened before it in this order — selectedLevel is restored from sessionStorage above since
+  // this component itself remounted fresh across the redirect).
   useEffect(() => {
-    if (user && step === 'auth') setStep('skill');
+    if (user && step === 'auth') finish(selectedLevel ?? 'beginner');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, step]);
 
   const handleSkillSelect = (level: SkillLevel) => {
     track('onboarding_skill_selected', { skill_level: level });
     setSelectedLevel(level);
-    completeOnboarding(level);
-    finish(level);
+    try { sessionStorage.setItem(PENDING_LEVEL_KEY, level); } catch { /* storage blocked */ }
+    setStep('firstSign');
   };
 
-  // Takes the just-picked level explicitly rather than reading `selectedLevel` state — called in
-  // the same tick as setSelectedLevel(level) above, before that state update has actually applied.
+  const advancePastFirstSign = () => {
+    if (supabaseReady && !user) setStep('auth');
+    else finish(selectedLevel ?? 'beginner');
+  };
+
+  // Takes the just-picked level explicitly rather than reading `selectedLevel` state — called from
+  // several places (guest/Google/email at the auth step, or directly if Supabase is unconfigured)
+  // that may fire before a `setSelectedLevel` from the same tick has actually applied.
   const finish = (level: SkillLevel) => {
+    completeOnboarding(level);
+    try { sessionStorage.removeItem(PENDING_LEVEL_KEY); } catch { /* storage blocked */ }
     track('onboarding_completed', {
       skill_level: level,
       duration_ms: Date.now() - startedAtRef.current,
@@ -93,6 +198,23 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
     // the actual fix, closing the gap outright at common short heights (measured: cut off by 6px
     // at 800x660, 56px at 800x568) rather than just making the resulting scroll more reliable.
     <div className="min-h-dvh bg-z-bg flex items-center justify-center px-6 py-6 overflow-y-auto">
+      {/* Hidden source video — required even though WebcamMirror below is what's actually visible.
+          WebcamMirror doesn't open its own camera; it mirrors the SAME MediaStream off this
+          element's srcObject (see WebcamMirror.tsx's own doc comment: "attach the SAME MediaStream
+          the caller's hidden source video already carries"). Without this element in the DOM,
+          useCamera's attachStream() has nothing to attach the stream to — getUserMedia still
+          succeeds, camStatus still reports 'active', but nothing ever displays and the recognition
+          loop's own videoRef.current gate never passes either, so recognition silently never
+          starts. Every other camera screen (LessonPage/PracticePage/StoryPage/SpeedChallengePage)
+          already renders this; missing here since the firstSign step was added (06aa50c) — found
+          2026-08-30 from a real user report ("the camera isn't working").  */}
+      <video
+        ref={videoRef}
+        style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }}
+        muted
+        playsInline
+        autoPlay
+      />
       <AnimatePresence mode="wait">
         {step === 'welcome' && (
           <motion.div
@@ -122,8 +244,12 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
 
             {/* The app's single most important button (the first thing every new user taps) keeps
                 its own hover glow rather than Button's default — a deliberate flourish, not drift. */}
+            {/* Always to 'skill' now, never straight to 'auth' — value before signup (2026-08-30
+                reorder): a new visitor picks their level and tries a real sign before ever being
+                asked to create an account. supabaseReady no longer branches here; it still governs
+                whether 'auth' is reachable at all, later, after firstSign. */}
             <Button
-              onClick={() => setStep(supabaseReady ? 'auth' : 'skill')}
+              onClick={() => setStep('skill')}
               size="lg"
               fullWidth
               whileHover={{ scale: 1.02, boxShadow: '0 12px 40px rgba(168,85,247,0.45)' }}
@@ -145,59 +271,80 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
             <div className="flex justify-center mb-3">
               <Zippy expression="teaching" size="md" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Save your progress</h2>
+            {/* Was "Save your progress" as the heading with guest demoted to a small underlined
+                text link below two account buttons — the exact anti-pattern this reorder exists to
+                fix (auth as a wall before any value, guest as an afterthought). Now shown only
+                AFTER a real first sign passed, so "keep this" is a real, true offer, not a promise
+                on spec — and guest is the primary button, account creation the secondary offer,
+                matching what most visitors will actually do. */}
+            <h2 className="text-2xl font-bold mb-2">Nice work! Keep it saved?</h2>
             <p className="text-z-gray-300 text-sm mb-8">
               {ZIPPY_LINES.onboardingAuth[0]}
             </p>
 
             <div className="flex flex-col gap-3">
               <motion.button
-                onClick={() => { track('auth_option_selected', { method: 'google' }); void signInWithGoogle(); }}
+                onClick={() => {
+                  track('auth_option_selected', { method: 'guest' });
+                  track('guest_started', {});
+                  finish(selectedLevel ?? 'beginner');
+                }}
                 className="w-full py-3.5 rounded-2xl font-bold text-sm bg-white text-gray-900 flex items-center justify-center gap-2.5"
                 whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+              >
+                Continue as guest
+              </motion.button>
+
+              <motion.button
+                onClick={() => { track('auth_option_selected', { method: 'google' }); void signInWithGoogle(); }}
+                className="w-full py-3.5 rounded-2xl font-bold text-sm border border-z-gray-400/30 text-z-gray-50 flex items-center justify-center gap-2.5"
+                whileHover={{ scale: 1.02, borderColor: 'rgba(168,85,247,0.5)' }}
                 whileTap={{ scale: 0.97 }}
               >
                 <GoogleIcon size={18} />
                 Continue with Google
               </motion.button>
 
-              <motion.button
+              <button
                 onClick={() => { track('auth_option_selected', { method: 'email' }); setShowAuthModal(true); }}
-                className="w-full py-3.5 rounded-2xl font-bold text-sm border border-z-gray-400/30 text-z-gray-50"
-                whileHover={{ scale: 1.02, borderColor: 'rgba(168,85,247,0.5)' }}
-                whileTap={{ scale: 0.97 }}
+                className="text-z-gray-400 text-sm mt-1 py-2 underline"
               >
                 {/* Labelled as a returning-user action, not a signup route: with email signup
                     withdrawn, "Sign in with email" led a brand-new user to a form that cannot
                     create them an account. */}
                 {EMAIL_SIGNUP_ENABLED ? 'Sign in with email' : 'Already have an account? Sign in'}
-              </motion.button>
-
-              <button
-                onClick={() => {
-                  track('auth_option_selected', { method: 'guest' });
-                  track('guest_started', {});
-                  setStep('skill');
-                }}
-                className="text-z-gray-400 text-sm mt-2 py-3 underline"
-              >
-                Continue as guest
               </button>
             </div>
 
             {/* Consent moved here from the old first-paint Terms wall (see App.tsx). Creating an
                 account is the legally meaningful moment; a guest gets notice, not a contract.
                 Camera/landmark disclosure is separate and lives at the camera itself
-                (CameraOnboarding), which is where it is actually actionable. */}
+                (CameraOnboarding), which is where it is actually actionable — and covers the
+                multiplayer exception ("never leaves your device" doesn't hold for Duel/Room, where
+                video streams live to your opponent), so this notice doesn't repeat that claim. */}
             <p className="text-2xs text-z-gray-400 mt-5 leading-relaxed">
-              By creating an account you agree to our Terms &amp; Privacy Policy — readable any time
-              in Settings → Privacy &amp; Terms. Your camera video never leaves your device.
+              By creating an account you agree to our{' '}
+              <button
+                type="button"
+                onClick={() => setShowPrivacy(true)}
+                className="underline hover:text-z-gray-200"
+              >
+                Terms &amp; Privacy Policy
+              </button>
+              , also readable any time in Settings → Privacy &amp; Terms.
             </p>
 
             {showAuthModal && (
-              <AuthModal onClose={() => { setShowAuthModal(false); setStep('skill'); }} />
+              <AuthModal onClose={() => { setShowAuthModal(false); finish(selectedLevel ?? 'beginner'); }} />
             )}
           </motion.div>
+        )}
+
+        {showPrivacy && (
+          <div ref={privacyDialog.ref} {...privacyDialog.props} className="fixed inset-0 z-overlay outline-none">
+            <PrivacyPage onExit={() => setShowPrivacy(false)} />
+          </div>
         )}
 
         {step === 'skill' && (
@@ -247,6 +394,96 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                 </motion.button>
               ))}
             </div>
+          </motion.div>
+        )}
+
+        {step === 'firstSign' && (
+          <motion.div
+            key="firstSign"
+            className="max-w-sm w-full text-center"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -30 }}
+            transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+          >
+            {camStatus !== 'active' ? (
+              <>
+                <div className="flex justify-center mb-3">
+                  <Zippy expression="teaching" size="md" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2">Try your first sign</h2>
+                <p className="text-z-gray-300 text-sm mb-8">
+                  Let's see if it works — no account needed. We'll teach you the letter A.
+                </p>
+                <Button onClick={beginFirstSign} size="lg" fullWidth>
+                  Turn on camera
+                </Button>
+                <button
+                  onClick={advancePastFirstSign}
+                  className="text-z-gray-400 text-sm mt-3 py-2 underline"
+                >
+                  Skip for now
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="font-bold text-lg mb-1">
+                  {firstSignPassed ? 'You got it! 🎉' : 'Sign the letter A'}
+                </p>
+                <p className="text-z-gray-400 text-sm mb-4">
+                  {firstSignPassed ? 'That\'s ASL fingerspelling — you just did your first sign.' : SIGNS.LETTER_A.hint}
+                </p>
+                <div className="flex justify-center mb-4">
+                  <WebcamMirror
+                    videoRef={videoRef}
+                    label="You"
+                    passed={firstSignPassed}
+                    frameGuide={showCamGuide ? recognition.framing : null}
+                  />
+                </div>
+                {/* Live per-parameter feedback — same "Sign Coach" component every other camera
+                    screen uses. Was missing here entirely, so a struggling first-time user had no
+                    visible signal that anything was being measured at all, let alone how close they
+                    were — "I made the sign and nothing happened" gives a real user no way to tell
+                    "handshape scored 0.3" from "the app isn't looking at all." Added 2026-08-30. */}
+                {!firstSignPassed && (
+                  <div className="mb-4 text-left">
+                    <LiveSignCoach
+                      subscribe={recognition.subscribeResult}
+                      getSnapshot={recognition.getResultSnapshot}
+                      sign={LETTER_A}
+                      subscribeHoldProgress={recognition.subscribeHoldProgress}
+                      getHoldProgressSnapshot={recognition.getHoldProgressSnapshot}
+                    />
+                  </div>
+                )}
+                {!firstSignPassed && (
+                  <button
+                    onClick={advancePastFirstSign}
+                    className="text-z-gray-400 text-sm py-2 underline"
+                  >
+                    Skip for now
+                  </button>
+                )}
+              </>
+            )}
+
+            {(camStatus === 'denied' || camStatus === 'error' || camStatus === 'stalled') && (
+              <p className="text-z-gray-400 text-sm mt-4">
+                Camera not available — that's okay, you can try this later. <button onClick={advancePastFirstSign} className="underline">Continue</button>
+              </p>
+            )}
+
+            {showCameraOnboarding && (
+              <CameraOnboarding
+                onContinue={() => {
+                  localStorage.setItem('signup-camera-onboarded', '1');
+                  setShowCameraOnboarding(false);
+                  void startCam();
+                }}
+                onCancel={() => setShowCameraOnboarding(false)}
+              />
+            )}
           </motion.div>
         )}
 

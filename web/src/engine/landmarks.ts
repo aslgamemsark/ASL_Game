@@ -130,8 +130,14 @@ export class RollingBuffer {
     return this._frames.length;
   }
 
+  /** Defensive COPY — for snapshots that outlive the buffer (training-data upload, replay). */
   get frames(): Frame[] {
     return [...this._frames];
+  }
+
+  /** The live internal array. Hot-path callers must not mutate or retain it. */
+  peek(): readonly Frame[] {
+    return this._frames;
   }
 
   /** ASL-C2 hot path: frames with `endT - t <= seconds`, allocated as ONE slice. verify() calls

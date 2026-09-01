@@ -42,7 +42,12 @@ export function FeedbackModal({ page, onClose }: Props) {
       userId: user?.id ?? null,
       page: page ?? (typeof window !== 'undefined' ? window.location.pathname : null),
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
-      appVersion: import.meta.env.VITE_APP_VERSION ?? null,
+      // Was import.meta.env.VITE_APP_VERSION — that env var is never defined anywhere (not in
+      // .env.example, not in vite.config.ts), so this always evaluated to null. The real app
+      // version is injected as the __APP_VERSION__ global (vite.config.ts's `define` block, from
+      // package.json's version) — same source analytics/client.ts already registers as a PostHog
+      // super property, see analytics/buildInfo.d.ts for the ambient declaration. Fixed 2026-08-30.
+      appVersion: __APP_VERSION__,
     });
     if (!payload) return; // empty message
     setStatus('submitting');

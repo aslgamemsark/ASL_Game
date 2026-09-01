@@ -9,6 +9,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { LiveSignCoach } from '@/components/lesson/LiveSignCoach';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
+import { CameraOnboarding } from '@/components/shared/CameraOnboarding';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
 import { ReferenceClip } from '@/components/lesson/ReferenceClip';
@@ -247,7 +248,33 @@ export function PracticePage({
     setMode('receptive');
   };
 
+  // One-time camera privacy primer, shared with LessonPage's same 'signup-camera-onboarded' flag
+  // (see CameraOnboarding) — Practice is a real first camera screen too (auto-start from weak
+  // signs / letters mode / "Test from Memory" can be a user's very first camera-driven action),
+  // so it needs the same gate before startCam() rather than assuming Lesson always goes first.
+  const [showCameraOnboarding, setShowCameraOnboarding] = useState(false);
+  const pendingCameraActionRef = useRef<null | 'expressive' | 'mixed'>(null);
+
+  const handleCameraOnboardingContinue = () => {
+    localStorage.setItem('signup-camera-onboarded', '1');
+    setShowCameraOnboarding(false);
+    const pending = pendingCameraActionRef.current;
+    pendingCameraActionRef.current = null;
+    if (pending === 'expressive') void startExpressive();
+    else if (pending === 'mixed') void startMixed();
+  };
+
+  const handleCameraOnboardingCancel = () => {
+    setShowCameraOnboarding(false);
+    pendingCameraActionRef.current = null;
+  };
+
   const startExpressive = async () => {
+    if (!localStorage.getItem('signup-camera-onboarded')) {
+      pendingCameraActionRef.current = 'expressive';
+      setShowCameraOnboarding(true);
+      return;
+    }
     const pool = filterSignIds ?? (() => {
       const due = getSignsDueForReview(signAccuracy, 8, 'expressive');
       return due.length > 0 ? due : allSignIds.slice(0, 6);
@@ -275,6 +302,11 @@ export function PracticePage({
   // Mixed session: every question is randomly either a camera sign or a multiple-choice
   // pick, so the same "test yourself" round exercises both recall and recognition.
   const startMixed = async () => {
+    if (!localStorage.getItem('signup-camera-onboarded')) {
+      pendingCameraActionRef.current = 'mixed';
+      setShowCameraOnboarding(true);
+      return;
+    }
     const pool = filterSignIds ?? allSignIds;
     const shuffled = [...pool].sort(() => Math.random() - 0.5);
     recordPracticeSession();
@@ -390,6 +422,12 @@ export function PracticePage({
   return (
     <div className="min-h-dvh bg-z-bg flex flex-col">
       <p className="sr-only" role="status" aria-live="polite">{recognition.qualityAnnouncement ?? ''}</p>
+      <AnimatePresence>
+        {showCameraOnboarding && (
+          <CameraOnboarding onContinue={handleCameraOnboardingContinue} onCancel={handleCameraOnboardingCancel} />
+        )}
+      </AnimatePresence>
+
       {/* Hidden video for MediaPipe */}
       <video
         ref={videoRef}

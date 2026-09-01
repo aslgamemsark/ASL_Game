@@ -10,9 +10,14 @@ if (!url || !key) {
   );
 }
 
+// `||`, not `??` — an env var set to the empty string (a blank value left in a dashboard, or a
+// build tool that always defines the key) is falsy but not nullish, and `??` would pass '' straight
+// through to createClient(), which throws "supabaseUrl is required" at module-eval time and
+// white-screens the entire app instead of the graceful "auth and sync disabled" fallback the
+// warning above promises. Found 2026-08-30 verifying the e2e suite against a clean env.
 export const supabase = createClient(
-  url ?? 'https://placeholder.supabase.co',
-  key ?? 'placeholder',
+  url || 'https://placeholder.supabase.co',
+  key || 'placeholder',
   { auth: { persistSession: true, autoRefreshToken: true } }
 );
 

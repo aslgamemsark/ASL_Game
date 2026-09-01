@@ -1,5 +1,37 @@
 import type { Page } from '@playwright/test';
 
+/**
+ * Walks guest onboarding to Home — was duplicated as `reachHome`/`reachHomeDesktop` across
+ * a11y.spec.ts, mobile.spec.ts, navigation.spec.ts and tryYourself.spec.ts (2026-08-30 audit),
+ * each hardcoding a click on "Continue as guest" as the second step.
+ *
+ * That hardcoded click is why the whole e2e suite failed here: `OnboardingFlow.tsx` only shows
+ * the 'auth' step (Google/email/guest) when `supabaseReady` is true — otherwise "Get Started"
+ * routes straight to the skill-level step, same as a guest who already chose. CI's `e2e` job runs
+ * with Supabase deliberately unconfigured (see ci.yml's comment on that job for why setting even a
+ * placeholder URL is worse, not better), so `supabaseReady` is always false there, the guest button
+ * never renders, and every spec waiting on it timed out. This mirrors the app's own conditional
+ * instead of assuming the step exists — the correct fix, not a workaround, since a real user with
+ * Supabase unreachable would see exactly this shortened flow.
+ *
+ * Updated for the 2026-08-30 value-before-signup reorder: skill selection now leads to a
+ * 'firstSign' step (try a real sign, camera-gated) BEFORE auth/Home, not straight to either. No
+ * fake camera device exists in CI (see playwright.config.ts), so this always takes the "Skip for
+ * now" escape hatch rather than attempting the camera flow — exactly what a real user without a
+ * working camera would do, and the one path guaranteed available regardless of environment.
+ */
+export async function completeOnboarding(page: Page): Promise<void> {
+  await page.goto('/');
+  await page.getByRole('button', { name: /get started/i }).click();
+  const guestButton = page.getByRole('button', { name: /continue as guest/i });
+  if (await guestButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await guestButton.click();
+  }
+  await page.getByRole('button', { name: /just starting/i }).click();
+  await page.getByRole('button', { name: /skip for now/i }).click();
+  await page.getByRole('button', { name: /Journey/ }).first().waitFor({ state: 'visible', timeout: 15_000 });
+}
+
 /** Waits for in-flight FINITE framer-motion entrance animations (opacity/transform fades,
  *  several screens use staggered `transition={{ delay: i * 0.04 }}` per list item) to finish.
  *

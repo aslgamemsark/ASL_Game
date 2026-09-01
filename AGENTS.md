@@ -4,6 +4,16 @@ We're building a **gamified ASL learning app** with two developers, **scenario b
 Saad owns the coffee-shop scenario; a teammate owns another scenario.
 
 ## Software design rules
+**Correction (2026-08-30 audit): every `.Codex/rules/...` path below is dangling.** `.Codex/`
+exists (`config.toml`, `hooks.json`) but has no `rules/` subdirectory at all — none of these 30
+files are present in this repo. Whatever they contained isn't recoverable from here; either they
+lived only in a contributor's local environment, or the directory was removed without updating
+this list. Don't spend a session's start trying to read these — they don't exist. The design
+principles they were meant to encode (Ousterhout-derived, binding guidance) aren't captured
+anywhere else in this repo as far as this audit found; recreating that rule set, if still wanted,
+is a deliberate decision for the project owner, not something to reconstruct by guessing at
+30 filenames.
+
 This project follows Ousterhout-derived software design principles — binding
 design guidance, not optional style notes. Rules are split by topic under
 .Codex/rules/:
@@ -52,11 +62,15 @@ violation as a design signal, not a style note.
 
 ## ARCHITECTURE DECISIONS ALREADY MADE — do not relitigate
 
-- **Runtime: Python prototype now, port to TypeScript/browser later.** v1 runs locally with
-  MediaPipe (**Tasks API**) + OpenCV + numpy. We deliberately use the Tasks API (not the legacy
-  Solutions API) so concepts line up with `@mediapipe/tasks-vision` when recognition is ported
-  to the browser later. Recognition is local/client-side by design — no video or landmark
-  streaming to a server for recognition (latency + cloud cost).
+- **Runtime: the port already happened — `web/src/engine/` (TypeScript) is what ships in
+  production today.** This bullet used to read "Python prototype now, port to TypeScript/browser
+  later," written before that port shipped and never updated (corrected 2026-08-30; see
+  `docs/AI_ONBOARDING.md` §3). The Python `core/`/`signs/`/`scenarios/` prototype (MediaPipe Tasks
+  API + OpenCV + numpy) is still live for ML training and reference — the deliberate use of the
+  Tasks API (not the legacy Solutions API) is exactly why the two stayed conceptually portable —
+  but a live recognition bug belongs in `web/src/engine/`, not here. Recognition is local/client-
+  side by design either way — no video or landmark streaming to a server for recognition (latency
+  + cloud cost).
 - **v1 sign recognition is RULE-BASED MATH; the trained ML model (Phase C) is a disambiguation
   LAYER on top — it does not replace the rule engine or the per-parameter Sign Coach.**
   Training datasets: **ASL Citizen** (licensed) and **WLASL** (authorized 2026-06-30 by owner

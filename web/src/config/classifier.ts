@@ -16,21 +16,26 @@ export const CLASSES_URL = '/models/signs/classes.json';
 
 /**
  * Master switch for LOADING the classifier at all — separate from, and upstream of,
- * `GATE_ENFORCED`. Turned off 2026-07-30, back on 2026-08-04 as a deliberate decision to resume
- * shadow-mode measurement, now that the NO_SIGN mechanism bug is fixed (see `gatePass` in
- * `engine/gate.ts` — it was 87% of every observed veto) and there's real data to measure against.
+ * `GATE_ENFORCED`. Turned off 2026-07-30, back on 2026-08-04 to resume shadow-mode measurement,
+ * then back OFF again 2026-08-30: `vite.config.ts`'s `stripDevOnlyPublicAssets` plugin still
+ * deleted `dist/models/signs` post-build (its own comment says as much — it was never updated
+ * when this flag flipped on), so every production camera-screen load fetched `MODEL_URL`/
+ * `CLASSES_URL` into a 404, `useClassifier` failed open into `status: 'error'`, and shadow-mode
+ * had been recording nothing since 08-04. Un-deleting the weights was the other option, but
+ * model_v4 is already known out-of-distribution (see `GATE_ENFORCED` below) — shipping it now
+ * would spend ~421 KB per camera user measuring a model nobody intends to trust yet. Flip this
+ * back on together with a retrained model, not on its own.
  *
  * Cost, paid only by users who open a camera screen (Lesson/Practice/Story call `useClassifier`;
  * `App.tsx` does not warm it up app-wide — do not reintroduce that): ~272 KB gzip TF.js + ~428 KB
- * of weights, plus a WebGL/WASM init. `GATE_ENFORCED` below stays false, so this buys measurement
- * only — no user can be blocked by a vote while it's false.
+ * of weights, plus a WebGL/WASM init. `GATE_ENFORCED` below stays false, so this only ever bought
+ * measurement — no user could be blocked by a vote while it's false.
  *
  * Setting this false makes `useClassifier`'s `loadOnce()` return the same `{classifier: null,
  * status: 'disabled'}` shape used for "no model deployed" — every existing consumer (recognition
- * gating, `ClassifierDevPanel`) already handles that shape correctly, so nothing downstream needed
- * to change when it was off, and nothing downstream needs to change now that it's on again.
+ * gating, `ClassifierDevPanel`) already handles that shape correctly.
  */
-export const CLASSIFIER_LOAD_ENABLED = true;
+export const CLASSIFIER_LOAD_ENABLED = false;
 
 /**
  * Veto threshold: a rule-pass is rejected ONLY when the model is at least this confident that

@@ -288,13 +288,17 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       // VALUES are unchanged at base tier (30 frames @ 28fps ≈ 1.07s) per the
       // CLAUDE.md non-negotiable: no threshold retuning without real-device data.
       const BASE_TIER_MS_PER_FRAME = 1000 / 28;
-      const MIN_FRAMES_BEFORE_PASS = 30 * BASE_TIER_MS_PER_FRAME;
-      let lastPassingFrameMs: number | null = null;
-      const PASS_THRESHOLD_FRAMES = 6;
-      const passFramesToMs = PASS_THRESHOLD_FRAMES * BASE_TIER_MS_PER_FRAME;
-      let passingRunMs = 0;
+      const MIN_MS_BEFORE_PASS = 30 * BASE_TIER_MS_PER_FRAME;
+      const PASS_DEBOUNCE_MS = 6 * BASE_TIER_MS_PER_FRAME;
+      let passStreakStartMs: number | null = null;
       const isStaticSign = sign.movement.kind === MovementKind.NONE;
       let holdStartMs: number | null = null;
+
+      // Pose changes much more slowly than hands. Sample it every third processed frame and carry
+      // the last detected pose forward for framing and shoulder-width normalization.
+      const POSE_EVERY_N = 3;
+      let processedCount = 0;
+      let lastPose: Pick<Frame, 'leftShoulder' | 'rightShoulder' | 'mouth'> | null = null;
 
       // Adaptive vision pacing. Historically a fixed ~28fps cap; since the shipping-readiness
       // v2 round, VisionPacer measures real per-frame inference cost and drops to 20fps when a
@@ -346,11 +350,25 @@ export function useRecognition(opts?: UseRecognitionOpts) {
         try {
           const t0 = performance.now();
           const tsMs = performance.now();
-          let frame = cap.process(video, Math.round(tsMs));
+          const wantPose = processedCount % POSE_EVERY_N === 0;
+          processedCount++;
+          let frame = cap.process(video, Math.round(tsMs), { skipPose: !wantPose });
           pacer.markProcessed(tsMs);
-          // Feed the ACTUAL inference cost (process + stabilize) into the tier decision. The
-          // stabilizer/buffer work after it is O(hands), noise next to two model passes.
-          pacer.recordCost(performance.now() - t0);
+          if (wantPose) {
+            if (frame.leftShoulder && frame.rightShoulder) {
+              lastPose = {
+                leftShoulder: frame.leftShoulder,
+                rightShoulder: frame.rightShoulder,
+                mouth: frame.mouth,
+              };
+            }
+          } else if (lastPose) {
+            frame.leftShoulder = lastPose.leftShoulder;
+            frame.rightShoulder = lastPose.rightShoulder;
+            frame.mouth = lastPose.mouth;
+          }
+          // Copy raw hands before HandStabilizer can add remembered hands. Carried pose is
+          // intentional because pose inference is skipped on two out of three frames.
           rawBufferRef.current.add({
             ...frame,
             hands: frame.hands.map((hand) => ({ ...hand, points: hand.points.map((point) => [...point]) })),
@@ -360,6 +378,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           });
           frame = stabilizerRef.current.stabilize(frame);
           bufferRef.current.add(frame);
+          pacer.recordCost(performance.now() - t0);
           frameCountRef.current++;
 
           // Update framing guidance only when the message changes, to avoid 28 setStates/sec. The
@@ -496,10 +515,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
             }
           };
 
-          // Don't allow pass until buffer has enough data
-          const loopElapsedMs = nowMs - loopStartRef.current;
-          const warmedUp = loopElapsedMs >= MIN_FRAMES_BEFORE_PASS;
-          const clearedEnough = warmedUp && resultPassed(vr);
+          // Don't allow pass until the buffer has had time to fill
+          const clearedEnough = nowMs - loopStartRef.current >= MIN_MS_BEFORE_PASS && resultPassed(vr);
 
           if (isStaticSign) {
             // Hold-to-pass: the pose must clear the verifier continuously for
@@ -523,18 +540,13 @@ export function useRecognition(opts?: UseRecognitionOpts) {
             }
           } else {
             if (clearedEnough) {
-              // ASL-A4: accumulate WALL-CLOCK across consecutive passing frames
-              // (was: count 6 frames, which stretched from ~214ms at base tier to
-              // 300ms at low tier). Delta-based accumulation is exact at any fps.
-              if (lastPassingFrameMs !== null) passingRunMs += nowMs - lastPassingFrameMs;
-              lastPassingFrameMs = nowMs;
-              if (passingRunMs >= passFramesToMs) {
-                passingRunMs = 0;
+              if (passStreakStartMs === null) passStreakStartMs = nowMs;
+              if (nowMs - passStreakStartMs >= PASS_DEBOUNCE_MS) {
+                passStreakStartMs = null;
                 firePass();
               }
             } else {
-              passingRunMs = 0;
-              lastPassingFrameMs = null;
+              passStreakStartMs = null;
             }
           }
         } catch (e) {

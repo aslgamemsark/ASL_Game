@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { track, trackFirstSignSuccess } from '@/analytics';
 import { logAttempt, type TrainingDataSource } from '@/hooks/useProgressSync';
@@ -55,6 +55,14 @@ export function trainingSourceFor(source: AttemptSource): TrainingDataSource | n
 export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
   const { user } = useAuth();
   const persistedSource = trainingSourceFor(source);
+  // Set once, when this recognition screen mounts — a proxy for "session/lesson start" close
+  // enough for every current caller (each of Lesson/Practice/Story/Speed instantiates its own
+  // useAttemptLog exactly once per screen visit). Was previously attempt.durationMs, i.e. the
+  // WINNING ATTEMPT'S OWN duration (how long the user held/repeated that one sign — resets every
+  // sign, see useRecognition.ts's loopStartRef) — a real, different quantity mislabelled as this
+  // one, silently deflating every first_sign_success.ms_since_lesson_start to a few hundred/
+  // thousand ms regardless of how long the actual session took to get there (found 2026-08-30).
+  const mountedAtRef = useRef(Date.now());
 
   // Analytics covers guests too — the activation funnel needs anonymous data. Supabase persistence
   // below stays user-gated: those rows are tied to an account, unlike PostHog's anonymous-until-
@@ -86,7 +94,7 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
       if (attempt.finalPassed) {
         trackFirstSignSuccess({
           signId: attempt.signId,
-          msSinceLessonStart: attempt.durationMs,
+          msSinceLessonStart: Date.now() - mountedAtRef.current,
           attemptsTaken: attempt.attemptNumber,
         });
       }

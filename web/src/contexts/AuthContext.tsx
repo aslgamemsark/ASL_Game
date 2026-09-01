@@ -62,18 +62,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false);
   /** User id we last reported a `login` for — see the SIGNED_IN handler below. */
   const loggedInUserRef = useRef<string | null>(null);
+  // Both getSession() and auth-state events fetch profile data asynchronously. Keep the active
+  // account here so a slow response for an account just signed out cannot overwrite the next one.
+  const activeUserRef = useRef<string | null>(null);
+  const authEventVersionRef = useRef(0);
 
   useEffect(() => {
     if (!supabaseReady) { setLoading(false); return; }
 
+    const initialAuthEventVersion = authEventVersionRef.current;
     supabase.auth.getSession().then(({ data }) => {
+      if (authEventVersionRef.current !== initialAuthEventVersion) return;
+      activeUserRef.current = data.session?.user.id ?? null;
       setSession(data.session);
-      if (data.session) fetchUsername(data.session.user.id);
+      if (data.session) fetchUsername(data.session.user.id, data.session.user);
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      authEventVersionRef.current += 1;
+      activeUserRef.current = s?.user.id ?? null;
       setSession(s);
+      // PRODUCTION OUTAGE FIX (2026-08-30): supabase-js fires an INITIAL_SESSION event through
+      // this callback on every page load, and it can arrive before getSession() above resolves.
+      // When it does, the version bump on the line above makes getSession()'s own .then() see a
+      // stale version and bail out via its early return — without this line, setLoading(false)
+      // was ONLY called from that branch, so it never ran and the app hung on the loading screen
+      // forever. Confirmed live: quicksignn.vercel.app and signup-asl.vercel.app both stuck on
+      // "Loading…" for every visitor, no console error, no network hang — this callback firing at
+      // all means we already have authoritative session state, the same information getSession()
+      // would have given us, so resolving loading here is always correct regardless of which of
+      // the two arrives first.
+      setLoading(false);
       // Fired once the user follows the emailed reset link and Supabase establishes a
       // short-lived recovery session — App renders a "set new password" modal while this is
       // true instead of dropping them straight into the app under a session they didn't
@@ -119,11 +139,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function fetchUsername(userId: string, userObj?: User) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('username, is_admin, is_banned, ban_reason')
       .eq('id', userId)
       .single();
+    if (activeUserRef.current !== userId) return;
+    if (error) {
+      console.error('Failed to load profile:', error);
+      return;
+    }
     const row = data as ProfileRow | null;
 
     // Enforcement happens server-side too (RLS denies a banned user's own reads/writes — see
@@ -182,7 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // this file's own effect, not part of the public context value.
   const signInWithEmail = useCallback(async (email: string, password: string): Promise<string | null> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return friendlyAuthError(error?.message ?? null);
+    return friendlyAuthError(error?.message);
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string, username: string): Promise<string | null> => {
@@ -283,7 +308,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Supabase already returns success here even for an email that isn't registered (so this
     // can't be used to enumerate accounts) — surface a real error only for things like malformed
     // input or rate-limiting, never "no such user".
-    return friendlyAuthError(error?.message ?? null);
+    return friendlyAuthError(error?.message);
   }, []);
 
   const completePasswordReset = useCallback(async (newPassword: string): Promise<string | null> => {

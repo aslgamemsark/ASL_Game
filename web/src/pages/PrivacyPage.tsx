@@ -21,9 +21,19 @@ export function PrivacyPage({ onExit }: Props) {
         <section>
           <h2 className="font-bold text-z-gray-50 mb-2">What stays on your device</h2>
           <p>
-            Camera video is never uploaded, recorded, or sent to any server. Sign recognition
-            (matching your hand shape, position, and movement against a sign) runs entirely
-            locally in your browser.
+            In Lessons, Practice, and Story, camera video is never uploaded, recorded, or sent
+            to any server. Sign recognition (matching your hand shape, position, and movement
+            against a sign) runs entirely locally in your browser — only numeric landmark
+            coordinates ever leave your device, and only if you opt in below.
+          </p>
+          <p className="mt-2">
+            Duel and Room modes are different: your opponent needs to see you sign in real
+            time, so your camera video streams directly to their device over a live peer-to-peer
+            video connection (WebRTC) — the same technology behind most video calling. No
+            server records or stores this video. When a direct connection between two devices
+            isn't possible (for example, both are behind restrictive networks), the video is
+            relayed — still unrecorded, in transit only — through a third-party relay service
+            (openrelay.metered.ca) rather than going directly device-to-device.
           </p>
         </section>
 
@@ -50,10 +60,11 @@ export function PrivacyPage({ onExit }: Props) {
         <section>
           <h2 className="font-bold text-z-gray-50 mb-2">Anonymous usage analytics</h2>
           <p>
-            We use PostHog to see which screens and features get used, at an anonymous,
-            aggregate level — never video, never sign/landmark data, and we don't record or replay
-            your screen. Events aren't tied to your identity until you sign in. Turn this off
-            anytime in Settings → Privacy.
+            We use PostHog to see which screens and features get used, and to record and replay
+            sessions so we can see where people get stuck — never video, and never sign/landmark
+            data. Anything you type (passwords, emails, usernames, chat) is masked before it's
+            captured, so replays show navigation and clicks, never what you typed. Events aren't
+            tied to your identity until you sign in. Turn this off anytime in Settings → Privacy.
           </p>
         </section>
 

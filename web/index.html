@@ -11,7 +11,11 @@
     <link rel="preload" href="/fonts/quicksand-latin.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>QuickSign — Learn ASL with Zippy</title>
-    <meta name="description" content="Most apps ask you to recognize a sign. QuickSign watches you make it — and tells you exactly which part to fix. Free, in your browser, camera never leaves your device." />
+    <!-- Was "camera never leaves your device" — false once multiplayer exists (Duel/Room stream
+         live video to your opponent, see PrivacyPage.tsx and CameraOnboarding.tsx's own fixes for
+         the identical claim, 2026-08-30). Scoped to what's actually true of the default, solo
+         learning experience this description is selling. -->
+    <meta name="description" content="Most apps ask you to recognize a sign. QuickSign watches you make it — and tells you exactly which part to fix. Free, in your browser, camera stays local while you learn." />
     <meta name="theme-color" content="#120B1E" />
     <link rel="canonical" href="https://quicksignn.vercel.app/" />
     <meta name="robots" content="index,follow" />

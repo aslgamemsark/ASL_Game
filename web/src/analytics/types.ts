@@ -63,6 +63,10 @@ export interface EventPayloads {
   signup_completed: { provider: 'email' | 'google' };
   login: { provider: 'email' | 'google' };
   logout: Record<string, never>;
+  /** Guest-only equivalent of `login`'s return-session dedup — see analytics/guestReturn.ts.
+   *  Device-scoped (localStorage), so this undercounts (a new device/browser looks like a first
+   *  visit) but never overcounts. */
+  guest_return: { gap_days: number };
   password_reset_requested: Record<string, never>;
   password_recovery_completed: Record<string, never>;
 
@@ -71,9 +75,14 @@ export interface EventPayloads {
   pwa_install_result: { source: 'banner' | 'settings'; outcome: 'accepted' | 'dismissed' };
 
   // Onboarding (components/onboarding/OnboardingFlow.tsx)
-  onboarding_step_viewed: { step: 'welcome' | 'auth' | 'skill' | 'done' };
+  onboarding_step_viewed: { step: 'welcome' | 'auth' | 'skill' | 'firstSign' | 'done' };
   onboarding_skill_selected: { skill_level: 'beginner' | 'intermediate' | 'advanced' };
   onboarding_completed: { skill_level: string; duration_ms: number };
+  /** Fires once, the first time a brand-new visitor's first-ever camera sign attempt (letter A,
+   *  before any account exists) clears the rule verifier — see the 2026-08-30 value-before-signup
+   *  reorder. Distinct from lesson_started/sign_attempt's usual pass tracking, which this predates
+   *  and doesn't go through (no lesson, no XP/gold — see the step's own comment for why). */
+  onboarding_first_sign_passed: { sign_id: string };
   /** Which door the user took at the auth step. `guest_started` already fires for the guest case;
    *  this exists so all three options are comparable in ONE funnel step instead of having to
    *  reconcile guest_started against signup_started against nothing-at-all for Google. Added
@@ -193,6 +202,19 @@ export interface EventPayloads {
 
   // General functional errors (Supabase/network) that aren't a crash but matter for reliability.
   error_captured: { source: 'supabase' | 'network' | 'multiplayer' | 'other'; message: string; route: string };
+
+  // Static marketing pages (public/landing.html, public/asl-alphabet.html) — fired via a raw,
+  // hand-authored call straight to the PostHog SDK, NOT through this module's track() (those pages
+  // predate the app bundle and have no build step to import it — see landing.html's own comment on
+  // why an inline public PostHog key there isn't a no-hardcoding violation). Typed here anyway (added
+  // 2026-08-30) purely for documentation/schema-consistency: querying PostHog for these needs to
+  // know their real shape, and hero_cta_clicked previously fired with two DIFFERENT shapes from
+  // the two pages ({label,href} vs {label,page}) until reconciled to this one shared shape.
+  landing_view: { utm_source: string | null; utm_medium: string | null; utm_campaign: string | null; referrer: string | null };
+  alphabet_landing_view: { referrer: string | null };
+  hero_cta_clicked: { label: string; href: string | null; page: 'landing' | 'asl-alphabet' };
+  feedback_clicked: Record<string, never>;
+  scroll_depth: { depth: 25 | 50 | 75 | 100 };
 }
 
 export type ActiveEventName = keyof EventPayloads;

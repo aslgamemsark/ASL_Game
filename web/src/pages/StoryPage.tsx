@@ -8,6 +8,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { useConfetti } from '@/hooks/useConfetti';
 import { LiveSignCoach } from '@/components/lesson/LiveSignCoach';
 import { HeaderBackButton } from '@/components/shared/HeaderBackButton';
+import { CameraOnboarding } from '@/components/shared/CameraOnboarding';
 import { WebcamMirror } from '@/components/shared/WebcamMirror';
 import { ClassifierDevPanel } from '@/components/shared/ClassifierDevPanel';
 import { Zippy } from '@/components/shared/Zippy';
@@ -148,7 +149,24 @@ export function StoryPage({
     return () => { clearTimeout(timerRef.current); stopCam(); recognition.stopLoop(); };
   }, []);
 
+  // One-time camera privacy primer, shared with LessonPage's same 'signup-camera-onboarded' flag
+  // (see CameraOnboarding) — Story is a real first camera screen too, reached directly from a
+  // world map without necessarily passing through Lesson first.
+  const [showCameraOnboarding, setShowCameraOnboarding] = useState(false);
+
   const handleStart = async () => {
+    if (!localStorage.getItem('signup-camera-onboarded')) {
+      setShowCameraOnboarding(true);
+      return;
+    }
+    track('story_started', { story_id: story.id, world_id: worldId });
+    await startCam();
+    setPhase('dialogue');
+  };
+
+  const handleCameraOnboardingContinue = async () => {
+    localStorage.setItem('signup-camera-onboarded', '1');
+    setShowCameraOnboarding(false);
     track('story_started', { story_id: story.id, world_id: worldId });
     await startCam();
     setPhase('dialogue');
@@ -189,6 +207,12 @@ export function StoryPage({
   return (
     <div className="min-h-dvh bg-z-bg flex flex-col">
       <p className="sr-only" role="status" aria-live="polite">{recognition.qualityAnnouncement ?? ''}</p>
+      <AnimatePresence>
+        {showCameraOnboarding && phase === 'intro' && (
+          <CameraOnboarding onContinue={handleCameraOnboardingContinue} onCancel={() => setShowCameraOnboarding(false)} />
+        )}
+      </AnimatePresence>
+
       <video ref={videoRef} style={{ width: 0, height: 0, opacity: 0, position: 'fixed', pointerEvents: 'none' }} muted playsInline autoPlay />
 
       {/* Header */}

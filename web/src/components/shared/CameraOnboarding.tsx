@@ -8,9 +8,15 @@ interface Props {
    *  one-way "Allow Camera" commit with no other exit (this screen is a fixed full-screen overlay
    *  that sits on top of the lesson header's own close button). */
   onCancel: () => void;
+  /** Duel/Room: your camera video streams live to your opponent over WebRTC, not just to a local
+   *  recognizer — a materially different privacy fact from every solo screen (Lesson/Practice/
+   *  Story/Speed), so it gets its own copy rather than silently reusing the "never leaves your
+   *  device" claim that's true everywhere else. Shown independently of the solo notice's own
+   *  one-time flag — a user's first camera screen ever isn't always a solo one. */
+  multiplayer?: boolean;
 }
 
-export function CameraOnboarding({ onContinue, onCancel }: Props) {
+export function CameraOnboarding({ onContinue, onCancel, multiplayer }: Props) {
   // Escape backs out rather than continuing — this gate asks for the camera, so the dismissive
   // action is the safe one.
   const dialog = useDialogA11y({ label: 'Camera access', onClose: onCancel });
@@ -36,20 +42,47 @@ export function CameraOnboarding({ onContinue, onCancel }: Props) {
       >
         <div className="text-5xl mb-4">📷</div>
         <h2 className="text-xl font-bold mb-2">Camera Access Needed</h2>
-        <p className="text-sm text-z-gray-300 mb-4 leading-relaxed">
-          QuickSign uses your camera to watch your hand signs and give you real-time feedback.
-          Your video never leaves your device — recognition runs locally in your browser.
-        </p>
+        {multiplayer ? (
+          <p className="text-sm text-z-gray-300 mb-4 leading-relaxed">
+            Your opponent needs to see you sign in real time, so your camera video streams
+            directly to their device over a live peer-to-peer connection — no server records or
+            stores it.
+          </p>
+        ) : (
+          <p className="text-sm text-z-gray-300 mb-4 leading-relaxed">
+            QuickSign uses your camera to watch your hand signs and give you real-time feedback.
+            Your video never leaves your device — recognition runs locally in your browser.
+          </p>
+        )}
 
         <div className="space-y-3 text-left mb-6">
-          <div className="flex items-start gap-3">
-            <span className="text-z-green text-lg">✓</span>
-            <p className="text-sm text-z-gray-200">Your video is never uploaded or recorded — recognition runs locally in your browser</p>
-          </div>
-          <div className="flex items-start gap-3">
-            <span className="text-z-green text-lg">✓</span>
-            <p className="text-sm text-z-gray-200">Optional replay stays on your device and is never uploaded</p>
-          </div>
+          {multiplayer ? (
+            <>
+              <div className="flex items-start gap-3">
+                <span className="text-z-green text-lg">✓</span>
+                <p className="text-sm text-z-gray-200">Your video is never recorded or stored — it's only ever seen live, by your opponent</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-z-green text-lg">✓</span>
+                <p className="text-sm text-z-gray-200">
+                  Video usually goes directly device-to-device. If a direct connection isn't
+                  possible, it's relayed — still unrecorded, in transit only — through a
+                  third-party relay service instead
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-start gap-3">
+                <span className="text-z-green text-lg">✓</span>
+                <p className="text-sm text-z-gray-200">Your video is never uploaded or recorded — recognition runs locally in your browser</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-z-green text-lg">✓</span>
+                <p className="text-sm text-z-gray-200">Optional replay stays on your device and is never uploaded</p>
+              </div>
+            </>
+          )}
           <div className="flex items-start gap-3">
             <span className="text-z-green text-lg">✓</span>
             <p className="text-sm text-z-gray-200">

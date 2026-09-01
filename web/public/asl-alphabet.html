@@ -90,12 +90,21 @@ posthog.init('phc_mDKbcvzVa9vmuV4WLog798KNAJLprfFnfYhH5rWE5wE2', {
   disable_session_recording: true,
   autocapture: false,
   capture_pageview: false,
+  // Matches landing.html's posture (missed here in the initial DNT/opt-out fix, 2026-08-30) —
+  // see that file's comment.
+  respect_dnt: true,
 });
+try {
+  if (localStorage.getItem('quicksign_analytics_opt_out') === 'true') posthog.opt_out_capturing();
+} catch (e) { /* storage blocked — falls back to default (capture), same as consent.ts */ }
 document.addEventListener('DOMContentLoaded', function () {
   posthog.capture('alphabet_landing_view', { referrer: document.referrer || null });
   document.addEventListener('click', function (e) {
     var cta = e.target.closest('.btn-primary');
-    if (cta) posthog.capture('hero_cta_clicked', { label: (cta.textContent || '').trim(), page: 'asl-alphabet' });
+    // { label, href, page } — same shape landing.html's hero_cta_clicked sends (page added there
+    // too, 2026-08-30) so a PostHog query grouping by this event name doesn't need to branch on
+    // which static page it came from.
+    if (cta) posthog.capture('hero_cta_clicked', { label: (cta.textContent || '').trim(), href: cta.getAttribute('href'), page: 'asl-alphabet' });
   });
 });
 </script>

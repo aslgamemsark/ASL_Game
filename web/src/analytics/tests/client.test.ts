@@ -36,6 +36,9 @@ describe('sanitizeAnalyticsProperties', () => {
  * The shape below is the real leaked URL with the credentials replaced.
  */
 describe('sanitizeAnalyticsProperties — auth credentials in the URL fragment', () => {
+  // Domain deliberately left as the real leaked incident recorded it (the canonical domain has
+  // since moved to quicksignn.vercel.app — see DEPLOYMENT.md) — the assertion doesn't care which
+  // host it is, and rewriting it would destroy the fixture's provenance as an actual past incident.
   const LEAKED = 'https://aslgame.vercel.app/#access_token=eyJhbGciOiJFUzI1NiJ9.PAYLOAD.SIG'
     + '&expires_at=1785020158&refresh_token=vuf3uclmsvow&token_type=bearer&type=signup';
 

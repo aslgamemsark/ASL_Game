@@ -127,15 +127,14 @@ function recent(buffer: RollingBuffer, seconds: number): Frame[] {
   return buffer.recentFrames(seconds);
 }
 
-// ASL-C2: single copy-free pass — remember the newest non-null width instead of indexing a
-// materialised copy (the old shape spread the whole buffer just to read one frame).
+// ASL-C2: read the live buffer backwards instead of materialising a copy.
 function latestShoulderWidth(buffer: RollingBuffer): number | null {
-  let latest: number | null = null;
-  for (const f of buffer) {
-    const sw = frameShoulderWidth(f);
-    if (sw) latest = sw;
+  const frames = buffer.peek();
+  for (let i = frames.length - 1; i >= 0; i--) {
+    const sw = frameShoulderWidth(frames[i]);
+    if (sw) return sw;
   }
-  return latest;
+  return null;
 }
 
 function scoreHandshape(buffer: RollingBuffer, handedness: string | null, kind: string): number {

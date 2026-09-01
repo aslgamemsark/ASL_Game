@@ -7,8 +7,13 @@
  *
  * Simulates the ACTUAL live gameplay debounce: verify() runs every frame against a sliding
  * RollingBuffer(2.0) (matches useRecognition.ts's window, used for every sign) and success is
- * judged the same way useRecognition.ts judges it — PASS_THRESHOLD=6 CONSECUTIVE passing frames,
- * reset on any failure.
+ * judged the same way useRecognition.ts judges a movement sign's pass — continuous clearing for
+ * PASS_DEBOUNCE_MS=215ms, reset on any failure. useRecognition.ts converted this from a raw frame
+ * count (was 6 frames @ 28fps) to wall-clock milliseconds so it stays consistent under the
+ * adaptive frame-rate governor (2026-08-18, 28fps->12fps under load) — 6 consecutive frames in
+ * these fixtures (recorded at ~28fps, confirmed against their own timestamps) is still the right
+ * proxy for that same 215ms window, so the fixture-frame-count methodology below doesn't need to
+ * change, only this comment did.
  *
  * Fully fixed via schema thresholds: NURSE, WRITE, LETTER_P (hard assertions). MORE was separately
  * fixed via a handshape ceiling (flatOConfidence had no upper bound, so a fist scored identical to
@@ -59,7 +64,7 @@ import letterPCorrect from './fixtures/letter_p_correct.json';
 import letterPIdle from './fixtures/letter_p_idle.json';
 import letterPRapid from './fixtures/letter_p_rapid.json';
 
-const CONSECUTIVE_REQUIRED = 6; // matches useRecognition.ts's PASS_THRESHOLD
+const CONSECUTIVE_REQUIRED = 6; // ~215ms at these fixtures' ~28fps — matches useRecognition.ts's PASS_DEBOUNCE_MS
 const LIVE_WINDOW_S = 2.0;      // matches useRecognition.ts's RollingBuffer(2.0)
 
 type Fixture = { frames: unknown[] };
