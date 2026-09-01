@@ -347,7 +347,7 @@ export function LeaderboardPage({ onExit, onViewProfile }: Props) {
 
       // Fetch profiles for usernames
       const { data: profiles } = await supabase
-        .from('profiles')
+        .from('public_profiles')
         .select('id, username')
         .in('id', allIds);
 

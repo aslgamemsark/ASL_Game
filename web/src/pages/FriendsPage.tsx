@@ -102,7 +102,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
 
       // Fetch their profiles
       const { data: profiles } = await supabase
-        .from('profiles')
+        .from('public_profiles')
         .select('id, username')
         .in('id', otherIds) as { data: { id: string; username: string }[] | null };
 
@@ -156,7 +156,7 @@ export function FriendsPage({ onExit, onChallengeFriend, onStartMultiplayer, onV
     setHasSearched(true);
     try {
       const { data: profiles, error } = await supabase
-        .from('profiles')
+        .from('public_profiles')
         .select('id, username')
         .ilike('username', `%${query.trim()}%`)
         .neq('id', user.id)

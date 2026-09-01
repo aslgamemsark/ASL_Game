@@ -1,0 +1,24 @@
+# npm audit report
+
+dompurify  <=3.4.12
+Severity: moderate
+DOMPurify: IN_PLACE hook removal leaves a detached subtree executable, causing XSS - https://github.com/advisories/GHSA-55q2-fjhq-7xh7
+fix available via `npm audit fix`
+node_modules/dompurify
+
+fast-uri  3.0.0 - 3.1.4
+Severity: high
+fast-uri vulnerable to host confusion via backslash authority introducer - https://github.com/advisories/GHSA-7p8r-x3mc-p8w7
+fix available via `npm audit fix`
+node_modules/fast-uri
+
+nanoid  <3.3.18
+Severity: high
+nanoid: custom generators can loop indefinitely when size is zero - https://github.com/advisories/GHSA-2v37-7h3g-55p8
+fix available via `npm audit fix`
+node_modules/nanoid
+
+3 vulnerabilities (1 moderate, 2 high)
+
+To address all issues, run:
+  npm audit fix

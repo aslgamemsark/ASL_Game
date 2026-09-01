@@ -1,0 +1,35 @@
+name: Security
+
+# Deliberately a SEPARATE workflow from ci.yml rather than another job inside it.
+#
+# ci.yml is path-filtered to web/**, core/**, signs/**, tests/**, supabase/**, requirements.txt and
+# .github/workflows/** — correct for build/test jobs, which have nothing to do when unrelated files
+# change. It is exactly wrong for secret scanning: a credential can be committed to ANY path
+# (a README, a scratch script, a docs folder, the repo root), and those are precisely the paths a
+# developer is least likely to be thinking about security in. Inheriting ci.yml's filters would
+# have produced a scanner with a blind spot in the places secrets most often land.
+#
+# Also a PR gate rather than a scheduled job, unlike audit.yml. That file's reasoning — don't let a
+# newly-published third-party advisory turn a build red for a commit that changed nothing — is
+# sound, but does not transfer here: a committed secret is compromised the instant it is pushed,
+# this scan cannot go red because of something published overnight, and finding it a week later is
+# worth far less than finding it before merge.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 — scan history, not just the tip. A secret deleted in a later commit is
+      # still compromised and still needs to be caught and rotated; only a full-history scan sees it.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
