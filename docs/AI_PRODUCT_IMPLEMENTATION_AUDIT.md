@@ -21,7 +21,7 @@
 
 ### Evidence
 
-- `npm test -- --run` passed: 780 tests, 9 documented TODOs.
+- `npm test -- --run` passed: 784 tests, 9 documented TODOs.
 - `npm run build` passed on 2026-09-01.
 - `npm run lint` completed with existing warnings only; no errors or new warning category.
 - `npm audit --omit=dev` is clean after lockfile-only updates for transitive DOMPurify and nanoid
@@ -30,6 +30,9 @@
   because the required local Supabase stack is not running.
 - Focused Chromium Playwright checks passed: desktop Explore visibility/navigation and one main
   landmark.
+- Full Playwright execution starts all 168 cases, but this desktop runner loses its process handle
+  after the first few cases without reporting a test failure. It remains a pre-release local/CI
+  verification action rather than a claimed pass.
 - Vercel deployment-to-commit mapping remains unverified locally; see `HUMAN_ACTIONS.md`.
 
 ## Deferred Until Calibrated

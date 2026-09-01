@@ -5,6 +5,10 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Re-ran the broad local gates.** **Verified:** all 784 active unit tests pass (9 existing TODOs)
+  and lint has only its existing warnings. The full browser runner starts 168 cases but the desktop
+  tool loses its process handle before reporting a result; it is not recorded as a pass.
+
 - **Made review ordering mode-aware** (`web/src/data/spaced-repetition.ts`, Practice). **Mechanism:**
   receptive and expressive sessions use their own review tracks; an expressive parameter is only a
   weakness after three scorable observations. **Verified:** focused ordering test and production
