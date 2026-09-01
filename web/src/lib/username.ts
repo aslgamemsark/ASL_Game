@@ -11,7 +11,7 @@ export async function validateUsername(username: string, excludeId?: string): Pr
   if (username.length > 20) return 'Maximum 20 characters';
   if (!/^[a-zA-Z0-9_]+$/.test(username)) return 'Letters, numbers, and underscores only';
   if (isInappropriate(username)) return 'Username not allowed';
-  let q = supabase.from('profiles').select('id').eq('username', username);
+  let q = supabase.from('public_profiles').select('id').eq('username', username);
   if (excludeId) q = q.neq('id', excludeId);
   const { data } = await q.maybeSingle();
   if (data) return 'Username already taken';

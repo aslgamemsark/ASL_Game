@@ -437,7 +437,7 @@ function UsersTab({ showToast }: { showToast: (m: string) => void }) {
     setHasSearched(true);
     try {
       const { data, error } = (await supabase
-        .from('profiles')
+        .from('public_profiles')
         .select('id, username')
         .ilike('username', `%${query.trim()}%`)
         .limit(10)) as { data: UserSearchResult[] | null; error: { message: string } | null };
@@ -834,7 +834,7 @@ function AuditTab() {
       const ids = Array.from(
         new Set(entries.flatMap((r) => [r.admin_id, r.target_user_id]).filter((x): x is string => !!x))
       );
-      const { data: profiles } = (await supabase.from('profiles').select('id, username').in('id', ids)) as {
+      const { data: profiles } = (await supabase.from('public_profiles').select('id, username').in('id', ids)) as {
         data: { id: string; username: string }[] | null;
       };
       const nameMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p.username]));

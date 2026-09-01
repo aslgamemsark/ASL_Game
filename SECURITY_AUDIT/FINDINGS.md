@@ -1,5 +1,12 @@
 # Findings
 
+> **PHASE 2 UPDATE (2026-09-01).** Every finding below has been re-tested at runtime against real
+> PostgreSQL, two new findings were added (F-008 HIGH, F-009 LOW), and one Phase 1 overstatement is
+> corrected (F-002 minted ~1e8 gold, not 999999999 — the `user_progress_sane` CHECK constraint,
+> which this document originally missed, blocks the larger value). **Read
+> `SECURITY_AUDIT/FINAL_SECURITY_AUDIT.md` for current status** — the statuses in the table below
+> are superseded there.
+
 **Verification status is stated per finding and is not uniform.** No local or staging environment could be built (no Docker), so no finding below was proven by live exploitation. F-001 and F-002 are confirmed by full-chain source and schema analysis, with executable regression tests written but **not run**.
 
 | ID | Severity | Title | Status |

@@ -6,9 +6,9 @@ import {
 } from './support/multiplayerStack';
 
 /**
- * Authorization regression tests for the two findings in the 2026-09-01 security audit
- * (SECURITY_AUDIT/FINDINGS.md F-001, F-002). Both were authorization bypasses reachable by any
- * authenticated user holding nothing but the public anon key and their own valid JWT.
+ * Authorization regression tests for the 2026-09-01 security audit (SECURITY_AUDIT/FINDINGS.md):
+ * F-001 and F-002 from phase 1, F-008 and F-003 from the phase 2 adversarial pass. Every one was
+ * reachable by an ordinary account holding nothing but the public anon key and its own valid JWT.
  *
  * These run against the LOCAL Supabase stack only (assertLocalOnly), with synthetic accounts —
  * never production. They exist so a future migration cannot silently reintroduce either hole:
@@ -124,8 +124,11 @@ test.describe('security regressions — RLS authorization', () => {
     try {
       const bobClient = await clientAs(bob);
       await bobClient.from('user_progress').insert({
-        user_id: bob.id, gold: 999_999_999, xp: 999_999_999, signs: 999_999,
-        total_correct_signs: 999_999, rename_cards: 999, streak_freezes: 999,
+        // Deliberately UNDER user_progress_sane's 1e8 ceiling. 999_999_999 trips that CHECK
+        // constraint instead, which makes the test pass for the wrong reason and never exercises
+        // the trigger this test exists to cover (found while runtime-verifying the fix).
+        user_id: bob.id, gold: 99_000_000, xp: 99_000_000, signs: 99_000_000,
+        total_correct_signs: 99_000_000, rename_cards: 9_999, streak_freezes: 9_999,
       });
 
       const { data } = await admin
@@ -146,6 +149,94 @@ test.describe('security regressions — RLS authorization', () => {
       await admin.from('user_progress').delete().eq('user_id', bob.id);
       await admin.from('user_progress').insert({ user_id: bob.id });
     }
+  });
+
+
+  // ── F-008 ────────────────────────────────────────────────────────────────────────────────────
+  // The `not current_user_banned()` predicate guarded progress/attempts/training/friendships but
+  // was never carried over to multiplayer (added later), feedback or reports. A banned account
+  // could therefore still create rooms AND join them via join_multiplayer_room() -- becoming a
+  // real multiplayer_room_members row, which is exactly what the Realtime policies authorize on,
+  // and therefore regaining access to other participants' live webcam streams over WebRTC.
+  test('F-008: a banned user cannot create or join a multiplayer room', async () => {
+    const [alice, bob] = await twoUsers();
+    const admin = createAdminClient();
+    const code = `BAN${Date.now().toString().slice(-5)}`;
+
+    await admin.from('multiplayer_rooms').delete().eq('code', code);
+    await admin.from('multiplayer_rooms').insert({
+      code, mode: 'duel', visibility: 'private', host_id: alice.id, max_participants: 2,
+    });
+    await admin.from('profiles').update({ is_banned: true, ban_reason: 'e2e test' }).eq('id', bob.id);
+
+    try {
+      const bobClient = await clientAs(bob);
+
+      const { error: joinErr } = await bobClient.rpc('join_multiplayer_room', { p_code: code });
+      expect(joinErr, 'a banned user must not be able to join a room').not.toBeNull();
+
+      const { data: members } = await admin
+        .from('multiplayer_room_members').select('user_id').eq('room_code', code).eq('user_id', bob.id);
+      expect(members ?? [], 'a banned user must not become a room member').toEqual([]);
+
+      const ownCode = `BANOWN${Date.now().toString().slice(-4)}`;
+      await bobClient.from('multiplayer_rooms').insert({
+        code: ownCode, mode: 'duel', visibility: 'public', host_id: bob.id, max_participants: 2,
+      });
+      const { data: created } = await admin.from('multiplayer_rooms').select('code').eq('code', ownCode);
+      expect(created ?? [], 'a banned user must not be able to host a room').toEqual([]);
+    } finally {
+      await admin.from('profiles').update({ is_banned: false, ban_reason: null }).eq('id', bob.id);
+      await admin.from('multiplayer_rooms').delete().eq('code', code);
+    }
+  });
+
+  test('F-008: a NON-banned user can still create and join rooms (no over-tightening)', async () => {
+    const [alice, bob] = await twoUsers();
+    const admin = createAdminClient();
+    const code = `OK${Date.now().toString().slice(-5)}`;
+    await admin.from('multiplayer_rooms').delete().eq('code', code);
+    try {
+      const aliceClient = await clientAs(alice);
+      const { error: createErr } = await aliceClient.from('multiplayer_rooms').insert({
+        code, mode: 'duel', visibility: 'private', host_id: alice.id, max_participants: 2,
+      });
+      expect(createErr, 'a normal user must still be able to host').toBeNull();
+
+      const bobClient = await clientAs(bob);
+      const { error: joinErr } = await bobClient.rpc('join_multiplayer_room', { p_code: code });
+      expect(joinErr, 'a normal user must still be able to join by code').toBeNull();
+    } finally {
+      await admin.from('multiplayer_rooms').delete().eq('code', code);
+    }
+  });
+
+  // ── F-003 ────────────────────────────────────────────────────────────────────────────────────
+  // profiles carried is_admin / is_banned / ban_reason (free-text moderator notes) behind a
+  // `using (true)` SELECT policy, making all of it readable anonymously. RLS is row-level, so the
+  // fix is a curated public_profiles view plus an own-row-or-admin policy on the base table.
+  test('F-003: moderation and privilege columns are not readable cross-user', async () => {
+    const [alice, bob] = await twoUsers();
+    const bobClient = await clientAs(bob);
+
+    const { data: cross } = await bobClient
+      .from('profiles').select('is_admin, is_banned, ban_reason').eq('id', alice.id);
+    expect(cross ?? [], "another user's privilege/moderation columns must not be readable").toEqual([]);
+
+    const { data: own } = await bobClient
+      .from('profiles').select('username, is_admin, is_banned').eq('id', bob.id);
+    expect(own?.length, 'a user must still read their OWN profile flags').toBe(1);
+  });
+
+  test('F-003: public_profiles still serves leaderboard/friends lookups', async () => {
+    const [alice, bob] = await twoUsers();
+    const bobClient = await clientAs(bob);
+    const { data, error } = await bobClient
+      .from('public_profiles').select('id, username').eq('id', alice.id);
+    expect(error, 'public_profiles must be readable').toBeNull();
+    expect(data?.length, 'cross-user username lookup must still work').toBe(1);
+    expect(Object.keys(data?.[0] ?? {}), 'view must not expose moderation columns')
+      .not.toContain('ban_reason');
   });
 
   // ── Standing invariants (would have caught both findings as a class) ─────────────────────────
