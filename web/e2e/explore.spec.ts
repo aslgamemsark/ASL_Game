@@ -7,7 +7,7 @@
 // Walks guest-reachable screens in the PRODUCTION build asserting: no console errors, no dead
 // ends (every screen has an exit affordance), and that double-clicks cannot wedge navigation.
 import { test, expect, type Page } from '@playwright/test';
-import { waitForAnimationsToSettle } from './helpers';
+import { completeOnboarding, waitForAnimationsToSettle } from './helpers';
 
 // F8 fix: this array was module-level and NEVER reset, so errors recorded in one test leaked into
 // the next test's assertion within the same worker — a failure here could be caused by a different
@@ -23,19 +23,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 /** Asserts THIS spec's own error filter is empty. Kept local to each test so the message names it. */
-function expectNoConsoleErrors() {
+function expectNoConsoleErrors(step = 'scenario') {
   // favicon 404s are a dev-server artifact; posthog is force-unconfigured by the webServer env.
-  expect(consoleErrors.filter((e) => !/favicon|posthog/i.test(e))).toEqual([]);
-}
-
-async function enterAsGuest(page: Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: /get started/i }).click();
-  await page.getByRole('button', { name: /continue as guest/i }).click();
-  await page.getByRole('button', { name: /just starting/i }).click();
-  // Home is settled when the Journey tab's content is visible — the same ready signal the rest of
-  // e2e/ uses (navigation.spec.ts reachHome), replacing the old blind waitForTimeout.
-  await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
+  expect(consoleErrors.filter((e) => !/favicon|posthog/i.test(e)), step).toEqual([]);
 }
 
 /** Opens one of the Profile tab's "Explore" cards and asserts the destination screen rendered.
@@ -54,7 +44,8 @@ async function openExploreCard(page: Page, label: string) {
 const meTab = (page: Page) => page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first();
 
 test('desktop navigation keeps Explore hidden while every destination remains reachable', async ({ page }) => {
-  await enterAsGuest(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await completeOnboarding(page);
 
   await meTab(page).click();
   await expect(page.getByRole('heading', { name: 'Explore', exact: true })).toBeHidden();
@@ -67,7 +58,7 @@ test('desktop navigation keeps Explore hidden while every destination remains re
 });
 
 test('explore: Leaderboard, Multiplayer and Friends render content and exit back home', async ({ page }) => {
-  await enterAsGuest(page);
+  await completeOnboarding(page);
 
   // All three live on the Me tab as labelled cards (ProfileTab.tsx "Explore" grid).
   for (const label of ['Leaderboard', 'Multiplayer', 'Friends']) {
@@ -108,7 +99,7 @@ test('explore: Leaderboard, Multiplayer and Friends render content and exit back
 });
 
 test('explore: Settings renders and Privacy & Terms opens from it and returns', async ({ page }) => {
-  await enterAsGuest(page);
+  await completeOnboarding(page);
 
   // Settings is a card on the Me tab (spans both columns per ProfileTab.tsx).
   await meTab(page).click();
@@ -135,8 +126,8 @@ test('explore: Settings renders and Privacy & Terms opens from it and returns', 
   expectNoConsoleErrors();
 });
 
-test('explore: alphabet letter tiles open a detail dialog with Try Yourself; Escape dismisses', async ({ page }) => {
-  await enterAsGuest(page);
+test('explore: alphabet letter tiles open a detail dialog with Try Yourself; Escape dismisses', async ({ page, browserName }) => {
+  await completeOnboarding(page);
 
   await page.getByRole('button', { name: /Alphabets/ }).first().click();
   // The letter grid is the settled state of this tab (AlphabetTab.tsx).
@@ -150,13 +141,34 @@ test('explore: alphabet letter tiles open a detail dialog with Try Yourself; Esc
   await expect(dialog).toBeVisible({ timeout: 10_000 });
   await expect(dialog.getByText(/try yourself/i)).toBeVisible();
 
+  await dialog.getByRole('button', { name: 'Enlarge Letter A demo' }).click();
+  const enlarged = page.getByRole('dialog', { name: 'Letter A demo, enlarged' });
+  await expect(enlarged).toBeVisible();
+  if (browserName === 'webkit') {
+    await expect(enlarged.getByRole('slider', { name: 'Scrub enlarged clip' })).toBeVisible();
+  } else {
+    await expect(enlarged.locator('video')).toHaveAttribute('controls', '');
+  }
+  await expect(enlarged.getByRole('button', { name: 'Restart enlarged clip' })).toBeVisible();
+  expectNoConsoleErrors('opening enlarged clip');
+  const mirror = enlarged.getByRole('button', { name: 'Mirror enlarged clip' });
+  await mirror.click();
+  await expect(mirror).toHaveAttribute('aria-pressed', 'true');
+  expectNoConsoleErrors('mirroring enlarged clip');
+  await enlarged.getByRole('button', { name: '0.5×' }).click();
+  await expect(enlarged.getByRole('button', { name: '0.5×' })).toHaveAttribute('aria-pressed', 'true');
+  expectNoConsoleErrors('changing enlarged clip speed');
+
+  await page.keyboard.press('Escape');
+  await expect(enlarged).not.toBeVisible({ timeout: 10_000 });
+
   await page.keyboard.press('Escape');
   await expect(dialog).not.toBeVisible({ timeout: 10_000 });
   expectNoConsoleErrors();
 });
 
 test('explore: rapid double-clicks on nav do not wedge the app', async ({ page }) => {
-  await enterAsGuest(page);
+  await completeOnboarding(page);
 
   const lb = meTab(page);
   for (let i = 0; i < 6; i++) { await lb.click({ delay: 30 }).catch(() => {}); }
@@ -172,7 +184,7 @@ test('explore: rapid double-clicks on nav do not wedge the app', async ({ page }
 });
 
 test('explore: browser Back from a lesson intro lands back where Back was handled', async ({ page }) => {
-  await enterAsGuest(page);
+  await completeOnboarding(page);
 
   // Journey tab: Home shows the world list ("Say Hello" card, unlocked by default). Open it,
   // then click the current node's button — named "Lesson: Say Hello" via LessonNode's aria-label.

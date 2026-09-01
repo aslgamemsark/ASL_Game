@@ -12,6 +12,7 @@ import { track, type ScreenName } from '@/analytics';
 import { speakSign } from '@/lib/speak';
 import { decideAttemptBoundaryOutcome, decideRecognitionOutcome, type AttemptTrigger, type RecognitionOutcomeKind, type RecognitionReason } from '@/lib/recognition/outcome';
 import { measureRecognitionEvidence, type RecognitionEvidence } from '@/lib/recognition/evidence';
+import { advanceDisputeReadiness, advanceQualityAnnouncement, beginAttempt, cancelAttempt, createAttemptLifecycle, createQualityAnnouncementState, finishAttempt, isFinalizableBoundary, rearmAfterVerifierDisagreement, type RecognitionCameraStatus } from '@/lib/recognition/attemptLifecycle';
 import { createExternalStore, type ExternalStore } from './externalStore';
 
 // Static signs (movement.kind === NONE) have no motion scorer to naturally pace a pass —
@@ -97,9 +98,8 @@ export interface VerificationEntry {
 }
 
 /**
- * One persisted attempt — fired whenever the rule verifier clears its pass threshold (whether
- * or not the AI gate then vetoes it), so analytics/training-data capture sees every real
- * attempt, not just final successes.
+ * One explicit attempt boundary: pass, veto, skip, timeout, or real camera interruption.
+ * Persistence policy is applied later by useAttemptLog; unscorable records remain analytics-only.
  */
 export interface AttemptRecord {
   signId: string;
@@ -186,15 +186,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   // doesn't setState on every one of the ~28 frames/sec — only when the guidance actually changes.
   const [framing, setFraming] = useState<FramingStatus | null>(null);
   const [qualityAnnouncement, setQualityAnnouncement] = useState<string | null>(null);
-  useEffect(() => {
-    const issue = framing && !framing.ok ? framing.message : null;
-    if (!issue) {
-      setQualityAnnouncement(null);
-      return;
-    }
-    const timer = window.setTimeout(() => setQualityAnnouncement(issue), 600);
-    return () => window.clearTimeout(timer);
-  }, [framing]);
+  const qualityAnnouncementRef = useRef(createQualityAnnouncementState());
   const [disputeReady, setDisputeReady] = useState(false);
   const disputeReadyRef = useRef(false);
   const framingMsgRef = useRef<string | null>(null);
@@ -227,6 +219,13 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   // relative to the CURRENT sign, not a previous one in the same session.
   const loopStartRef = useRef(0);
   const attemptCountRef = useRef(0);
+  const lifecycleRef = useRef(createAttemptLifecycle());
+
+  const claimAttempt = useCallback((trigger: AttemptTrigger, token = lifecycleRef.current.token) => {
+    const result = finishAttempt(lifecycleRef.current, token, trigger);
+    lifecycleRef.current = result.state;
+    return result.accepted;
+  }, []);
 
   const init = useCallback(async () => {
     if (captureRef.current?.ready) {
@@ -250,6 +249,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       // Always stop previous loop first
       cancelAnimationFrame(rafRef.current);
       runningRef.current = false;
+      lifecycleRef.current = cancelAttempt(lifecycleRef.current);
 
       signRef.current = sign;
       bufferRef.current.clear();
@@ -260,6 +260,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       frameCountRef.current = 0;
       lastResultRef.current = null;
       goodEvidenceSinceRef.current = null;
+      qualityAnnouncementRef.current = createQualityAnnouncementState();
+      setQualityAnnouncement(null);
       disputeReadyRef.current = false;
       setDisputeReady(false);
       loopStartRef.current = performance.now();
@@ -274,6 +276,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       }
 
       runningRef.current = true;
+      lifecycleRef.current = beginAttempt(lifecycleRef.current);
       setStatus('running');
       if (import.meta.env.DEV) console.log('[QuickSign] Loop started for', sign.name);
 
@@ -385,19 +388,15 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           // same dedup boundary doubles as the analytics sample point — one framing_check per
           // actual guidance change, never per frame.
           const f = computeFraming(frame);
-          if (f.ok) {
-            if (goodEvidenceSinceRef.current === null) goodEvidenceSinceRef.current = nowMs;
-            if (nowMs - goodEvidenceSinceRef.current >= 5000 && !disputeReadyRef.current) {
-              disputeReadyRef.current = true;
-              setDisputeReady(true);
-            }
-          } else {
-            goodEvidenceSinceRef.current = null;
-            if (disputeReadyRef.current) {
-              disputeReadyRef.current = false;
-              setDisputeReady(false);
-            }
+          const nextAnnouncement = advanceQualityAnnouncement(
+            qualityAnnouncementRef.current,
+            f.ok ? null : f.message,
+            nowMs
+          );
+          if (nextAnnouncement.announced !== qualityAnnouncementRef.current.announced) {
+            setQualityAnnouncement(nextAnnouncement.announced);
           }
+          qualityAnnouncementRef.current = nextAnnouncement;
           if (f.message !== framingMsgRef.current) {
             framingMsgRef.current = f.message;
             setFraming(f);
@@ -408,6 +407,21 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
           const vr = verify(bufferRef.current, signRef.current);
           lastResultRef.current = vr;
+          const rawFrame = rawBufferRef.current.end;
+          const hasRequiredRawHands = !!rawFrame && rawFrame.hands.length >= (sign.twoHanded ? 2 : 1);
+          const hasGoodRawEvidence = !!rawFrame && hasRequiredRawHands && computeFraming(rawFrame).ok;
+          const dispute = advanceDisputeReadiness(
+            goodEvidenceSinceRef.current,
+            nowMs,
+            lifecycleRef.current,
+            resultPassed(vr),
+            hasGoodRawEvidence
+          );
+          goodEvidenceSinceRef.current = dispute.sinceMs;
+          if (dispute.ready !== disputeReadyRef.current) {
+            disputeReadyRef.current = dispute.ready;
+            setDisputeReady(dispute.ready);
+          }
           if (nowMs - lastResultUpdateMs >= RESULT_UPDATE_INTERVAL_MS) {
             lastResultUpdateMs = nowMs;
             // Dual publish: React state for legacy consumers + external store for the isolated
@@ -426,6 +440,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           // passes on rules alone. Shared by both the static-hold path and the movement
           // frame-debounce path below — the two differ only in WHEN this gets called.
           const firePass = () => {
+            if (lifecycleRef.current.status !== 'active') return;
+            const attemptToken = lifecycleRef.current.token;
             const cls = classifierRef.current;
             if (cls?.enabled && cls.knownSigns.has(sign.name) && !GATE_EXCLUDED_SIGNS.has(sign.name)) {
               // Gate the rule-pass through the ML classifier (single inference at pass time).
@@ -441,6 +457,8 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                     // next to a success is contradictory, and in shadow mode every attempt the
                     // model disliked still passes.
                     const hint = passed ? null : gateHint(vote, gatedSign.name);
+                    const trigger = passed ? 'recognition_pass' : 'classifier_veto';
+                    if (!claimAttempt(trigger, attemptToken)) return;
                     voteCallbackRef.current?.({
                       prompted: gatedSign.name,
                       vote,
@@ -465,7 +483,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       // mode and that divergence is exactly the veto-precision measurement.
                       aiVetoed: modelVetoed,
                       finalPassed: passed,
-                      trigger: modelVetoed ? 'classifier_veto' : 'recognition_pass',
+                      trigger,
                       outcome: decideRecognitionOutcome({ recognitionPassed: passed, scorable: true, reasons: [] }).kind,
                       reasons: [],
                       verifier: vr,
@@ -486,6 +504,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                   .finally(() => { gatingRef.current = false; });
               }
             } else {
+              if (!claimAttempt('recognition_pass', attemptToken)) return;
               if (import.meta.env.DEV) console.log('[QuickSign] PASS:', sign.name, vr.params.map(p => `${p.name}=${p.score.toFixed(2)}`).join(' '));
               verifiedCallbackRef.current?.({
                 signName: sign.name,
@@ -517,6 +536,9 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
           // Don't allow pass until the buffer has had time to fill
           const clearedEnough = nowMs - loopStartRef.current >= MIN_MS_BEFORE_PASS && resultPassed(vr);
+          if (!clearedEnough) {
+            lifecycleRef.current = rearmAfterVerifierDisagreement(lifecycleRef.current);
+          }
 
           if (isStaticSign) {
             // Hold-to-pass: the pose must clear the verifier continuously for
@@ -560,7 +582,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
       rafRef.current = requestAnimationFrame(tick);
     },
-    [publishResult, publishHold]
+    [claimAttempt, publishResult, publishHold]
   );
 
   const stopLoop = useCallback(() => {
@@ -571,9 +593,9 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
   const getSnapshot = useCallback((): Frame[] => bufferRef.current.frames, []);
 
-  const finalizeAttempt = useCallback((trigger: AttemptTrigger, cameraStatus: 'active' | 'denied' | 'error' | 'stalled' | 'idle' | 'requesting' = 'active'): AttemptRecord | null => {
+  const finalizeAttempt = useCallback((trigger: AttemptTrigger, cameraStatus: RecognitionCameraStatus = 'active'): AttemptRecord | null => {
     const sign = signRef.current;
-    if (!sign) return null;
+    if (!sign || !isFinalizableBoundary(trigger, cameraStatus) || !claimAttempt(trigger)) return null;
     const cameraReason: RecognitionReason | null = cameraStatus === 'stalled'
       ? 'CAMERA_STALLED'
       : cameraStatus === 'active'
@@ -601,32 +623,41 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     };
     attemptCallbackRef.current?.(attempt);
     return attempt;
-  }, []);
+  }, [claimAttempt]);
 
   const disputeAttempt = useCallback(() => {
     const sign = signRef.current;
-    if (!sign || !disputeReady || !screenRef.current) return false;
+    if (!sign || !disputeReadyRef.current || !screenRef.current) return false;
     const result = lastResultRef.current;
     const required = result?.params.filter((param) => param.required) ?? [];
     const quality = measureRecognitionEvidence(rawBufferRef.current.frames, sign);
     track('recognition_disputed', {
       sign_id: sign.name,
       screen: screenRef.current,
-      outcome: 'NEEDS_CORRECTION',
-      primary_reason: required.find((param) => param.score < param.threshold)?.name ?? null,
-      parameter_score: required.length ? required.reduce((sum, param) => sum + param.score, 0) / required.length : null,
-      quality_score: (quality.requiredHandCoverage + quality.poseCoverage + quality.stableTrackingRatio + (1 - quality.clippedFrameRatio)) / 4,
+      verifier_passed: false,
+      sustained_disagreement_ms: 5000,
+      lowest_parameter: required.reduce<(typeof required)[number] | null>((lowest, param) => (
+        !lowest || param.score < lowest.score ? param : lowest
+      ), null)?.name ?? null,
+      lowest_parameter_score: required.length ? Math.min(...required.map((param) => param.score)) : null,
+      raw_hand_coverage: quality.requiredHandCoverage,
+      raw_pose_coverage: quality.poseCoverage,
+      raw_clipped_frame_ratio: quality.clippedFrameRatio,
     });
     bufferRef.current.clear();
     rawBufferRef.current.clear();
     stabilizerRef.current.reset();
     lastResultRef.current = null;
+    lifecycleRef.current = beginAttempt(lifecycleRef.current);
     loopStartRef.current = performance.now();
     goodEvidenceSinceRef.current = null;
     disputeReadyRef.current = false;
     setDisputeReady(false);
+    publishResult(null);
+    publishHold(null);
+    hintCallbackRef.current?.(null);
     return true;
-  }, [disputeReady]);
+  }, [publishHold, publishResult]);
 
   /**
    * Subscribe to the 10 Hz live result WITHOUT re-rendering this hook's owner. Intended for
@@ -657,6 +688,9 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     setDisputeReady(false);
     loopStartRef.current = performance.now();
     attemptCountRef.current = 0;
+    lifecycleRef.current = runningRef.current
+      ? beginAttempt(lifecycleRef.current)
+      : cancelAttempt(lifecycleRef.current);
     publishResult(null);
     publishHold(null);
   }, [publishResult, publishHold]);

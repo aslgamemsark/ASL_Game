@@ -180,12 +180,16 @@ export function PracticePage({
   // Start recognition loop for expressive questions (plain expressive mode, or a
   // camera-type question within a mixed session)
   useEffect(() => {
-    if (currentType !== 'expressive' || cardPhase !== 'prompt' || cameraUnavailable) {
-      // cameraUnavailable also stops: a track dying mid-session (unplugged, iOS mute
-      // escalation) must not leave MediaPipe burning CPU on a dead video — same fix as
-      // LessonPage. Recovery re-arms via "Try again" → camStatus 'active'.
+    if (currentType !== 'expressive' || cardPhase !== 'prompt') {
       if (loopStartedRef.current) {
-        recognition.finalizeAttempt('camera_interruption', camStatus);
+        recognition.stopLoop();
+        loopStartedRef.current = null;
+      }
+      return;
+    }
+    if (cameraUnavailable) {
+      if (loopStartedRef.current) {
+        if (camStatus !== 'active') recognition.finalizeAttempt('camera_interruption', camStatus);
         recognition.stopLoop();
         loopStartedRef.current = null;
       }
@@ -407,7 +411,7 @@ export function PracticePage({
     setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
       const attempt = recognition.finalizeAttempt('skip', camStatus);
-      if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false, params: attempt?.verifier ? Object.fromEntries(attempt.verifier.params.filter((param) => param.required).map((param) => [param.name, { score: param.score, threshold: param.threshold }])) : undefined });
+      if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false, params: undefined });
     }
     recorder.discard();
     loopStartedRef.current = null;

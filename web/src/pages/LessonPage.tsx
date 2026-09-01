@@ -181,14 +181,19 @@ export function LessonPage({ lessonId, onExit, onPracticeWithoutCamera }: Props)
   }, [recognition.init]);
 
   useEffect(() => {
-    if (phase !== 'signing' || cameraUnavailable) {
-      // Also stop on cameraUnavailable: a track that dies mid-lesson (unplugged, OS revocation,
-      // iOS mute escalation — see useCamera) leaves the loop running against a dead video,
-      // burning MediaPipe CPU producing garbage verify() scores for the recovery card to sit
-      // next to. "Try again" restarts the camera; once camStatus is 'active' again this effect
-      // re-arms the loop.
+    if (phase !== 'signing') {
       if (loopStartedForSign.current) {
-        recognition.finalizeAttempt('camera_interruption', camStatus);
+        recognition.stopLoop();
+        loopStartedForSign.current = null;
+      }
+      return;
+    }
+    if (cameraUnavailable) {
+      // A normal success/feedback transition only stops the loop above. Only a real camera
+      // failure closes the active attempt as neutral; a recognition-engine error is not evidence
+      // that the camera itself failed.
+      if (loopStartedForSign.current) {
+        if (camStatus !== 'active') recognition.finalizeAttempt('camera_interruption', camStatus);
         recognition.stopLoop();
         loopStartedForSign.current = null;
       }
@@ -253,7 +258,7 @@ export function LessonPage({ lessonId, onExit, onPracticeWithoutCamera }: Props)
     setTimeout(() => setSkipMsg(null), 2000);
     if (currentSignId) {
       const attempt = recognition.finalizeAttempt('skip', camStatus);
-      if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false, params: attempt?.verifier ? Object.fromEntries(attempt.verifier.params.filter((param) => param.required).map((param) => [param.name, { score: param.score, threshold: param.threshold }])) : undefined });
+      if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false, params: undefined });
     }
     recorder.discard();
     loopStartedForSign.current = null;

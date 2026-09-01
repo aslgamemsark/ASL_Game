@@ -321,8 +321,10 @@ export interface AttemptPayload {
   finalPassed: boolean;
   outcome: RecognitionOutcomeKind;
   quality: RecognitionEvidence;
+  evidenceSchemaVersion: number;
+  recognitionVersion: string;
   source: TrainingDataSource;
-  /** Landmark snapshot for this attempt. Persisted only if the user hasn't opted out. */
+  /** Landmark snapshot for this attempt. Persisted only after explicit user opt-in. */
   frames: Frame[];
 }
 
@@ -334,7 +336,7 @@ export interface AttemptPayload {
  */
 export async function logAttempt(payload: AttemptPayload) {
   if (!supabaseReady) return;
-  const { userId, signId, rulePassed, aiPrediction, aiConfidence, aiVetoed, finalPassed, outcome, quality } = payload;
+  const { userId, signId, rulePassed, aiPrediction, aiConfidence, aiVetoed, finalPassed, outcome, quality, evidenceSchemaVersion, recognitionVersion } = payload;
 
   // Fire-and-forget telemetry: failures are logged, never rethrown — callers invoke this with
   // `void` from render-adjacent paths, so a rejection here would surface as a spurious
@@ -351,6 +353,8 @@ export async function logAttempt(payload: AttemptPayload) {
       ai_vetoed: aiVetoed,
       outcome,
       quality_metrics: quality,
+      evidence_schema_version: evidenceSchemaVersion,
+      recognition_version: recognitionVersion,
     } as Record<string, unknown>);
     if (error) console.error('[telemetry] sign_attempts insert failed:', error.message);
 

@@ -6,9 +6,10 @@ export function getSignsDueForReview(
   mode?: SignPracticeMode,
 ): string[] {
   const now = Date.now();
+  const history = (stats: SignStats) => mode ? stats.byMode?.[mode] ?? stats : stats;
   const due = Object.entries(signAccuracy)
-    .filter(([, stats]) => (stats.byMode?.[mode ?? 'receptive'] ?? stats).nextReviewAt <= now)
-    .sort(([, a], [, b]) => (a.byMode?.[mode ?? 'receptive'] ?? a).nextReviewAt - (b.byMode?.[mode ?? 'receptive'] ?? b).nextReviewAt)
+    .filter(([, stats]) => history(stats).nextReviewAt <= now)
+    .sort(([, a], [, b]) => history(a).nextReviewAt - history(b).nextReviewAt)
     .map(([id]) => id);
 
   if (due.length >= limit) return due.slice(0, limit);
@@ -16,8 +17,8 @@ export function getSignsDueForReview(
   const weakest = Object.entries(signAccuracy)
     .filter(([id]) => !due.includes(id))
     .sort(([, a], [, b]) => {
-      const aMode = a.byMode?.[mode ?? 'receptive'];
-      const bMode = b.byMode?.[mode ?? 'receptive'];
+      const aMode = mode ? a.byMode?.[mode] : undefined;
+      const bMode = mode ? b.byMode?.[mode] : undefined;
       const weakestParameter = (stats: typeof aMode) => stats?.parameters
         ? Math.min(...Object.values(stats.parameters).filter((parameter) => parameter.attempts >= 3).map((parameter) => parameter.score), 1)
         : 1;

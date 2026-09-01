@@ -25,8 +25,10 @@ function stripDevOnlyPublicAssets(): Plugin {
         // Landmark fixtures for the Avatar Lab's LandmarkViewer. That whole page is behind
         // `import.meta.env.DEV`, so nothing in a production build can fetch these.
         rm(path.resolve(__dirname, 'dist/dev'), { recursive: true, force: true }),
-        // The classifier is enabled in shadow mode, so its model files must ship. It remains a
-        // lazy camera-screen download rather than part of the initial app bundle.
+        // Current classifier weights were trained from datasets whose commercial redistribution
+        // rights have not been cleared. Keep the research files in public/ for local work, but do
+        // not put them in a normal production artifact. Rule recognition remains fully functional.
+        rm(path.resolve(__dirname, 'dist/models/signs'), { recursive: true, force: true }),
       ]);
     },
   };

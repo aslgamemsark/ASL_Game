@@ -20,7 +20,7 @@ export const useSettingsStore = create<SettingsStore>()(
       toggleVibration: () => set((s) => ({ vibrationEnabled: !s.vibrationEnabled })),
       soundEnabled: true,
       toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
-      speechEnabled: true,
+      speechEnabled: false,
       toggleSpeech: () => set((s) => ({ speechEnabled: !s.speechEnabled })),
     }),
     {

@@ -21,6 +21,9 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
   const [rate, setRate] = useState(1);
   const [mirrored, setMirrored] = useState(false);
   const { expanded, open, close } = useClipEnlarge();
+  const nativeControls = typeof navigator === 'undefined'
+    || !/AppleWebKit/.test(navigator.userAgent)
+    || /(Chrome|Chromium|Edg)\//.test(navigator.userAgent);
 
   useEffect(() => {
     setFailed(false);
@@ -33,7 +36,7 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
   }, [clipUrl, failed]);
 
   useEffect(() => {
-    if (videoRef.current) videoRef.current.playbackRate = rate;
+    if (videoRef.current?.readyState) videoRef.current.playbackRate = rate;
   }, [rate]);
 
   const showPlaceholder = !clipUrl || failed;
@@ -61,17 +64,17 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
               loop
               muted
               playsInline
-              controls
+              controls={!compact && nativeControls}
+              onLoadedMetadata={(event) => { event.currentTarget.playbackRate = rate; }}
               onError={() => setFailed(true)}
-              className="w-full h-full object-contain"
-              style={{ transform: mirrored ? 'scaleX(-1)' : undefined }}
+              className={`w-full h-full object-contain ${mirrored ? '-scale-x-100' : ''}`}
             />
             <div className="absolute top-2 right-2 flex gap-1">
-              <button type="button" onClick={() => { if (videoRef.current) { videoRef.current.currentTime = 0; void videoRef.current.play(); } }} aria-label="Restart reference clip" className="min-w-11 min-h-11 rounded-full bg-video-plate text-white">↺</button>
-              <button type="button" onClick={() => setMirrored((value) => !value)} aria-pressed={mirrored} aria-label="Mirror reference clip" className="min-w-11 min-h-11 rounded-full bg-video-plate text-white">⇄</button>
+              <button type="button" onClick={() => { if (videoRef.current) { videoRef.current.currentTime = 0; void videoRef.current.play(); } }} aria-label="Restart reference clip" className={`min-w-11 min-h-11 rounded-full bg-video-plate text-white ${compact ? 'hidden' : ''}`}>↺</button>
+              <button type="button" onClick={() => setMirrored((value) => !value)} aria-pressed={mirrored} aria-label="Mirror reference clip" className={`min-w-11 min-h-11 rounded-full bg-video-plate text-white ${compact ? 'hidden' : ''}`}>⇄</button>
               <button type="button" onClick={open} aria-label="Enlarge reference clip" className="min-w-11 min-h-11 rounded-full bg-video-plate text-white">⤢</button>
             </div>
-            <div className="absolute top-14 right-2 flex gap-1 bg-video-plate rounded-lg p-1">
+            <div className={`absolute top-14 right-2 gap-1 bg-video-plate rounded-lg p-1 ${compact ? 'hidden' : 'flex'}`}>
               {[0.5, 0.75, 1].map((value) => <button key={value} type="button" onClick={() => setRate(value)} aria-pressed={rate === value} className="min-w-11 min-h-11 text-xs text-white rounded">{value}×</button>)}
             </div>
           </>
@@ -85,7 +88,7 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
 
             Hidden below `lg` in the compact (desktop three-column) variant, where the clip is a
             thumbnail alongside the webcam and the sign name is already the page heading. */}
-        <div className={`absolute bottom-0 left-0 right-0 ${compact ? 'hidden lg:block' : ''}`}>
+        <div className={`absolute left-0 right-0 pointer-events-none ${showPlaceholder ? 'bottom-0' : 'bottom-12'} ${compact ? 'hidden' : ''}`}>
           <div className="h-6 bg-gradient-to-t from-black/62 to-transparent" aria-hidden="true" />
           <div className="bg-video-plate p-3">
             <p className="text-white text-sm font-bold">{displayName}</p>
@@ -95,7 +98,7 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
       </motion.div>
 
       {compact && !showPlaceholder && (
-        <p className="text-center text-z-gray-300 text-xs mt-1 lg:hidden">Use ⤢ to enlarge</p>
+        <p className="text-center text-z-gray-300 text-xs mt-1">Use ⤢ to enlarge</p>
       )}
 
       {!showPlaceholder && clipUrl && (

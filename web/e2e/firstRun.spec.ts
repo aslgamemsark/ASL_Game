@@ -4,6 +4,7 @@
 // zero-state carries either content or an explicit CTA. Runs on the production build via the
 // canonical config's webServer.
 import { test, expect, type Page } from '@playwright/test';
+import { completeOnboarding } from './helpers';
 
 let consoleErrors: string[] = [];
 
@@ -21,10 +22,7 @@ const meTab = (page: Page) =>
   page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first();
 
 async function enterAsGuest(page: Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: /get started/i }).click();
-  await page.getByRole('button', { name: /continue as guest/i }).click();
-  await page.getByRole('button', { name: /just starting/i }).click();
+  await completeOnboarding(page);
   await expect(
     page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Journey/ }).first()
   ).toBeVisible({ timeout: 15_000 });
@@ -52,13 +50,17 @@ test.describe('ASL-D2 first-run & empty states', () => {
     // Welcome screen must offer a path that requires no account.
     await expect(page.getByRole('button', { name: /get started/i })).toBeVisible({ timeout: 10_000 });
     await page.getByRole('button', { name: /get started/i }).click();
-    await expect(page.getByRole('button', { name: /continue as guest/i })).toBeVisible({ timeout: 10_000 });
-    await page.getByRole('button', { name: /continue as guest/i }).click();
     // Skill pick: all three options present so any newcomer can proceed (OnboardingFlow SKILLS).
     for (const level of [/just starting/i, /some experience/i, /conversational/i]) {
       await expect(page.getByRole('button', { name: level }).first()).toBeVisible({ timeout: 10_000 });
     }
     await page.getByRole('button', { name: /just starting/i }).click();
+    await expect(page.getByRole('button', { name: /skip for now/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /skip for now/i }).click();
+    const guestButton = page.getByRole('button', { name: /continue as guest/i });
+    if (await guestButton.waitFor({ state: 'visible', timeout: 2_000 }).then(() => true).catch(() => false)) {
+      await guestButton.click();
+    }
     await expect(
       page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Journey/ }).first()
     ).toBeVisible({ timeout: 15_000 });

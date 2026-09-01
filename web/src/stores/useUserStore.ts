@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { UserProgress, SkillLevel, Quest, QuestType, SpeedTier, Chest, SignAttemptInput, SignParameterEvidence, SignStats } from '@/types/user';
+import type { UserProgress, SkillLevel, Quest, QuestType, SpeedTier, Chest, SignAttemptInput, SignParameterEvidence, SignStats, ParameterMastery } from '@/types/user';
 import { generateQuestsForToday } from '@/data/quests';
 import { getBadge } from '@/data/badges';
 import { WORLDS, getWorldIdForUnit } from '@/data/worlds';
 import { getUnitIdForLesson } from '@/data/lessons';
 import { track } from '@/analytics';
+import { EVIDENCE_SCHEMA_VERSION, RECOGNITION_VERSION } from '@/lib/recognition/provenance';
 
 const STREAK_MILESTONES = [7, 30, 100];
 const MILESTONE_GOLD: Record<number, number> = { 7: 5, 30: 15, 100: 50 };
@@ -83,7 +84,7 @@ function advanceSignStats(prev: Omit<SignStats, 'byMode'>, correct: boolean, now
 
 // Updates expressive-only parameter evidence; invalid verifier values are ignored at this boundary.
 function updateParameterMastery(
-  parameters: Record<string, { attempts: number; score: number; lastAttempt: number }> | undefined,
+  parameters: Record<string, ParameterMastery> | undefined,
   evidence: Record<string, SignParameterEvidence> | undefined,
   now: number,
 ) {
@@ -97,6 +98,8 @@ function updateParameterMastery(
       attempts: (prev?.attempts ?? 0) + 1,
       score: prev ? prev.score * (1 - PARAMETER_MASTERY_ALPHA) + normalized * PARAMETER_MASTERY_ALPHA : normalized,
       lastAttempt: now,
+      evidenceSchemaVersion: EVIDENCE_SCHEMA_VERSION,
+      recognitionVersion: RECOGNITION_VERSION,
     };
   }
   return next;

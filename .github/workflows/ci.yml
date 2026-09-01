@@ -46,7 +46,8 @@ jobs:
       - run: npm run lint
       - run: npm run test
       - run: npm run build
-      - run: test -f dist/models/signs/model.json
+      - name: Ensure uncleared classifier weights are absent from release artifact
+        run: test ! -e dist/models/signs/model.json
 
   # Sign-definition drift gate (round-4 B1): signs/*.py is the source of truth;
   # tools/generate_sign_jsons.py regenerates signs/*.json, and

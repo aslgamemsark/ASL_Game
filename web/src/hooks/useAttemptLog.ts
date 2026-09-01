@@ -4,6 +4,7 @@ import { track, trackFirstSignSuccess } from '@/analytics';
 import { logAttempt, type TrainingDataSource } from '@/hooks/useProgressSync';
 import type { AttemptRecord } from '@/hooks/useRecognition';
 import type { AttemptSource } from '@/analytics/types';
+import { EVIDENCE_SCHEMA_VERSION, RECOGNITION_VERSION } from '@/lib/recognition/provenance';
 
 /**
  * Records what happened on one prompted sign, for every screen that runs the recognition loop.
@@ -15,8 +16,8 @@ import type { AttemptSource } from '@/analytics/types';
  */
 export interface AttemptLog {
   /**
-   * The recognition loop reached a verdict on this sign (rule-pass, or rule-pass overturned by the
-   * classifier's veto). Pass the record exactly as useRecognition's onAttempt supplied it.
+   * The recognition loop reached an explicit boundary. Pass the record exactly as
+   * useRecognition's onAttempt supplied it.
    */
   recordAttempt: (attempt: AttemptRecord) => void;
 }
@@ -52,6 +53,11 @@ export function trainingSourceFor(source: AttemptSource): TrainingDataSource | n
   return PERSISTED_SOURCES[source];
 }
 
+/** Unscorable attempts stay in aggregate analytics but never enter learning/training storage. */
+export function shouldPersistAttempt(outcome: AttemptRecord['outcome'], hasUser: boolean, source: AttemptSource): boolean {
+  return outcome !== 'NOT_SCORABLE' && hasUser && trainingSourceFor(source) !== null;
+}
+
 export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
   const { user } = useAuth();
   const persistedSource = trainingSourceFor(source);
@@ -84,6 +90,8 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
         duration_ms: attempt.durationMs,
         attempt_number: attempt.attemptNumber,
         quality_metrics: attempt.quality,
+        evidence_schema_version: EVIDENCE_SCHEMA_VERSION,
+        recognition_version: RECOGNITION_VERSION,
       });
       // Activation. Fires at most once per browser ever — trackFirstSignSuccess owns that guard —
       // so calling it on every pass from every surface is both safe and the only way the metric
@@ -98,7 +106,7 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
           attemptsTaken: attempt.attemptNumber,
         });
       }
-      if (attempt.outcome === 'NOT_SCORABLE' || !user || !persistedSource) return;
+      if (!shouldPersistAttempt(attempt.outcome, Boolean(user), source) || !user || !persistedSource) return;
       void logAttempt({
         userId: user.id,
         signId: attempt.signId,
@@ -109,6 +117,8 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
         finalPassed: attempt.finalPassed,
         outcome: attempt.outcome,
         quality: attempt.quality,
+        evidenceSchemaVersion: EVIDENCE_SCHEMA_VERSION,
+        recognitionVersion: RECOGNITION_VERSION,
         source: persistedSource,
         frames: attempt.frames,
       });

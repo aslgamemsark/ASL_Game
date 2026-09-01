@@ -1,11 +1,10 @@
 /**
  * Configuration for the optional ML disambiguation layer.
  *
- * Nothing here activates until a trained TF.js model is actually present at MODEL_URL AND
- * @tensorflow/tfjs is installed. Until then the app runs on the rule verifier alone — exactly
- * as it does today. To enable after a Kaggle run (Phase C):
- *   1. npm i @tensorflow/tfjs
- *   2. drop the export into  web/public/models/signs/  (model.json + *.bin + classes.json)
+ * Production loading stays disabled and normal production builds strip the current research
+ * weights until their data/model commercial rights are documented. The app therefore runs on
+ * the rule verifier alone. Re-enabling requires the human licensing/provenance sign-off recorded
+ * in docs/HUMAN_ACTIONS.md as well as fresh validation; changing this flag alone is insufficient.
  */
 
 /** URL to the TF.js model graph (served from web/public). */
@@ -18,8 +17,8 @@ export const CLASSES_URL = '/models/signs/classes.json';
  * Master switch for LOADING the classifier at all — separate from, and upstream of,
  * `GATE_ENFORCED`. Turned off 2026-07-30, back on 2026-08-04 to resume shadow-mode measurement,
  * then back OFF again 2026-08-30: `vite.config.ts`'s `stripDevOnlyPublicAssets` plugin still
- * deleted `dist/models/signs` post-build (its own comment says as much — it was never updated
- * when this flag flipped on), so every production camera-screen load fetched `MODEL_URL`/
+ * deletes `dist/models/signs` post-build, so production cannot distribute the uncleared weights.
+ * When this flag previously flipped on, every production camera-screen load fetched `MODEL_URL`/
  * `CLASSES_URL` into a 404, `useClassifier` failed open into `status: 'error'`, and shadow-mode
  * had been recording nothing since 08-04. Un-deleting the weights was the other option, but
  * model_v4 is already known out-of-distribution (see `GATE_ENFORCED` below) — shipping it now

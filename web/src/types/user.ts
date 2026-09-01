@@ -101,6 +101,9 @@ export interface ParameterMastery {
   attempts: number;
   score: number;
   lastAttempt: number;
+  /** Missing on legacy records whose verifier semantics are unknown. */
+  evidenceSchemaVersion?: number;
+  recognitionVersion?: string;
 }
 
 export interface ModeSignStats {

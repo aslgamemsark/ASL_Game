@@ -10,20 +10,29 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const insertMock = vi.fn();
+const { insertMock, fromMock, consent } = vi.hoisted(() => {
+  const insert = vi.fn();
+  return { insertMock: insert, fromMock: vi.fn(() => ({ insert })), consent: { enabled: false } };
+});
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: () => ({ insert: insertMock }),
+    from: fromMock,
   },
   supabaseReady: true,
 }));
 
-import { logSignAttempt, logVerification } from '@/hooks/useProgressSync';
+vi.mock('@/stores/useUserStore', () => ({
+  useUserStore: { getState: () => ({ collectTrainingData: consent.enabled }) },
+}));
+
+import { logAttempt, logSignAttempt, logVerification } from '@/hooks/useProgressSync';
 
 describe('telemetry helpers never reject', () => {
   beforeEach(() => {
     insertMock.mockReset();
+    fromMock.mockClear();
+    consent.enabled = false;
   });
 
   it('logSignAttempt swallows a throwing insert', async () => {
@@ -41,5 +50,23 @@ describe('telemetry helpers never reject', () => {
         vote: null,
       } as never),
     ).resolves.toBeUndefined();
+  });
+
+  it('does not upload landmark frames before explicit training-data consent', async () => {
+    insertMock.mockResolvedValue({ error: null });
+    await logAttempt({
+      userId: 'user-1', signId: 'HELLO', rulePassed: true, aiPrediction: null,
+      aiConfidence: null, aiVetoed: false, finalPassed: true, outcome: 'PASS',
+      quality: { requiredHandCoverage: 1, clippedFrameRatio: 0, poseCoverage: 1, signerScale: 0.4, durationSeconds: 1, maxFrameGapSeconds: 0.1, normalizedWristMotion: 0.2 },
+      evidenceSchemaVersion: 1, recognitionVersion: 'rules-v1',
+      source: 'lesson', frames: [{ t: 0 } as never],
+    });
+
+    expect(fromMock).toHaveBeenCalledTimes(1);
+    expect(fromMock).toHaveBeenCalledWith('sign_attempts');
+    expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({
+      evidence_schema_version: 1,
+      recognition_version: 'rules-v1',
+    }));
   });
 });

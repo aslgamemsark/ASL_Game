@@ -125,10 +125,14 @@ export function StoryPage({
   useEffect(() => { recognition.init(); }, [recognition.init]);
 
   useEffect(() => {
-    if (phase !== 'dialogue' || camStatus !== 'active') {
-      // camStatus !== 'active' also stops: a track dying mid-story (unplugged, iOS mute
-      // escalation — see useCamera) must not leave MediaPipe burning CPU against a dead video.
-      // Resuming dialogue re-arms once the camera reports active again.
+    if (phase !== 'dialogue') {
+      if (loopStartedRef.current) {
+        recognition.stopLoop();
+        loopStartedRef.current = null;
+      }
+      return;
+    }
+    if (camStatus !== 'active') {
       if (loopStartedRef.current) {
         recognition.finalizeAttempt('camera_interruption', camStatus);
         recognition.stopLoop();
@@ -182,7 +186,7 @@ export function StoryPage({
   const handleSkip = () => {
     if (!currentLine) return;
     const attempt = recognition.finalizeAttempt('skip', camStatus);
-    if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentLine.requiredSignId, mode: 'expressive', correct: false, params: attempt?.verifier ? Object.fromEntries(attempt.verifier.params.filter((param) => param.required).map((param) => [param.name, { score: param.score, threshold: param.threshold }])) : undefined });
+    if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentLine.requiredSignId, mode: 'expressive', correct: false, params: undefined });
     setSkipsUsed((p) => p + 1);
     setFailMsg(pickZippyLine('encourage'));
     setPhase('fail');

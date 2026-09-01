@@ -40,8 +40,21 @@ describe('recordSign mode tracking', () => {
     useUserStore.getState().recordSign({ signId: 'HELLO', mode: 'receptive', correct: false });
 
     const stats = useUserStore.getState().signAccuracy.HELLO;
-    expect(stats.byMode?.expressive?.parameters?.handshape).toMatchObject({ attempts: 1, score: 1 });
+    expect(stats.byMode?.expressive?.parameters?.handshape).toMatchObject({
+      attempts: 1,
+      score: 1,
+      evidenceSchemaVersion: 1,
+      recognitionVersion: 'rules-v1',
+    });
     expect(stats.byMode?.receptive).toMatchObject({ attempts: 1, successes: 0 });
+  });
+
+  it('records an expressive miss without inventing a parameter observation', () => {
+    useUserStore.getState().recordSign({ signId: 'HELLO', mode: 'expressive', correct: false, params: undefined });
+
+    const expressive = useUserStore.getState().signAccuracy.HELLO.byMode?.expressive;
+    expect(expressive).toMatchObject({ attempts: 1, successes: 0 });
+    expect(expressive?.parameters).toBeUndefined();
   });
 
   it('continues to support legacy positional calls without fabricating a mode history', () => {

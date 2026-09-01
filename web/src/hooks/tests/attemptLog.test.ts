@@ -4,7 +4,7 @@
  * behaviour that was previously only implicit in which pages happened to call logAttempt.
  */
 import { describe, it, expect } from 'vitest';
-import { trainingSourceFor } from '@/hooks/useAttemptLog';
+import { shouldPersistAttempt, trainingSourceFor } from '@/hooks/useAttemptLog';
 import type { AttemptSource } from '@/analytics/types';
 
 const ALL_SOURCES: AttemptSource[] = ['lesson', 'practice', 'story', 'speed', 'duel', 'room'];
@@ -29,5 +29,12 @@ describe('attempt routing policy', () => {
     for (const source of ALL_SOURCES) {
       expect(trainingSourceFor(source)).not.toBeUndefined();
     }
+  });
+
+  it('keeps unscorable attempts analytics-only', () => {
+    expect(shouldPersistAttempt('NOT_SCORABLE', true, 'lesson')).toBe(false);
+    expect(shouldPersistAttempt('NEEDS_CORRECTION', true, 'lesson')).toBe(true);
+    expect(shouldPersistAttempt('PASS', false, 'lesson')).toBe(false);
+    expect(shouldPersistAttempt('PASS', true, 'duel')).toBe(false);
   });
 });

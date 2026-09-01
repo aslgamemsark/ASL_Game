@@ -8,6 +8,7 @@
 // assert "camera failed" — which the app's own error card already covers. The other specs in e2e/
 // deliberately avoid camera flows for the same reason (see mobile.spec.ts's wasm-CDN filter note).
 import { test, expect } from '@playwright/test';
+import { completeOnboarding } from './helpers';
 
 test('camera lesson: fake cam activates preview + recognition pipeline without errors', async ({ page }) => {
   // Scoped to the `chromium` PROJECT by name, not engine: the android project also runs the
@@ -21,10 +22,7 @@ test('camera lesson: fake cam activates preview + recognition pipeline without e
   page.on('pageerror', (e) => consoleErrors.push(`pageerror: ${e.message}`));
 
   // Guest onboarding → Home.
-  await page.goto('/');
-  await page.getByRole('button', { name: /get started/i }).click();
-  await page.getByRole('button', { name: /continue as guest/i }).click();
-  await page.getByRole('button', { name: /just starting/i }).click();
+  await completeOnboarding(page);
   await expect(page.getByRole('button', { name: /Journey/ }).first()).toBeVisible({ timeout: 15_000 });
 
   // Alphabet tab → the one-click "Practice Letters" starter (AlphabetTab.tsx).
@@ -33,7 +31,9 @@ test('camera lesson: fake cam activates preview + recognition pipeline without e
 
   // First-lesson camera onboarding gate mounts when signup-camera-onboarded is unset.
   const allow = page.getByRole('button', { name: /Allow Camera/i });
-  if (await allow.isVisible().catch(() => false)) await allow.click();
+  if (await allow.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false)) {
+    await allow.click();
+  }
 
   // The dominant-hand "Quick Setup" gate mounts ASYNC (after getUserMedia resolves + the page
   // transitions), so a single isVisible() probe races it — wait for it to appear instead.

@@ -62,3 +62,25 @@ describe('speakSign', () => {
     expect(() => speakSign('HELLO')).not.toThrow();
   });
 });
+
+describe('speech preference', () => {
+  it('defaults to silent for a new install', () => {
+    expect(useSettingsStore.getInitialState().speechEnabled).toBe(false);
+  });
+
+  it('preserves a persisted speech choice', async () => {
+    const saved = JSON.stringify({ state: { speechEnabled: true }, version: 1 });
+    const localStorage = {
+      getItem: (key: string) => key === 'asl-game-settings' ? saved : null,
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    };
+    vi.stubGlobal('window', { localStorage });
+    vi.resetModules();
+
+    const { useSettingsStore: persistedStore } = await import('@/stores/useSettingsStore');
+    expect(persistedStore.getState().speechEnabled).toBe(true);
+
+    vi.unstubAllGlobals();
+  });
+});

@@ -18,6 +18,7 @@ import { getShopItem } from '@/data/shop';
 import type { VerifyResult } from '@/engine/verifier';
 import type { SpeedTier } from '@/types/user';
 import { track } from '@/analytics';
+import { shouldTickSpeedRoundClock, tickSpeedRoundClock } from './speedRoundClock';
 
 const TIER_CONFIG = {
   warmup: { label: 'Warm Up', icon: '🌡️', timePerSign: 15,  xpMult: 1, signsMult: 1, gradient: 'bg-gradient-teal',   glow: 'rgba(20,184,166,0.45)' },
@@ -151,27 +152,28 @@ export function SpeedChallengePage({ onExit, onPracticeWithoutCamera }: Props) {
 
   // Per-sign countdown timer
   useEffect(() => {
-    if (phase !== 'playing' || justPassed) return;
+    if (phase !== 'playing' || justPassed || !shouldTickSpeedRoundClock(camStatus === 'active')) return;
     clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev <= 0.11) {
+        const tick = tickSpeedRoundClock({ signId: currentSignId ?? '', timeLeft: prev });
+        if (tick.timedOut) {
           clearInterval(timerRef.current);
           if (currentSignId) {
             const attempt = recognition.finalizeAttempt('timeout', camStatus);
-            if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false, params: attempt?.verifier ? Object.fromEntries(attempt.verifier.params.filter((param) => param.required).map((param) => [param.name, { score: param.score, threshold: param.threshold }])) : undefined });
+            if (attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false, params: undefined });
           }
           if (camStatus === 'active') setCombo(0);
           loopStartedRef.current = null;
           advanceTimerRef.current = setTimeout(() => advanceSign(false), 300);
           return 0;
         }
-        return +(prev - 0.1).toFixed(1);
+        return tick.timeLeft;
       });
     }, 100);
     return () => clearInterval(timerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, queueIdx, justPassed]);
+  }, [phase, queueIdx, justPassed, camStatus]);
 
   // Record result + badges when done
   useEffect(() => {
@@ -478,7 +480,7 @@ export function SpeedChallengePage({ onExit, onPracticeWithoutCamera }: Props) {
                   onClick={() => {
                     clearTimeout(advanceTimerRef.current);
                     const attempt = recognition.finalizeAttempt('skip', camStatus);
-                    if (currentSignId && attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false, params: attempt?.verifier ? Object.fromEntries(attempt.verifier.params.filter((param) => param.required).map((param) => [param.name, { score: param.score, threshold: param.threshold }])) : undefined });
+                    if (currentSignId && attempt?.outcome !== 'NOT_SCORABLE') recordSign({ signId: currentSignId, mode: 'expressive', correct: false, params: undefined });
                     if (attempt?.outcome !== 'NOT_SCORABLE') setCombo(0);
                     advanceSign(false);
                   }}

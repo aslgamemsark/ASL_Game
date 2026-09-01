@@ -86,7 +86,6 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
               the raised hand off the top. */}
           <div
             className={`rounded-2xl overflow-hidden bg-z-bg border border-white/5 aspect-[3/4] flex items-center justify-center mb-4 relative ${hasClip ? 'cursor-zoom-in' : ''}`}
-            onClick={hasClip ? openEnlarged : undefined}
           >
             {hasClip ? (
               <video
@@ -127,6 +126,14 @@ export function LetterDetailModal({ def, onClose, onTryYourself }: Props) {
               <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white/90 text-xs pointer-events-none">
                 ⤢
               </span>
+            )}
+            {hasClip && (
+              <button
+                type="button"
+                onClick={openEnlarged}
+                aria-label={`Enlarge Letter ${def.letter} demo`}
+                className="absolute inset-0 min-w-11 min-h-11 rounded-2xl focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-z-purple-light"
+              />
             )}
           </div>
           {hasClip && (

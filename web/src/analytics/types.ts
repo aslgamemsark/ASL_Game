@@ -44,6 +44,8 @@ export interface SignAttemptBase {
   /** How many attempts (including this one) the user has made at this sign in the current session. */
   attempt_number: number;
   quality_metrics: RecognitionEvidence;
+  evidence_schema_version: number;
+  recognition_version: string;
 }
 
 export interface MultiplayerBase {
@@ -130,10 +132,13 @@ export interface EventPayloads {
   recognition_disputed: {
     sign_id: string;
     screen: ScreenName;
-    outcome: RecognitionOutcomeKind;
-    primary_reason: string | null;
-    parameter_score: number | null;
-    quality_score: number | null;
+    verifier_passed: false;
+    sustained_disagreement_ms: number;
+    lowest_parameter: string | null;
+    lowest_parameter_score: number | null;
+    raw_hand_coverage: number;
+    raw_pose_coverage: number;
+    raw_clipped_frame_ratio: number;
   };
   /** The moment a user first passes ANY sign, ever — the product's real activation event, fired
    *  once per user and never again (guarded by a localStorage flag). `attempts_taken` is how many
