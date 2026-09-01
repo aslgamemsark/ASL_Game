@@ -70,6 +70,12 @@
 - `NOT_SCORABLE` is emitted for explicit camera interruptions only. Threshold-based camera
   evidence remains disabled until raw frames are calibrated against valid/degraded fixtures.
 
+## Mode-Aware Review Ordering
+
+- Practice now chooses due items using the selected receptive or expressive track. For expressive
+  review, established per-parameter weaknesses take priority over aggregate history; legacy records
+  retain their aggregate ordering until fresh mode-specific evidence exists.
+
 ## Camera Interruption Safety
 
 - Lesson, Story, and Speed recovery cards now route to the existing receptive Practice experience

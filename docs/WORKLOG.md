@@ -5,6 +5,11 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Made review ordering mode-aware** (`web/src/data/spaced-repetition.ts`, Practice). **Mechanism:**
+  receptive and expressive sessions use their own review tracks; an expressive parameter is only a
+  weakness after three scorable observations. **Verified:** focused ordering test and production
+  build pass.
+
 - **Added camera-free recovery to every solo signing screen** (`web/src/App.tsx`, Lesson, Story,
   Speed, and Practice pages). **Mechanism:** the recovery card opens the existing receptive quiz
   with that screen's current sign pool; it never requests a camera or writes expressive mastery.

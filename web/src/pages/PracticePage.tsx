@@ -232,7 +232,7 @@ export function PracticePage({
 
   const startReceptive = () => {
     const pool = filterSignIds ?? (() => {
-      const due = getSignsDueForReview(signAccuracy, 8);
+      const due = getSignsDueForReview(signAccuracy, 8, 'receptive');
       return due.length > 0 ? due : allSignIds.slice(0, 6);
     })();
     recordPracticeSession();
@@ -249,7 +249,7 @@ export function PracticePage({
 
   const startExpressive = async () => {
     const pool = filterSignIds ?? (() => {
-      const due = getSignsDueForReview(signAccuracy, 8);
+      const due = getSignsDueForReview(signAccuracy, 8, 'expressive');
       return due.length > 0 ? due : allSignIds.slice(0, 6);
     })();
     recordPracticeSession();
