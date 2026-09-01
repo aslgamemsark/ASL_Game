@@ -5,6 +5,11 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-08-31
 
+- **Added camera-free recovery to every solo signing screen** (`web/src/App.tsx`, Lesson, Story,
+  Speed, and Practice pages). **Mechanism:** the recovery card opens the existing receptive quiz
+  with that screen's current sign pool; it never requests a camera or writes expressive mastery.
+  **Verified:** focused recovery test and production build pass.
+
 - **Logged interrupted multiplayer signer attempts** (`web/src/pages/DuelPage.tsx`,
   `web/src/pages/RoomPage.tsx`). **Mechanism:** both loops finalize a neutral camera outcome before
   stopping. **Verified:** focused multiplayer camera-outcome test and production build pass.

@@ -35,9 +35,10 @@ type Phase = 'intro' | 'signing' | 'success' | 'replay' | 'complete';
 interface Props {
   lessonId: string;
   onExit: () => void;
+  onPracticeWithoutCamera: (signIds: string[]) => void;
 }
 
-export function LessonPage({ lessonId, onExit }: Props) {
+export function LessonPage({ lessonId, onExit, onPracticeWithoutCamera }: Props) {
   const lesson = getLessonById(lessonId);
   const { addXp, addDailyMinutes, completeLesson, recordSign, equippedBorder, firstLessonCelebrated, markFirstLessonCelebrated } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
@@ -427,6 +428,9 @@ export function LessonPage({ lessonId, onExit }: Props) {
                         className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
                       >
                         Try again
+                      </button>
+                      <button onClick={() => onPracticeWithoutCamera(signIds)} className="mt-2 text-xs font-bold text-z-gray-100 underline underline-offset-4 min-h-11 px-3">
+                        Practice without camera
                       </button>
                     </div>
                   ) : (

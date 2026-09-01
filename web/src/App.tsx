@@ -64,7 +64,7 @@ type Screen =
   | { type: 'home' }
   | { type: 'onboarding'; startAt?: 'welcome' | 'auth' }
   | { type: 'lesson'; lessonId: string }
-  | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; mixedQuiz?: boolean; bonusGoldOnPerfect?: number; heading?: string }
+  | { type: 'practice'; filterSignIds?: string[]; autoStart?: boolean; receptive?: boolean; mixedQuiz?: boolean; bonusGoldOnPerfect?: number; heading?: string }
   | { type: 'story'; storyId: string }
   | { type: 'speed' }
   | { type: 'shop' }
@@ -383,7 +383,7 @@ export default function App() {
 
           {screen.type === 'lesson' && (
             <ScreenTransition key={`lesson-${screen.lessonId}`}>
-              <LessonPage lessonId={screen.lessonId} onExit={goHome} />
+              <LessonPage lessonId={screen.lessonId} onExit={goHome} onPracticeWithoutCamera={(filterSignIds) => setScreen({ type: 'practice', filterSignIds, receptive: true })} />
             </ScreenTransition>
           )}
 
@@ -393,6 +393,7 @@ export default function App() {
                 onExit={goHome}
                 filterSignIds={screen.filterSignIds}
                 autoStartExpressive={screen.autoStart}
+                autoStartReceptive={screen.receptive}
                 autoStartMixed={screen.mixedQuiz}
                 bonusGoldOnPerfect={screen.bonusGoldOnPerfect}
                 heading={screen.heading}
@@ -405,14 +406,14 @@ export default function App() {
             if (!story) return null;
             return (
               <ScreenTransition key={`story-${screen.storyId}`}>
-                <StoryPage story={story} onExit={goHome} />
+                <StoryPage story={story} onExit={goHome} onPracticeWithoutCamera={(filterSignIds) => setScreen({ type: 'practice', filterSignIds, receptive: true })} />
               </ScreenTransition>
             );
           })()}
 
           {screen.type === 'speed' && (
             <ScreenTransition key="speed">
-              <SpeedChallengePage onExit={goHome} />
+              <SpeedChallengePage onExit={goHome} onPracticeWithoutCamera={(filterSignIds) => setScreen({ type: 'practice', filterSignIds, receptive: true })} />
             </ScreenTransition>
           )}
 

@@ -28,6 +28,7 @@ type Phase = 'intro' | 'dialogue' | 'fail' | 'response' | 'complete';
 interface Props {
   story: StoryScript;
   onExit: () => void;
+  onPracticeWithoutCamera: (signIds: string[]) => void;
 }
 
 const MOOD_EMOJI: Record<string, string> = {
@@ -48,7 +49,7 @@ const MOOD_ZIPPY: Record<string, ZippyExpression> = {
 };
 
 export function StoryPage({
-  story, onExit }: Props) {
+  story, onExit, onPracticeWithoutCamera }: Props) {
   const { addXp, addSigns, addGold, addDailyMinutes, recordSign, completeLesson, checkBadges, awardBadge, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera('story');
@@ -306,6 +307,7 @@ export function StoryPage({
                     <p className="text-sm font-bold text-z-red">Camera unavailable</p>
                     <p className="text-xs text-z-gray-300 mt-1">This interruption does not count as a missed sign.</p>
                     <button onClick={() => { recognition.init(); stopCam(); startCam(); }} className="mt-3 min-h-11 px-4 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 rounded-lg">Try again</button>
+                    <button onClick={() => onPracticeWithoutCamera(story.lines.map((line) => line.requiredSignId))} className="mt-2 text-xs font-bold text-z-gray-100 underline underline-offset-4 min-h-11 px-3">Practice without camera</button>
                   </div> : <WebcamMirror
                     videoRef={videoRef}
                     cosmeticBorderClasses={cosmeticBorderClasses}

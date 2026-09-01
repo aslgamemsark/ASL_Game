@@ -38,6 +38,8 @@ interface Props {
   onExit: () => void;
   filterSignIds?: string[];
   autoStartExpressive?: boolean;
+  /** Starts the existing multiple-choice practice without requesting a camera. */
+  autoStartReceptive?: boolean;
   /** Auto-starts a mixed session: some questions are camera signs, others are multiple choice. */
   autoStartMixed?: boolean;
   /** Extra gold awarded once, only if every sign in the session is passed on the first try. */
@@ -57,7 +59,7 @@ function practiceContentType(autoStartMixed: boolean | undefined, heading: strin
 }
 
 export function PracticePage({
- onExit, filterSignIds, autoStartExpressive, autoStartMixed, bonusGoldOnPerfect, heading }: Props) {
+ onExit, filterSignIds, autoStartExpressive, autoStartReceptive, autoStartMixed, bonusGoldOnPerfect, heading }: Props) {
   const { signAccuracy, recordSign, addXp, addGold, recordPracticeSession, equippedBorder, setDominantHand } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { user } = useAuth();
@@ -71,7 +73,7 @@ export function PracticePage({
   const { burst, bigCelebration } = useConfetti();
   // Auto-start flows begin in 'loading' (not 'menu') so the mode-choice menu never flashes
   // on screen for a frame before the auto-start effect below replaces it.
-  const [mode, setMode] = useState<Mode>(() => (autoStartExpressive || autoStartMixed) ? 'loading' : 'menu');
+  const [mode, setMode] = useState<Mode>(() => (autoStartExpressive || autoStartReceptive || autoStartMixed) ? 'loading' : 'menu');
   // Always shown by default (including "Test from Memory" quiz sessions) — quizzing a learner on
   // a handshape they've never been shown a video of is a bad first experience, not a genuine
   // memory test. "Sign Quiz" on the menu below still lets a user opt into hiding it deliberately.
@@ -222,9 +224,28 @@ export function PracticePage({
       startMixed();
     } else if (autoStartExpressive) {
       startExpressive();
+    } else if (autoStartReceptive) {
+      startReceptive();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const startReceptive = () => {
+    const pool = filterSignIds ?? (() => {
+      const due = getSignsDueForReview(signAccuracy, 8);
+      return due.length > 0 ? due : allSignIds.slice(0, 6);
+    })();
+    recordPracticeSession();
+    setQueue([...pool].sort(() => Math.random() - 0.5));
+    setQueueIdx(0);
+    setCardPhase('prompt');
+    setSelectedAnswer(null);
+    setSessionXp(0);
+    setSessionCorrect(0);
+    sessionCompletedTrackedRef.current = false;
+    track('practice_session_started', { content_type: 'review', question_count: pool.length });
+    setMode('receptive');
+  };
 
   const startExpressive = async () => {
     const pool = filterSignIds ?? (() => {

@@ -72,6 +72,8 @@
 
 ## Camera Interruption Safety
 
+- Lesson, Story, and Speed recovery cards now route to the existing receptive Practice experience
+  for their current sign pool. That route neither requests a camera nor writes expressive mastery.
 - The recognition loop now retains a separate raw-frame window before stabilization. Stabilized
   hands may continue to help the verifier, but cannot become observed camera evidence.
 - A denied, errored, stalled, or restarted solo camera finalizes the active attempt as

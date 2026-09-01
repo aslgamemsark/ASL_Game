@@ -28,9 +28,10 @@ type GamePhase = 'tier-select' | 'countdown' | 'playing' | 'done';
 
 interface Props {
   onExit: () => void;
+  onPracticeWithoutCamera: (signIds: string[]) => void;
 }
 
-export function SpeedChallengePage({ onExit }: Props) {
+export function SpeedChallengePage({ onExit, onPracticeWithoutCamera }: Props) {
   const { addXp, addSigns, recordSign, recordSpeedResult, checkBadges, equippedBorder } = useUserStore();
   const cosmeticBorderClasses = equippedBorder ? (getShopItem(equippedBorder)?.preview ?? '') : '';
   const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera('speed');
@@ -352,6 +353,9 @@ export function SpeedChallengePage({ onExit }: Props) {
                   className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
                 >
                   Back to tier select
+                </button>
+                <button onClick={() => onPracticeWithoutCamera(queue)} className="mt-2 text-xs font-bold text-z-gray-100 underline underline-offset-4 min-h-11 px-3">
+                  Practice without camera
                 </button>
               </div>
             </motion.div>
