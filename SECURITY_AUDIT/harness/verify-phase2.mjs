@@ -64,6 +64,18 @@ await as(db, banned, "delete from public.multiplayer_rooms where code='BANOWN'")
 const banOwnGone = await admin(db, "select count(*)::int as n from public.multiplayer_rooms where code='BANOWN'");
 check("banned host CAN still delete their own room (not trapped)", banOwnGone[0].n === 0);
 
+// Membership authorization: a code must not grant camera/Realtime access after play starts, and
+// a caller who was never a member must not be able to corrupt the room's seat count.
+await admin(db, "insert into public.multiplayer_rooms (code,mode,visibility,host_id,max_participants,status) values ('START1','duel','private',$1,3,'in_progress')", [ids.alice]);
+const lateJoin = await as(db, adminU, "select public.join_multiplayer_room('START1')");
+const lateMember = await admin(db, "select count(*)::int as n from public.multiplayer_room_members where room_code='START1' and user_id=$1", [ids.adminUser]);
+check("non-member CANNOT join a room after play starts", !lateJoin.ok && lateMember[0].n === 0, lateJoin.error || 'JOIN SUCCEEDED');
+
+const beforeLeave = await admin(db, "select participant_count from public.multiplayer_rooms where code='PUBM01'");
+await as(db, bob, "select public.leave_multiplayer_room('PUBM01')");
+const afterLeave = await admin(db, "select participant_count from public.multiplayer_rooms where code='PUBM01'");
+check("non-member leave CANNOT decrement or delete a room", afterLeave.length === 1 && afterLeave[0].participant_count === beforeLeave[0].participant_count);
+
 // ── F-003: profile exposure ───────────────────────────────────────────────────────────────────
 console.log("\n=== F-003 profile exposure (moderation/privilege columns must not leak) ===");
 

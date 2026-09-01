@@ -27,7 +27,9 @@ export async function freshDb({ quiet = true, excludeMigrations = [] } = {}) {
       applied.push(f);
     } catch (e) {
       skipped.push({ f, err: e.message.split('\n')[0] });
-      if (!quiet) console.log(`  SKIP ${f}: ${e.message.split('\n')[0]}`);
+      const message = `Migration ${f} failed in the authorization harness: ${e.message.split('\n')[0]}`;
+      if (!quiet) console.log(`  FAIL ${message}`);
+      throw new Error(message, { cause: e });
     }
   }
   return { db, applied, skipped };

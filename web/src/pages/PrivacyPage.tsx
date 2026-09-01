@@ -23,8 +23,10 @@ export function PrivacyPage({ onExit }: Props) {
           <p>
             In Lessons, Practice, and Story, camera video is never uploaded, recorded, or sent
             to any server. Sign recognition (matching your hand shape, position, and movement
-            against a sign) runs entirely locally in your browser — only numeric landmark
-            coordinates ever leave your device, and only if you opt in below.
+            against a sign) runs entirely locally in your browser. Signed-in progress sync stores
+            the prompted sign, outcome, per-parameter scores, and aggregate camera-quality scores
+            such as coverage or clipping — never video or images. Numeric landmark coordinates
+            leave your device only if you opt in below.
           </p>
           <p className="mt-2">
             Duel and Room modes are different: your opponent needs to see you sign in real
@@ -43,7 +45,9 @@ export function PrivacyPage({ onExit }: Props) {
             <li>Account info: email and the username you choose.</li>
             <li>
               Progress data: XP, streaks, gold, completed lessons, badges, and similar — needed to
-              sync your progress across devices and power leaderboards.
+              sync your progress across devices and power leaderboards. Signing history also
+              includes attempt outcomes, per-parameter scores, and aggregate camera-quality scores;
+              it never includes video or images.
             </li>
             <li>
               Numeric hand-landmark coordinates (never video or images) from your practice
