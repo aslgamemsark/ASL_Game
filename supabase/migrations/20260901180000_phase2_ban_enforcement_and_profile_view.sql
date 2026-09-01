@@ -1,8 +1,12 @@
 -- ============================================================
 -- Phase 2 security remediation — 2026-09-01
 --
--- Findings F-008 (HIGH) and F-003 (LOW), both confirmed by executing the real migrations against
--- a real PostgreSQL instance and attacking them as unprivileged roles (see SECURITY_AUDIT/harness).
+-- Finding F-008 (HIGH) plus the additive half of F-003 (LOW), both confirmed by executing the real
+-- migrations against a real PostgreSQL instance and attacking them as unprivileged roles
+-- (see SECURITY_AUDIT/harness).
+--
+-- SAFE TO APPLY AT ANY TIME. Nothing here tightens an existing read path, so a browser tab on a
+-- stale bundle keeps working. The tightening half lives in 20260901190000.
 -- ============================================================
 
 
@@ -161,24 +165,13 @@ $$;
 revoke execute on function public.find_public_room(text) from public, anon;
 grant execute on function public.find_public_room(text) to authenticated;
 
-
--- ── F-003 (LOW): profiles exposed moderation + privilege state to anonymous callers ───────────
+-- ── F-003 (LOW), PART 1 of 2 — ADDITIVE ONLY ─────────────────────────────────────────────────
 --
--- `profiles_select_public` was `using (true)`, and with Supabase's default grants that made the
--- WHOLE row readable by anon -- verified at runtime: anon read 4/4 profile rows including
--- is_admin, is_banned and ban_reason. ban_reason holds free-text moderator notes about a user,
--- and is_admin tells an attacker precisely which two accounts to target.
---
--- Postgres RLS is row-level, not column-level, so the fix is a curated projection: a
--- public_profiles view carrying only the fields other users legitimately need, with the base
--- table restricted to own-row (plus admins, who need to moderate).
---
--- Verified against every caller before changing it -- every cross-user read in web/src/ requests
--- only `id, username`:
---   FriendsPage.tsx:105,159 · LeaderboardPage.tsx:350 · AdminPanel.tsx:440,837 · lib/username.ts:14
--- Self-reads that need the sensitive columns (AuthContext's username/is_admin/is_banned/
--- ban_reason, useProgressSync's collect_training_data/region) all filter on the caller's own id
--- and therefore still pass the own-row policy unchanged.
+-- Creating the curated projection is purely additive: it adds a new readable object and changes
+-- nothing an existing client depends on, so applying this migration cannot break a browser tab
+-- running a stale bundle. The half that actually TIGHTENS profiles (and therefore can break a
+-- stale tab) is deliberately split into 20260901190000, to be applied only once clients have
+-- rolled over -- see AGENTS.md's additive-only migration policy, which exists for exactly this.
 
 create or replace view public.public_profiles as
   select id, username, created_at, region
@@ -189,26 +182,3 @@ create or replace view public.public_profiles as
 -- username-uniqueness checks), so it must return all rows regardless of the caller's own
 -- row-level access. It exposes no privilege or moderation column, which is what makes that safe.
 grant select on public.public_profiles to anon, authenticated;
-
--- The admin carve-out MUST go through a SECURITY DEFINER helper, not an inline subquery. A
--- policy ON profiles that itself selects FROM profiles re-enters the same policy and Postgres
--- aborts with "infinite recursion detected in policy for relation profiles" -- caught by running
--- this migration against a real database rather than by reading it. current_user_banned() already
--- establishes exactly this pattern (SECURITY DEFINER + pinned search_path); this is its sibling.
-create or replace function public.current_user_is_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select coalesce((select is_admin from public.profiles where id = auth.uid()), false);
-$$;
-
-revoke execute on function public.current_user_is_admin() from public;
-grant execute on function public.current_user_is_admin() to anon, authenticated;
-
-drop policy if exists "profiles_select_public" on public.profiles;
-create policy "profiles_select_own_or_admin" on public.profiles
-  for select
-  using ((select auth.uid()) = id or public.current_user_is_admin());

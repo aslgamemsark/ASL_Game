@@ -14,20 +14,72 @@ Every CRITICAL/HIGH finding is fixed **and now verified by executing real attack
 PostgreSQL instance** — the gap Phase 1 could not close. Unit tests, typecheck, lint and
 production build all pass; dependency vulnerabilities are at **zero**.
 
-**The single condition is deployment ordering, and it is not optional:**
+**The single remaining condition is one command only you can run.** I cannot apply the migration:
+this machine has no Supabase CLI credential — no access token, no database password, only the
+public anon key, which cannot execute DDL. That step needs your credentials and is deliberately
+left to you.
 
-> The client now reads a `public_profiles` view that **does not exist until migration
-> `20260901180000` is applied**. If the frontend deploys first, friends search, leaderboard names
-> and username-uniqueness checks break immediately.
->
-> **Apply the migration to production BEFORE the client deploys.**
+### A correction to the Phase 2 report's own rollout advice
 
-That ordering hazard is precisely why this work is **pushed to the security branch and NOT merged
-to `main`** — merging would trigger a Vercel deploy of the client on its own. Sequence:
-`supabase db push` → confirm `public_profiles` exists → then merge to `main`.
+The first version of this report said "apply the migration, then merge." Re-examining it against
+`AGENTS.md` showed that was **wrong in a way that would have degraded live users**:
 
-Two non-code launch items also remain outstanding and are outside this audit's authority: the
-COPPA/GDPR-minors review and production crash monitoring (both already tracked in
+> migrations must be **additive-only** … never *tighten* … in the same change a client might still
+> be relying on … lets an old browser tab (running a stale JS bundle) keep working
+
+The F-003 fix *tightens* `profiles` SELECT. Applied as one migration, it breaks any browser tab
+still running the old bundle — friends search, leaderboard usernames and the username-uniqueness
+check all silently return zero rows. That is exactly what the project's own policy forbids, and it
+made the hazard bidirectional rather than one-way.
+
+**The migration is now split so no state is ever broken:**
+
+| | Migration | Effect | Safe to apply |
+|---|---|---|---|
+| **A** | `20260901180000_phase2_ban_enforcement_and_profile_view.sql` | F-008 ban enforcement + adds `public_profiles` | **Any time** — purely additive, tightens no existing read path |
+| **B** | `20260901190000_restrict_profiles_read.sql` | F-003: restricts `profiles` to own-row-or-admin | **Only after** clients have rolled over |
+
+The HIGH finding (F-008) lands entirely in **A**, so the security value arrives immediately and
+with zero client dependency.
+
+### Runbook
+
+```bash
+# 1. Apply migration A — safe now, fixes F-008, breaks nothing
+supabase db push        # or apply 20260901180000 only
+
+# 2. Merge the security branch -> main (Vercel deploys the client)
+#    The client now reads public_profiles, which step 1 created.
+
+# 3. Once clients have rolled over (PWA registerType is 'autoUpdate'; allow ~24h),
+#    apply migration B to close F-003.
+```
+
+All three intermediate states were executed and verified
+(`SECURITY_AUDIT/harness/verify-rollout.mjs`):
+
+```
+STATE 1  A applied, OLD client live
+  PASS  OLD client cross-user username lookup still works
+  PASS  OLD client username-uniqueness check still works
+  PASS  F-008 ALREADY fixed (banned cannot join / cannot host)
+  PASS  public_profiles already exists
+STATE 2  A applied, NEW client deployed
+  PASS  cross-user lookup via public_profiles · uniqueness check · self flag read
+STATE 3  A + B applied, NEW client (final)
+  PASS  anon cannot read profiles · cross-user moderation cols hidden
+  PASS  new client works · self flag read works · admin panel works
+HAZARD   CONFIRMED: an OLD-bundle tab reads 0 rows cross-user once B lands
+         -> precisely why B ships separately
+ALL ROLLOUT STATES SAFE
+```
+
+**Merged to `main`: NO.** Step 1 is a prerequisite for the client deploy that merging triggers, and
+step 1 needs a credential I do not have. Merging now would deploy a client whose `public_profiles`
+reads fail. Once you have run step 1, the merge is safe and unblocked.
+
+Two non-code launch items remain outstanding and are outside this audit's authority: the
+COPPA/GDPR-minors review and production crash monitoring (both tracked in
 `docs/LAUNCH_CHECKLIST.md`). Given F-001 and F-008 both turned out to be **unauthorized-webcam-
 access** issues, the minors review is a genuine launch prerequisite, not paperwork.
 
@@ -299,27 +351,15 @@ WebKit e2e (browser binary unavailable).
 ## GIT STATUS
 
 - **Branch:** `security/audit-2026-09-01`
-- **Commits:** `449504f` (Phase 1) + this Phase 2 commit
+- **Commits:** `449504f` (Phase 1) · `cde3832` (Phase 2) · this commit (migration split + rollout verification)
 - **Pushed:** YES → `origin/security/audit-2026-09-01`
-- **Merged to `main`:** **NO — deliberately withheld**
+- **Merged to `main`:** **NO — blocked on step 1, which needs credentials I do not have**
 - **Deployment triggered:** No
 
-**Why `main` was withheld despite all HIGH findings being fixed and verified:** the client changes
-and migration `20260901180000` form an ordered pair. Merging to `main` deploys the client via
-Vercel on its own; if that lands before the migration, `public_profiles` does not yet exist and
-friends search, leaderboard names and username-uniqueness checks break for every user. That is
-exactly the "uncertainty that could break production" case the brief reserves the branch for.
-
-**Safe rollout:**
-1. `supabase db push` (applies `20260901120000` + `20260901180000`)
-2. Confirm `public_profiles` exists and returns rows
-3. Merge `security/audit-2026-09-01` → `main` (Vercel deploys the client)
-4. Verify friends search, leaderboard, username check, and multiplayer create/join
-
-Rollback is clean in the other direction: the migrations are additive and the old client does not
-reference `public_profiles`, so step 1 is independently safe to apply and leave.
-
----
+**What I could not do, stated plainly:** `supabase db push` requires a Supabase access token or the
+database password. Neither is present on this machine — the only credential available is the public
+anon key, which cannot execute DDL. I did not attempt to obtain or handle those credentials, and
+production was never touched. Everything short of that step is done, tested and pushed.
 
 ## IF A HOSTILE RESEARCHER SPENT A WEEK
 
