@@ -21,6 +21,7 @@ import { LETTER_A } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
 import { useFirstRunCameraGuide } from '@/hooks/useFirstRunCameraGuide';
 import { ParameterChecklist } from '@/components/lesson/ParameterChecklist';
+import { useAttemptLog } from '@/hooks/useAttemptLog';
 
 interface Props {
   onComplete: () => void;
@@ -97,11 +98,17 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
   // and the simplest possible "did that work?" moment.
   const { videoRef, status: camStatus, start: startCam, stop: stopCam } = useCamera('onboarding');
   const [firstSignPassed, setFirstSignPassed] = useState(false);
+  const firstSignPassedRef = useRef(false);
   const [showCameraOnboarding, setShowCameraOnboarding] = useState(false);
+  const attemptLog = useAttemptLog({ source: 'onboarding' });
   const recognition = useRecognition({
     screen: 'onboarding',
+    onAttempt: (attempt) => {
+      if (!firstSignPassedRef.current) attemptLog.recordAttempt(attempt);
+    },
     onPass: () => {
-      if (firstSignPassed) return; // startLoop keeps sampling after a pass; ignore repeats
+      if (firstSignPassedRef.current) return;
+      firstSignPassedRef.current = true;
       setFirstSignPassed(true);
       track('onboarding_first_sign_passed', { sign_id: LETTER_A.name });
       setTimeout(() => advancePastFirstSign(), 1600);
@@ -126,14 +133,20 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
   // fix), but recognition itself could never complete a hold. Found 2026-08-30.
   const loopStartedRef = useRef(false);
   useEffect(() => {
+    if (step !== 'firstSign' || firstSignPassed || camStatus !== 'active' || recognition.status === 'error') {
+      if (loopStartedRef.current) {
+        recognition.stopLoop();
+        loopStartedRef.current = false;
+      }
+      return;
+    }
     if (
-      step === 'firstSign' && !firstSignPassed && !loopStartedRef.current && camStatus === 'active' &&
+      !loopStartedRef.current &&
       (recognition.status === 'ready' || recognition.status === 'running') && videoRef.current
     ) {
       loopStartedRef.current = true;
       recognition.startLoop(videoRef.current, LETTER_A);
     }
-    if (step !== 'firstSign' || firstSignPassed) loopStartedRef.current = false;
   });
 
   // Camera stays off on every step except firstSign — must not linger into auth/done.
@@ -143,12 +156,20 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
   }, [step]);
   useEffect(() => () => { stopCam(); recognition.stopLoop(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const startFirstSignCamera = () => {
+    recognition.stopLoop();
+    loopStartedRef.current = false;
+    void recognition.init();
+    stopCam();
+    void startCam();
+  };
+
   const beginFirstSign = () => {
     if (!localStorage.getItem('signup-camera-onboarded')) {
       setShowCameraOnboarding(true);
       return;
     }
-    void startCam();
+    startFirstSignCamera();
   };
 
   useEffect(() => { track('onboarding_step_viewed', { step }); }, [step]);
@@ -170,6 +191,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
   };
 
   const advancePastFirstSign = () => {
+    recognition.stopLoop('skipped');
     if (supabaseReady && !user) setStep('auth');
     else finish(selectedLevel ?? 'beginner');
   };
@@ -406,7 +428,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
             exit={{ opacity: 0, y: -30 }}
             transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
-            {camStatus !== 'active' ? (
+            {camStatus !== 'active' || recognition.status === 'error' ? (
               <>
                 <div className="flex justify-center mb-3">
                   <Zippy expression="teaching" size="md" />
@@ -415,8 +437,16 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                 <p className="text-z-gray-300 text-sm mb-8">
                   Let's see if it works — no account needed. We'll teach you the letter A.
                 </p>
-                <Button onClick={beginFirstSign} size="lg" fullWidth>
-                  Turn on camera
+                {recognition.status === 'error' && (
+                  <div role="alert" className="text-sm mb-4">
+                    <p className="font-bold">Sign recognition couldn't load</p>
+                    <p className="text-z-gray-300">Check your connection, then try again.</p>
+                  </div>
+                )}
+                <Button onClick={beginFirstSign} disabled={camStatus === 'requesting'} size="lg" fullWidth>
+                  {camStatus === 'requesting' ? 'Opening camera…'
+                    : recognition.status === 'error' || camStatus === 'denied' || camStatus === 'error' || camStatus === 'stalled'
+                      ? 'Try again' : 'Turn on camera'}
                 </Button>
                 <button
                   onClick={advancePastFirstSign}
@@ -433,6 +463,9 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                 <p className="text-z-gray-400 text-sm mb-4">
                   {firstSignPassed ? 'That\'s ASL fingerspelling — you just did your first sign.' : SIGNS.LETTER_A.hint}
                 </p>
+                {recognition.status === 'loading' && (
+                  <p role="status" className="text-z-gray-300 text-sm mb-4">Getting sign recognition ready…</p>
+                )}
                 <div className="flex justify-center mb-4">
                   <WebcamMirror
                     videoRef={videoRef}
@@ -477,7 +510,7 @@ export function OnboardingFlow({ onComplete, initialStep = 'welcome' }: Props) {
                 onContinue={() => {
                   localStorage.setItem('signup-camera-onboarded', '1');
                   setShowCameraOnboarding(false);
-                  void startCam();
+                  startFirstSignCamera();
                 }}
                 onCancel={() => setShowCameraOnboarding(false)}
               />

@@ -3,7 +3,7 @@
 // module is the single integration point so wiring one in later is a few lines, not a hunt across
 // the codebase for every place an error could originate (production audit, 2026-07-12).
 //
-// PostHog crash events (fatal_error / session_crashed) ARE wired here (2026-07-20) — same
+// PostHog error events (fatal_error / client_error) ARE wired here (2026-07-20) — same
 // single-integration-point reasoning as the Sentry note below, and it's the analytics module's
 // only sanctioned entry point for these two event names (see analytics/capture.ts).
 //
@@ -23,6 +23,8 @@ export interface ErrorContext {
 // so checkUnexpectedReload() below can tell "the last thing that happened before this fresh load
 // was an uncaught error" from an ordinary navigation.
 const LAST_ERROR_AT_KEY = 'quicksign_last_error_at';
+// Bound storms to one report per signature and at most 20 signatures per page load.
+const reportedErrors = new Set<string>();
 
 function messageOf(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -30,7 +32,7 @@ function messageOf(error: unknown): string {
 }
 
 /**
- * Which known, self-healing failure this is, if any — attached to `fatal_error`/`session_crashed`
+ * Which known, self-healing failure this is, if any — attached to `fatal_error`/`client_error`
  * as `error_class` so PostHog queries can filter on this directly instead of ILIKE-matching raw
  * messages (found useful 2026-08-06 while investigating "Try Yourself does nothing": both classes
  * below were hiding in `message` text, indistinguishable from one-off errors without reading each
@@ -102,11 +104,16 @@ export function reportError(error: unknown, context: ErrorContext): void {
 
   const message = messageOf(error);
   const errorClass = classifyError(message);
+  const signature = `${context.source}:${message}`;
+  const report = !reportedErrors.has(signature) && reportedErrors.size < 20;
+  if (report) reportedErrors.add(signature);
+  // Do not send arbitrary error text containing user data, URLs or credentials.
+  const safeMessage = error instanceof Error ? error.name : 'Error';
   const route = typeof window !== 'undefined' ? window.location.pathname : '';
-  if (context.source === 'error-boundary') {
-    track('fatal_error', { message, component_stack_present: !!context.componentStack, route, error_class: errorClass });
-  } else {
-    track('session_crashed', { source: context.source, message, error_class: errorClass });
+  if (report && context.source === 'error-boundary') {
+    track('fatal_error', { message: safeMessage, component_stack_present: !!context.componentStack, route, error_class: errorClass });
+  } else if (report) {
+    track('client_error', { source: context.source as 'window-error' | 'unhandled-rejection', message: safeMessage, error_class: errorClass });
   }
 
   if (errorClass !== 'other') {

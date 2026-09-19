@@ -558,7 +558,7 @@ dev-only avatar viewers — the Phase 4e claim was about user-facing surfaces an
 
 ## 2026-07-31 (part 17) — Pass complete: final release report
 
-- **Production-quality hardening pass closes.** `docs/RELEASE_REPORT_2026-07-31_prod-quality-pass.md`
+- **Production-quality hardening pass closes.** `docs/archive/RELEASE_REPORT_2026-07-31_prod-quality-pass.md`
   written — executive summary, per-phase detail, the three items investigated and correctly declined
   (TopBar cart pop-in, `ReplayCompare`'s phantom tab bar, `ShopPage`/`SettingsPage`'s absent async
   ops), what was explicitly evaluated and declined project-wide (`noUncheckedIndexedAccess`, a
@@ -1579,7 +1579,7 @@ re-verify the onboarding funnel afterwards.
 ### What was done
 - Ran three targeted audits (repo-wide TODO/dead-code, full Supabase security review, multiplayer
   concurrency review) and synthesized findings into four sign-off deliverables:
-  `FINAL_PRODUCTION_SIGNOFF.md`, `LAUNCH_CHECKLIST.md`, `KNOWN_LIMITATIONS.md`,
+  `archive/FINAL_PRODUCTION_SIGNOFF.md`, `LAUNCH_CHECKLIST.md`, `KNOWN_LIMITATIONS.md`,
   `POST_LAUNCH_ROADMAP.md`.
 - **Security fix (applied to production DB + committed):** revoked the stray `anon`/`PUBLIC` EXECUTE
   grant on `admin_set_username` so it matches the 2026-07-12 hardening of every other admin RPC.

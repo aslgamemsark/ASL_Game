@@ -1,53 +1,41 @@
-# Developer Guide — Adding an Analytics Event the Right Way
+# Adding or changing analytics
 
-## Adding a new ACTIVE event
+_Code contract reviewed 2026-09-19. Source code and its real call sites are authoritative._
 
-1. **Check it doesn't already exist** (see `EVENT_REFERENCE.md`) — prefer adding a property to an
-   existing event over inventing a near-duplicate.
-2. Add the name to `web/src/analytics/events.ts`'s `EVENTS` object (key === value, enforced by
-   `analytics/tests/events.test.ts`).
-3. Add its payload shape to `EventPayloads` in `web/src/analytics/types.ts`. No `any`, no loose
-   `Record<string, unknown>` — every property typed.
-4. Call `track('your_event', { ... })` **at the real call site** — inside an event handler, an
-   effect, or a store action. **Never inside a component's render body** (that fires on every
-   re-render, not once per real occurrence).
-5. If the event needs to know about a feature that doesn't exist yet, it doesn't belong in
-   `EVENTS` — add it to `FUTURE_EVENTS`/`FuturePayloads` instead and leave it unemitted.
+1. Check [the event reference](EVENT_REFERENCE.md); prefer a useful property to a duplicate event.
+2. Add an implemented event to `EVENTS` in `web/src/analytics/events.ts` and its flat payload to
+   `EventPayloads` in `types.ts`. Add it alongside the actual call site, not before a feature exists.
+3. Call `track('event_name', payload)` from a handler, effect or store mutation, never render.
+   App callers import from `@/analytics`; only the central wrapper captures directly. Unbundled
+   marketing pages are a deliberate exception and must retain the shared privacy/attribution helper.
+4. Define what one event means, its denominator, deduplication and missing-data cases. If meaning
+   changes, document the version boundary; do not silently reinterpret historical events.
+5. Add the smallest behavioral regression and update the owning documentation.
 
-## Adding a FUTURE (planned) event
+## Existing paths to reuse
 
-Add the name to `FUTURE_EVENTS` and the payload to `FuturePayloads` in `types.ts`. Do **not**
-call `track()` with it — `track()`'s generic type only accepts `ActiveEventName`, so this is a
-compile error by construction, not just a convention.
+- Use `useAttemptLog` for sign decision reporting. Do not add a second page-level `sign_attempt`
+  or `first_sign_success`. Failed physical tries are not implicitly counted by that event.
+- Recognition run start/end telemetry belongs in `useRecognition`, camera request/frame telemetry
+  in `useCamera`, and reference playback telemetry in `ReferenceClip`.
+- Identity belongs in `syncAnalyticsIdentity` called by AuthContext. Do not identify in a delayed
+  profile-fetch response or UI effect; account changes must precede queued product events.
+- `track` can accept work into the local SDK-readiness queue. Its return value is not a PostHog
+  server acknowledgement. First-success deduplication marks storage only after SDK acceptance.
+- Preserve consent checks both when queued and when captured. Never manually rewrite the auth
+  URL to sanitize it; Supabase needs that fragment. Redact at the analytics boundary.
 
-## Rules (enforced by the self-audit test suite, `analytics/tests/`)
+Keep events free of credentials, emails, message bodies, webcam data and landmark arrays. Guests
+should contribute to product analytics under consent; Supabase writes remain separately gated.
+Do not equate AI votes, completed screens or run outcomes with independently verified ASL accuracy.
 
-- **Never call `posthog.capture()` directly.** Only `capture.ts` may. Everyone else imports
-  `track` from `@/analytics`. (`noDirectCapture.test.ts` fails the build if this is violated.)
-- **Never track in render.** Put `track()` calls in `useEffect`, event handlers, or store
-  actions — never in the JSX return / component body directly.
-- **No PII.** No email, password, username-in-event-properties, raw landmarks, video, or full
-  error stacks. If you're unsure whether a value is PII, don't send it.
-- **Guest-inclusive by default.** Most product events (lessons, sign attempts, screen views)
-  should fire for guests too — the activation funnel needs anonymous data. Gate on `user` only
-  for genuinely account-scoped things (Supabase writes, not PostHog events).
-- **One event per real occurrence.** See `NAMING_CONVENTION.md` — don't split an event into
-  `_passed`/`_failed` variants; use a boolean property.
+## Verify
 
-## Testing your event locally
+Run the relevant analytics tests, `npm run test:first-learning` for affected learning flows, and
+`npm run build` in `web/`. For a manual local ingestion check, set a project token and
+`VITE_ANALYTICS_DEV=1`, then visit with `?internal=1`. Confirm actual event properties in PostHog;
+local tests alone do not prove live ingestion. Remove the local opt-in when finished.
 
-Set in `web/.env.local`:
-```
-VITE_POSTHOG_KEY=<your project token>
-VITE_ANALYTICS_DEV=1
-```
-Then `npm run dev` (or `npm run preview` after a build) and check PostHog's Activity view for
-your project — events should arrive within a few seconds. Unset `VITE_ANALYTICS_DEV` (or leave
-`VITE_POSTHOG_KEY` blank) to go back to the normal silent-in-dev behavior.
-
-## Feature flags
-
-Add the key to `FEATURE_FLAGS` in `featureFlags.ts`, create the flag in the PostHog UI, then read
-it with `useFeatureFlag('your_flag', defaultValue)` in a component, or `isKillSwitchOn('...')` in
-a non-component module (hooks that aren't React components, like `useCamera.ts`'s internals).
-Always pass a safe default — a PostHog outage must never break the feature the flag controls.
+Feature flags use `FEATURE_FLAGS`, `useFeatureFlag` and `isKillSwitchOn`. A `disable_*` flag set
+to true disables its wired feature; an unavailable flag defaults to false. A declared flag without
+a call site controls nothing. Check the actual UI reader before describing a remote flag as active.

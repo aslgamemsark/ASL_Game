@@ -9,7 +9,6 @@ import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { installGlobalErrorReporting, checkUnexpectedReload } from '@/lib/errorReporting';
 import { initAnalytics } from '@/analytics';
-import { AnalyticsIdentityBridge } from '@/analytics/AnalyticsIdentityBridge';
 
 installGlobalErrorReporting();
 // initAnalytics is async (dynamically imports posthog-js so the initial render below isn't stuck
@@ -24,9 +23,6 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
-          {/* No UI — keeps PostHog identity in sync with auth state. Inside AuthProvider so it can
-              read useAuth(); see AnalyticsIdentityBridge.tsx for the anon->identified alias flow. */}
-          <AnalyticsIdentityBridge />
           {/* reducedMotion="user": every framer-motion animation in the app honors the OS-level
               prefers-reduced-motion setting (transforms/layout animations are skipped, opacity fades
               are kept) — the accessibility gap flagged in PRODUCT.md, fixed once globally. */}

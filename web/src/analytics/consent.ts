@@ -6,12 +6,10 @@
 
 const OPT_OUT_KEY = 'quicksign_analytics_opt_out';
 
-/** True if the user has explicitly opted out of analytics (Settings → Privacy toggle). Capture
- *  defaults to ON (anonymous, no session replay) per the project's locked privacy posture — this
- *  is the one flag that turns it off. Wrapped in try/catch: a storage-blocked context (private
- *  browsing, strict cookie settings) must fail closed to "not opted out is unreadable -> treat as
- *  default (capture)" rather than throw and break the app. */
+/** DNT or the Settings privacy toggle disables analytics. Storage failure retains the existing
+ *  default; the live SDK also applies the current session's opt-out independently. */
 export function isAnalyticsOptedOut(): boolean {
+  if (typeof navigator !== 'undefined' && navigator.doNotTrack === '1') return true;
   try {
     return localStorage.getItem(OPT_OUT_KEY) === 'true';
   } catch {

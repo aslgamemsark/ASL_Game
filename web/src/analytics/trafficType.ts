@@ -15,10 +15,12 @@ const INTERNAL_KEY = 'quicksign_internal_tester';
 
 export function isInternalTraffic(): boolean {
   if (typeof window === 'undefined') return false;
+  if (window.quickSignAnalyticsContext) return window.quickSignAnalyticsContext.trafficType() === 'internal';
   try {
-    if (new URLSearchParams(window.location.search).get('internal') === '1') {
-      window.localStorage.setItem(INTERNAL_KEY, '1');
-      return true;
+    const marker = new URLSearchParams(window.location.search).get('internal');
+    if (marker === '1' || marker === '0') {
+      window.localStorage.setItem(INTERNAL_KEY, marker);
+      return marker === '1';
     }
     return window.localStorage.getItem(INTERNAL_KEY) === '1';
   } catch {

@@ -171,6 +171,7 @@ export function StoryPage({ story, onExit }: Props) {
 
   const handleSkip = () => {
     if (!currentLine) return;
+    recognition.stopLoop('skipped');
     recordSign(currentLine.requiredSignId, false);
     attemptLog.recordMiss(currentLine.requiredSignId, recognition.getSnapshot());
     setSkipsUsed((p) => p + 1);

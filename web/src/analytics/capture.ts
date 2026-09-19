@@ -1,7 +1,13 @@
-import { getPosthog, whenAnalyticsReady } from './client';
+import { analyticsConfigured, getPosthog, registerAnalyticsContext, whenAnalyticsReady } from './client';
 import { EVENTS } from './events';
 import { setAnalyticsOptedOut, isAnalyticsOptedOut } from './consent';
 import type { ActiveEventName, EventPayloads } from './types';
+let desiredIdentity: { id: string; props: Parameters<typeof identifyUser>[1] } | null = null;
+
+/** Correlates telemetry only; never use this fallback as a security token. */
+export function newAnalyticsId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
 
 /**
  * THE only capture surface for this app. Every `posthog.capture()` call in the codebase lives
@@ -20,13 +26,19 @@ import type { ActiveEventName, EventPayloads } from './types';
  * window is real now (it wasn't when the import was static) and top-of-funnel events like
  * `landing_view` fire in exactly that window on a fresh page load.
  */
-export function track<E extends ActiveEventName>(event: E, properties: EventPayloads[E]): void {
+export function track<E extends ActiveEventName>(event: E, properties: EventPayloads[E], onCaptured?: (captured: boolean) => void): boolean {
+  if (!analyticsConfigured || isAnalyticsOptedOut()) return false;
   const ph = getPosthog();
   if (ph) {
-    ph.capture(EVENTS[event], properties as Record<string, unknown>);
-    return;
+    const captured = Boolean(ph.capture(EVENTS[event], properties as Record<string, unknown>));
+    onCaptured?.(captured);
+    return true;
   }
-  whenAnalyticsReady(() => getPosthog()?.capture(EVENTS[event], properties as Record<string, unknown>));
+  whenAnalyticsReady(() => {
+    const captured = !isAnalyticsOptedOut() && Boolean(getPosthog()?.capture(EVENTS[event], properties as Record<string, unknown>));
+    onCaptured?.(captured);
+  });
+  return true; // accepted by the local queue, not a server delivery acknowledgement
 }
 
 /** Identity a signed-in user. Call once, right after AuthContext resolves a session — never with
@@ -43,35 +55,28 @@ export function identifyUser(
     country: string | null;
   }
 ): void {
-  const ph = getPosthog();
-  if (!ph) return;
-  ph.identify(userId, props);
-  if (props.country) ph.group('country', props.country);
-  if (props.language) ph.group('language', props.language);
-}
-
-/** Link the current anonymous distinct id to a newly-created account id, preserving pre-signup
- *  event history under the new identified person. Call BEFORE identifyUser on first sign-up. */
-export function aliasAnon(userId: string): void {
-  const ph = getPosthog();
-  if (!ph) return;
-  ph.alias(userId);
+  desiredIdentity = { id: userId, props };
+  whenAnalyticsReady(() => {
+    const ph = getPosthog();
+    if (!ph || isAnalyticsOptedOut()) return;
+    const previous = ph.get_property('$user_id');
+    if (previous && previous !== userId) { ph.reset(); registerAnalyticsContext(ph); }
+    ph.identify(userId, props);
+    if (props.country) ph.group('country', props.country);
+    if (props.language) ph.group('language', props.language);
+  });
 }
 
 /** Call on sign-out (AuthContext's SIGNED_OUT handling) — starts a fresh anonymous distinct id so
  *  the next guest session on this device isn't attributed to the account that just logged out. */
-export function resetIdentity(): void {
-  const ph = getPosthog();
-  if (!ph) return;
-  ph.reset();
-}
-
-/** Reserved for future segmentation (organization/team accounts) — not populated today; see
- *  types.ts's FuturePayloads.organization_created for what would start using this. */
-export function setGroup(groupType: 'organization', groupKey: string): void {
-  const ph = getPosthog();
-  if (!ph) return;
-  ph.group(groupType, groupKey);
+export function resetIdentity(onlyIfIdentified = false): void {
+  desiredIdentity = null;
+  whenAnalyticsReady(() => {
+    const ph = getPosthog();
+    if (!ph || (onlyIfIdentified && !ph.get_property('$user_id'))) return;
+    ph.reset();
+    registerAnalyticsContext(ph);
+  });
 }
 
 export { isAnalyticsOptedOut, setAnalyticsOptedOut };
@@ -83,5 +88,9 @@ export function setAnalyticsOptOut(optedOut: boolean): void {
   const ph = getPosthog();
   if (!ph) return;
   if (optedOut) ph.opt_out_capturing();
-  else ph.opt_in_capturing();
+  else {
+    ph.opt_in_capturing({ captureEventName: false });
+    if (desiredIdentity) identifyUser(desiredIdentity.id, desiredIdentity.props);
+    else resetIdentity(true);
+  }
 }

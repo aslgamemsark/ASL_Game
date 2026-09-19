@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useClipEnlarge, ClipEnlargeOverlay } from '@/components/shared/ClipEnlarge';
+import { track } from '@/analytics';
 
 interface Props {
   clipUrl?: string;
@@ -19,10 +20,16 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
   const { expanded, open, close } = useClipEnlarge();
+  const reported = useRef({ played: false, error: false });
 
   useEffect(() => {
     setFailed(false);
-  }, [clipUrl]);
+    reported.current = { played: false, error: false };
+    if (!clipUrl) {
+      reported.current.error = true;
+      track('reference_clip_error', { sign_id: signName, reason: 'missing' });
+    }
+  }, [clipUrl, signName]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -65,7 +72,16 @@ export function ReferenceClip({ clipUrl, signName, compact }: Props) {
               loop
               muted
               playsInline
-              onError={() => setFailed(true)}
+              onPlaying={() => {
+                if (reported.current.played) return;
+                reported.current.played = true;
+                track('reference_clip_played', { sign_id: signName });
+              }}
+              onError={() => {
+                if (!reported.current.error) track('reference_clip_error', { sign_id: signName, reason: 'load_error' });
+                reported.current.error = true;
+                setFailed(true);
+              }}
               className="w-full h-full object-contain"
             />
             {/* Discoverability hint for the click/right-click-to-enlarge affordance below.

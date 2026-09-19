@@ -17,7 +17,7 @@ export type ScreenName =
 
 /** Every mode that can produce a sign attempt. Distinct from ScreenName: Duel and Room are two
  *  modes of the single 'multiplayer' screen, and attempt analytics needs to tell them apart. */
-export type AttemptSource = 'lesson' | 'practice' | 'story' | 'speed' | 'duel' | 'room';
+export type AttemptSource = 'lesson' | 'practice' | 'story' | 'speed' | 'duel' | 'room' | 'onboarding';
 
 /** A sign-recognition attempt's outcome, shared by every screen that runs the recognition loop
  *  (Lesson/Practice/Story/Speed/Duel/Room) — see engine/gate.ts for what rule-pass/veto mean. */
@@ -35,7 +35,7 @@ export interface SignAttemptBase {
   ai_confidence: number | null;
   /** Wall-clock ms from recognition loop start to this attempt's outcome. */
   duration_ms: number;
-  /** How many attempts (including this one) the user has made at this sign in the current session. */
+  /** Rule-pass gate decisions at this sign, not all physical signing attempts. */
   attempt_number: number;
 }
 
@@ -52,8 +52,9 @@ export interface EventPayloads {
 
   // Auth (see contexts/AuthContext.tsx)
   guest_started: Record<string, never>;
-  signup_started: { provider: 'email' | 'google' };
-  signup_completed: { provider: 'email' | 'google' };
+  signup_started: { provider: 'email' };
+  signup_submitted: { provider: 'email' };
+  auth_started: { provider: 'google' };
   login: { provider: 'email' | 'google' };
   logout: Record<string, never>;
   /** Guest-only equivalent of `login`'s return-session dedup — see analytics/guestReturn.ts.
@@ -71,10 +72,7 @@ export interface EventPayloads {
   onboarding_step_viewed: { step: 'welcome' | 'auth' | 'skill' | 'firstSign' | 'done' };
   onboarding_skill_selected: { skill_level: 'beginner' | 'intermediate' | 'advanced' };
   onboarding_completed: { skill_level: string; duration_ms: number };
-  /** Fires once, the first time a brand-new visitor's first-ever camera sign attempt (letter A,
-   *  before any account exists) clears the rule verifier — see the 2026-08-30 value-before-signup
-   *  reorder. Distinct from lesson_started/sign_attempt's usual pass tracking, which this predates
-   *  and doesn't go through (no lesson, no XP/gold — see the step's own comment for why). */
+  /** Legacy onboarding-specific pass event. Shared sign_attempt/first_sign_success also fire. */
   onboarding_first_sign_passed: { sign_id: string };
   /** Which door the user took at the auth step. `guest_started` already fires for the guest case;
    *  this exists so all three options are comparable in ONE funnel step instead of having to
@@ -90,6 +88,14 @@ export interface EventPayloads {
 
   // Camera (hooks/useCamera.ts)
   camera_permission_granted: { screen: ScreenName };
+  camera_requested: { screen: ScreenName; camera_request_id: string };
+  camera_first_frame: { screen: ScreenName; camera_request_id: string; duration_ms: number };
+  recognition_model_initialized: { screen: ScreenName; outcome: 'ready' | 'error'; duration_ms: number };
+  recognition_run_started: { run_id: string; sign_id: string; screen: ScreenName };
+  /** One terminal event per started loop, not every physical attempt. Abrupt tab loss may omit it. */
+  recognition_run_ended: { run_id: string; sign_id: string; screen: ScreenName; outcome: 'accepted' | 'skipped' | 'interrupted' | 'sign_changed' | 'unmounted'; duration_ms: number; processed_frames: number; last_failing_parameter: string | null };
+  reference_clip_played: { sign_id: string };
+  reference_clip_error: { sign_id: string; reason: 'missing' | 'load_error' };
   camera_permission_denied: { screen: ScreenName };
   camera_error: { screen: ScreenName; error_name: string };
   /** getUserMedia succeeded (permission granted, stream returned) but no video frame ever arrived
@@ -106,7 +112,7 @@ export interface EventPayloads {
 
   // Lessons / practice / story / speed session lifecycle
   lesson_started: { lesson_id: string; world_id: string | null };
-  lesson_completed: { lesson_id: string; world_id: string | null; duration_ms: number; hints_used: number; xp_earned: number };
+  lesson_completed: { lesson_id: string; world_id: string | null; duration_ms: number; hints_used: number; xp_earned: number; correct: number; total: number; skipped: number };
   lesson_skipped: { lesson_id: string; world_id: string | null; cost: number };
   story_started: { story_id: string; world_id: string | null };
   story_completed: { story_id: string; world_id: string | null; duration_ms: number; hints_used: number; skips_used: number };
@@ -120,13 +126,10 @@ export interface EventPayloads {
   // separate event name, so aggregate AI-quality metrics (avg confidence, avg attempts-to-success,
   // avg latency) are one PostHog query over one event instead of stitched across two.
   sign_attempt: SignAttemptBase;
-  /** The moment a user first passes ANY sign, ever — the product's real activation event, fired
-   *  once per user and never again (guarded by a localStorage flag). `attempts_taken` is how many
-   *  tries it cost them. Added 2026-07-27 to make "time to first successful sign" measurable: it
-   *  was on the KPI dashboard with no way to compute it, and W1 had no signal separating "never
-   *  reached a lesson" from "reached one and could not pass a sign" — the difference between a
-   *  funnel problem and a recognition problem. */
-  first_sign_success: { sign_id: string; ms_since_lesson_start: number; attempts_taken: number };
+  /** First accepted sign per browser storage, including onboarding in flow_version 2.
+   * `attempts_taken` counts rule-pass decisions for this prompt, not all unsuccessful tries.
+   * Historical events without a flow version excluded onboarding. */
+  first_sign_success: { sign_id: string; source: AttemptSource; flow_version: 3; identity_scope: 'guest' | 'account'; ms_since_lesson_start: number; attempts_taken: number };
 
   // Business-level completion (derived from useUserStore.completedLessons vs data/worlds.ts)
   world_completed: { world_id: string; badge_id: string };
@@ -182,7 +185,7 @@ export interface EventPayloads {
   // classifies known, self-healing failure shapes (chunk-load-failure, wasm-crash) vs 'other' —
   // see KnownErrorClass in errorReporting.ts for what each means and why it's split out.
   fatal_error: { message: string; component_stack_present: boolean; route: string; error_class: 'chunk-load-failure' | 'wasm-crash' | 'other' };
-  session_crashed: { source: 'window-error' | 'unhandled-rejection'; message: string; error_class: 'chunk-load-failure' | 'wasm-crash' | 'other' };
+  client_error: { source: 'window-error' | 'unhandled-rejection'; message: string; error_class: 'chunk-load-failure' | 'wasm-crash' | 'other' };
   unexpected_reload: { seconds_since_last_error: number };
 
   // General functional errors (Supabase/network) that aren't a crash but matter for reliability.
@@ -203,23 +206,3 @@ export interface EventPayloads {
 }
 
 export type ActiveEventName = keyof EventPayloads;
-
-// ---- FUTURE events (documented, typed, NOT emitted) --------------------------------------------
-//
-// Placeholders for features named in the project roadmap (CLAUDE.md) but not yet built. Adding a
-// real emission for one of these means: (1) move its entry from FuturePayloads to EventPayloads,
-// (2) add it to events.ts's ACTIVE section, (3) wire it at the real call site. Never emit these
-// today — there is nothing behind them yet.
-export interface FuturePayloads {
-  /** Mobile app (cousin's firm build-out) install/open. */
-  mobile_app_opened: { platform: 'ios' | 'android' };
-  /** A second sign language (DGS) lesson, once that content exists. */
-  second_language_lesson_started: { language: string; lesson_id: string };
-  /** Classroom/team account creation, once organization accounts exist. */
-  organization_created: { org_id: string };
-  /** A paid plan, once monetization ships. */
-  subscription_started: { plan: string };
-  subscription_cancelled: { plan: string; reason: string | null };
-}
-
-export type FutureEventName = keyof FuturePayloads;

@@ -1,4 +1,4 @@
-import type { ActiveEventName, FutureEventName } from './types';
+import type { ActiveEventName } from './types';
 
 /**
  * The single source of truth for event NAMES. Every string PostHog will ever see for this app
@@ -6,8 +6,7 @@ import type { ActiveEventName, FutureEventName } from './types';
  * import `EVENTS.lesson_completed` (etc.) instead, so a typo or a rename is a compile error
  * everywhere it's used, not a silently-orphaned event in PostHog.
  *
- * Split into ACTIVE (wired to a real call site, actually emitted) and FUTURE (typed, documented,
- * NEVER emitted — see types.ts's FuturePayloads for why each one exists and what unlocks it).
+ * Only implemented events belong here. Add an event alongside its real call site.
  */
 
 // ACTIVE — keys must exactly match EventPayloads in types.ts (enforced by the `satisfies` below).
@@ -18,7 +17,15 @@ export const EVENTS = {
   // Auth
   guest_started: 'guest_started',
   signup_started: 'signup_started',
-  signup_completed: 'signup_completed',
+  signup_submitted: 'signup_submitted',
+  auth_started: 'auth_started',
+  camera_requested: 'camera_requested',
+  camera_first_frame: 'camera_first_frame',
+  recognition_model_initialized: 'recognition_model_initialized',
+  recognition_run_started: 'recognition_run_started',
+  recognition_run_ended: 'recognition_run_ended',
+  reference_clip_played: 'reference_clip_played',
+  reference_clip_error: 'reference_clip_error',
   login: 'login',
   logout: 'logout',
   guest_return: 'guest_return',
@@ -98,7 +105,7 @@ export const EVENTS = {
 
   // Crash / errors
   fatal_error: 'fatal_error',
-  session_crashed: 'session_crashed',
+  client_error: 'client_error',
   unexpected_reload: 'unexpected_reload',
   error_captured: 'error_captured',
 
@@ -109,13 +116,3 @@ export const EVENTS = {
   feedback_clicked: 'feedback_clicked',
   scroll_depth: 'scroll_depth',
 } satisfies Record<ActiveEventName, string>;
-
-// FUTURE — documented placeholders only. Never passed to track(); listed here purely so the
-// taxonomy (and EVENT_REFERENCE.md, generated from this file) shows what's planned vs. shipped.
-export const FUTURE_EVENTS = {
-  mobile_app_opened: 'mobile_app_opened',
-  second_language_lesson_started: 'second_language_lesson_started',
-  organization_created: 'organization_created',
-  subscription_started: 'subscription_started',
-  subscription_cancelled: 'subscription_cancelled',
-} satisfies Record<FutureEventName, string>;

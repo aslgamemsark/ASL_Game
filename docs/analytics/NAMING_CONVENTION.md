@@ -1,23 +1,21 @@
-# Naming Convention
+# Analytics naming and meaning
 
-- **Events:** `snake_case`, `object_action` order — `lesson_completed`, `sign_attempt`,
-  `multiplayer_room_created`. Past tense for things that happened (`_completed`, `_started`,
-  `_lost`), not commands.
-- **One event per real occurrence, not per outcome.** `sign_attempt` is a single event with a
-  `final_passed: boolean` property, not `sign_attempt_passed` / `sign_attempt_failed` as two
-  separate names — this keeps aggregate queries (avg confidence, avg latency) a single-event
-  query instead of a UNION, and avoids the event-name count growing every time a new True/False
-  outcome axis gets added to an existing flow. The exception: `feedback_submitted` +
-  `bug_reported`/`feature_requested` deliberately co-fire (see EVENT_REFERENCE.md) because bug
-  reports and feature requests are genuinely different analysis subjects worth their own funnel,
-  not just a property filter.
-- **Properties:** `snake_case`. Booleans read as a yes/no question in the affirmative:
-  `rule_passed`, `ai_vetoed`, `won`, `forfeited` — never `is_rule_passed` or `not_forfeited`.
-- **IDs:** always `_id` suffix — `sign_id`, `world_id`, `room_id`, `badge_id`, `item_id`.
-- **Durations:** always `_ms` suffix, always milliseconds — never mix units across properties.
-- **No PII in any name or value.** No email, username-as-identifier (use the PostHog distinct id
-  via `identifyUser`, never put a username in an event property), no raw landmarks.
-- **Screen names** (`ScreenName` in `types.ts`) match `App.tsx`'s `Screen['type']` union exactly
-  — one source of truth, checked by TypeScript, not duplicated as a separate string enum.
-- **Feature flags:** `snake_case`, verb-first for kill switches (`disable_camera`), noun/adjective
-  for rollout flags (`new_onboarding`, `mascot_variant`).
+- Events and properties use `snake_case`. Name the observed action, not a stronger inferred claim:
+  `signup_submitted` is a request outcome; `client_error` is an error, not necessarily a crash.
+- Reuse a single event with an outcome property where appropriate. Start/end pairs describe a
+  lifecycle and use a correlation id (`run_id`, `camera_request_id`) where implemented.
+- IDs end in `_id`; elapsed milliseconds end in `_ms`. The legacy
+  `first_sign_success.ms_since_lesson_start` actually measures from the reporting screen's mount,
+  including onboarding; do not call it time since app entry or pure recognition latency.
+- Every event needs an explicit unit and denominator. `sign_attempt` counts rule-pass decisions;
+  recognition runs count started loops. Neither enumerates physical signing attempts.
+- `flow_version` separates changed activation semantics. Historical versions are not silently
+  reinterpreted as the newest one.
+- Use affirmative booleans (`final_passed`, `ai_vetoed`, `won`). No credentials, emails, free-form
+  messages, webcam frames or landmarks in payloads. Use approved identity and attribution helpers.
+- Keep screen/source values in `types.ts`. Attempt source distinguishes onboarding, lesson,
+  practice, story, speed, duel and room; screen and source are different dimensions.
+- Only implemented events belong in `EVENTS`/`EventPayloads`. Planned products do not need event
+  placeholders. Feature flags need a real reader before they control anything.
+- Feedback category events deliberately co-fire with `feedback_submitted`; do not add those counts
+  together and call them unique submissions.

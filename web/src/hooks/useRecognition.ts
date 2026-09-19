@@ -7,7 +7,7 @@ import { topK, type SignClassifier } from '@/engine/classifier';
 import { GATE_CONFIDENCE, GATE_ENFORCED, GATE_EXCLUDED_SIGNS } from '@/config/classifier';
 import { MovementKind, type Sign } from '@/engine/schema';
 import { clip } from '@/engine/math-utils';
-import { track, type ScreenName } from '@/analytics';
+import { track, newAnalyticsId, type ScreenName } from '@/analytics';
 import { speakSign } from '@/lib/speak';
 
 // Static signs (movement.kind === NONE) have no motion scorer to naturally pace a pass —
@@ -181,6 +181,23 @@ export function useRecognition(opts?: UseRecognitionOpts) {
   // relative to the CURRENT sign, not a previous one in the same session.
   const loopStartRef = useRef(0);
   const attemptCountRef = useRef(0);
+  const runRef = useRef<{ id: string; sign: string; started: number; frames: number; failing: string | null } | null>(null);
+  const finishRun = useCallback((outcome: 'accepted' | 'skipped' | 'interrupted' | 'sign_changed' | 'unmounted') => {
+    const run = runRef.current;
+    if (!run) return;
+    runRef.current = null;
+    track('recognition_run_ended', {
+      run_id: run.id, sign_id: run.sign, screen: screenRef.current ?? 'onboarding', outcome,
+      duration_ms: Math.round(performance.now() - run.started), processed_frames: run.frames,
+      last_failing_parameter: outcome === 'accepted' ? null : run.failing,
+    });
+  }, []);
+  const beginRun = useCallback((sign: Sign) => {
+    finishRun('sign_changed');
+    const run = { id: newAnalyticsId(), sign: sign.name, started: performance.now(), frames: 0, failing: null };
+    runRef.current = run;
+    track('recognition_run_started', { run_id: run.id, sign_id: sign.name, screen: screenRef.current ?? 'onboarding' });
+  }, [finishRun]);
 
   const init = useCallback(async () => {
     if (captureRef.current?.ready) {
@@ -188,14 +205,17 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       return;
     }
     setStatus('loading');
+    const started = performance.now();
     try {
       const cap = await getSharedCapture();
       captureRef.current = cap;
       if (import.meta.env.DEV) console.log('[QuickSign] MediaPipe initialized');
       setStatus('ready');
+      track('recognition_model_initialized', { screen: screenRef.current ?? 'onboarding', outcome: 'ready', duration_ms: Math.round(performance.now() - started) });
     } catch (e) {
       console.error('[QuickSign] MediaPipe init failed:', e);
       setStatus('error');
+      track('recognition_model_initialized', { screen: screenRef.current ?? 'onboarding', outcome: 'error', duration_ms: Math.round(performance.now() - started) });
     }
   }, []);
 
@@ -223,6 +243,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
       }
 
       runningRef.current = true;
+      beginRun(sign);
       setStatus('running');
       if (import.meta.env.DEV) console.log('[QuickSign] Loop started for', sign.name);
 
@@ -361,6 +382,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
           }
 
           const vr = verify(bufferRef.current, signRef.current);
+          if (runRef.current) {
+            runRef.current.frames++;
+            runRef.current.failing = vr.params.find(p => p.required && p.score < p.threshold)?.name ?? null;
+          }
           if (nowMs - lastResultUpdateMs >= RESULT_UPDATE_INTERVAL_MS) {
             lastResultUpdateMs = nowMs;
             setResult(vr);
@@ -384,9 +409,10 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 gatingRef.current = true;
                 const snapshot = bufferRef.current.frames;
                 const gatedSign = signRef.current;
+                const gatedRun = runRef.current?.id;
                 cls.classify(snapshot)
                   .then((vote) => {
-                    if (!gatedSign) return;
+                    if (!gatedSign || !runningRef.current || signRef.current !== gatedSign || runRef.current?.id !== gatedRun) return;
                     const { passed, modelVetoed } = gateOutcome(true, vote, gatedSign.name, gateConfRef.current);
                     // Suppressed whenever the learner passed — a "that looked more like X" note
                     // next to a success is contradictory, and in shadow mode every attempt the
@@ -421,6 +447,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                       attemptNumber: attemptCountRef.current,
                     });
                     if (passed) {
+                      finishRun('accepted');
                       speakSign(gatedSign.name);
                       passCallbackRef.current?.(vr);
                       hintCallbackRef.current?.(null);
@@ -452,6 +479,7 @@ export function useRecognition(opts?: UseRecognitionOpts) {
                 attemptNumber: attemptCountRef.current,
               });
               speakSign(sign.name);
+              finishRun('accepted');
               passCallbackRef.current?.(vr);
             }
           };
@@ -501,19 +529,21 @@ export function useRecognition(opts?: UseRecognitionOpts) {
 
       rafRef.current = requestAnimationFrame(tick);
     },
-    []
+    [beginRun, finishRun]
   );
 
-  const stopLoop = useCallback(() => {
+  const stopLoop = useCallback((outcome: 'skipped' | 'interrupted' = 'interrupted') => {
+    finishRun(outcome);
     runningRef.current = false;
     cancelAnimationFrame(rafRef.current);
     signRef.current = null;
     setStatus((s) => (s === 'running' ? 'ready' : s));
-  }, []);
+  }, [finishRun]);
 
   const getSnapshot = useCallback((): Frame[] => bufferRef.current.frames, []);
 
   const setSign = useCallback((sign: Sign) => {
+    if (runningRef.current) beginRun(sign);
     signRef.current = sign;
     bufferRef.current.clear();
     stabilizerRef.current.reset();
@@ -522,16 +552,17 @@ export function useRecognition(opts?: UseRecognitionOpts) {
     attemptCountRef.current = 0;
     setResult(null);
     setHoldProgress(null);
-  }, []);
+  }, [beginRun]);
 
   useEffect(() => {
     return () => {
+      finishRun('unmounted');
       runningRef.current = false;
       cancelAnimationFrame(rafRef.current);
       // Capture is a shared, app-wide singleton now (see getSharedCapture) — don't close it here,
       // that would break every other mounted page still using it.
     };
-  }, []);
+  }, [finishRun]);
 
   return { status, result, framing, holdProgress, init, startLoop, stopLoop, setSign, getSnapshot };
 }

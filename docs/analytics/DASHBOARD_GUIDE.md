@@ -1,19 +1,41 @@
-# Dashboards
+# PostHog dashboards
 
-Eight dashboards, each answering a different team's question. Built in PostHog via the MCP
-connector; recreate manually here if needed (each row = one insight to add).
+Use existing dashboards in QuickSign project **518794**. Links identify existing assets; their
+presence does not verify current tile definitions, newly deployed events or fresh ingestion.
+Apply [the measurement definitions](FUNNELS.md) when reviewing or updating a tile.
 
-| Dashboard | Answers | Key insights |
+| Dashboard | Existing link | Purpose |
 |---|---|---|
-| **Executive / Activation** | Is the beta growing? | DAU/WAU trend, `onboarding_completed` count, Activation funnel conversion, guest vs. signed-in split |
-| **Learning** | Are people actually learning? | `lesson_completed` volume by `world_id`, `lesson_skipped` rate, avg `hints_used`, Learning funnel |
-| **Recognition / AI quality** | Is the recognizer trustworthy? | avg `ai_confidence` on `sign_attempt`, avg `duration_ms` (recognition latency proxy), `ai_vetoed` rate (suspected false-positive rate — see the honest caveat in `EVENT_REFERENCE.md`), `ai_model_unavailable` count |
-| **Multiplayer** | Is multiplayer working? | `multiplayer_match_started` vs. `_finished` vs. `_abandoned`, `multiplayer_connection_lost` rate, avg match `duration_ms` |
-| **Errors** | Is the app breaking for real users? | `fatal_error`/`session_crashed`/`unexpected_reload` trend, `error_captured` by `source`, breakdown by `deployment_environment` |
-| **Performance** | Is the app fast? | Web Vitals (LCP/CLS/INP/FCP/TTFB, auto-captured), `ai_model_loaded`'s `load_ms` distribution |
-| **Growth / Retention** | Are people coming back? | Lifecycle chart (new/returning/resurrecting/dormant) on `screen_viewed`, Day-2/Day-7 retention |
-| **Economy** | Is the reward loop healthy? | `level_up` rate, `item_purchased` by `item_type`, `chest_opened` vs. `chest_skipped`, `achievement_unlocked` volume |
+| Growth / Launch | [2067585](https://us.posthog.com/project/518794/dashboard/2067585) | Acquisition, activation and retention |
+| Executive / Activation | [1873040](https://us.posthog.com/project/518794/dashboard/1873040) | First learning value and lesson progression |
+| Recognition | [1874393](https://us.posthog.com/project/518794/dashboard/1874393) | Camera readiness, run outcomes and clip failures |
+| Errors | [1874390](https://us.posthog.com/project/518794/dashboard/1874390) | Fatal render errors, client errors and functional failures |
 
-All dashboards are scoped to production data only (`deployment_environment = production`) except
-Errors and Performance, which intentionally include preview/dev so a broken preview deploy is
-visible before it reaches production.
+Start with a small useful set of tiles:
+
+- External production entrants → v3 first-sign success, without requiring lesson completion first.
+- First-success cohort returning to learning the next calendar day; show eligible cohort size.
+- Camera request → first frame by request id, MediaPipe ready/error outcomes, unmatched recognition
+  starts and ended-run outcomes by sign. Label these as operational outcomes, not ASL accuracy.
+- Ordered lesson completion with correct/skipped counts, plus reference-clip missing/load errors.
+- `fatal_error`, `client_error`, `unexpected_reload` and `error_captured` separately, by release/browser.
+
+Keep preview/internal diagnostic views separate from the external production population. Do not
+mix them into growth conversion. Hide or relabel old signup/crash/accuracy tiles when their event
+meaning has changed. An event with no samples is not proof that its feature is unused or healthy.
+Only add another dashboard when an actual decision needs it; avoid rebuilding the former eight-
+or twelve-dashboard wish list.
+
+## Changes saved on 2026-09-19
+
+Nine existing insights were corrected: four activation/lesson funnels, two rule-pass decision
+charts, two error charts, and camera/runtime reliability. Four dashboards now explicitly filter
+to `$host = quicksignn.vercel.app` and `traffic_type = external`; unknown historical traffic is
+excluded. Customer Analytics activity now uses `screen_viewed`, not the disabled `$pageview`.
+
+Added [camera startup](https://us.posthog.com/project/518794/insights/GaB2Zvwy) and
+[recognition run outcomes](https://us.posthog.com/project/518794/insights/VD6pNvTf). Both are marked
+pending application deployment. The saved camera chart is a one-day person funnel, not an exact
+request-id join. The saved lesson funnel is person-level and does not match individual lesson
+instances. New telemetry and v3 first-success semantics are not yet a trustworthy production
+baseline; verify the deployed commit and actual ingestion first. Historical events were retained.

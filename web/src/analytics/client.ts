@@ -1,6 +1,8 @@
 import type { PostHog } from 'posthog-js';
 import { isAnalyticsOptedOut } from './consent';
 import { trafficType } from './trafficType';
+import { attributionProperties, sanitizeAnalyticsProperties } from './attribution';
+export { sanitizeAnalyticsProperties } from './attribution';
 
 /**
  * The PostHog singleton — internal to the analytics module. Nothing outside `analytics/` should
@@ -18,6 +20,7 @@ const DEV_OPT_IN = import.meta.env.VITE_ANALYTICS_DEV === '1';
 export const analyticsConfigured = Boolean(KEY) && (import.meta.env.PROD || DEV_OPT_IN);
 
 let initialized = false;
+let initialization: Promise<void> | null = null;
 let posthog: PostHog | null = null;
 
 // Callers that fire before the dynamic posthog-js import (below) resolves would otherwise
@@ -32,33 +35,13 @@ export function whenAnalyticsReady(cb: () => void): void {
   readyCallbacks.push(cb);
 }
 
-/**
- * Reduces $current_url/$referrer/$referring_domain to origin + path before PostHog ingests the
- * event, dropping BOTH the query string and the hash fragment.
- *
- * The hash half is not hypothetical (found 2026-07-27): this function previously split on '?'
- * only, and Supabase returns auth credentials in the FRAGMENT, not the query. A real session
- * recording's start_url contained a full `access_token` and `refresh_token` from a `type=signup`
- * redirect, and the JWT payload carried the user's email address. PostHog derives a recording's
- * start_url from the session's first $current_url, so sanitizing here is what cleans both.
- *
- * Deliberately NOT done by rewriting window.location: supabase-js reads the fragment to complete
- * the OAuth / email-confirmation exchange, and clearing it before that finishes would break
- * sign-in. Redacting at the analytics boundary fixes the leak without touching the auth flow.
- *
- * Exported standalone (not inlined in the init config) so it's unit-testable without spinning up
- * a real PostHog instance.
- */
-export function sanitizeAnalyticsProperties(properties: Record<string, unknown>): Record<string, unknown> {
-  for (const key of ['$current_url', '$referrer', '$referring_domain'] as const) {
-    const value = properties[key];
-    if (typeof value !== 'string') continue;
-    // Cut at whichever separator appears first — a fragment can contain a '?' and vice versa, so
-    // splitting on one then the other in a fixed order can leave the tail of the other behind.
-    const cut = [value.indexOf('?'), value.indexOf('#')].filter((i) => i !== -1);
-    if (cut.length) properties[key] = value.slice(0, Math.min(...cut));
-  }
-  return properties;
+/** Restore acquisition/release context after initialization and identity resets. */
+export function registerAnalyticsContext(ph: Pick<PostHog, 'register' | 'group'>): void {
+  ph.register({
+    ...attributionProperties(), app_version: __APP_VERSION__, git_commit: __GIT_COMMIT__,
+    deployment_environment: __DEPLOY_ENV__, build_timestamp: __BUILD_TIMESTAMP__, traffic_type: trafficType(),
+  });
+  ph.group('beta_cohort', 'reddit-beta-2026');
 }
 
 /**
@@ -94,11 +77,15 @@ export function sanitizeAnalyticsProperties(properties: Record<string, unknown>)
  * events that fire in that now-real window before the import resolves.
  */
 export async function initAnalytics(): Promise<void> {
+  if (!initialization) initialization = initializeAnalytics().catch(error => { initialization = null; throw error; });
+  return initialization;
+}
+
+async function initializeAnalytics(): Promise<void> {
   if (initialized || !analyticsConfigured || !KEY) return;
 
   const { default: ph } = await import('posthog-js');
   posthog = ph;
-  initialized = true;
 
   posthog.init(KEY, {
     api_host: HOST,
@@ -119,6 +106,7 @@ export async function initAnalytics(): Promise<void> {
     capture_pageleave: true,
     person_profiles: 'identified_only',
     respect_dnt: true,
+    opt_out_capturing_by_default: isAnalyticsOptedOut(),
     capture_performance: { web_vitals: true },
     // Wired via before_send, NOT sanitize_properties: posthog-js 1.404 still honours the latter
     // but logs a deprecation error on EVERY captured event and is dropping it in a future major.
@@ -131,21 +119,13 @@ export async function initAnalytics(): Promise<void> {
     loaded: (ph) => {
       // Release + deployment metadata as SESSION super properties (registered once, carried on
       // every event automatically) — never threaded manually into individual track() calls.
-      ph.register({
-        app_version: __APP_VERSION__,
-        git_commit: __GIT_COMMIT__,
-        deployment_environment: __DEPLOY_ENV__,
-        build_timestamp: __BUILD_TIMESTAMP__,
-        traffic_type: trafficType(),
-      });
-      // beta_cohort is a PostHog Group (not a person property) — every user in this launch is a
-      // member, which is what lets a future post-beta cohort be compared against this one later.
-      ph.group('beta_cohort', 'reddit-beta-2026');
+      registerAnalyticsContext(ph);
     },
   });
 
   // Sync any previously-saved opt-out choice (Settings -> Privacy) before anything captures.
   if (isAnalyticsOptedOut()) posthog.opt_out_capturing();
+  initialized = true;
 
   // Replay events queued by track() while this import was in flight, in the order they fired.
   readyCallbacks.splice(0).forEach((cb) => cb());

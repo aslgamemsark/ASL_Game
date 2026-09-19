@@ -5,9 +5,9 @@
 > shipped app. That is deliberate but was not stated anywhere, so a reader opening the repo's only
 > file called `ARCHITECTURE.md` reasonably expected the whole system and found one subsystem.
 >
-> For the shipped app: `docs/vault/00-Index.md` is the map (an Obsidian vault — open `docs/` as the
-> vault root). For how the recognition engine is structured and the invariants it must hold, the
-> root `CLAUDE.md` is authoritative. For test architecture — what runs where, and why the
+> For the shipped app, read [the root architecture](../ARCHITECTURE.md). For recognition
+> invariants, [AGENTS.md](../AGENTS.md) is authoritative. The milestone descriptions below
+> are historical; see [the current brief](AI_ONBOARDING.md) before restarting avatar work. For test architecture — what runs where, and why the
 > multiplayer suite needs its own stack — see `docs/MULTIPLAYER_TESTING.md`.
 >
 > **Verification topology, in one place**, since it now spans four runners:

@@ -2,7 +2,7 @@
 
 ## Canonical production
 
-**`https://quicksignn.vercel.app`** is canonical. `aslgame.vercel.app` (the old domain) 307-redirects to it — leave that redirect in place; it's live inbound-link equity, not dead weight.
+**`https://quicksignn.vercel.app`** is canonical. The old `aslgame.vercel.app` alias was removed at the owner's request during the September 2026 audit. Do not recreate it or assume the former redirect still exists.
 
 ## Vercel projects (as of 2026-08-30 — verify current state before assuming this is still accurate)
 

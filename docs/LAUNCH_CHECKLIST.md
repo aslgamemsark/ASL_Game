@@ -1,7 +1,8 @@
 # QuickSign — Launch Checklist
 
-Manual/human tasks remaining before a public launch. Grouped by whether they block launch. Code-side
-findings are in `FINAL_PRODUCTION_SIGNOFF.md`; this file is the "things a person must do" list.
+Manual/human release checks, originating in the July 15 audit. Unchecked items remain unverified
+until fresh evidence establishes their status; this cleanup does not waive them. Code-side
+findings are in [the historical sign-off](archive/FINAL_PRODUCTION_SIGNOFF.md).
 
 ## 🔴 Blockers (do before public launch)
 
@@ -12,17 +13,11 @@ findings are in `FINAL_PRODUCTION_SIGNOFF.md`; this file is the "things a person
       consent model, documented data retention + deletion path. (legal/human — cannot be coded away)
 - [ ] **Decide the `collectTrainingData` default** for the target audience. Currently defaults **on**
       (opt-out). For a kid-facing app, opt-in may be required. Product + legal decision.
-- [ ] **Verify the production deploy actually shipped** after the `main` merge this session.
-      Confirmed from here: `main` @ commit `93d25cf` (the merge) **is** on the remote — the push
-      landed. What could NOT be confirmed: that Vercel built and served it. Signal observed 2026-07-15:
-      minutes after the push, `aslgame.vercel.app` was still serving the same JS bundle hash
-      (`index-D_281_JS.js`) with no Multiplayer tab — but this is confounded by PWA service-worker
-      caching in the test browser, so it is NOT conclusive evidence of a failed deploy.
-      ACTION (Vercel dashboard — human): confirm a deployment exists from `main` @ `93d25cf`, it built
-      green, and it's the current production alias. Then hard-reload `aslgame.vercel.app` (clear the
-      service worker / "new version available") and confirm the Multiplayer tab appears. Note: the git
-      "repository moved" redirect (`msaad9632/ASL_Game` → `aslgamemsark/ASL_Game`) is a benign GitHub
-      rename redirect — same underlying repo — not a separate-repo problem.
+- [ ] **Verify the intended production release actually shipped.** Confirm the canonical Vercel
+      project built the reviewed `main` commit successfully and serves it at
+      `https://quicksignn.vercel.app`. Clear/reload any stale service worker and verify the affected
+      user flow. A successful Git push is not evidence of a successful deployment. The old July 15
+      commit/domain example is historical and must not be used as today's target.
 - [ ] **Confirm a data-deletion path exists** for account deletion (GDPR "right to erasure"): deleting
       the auth user should cascade/clear `profiles`, `user_progress`, `training_samples`, `sign_attempts`.
       Verify the FK `on delete` behavior actually removes personal data.

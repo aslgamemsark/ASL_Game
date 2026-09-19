@@ -1,5 +1,8 @@
 # ML training pipeline
 
+> Offline/reference pipeline. Classifier loading and veto enforcement are currently disabled
+> in `web/src/config/classifier.ts`; the architecture below does not imply live inference.
+
 The trained classifier (`web/public/models/signs/`) is a **veto-only disambiguation layer**
 (`web/src/engine/gate.ts`) — it never rescues a rule-failed attempt, it can only veto an
 already-rule-passed one when confident the user signed something else. Rules + the per-parameter
