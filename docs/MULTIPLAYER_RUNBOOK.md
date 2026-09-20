@@ -3,6 +3,24 @@
 Operational reference for QuickSign's real-time multiplayer (Duel 1v1 + Room up to 4). Read this
 before touching networking, changing a TURN provider, or debugging a "can't connect" report.
 
+## September 2026 release checks
+
+The multiplayer audit adds `20260920000051_secure_multiplayer_membership.sql` and a
+`join_multiplayer_room_v2` client. Ship these together: the migration revokes the old join RPC,
+so old open tabs fail safely and need a refresh. Do not fall back to the old RPC, which loses
+failed-code throttle counts on rollback. Apply this specific migration only after the local/CI
+database suite passes; do not replay the entire migration history against production.
+
+The patch restricts private-room reads, makes member departure idempotent, and restricts direct
+host updates to status. Duel uses one signer-decided result per round with bounded result replay;
+Room ignores duplicate completions and ends the guest session if its host stays absent for 30
+seconds. These are reliability protections, not server-validated anti-cheat (see Known Limitations).
+
+Run `npm run test:multiplayer` against disposable local Supabase. The suite now covers failed-code
+throttling, concurrent departure/admission, private-room visibility, host-only deletion, and the
+duplicate-ignoring insert used by friend challenges. Test fixtures explicitly decline training
+collection after login. Physical two-device and real-phone signing checks remain separate.
+
 ## 1. Architecture at a glance
 
 QuickSign multiplayer has **no dedicated game server**. It is peer-to-peer video over WebRTC, with

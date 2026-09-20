@@ -9,7 +9,8 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMultiplayerSignaling, type IceResult } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
-import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, pickNextSigner, DEFAULT_ROOM_RULES, type RoomRules } from '@/lib/multiplayerRooms';
+import { generateRoomCode, filterSignPool, pickSignsFrom, pickNextSigner, DEFAULT_ROOM_RULES, TURN_SECONDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
+import { joinMultiplayerRoom } from '@/lib/joinMultiplayerRoom';
 import { MultiplayerLobby } from '@/components/multiplayer/MultiplayerLobby';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
@@ -23,7 +24,7 @@ import { RoundProgressDots } from '@/components/multiplayer/RoundProgressDots';
 import { RoundResultCard } from '@/components/multiplayer/RoundResultCard';
 import { track } from '@/analytics';
 
-type Phase = 'lobby' | 'waitingRoom' | 'signing' | 'guessing' | 'roundResult' | 'finalResults';
+type Phase = 'lobby' | 'waitingRoom' | 'signing' | 'guessing' | 'roundResult' | 'finalResults' | 'hostLeft';
 type Visibility = 'public' | 'private';
 
 interface RosterMember {
@@ -114,6 +115,10 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   const signerPeerIdRef = useRef<string | null>(null);
   const scoresRef = useRef<Record<string, number>>({});
   const isHostRef = useRef(false);
+  const hostIdRef = useRef<string | null>(null);
+  const roundEndedRef = useRef(true);
+  const gameFinishedRef = useRef(false);
+  const hostGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guessesThisRoundRef = useRef<Record<string, string>>({});
   const roundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -151,6 +156,9 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   // turn clock itself — that's armed separately (see armTurnTimer below) once enough guessers
   // have confirmed they can actually SEE the signer's video, not merely that a round exists.
   const beginRound = useCallback((roundNum: number, signer: string, signId: string) => {
+    if (gameFinishedRef.current || roundNum <= roundRef.current) return;
+    if (!Number.isInteger(roundNum) || roundNum < 1 || !SIGNS[signId] || !rosterRef.current.some((m) => m.peerId === signer)) return;
+    roundEndedRef.current = false;
     if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
     if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
@@ -195,11 +203,17 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   }, [buildGuessOptions, user?.id]);
 
   const applyRoundEnd = useCallback((roundNum: number, scoreDeltas: Record<string, number>) => {
-    setScores((prev) => {
-      const next = { ...prev };
-      for (const [pid, delta] of Object.entries(scoreDeltas)) next[pid] = (next[pid] ?? 0) + delta;
-      return next;
-    });
+    if (gameFinishedRef.current || roundEndedRef.current || roundNum !== roundRef.current) return;
+    if (!scoreDeltas || typeof scoreDeltas !== 'object') return;
+    roundEndedRef.current = true;
+    if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
+    if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
+    const next = { ...scoresRef.current };
+    for (const [pid, delta] of Object.entries(scoreDeltas)) {
+      if (rosterRef.current.some((m) => m.peerId === pid) && delta === 1) next[pid] = (next[pid] ?? 0) + 1;
+    }
+    scoresRef.current = next;
+    setScores(next);
     setResultData({
       correctSignName: SIGNS[currentSignIdRef.current ?? '']?.name ?? currentSignIdRef.current ?? '',
       scoreDeltas: rosterRef.current.map((m) => ({ label: usernameFor(m.peerId), delta: scoreDeltas[m.peerId] ?? 0 })),
@@ -211,7 +225,6 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
         const nextRound = roundNum + 1;
         if (nextRound > totalRoundsRef.current) {
           const finalScores = { ...scoresRef.current };
-          for (const [pid, delta] of Object.entries(scoreDeltas)) finalScores[pid] = (finalScores[pid] ?? 0) + delta;
           signaling.send('game-over', { finalScores });
           applyGameOver();
           return;
@@ -224,7 +237,6 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
         if (!nextSigner) {
           // Fewer than two players left — end the match rather than run rounds nobody can score.
           const finalScores = { ...scoresRef.current };
-          for (const [pid, delta] of Object.entries(scoreDeltas)) finalScores[pid] = (finalScores[pid] ?? 0) + delta;
           signaling.send('game-over', { finalScores });
           applyGameOver();
           return;
@@ -238,6 +250,12 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   }, [beginRound, usernameFor]);
 
   const applyGameOver = useCallback(() => {
+    if (gameFinishedRef.current) return;
+    gameFinishedRef.current = true;
+    if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
+    if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
+    if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
+    if (hostGraceRef.current) clearTimeout(hostGraceRef.current);
     setPhase('finalResults');
     const myScore = scoresRef.current[user?.id ?? ''] ?? 0;
     const best = Math.max(0, ...Object.values(scoresRef.current));
@@ -260,6 +278,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   }, [user?.id]);
 
   const endRound = useCallback(() => {
+    if (!isHostRef.current || roundEndedRef.current || gameFinishedRef.current) return;
     if (roundTimerRef.current) { clearTimeout(roundTimerRef.current); roundTimerRef.current = null; }
     const signId = currentSignIdRef.current;
     const deltas: Record<string, number> = {};
@@ -276,7 +295,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   // with a synced instant), or by the fallback timeout if that handshake doesn't fully complete.
   // Idempotent per round via turnArmedThisRoundRef.
   const armTurnTimer = useCallback((startedAt?: number) => {
-    if (turnArmedThisRoundRef.current) return;
+    if (turnArmedThisRoundRef.current || roundEndedRef.current || gameFinishedRef.current) return;
     turnArmedThisRoundRef.current = true;
     if (turnArmFallbackRef.current) { clearTimeout(turnArmFallbackRef.current); turnArmFallbackRef.current = null; }
     const at = startedAt ?? Date.now();
@@ -310,17 +329,24 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   }, []);
 
   const handleMessage = useCallback((event: string, payload: Record<string, unknown>, fromPeerId: string) => {
+    if (gameFinishedRef.current) return;
+    // Reliability guards only: payload.from is not authenticated sender provenance.
+    if (['roster', 'game-start', 'round-start', 'round-timer-start', 'round-end', 'game-over'].includes(event) && (isHostRef.current || fromPeerId !== hostIdRef.current)) return;
     if (event === 'roster-join') {
-      if (!isHostRef.current) return;
+      if (!isHostRef.current || roundRef.current !== 0) return;
       const already = rosterRef.current.some((m) => m.peerId === fromPeerId);
-      if (already || rosterRef.current.length >= MAX_PLAYERS) return;
+      if (already) { signaling.send('roster', { members: rosterRef.current }); return; }
+      if (rosterRef.current.length >= MAX_PLAYERS) return;
       const next = [...rosterRef.current, { peerId: fromPeerId, username: (payload.username as string) ?? 'Player', joinOrder: rosterRef.current.length, border: (payload.border as string) ?? '' }];
+      rosterRef.current = next;
       setRoster(next);
       signaling.send('roster', { members: next });
       return;
     }
     if (event === 'roster') {
       const members = payload.members as RosterMember[];
+      if (!Array.isArray(members) || members.length > MAX_PLAYERS || members.some((m) => !m || typeof m.peerId !== 'string' || typeof m.username !== 'string')) return;
+      rosterRef.current = members;
       setRoster(members);
       // The host has acknowledged us by name — stop re-announcing immediately rather than waiting
       // for the interval's next tick.
@@ -328,13 +354,16 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
       return;
     }
     if (event === 'game-start') {
+      if (totalRoundsRef.current > 0) return;
       const signs = payload.signs as string[];
       const turnOrder = payload.turnOrder as string[];
-      turnSecondsRef.current = (payload.turnSeconds as number) ?? TURN_SECONDS;
+      if (!Array.isArray(signs) || !signs.length || signs.some((id) => typeof id !== 'string' || !SIGNS[id]) || !Array.isArray(turnOrder) || turnOrder.length < 2 || turnOrder.length > MAX_PLAYERS) return;
+      turnSecondsRef.current = TURN_SECONDS_OPTIONS.includes(payload.turnSeconds as number) ? payload.turnSeconds as number : TURN_SECONDS;
       signsRef.current = signs;
       turnOrderRef.current = turnOrder;
       totalRoundsRef.current = signs.length;
       setTotalRounds(signs.length);
+      matchStartedAtRef.current = Date.now();
       return;
     }
     if (event === 'round-start') {
@@ -345,6 +374,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
       // Only the host tracks readiness and decides when to arm the shared clock. Disconnected
       // players are excluded — they'll never send this, and would otherwise stall every round.
       if (!isHostRef.current || payload.round !== roundRef.current) return;
+      if (fromPeerId === signerPeerIdRef.current || !rosterRef.current.some((m) => m.peerId === fromPeerId)) return;
       roundReadyRef.current.add(fromPeerId);
       const activeGuessers = rosterRef.current.filter((m) => m.peerId !== signerPeerIdRef.current && !disconnectedPeerIdsRef.current.includes(m.peerId));
       if (roundReadyRef.current.size >= activeGuessers.length) armTurnTimerRef.current();
@@ -356,7 +386,8 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     }
     if (event === 'guess') {
       if (!isHostRef.current) return;
-      if (payload.round !== roundRef.current) return;
+      if (payload.round !== roundRef.current || roundEndedRef.current) return;
+      if (fromPeerId === signerPeerIdRef.current || !rosterRef.current.some((m) => m.peerId === fromPeerId)) return;
       if (guessesThisRoundRef.current[fromPeerId]) return;
       guessesThisRoundRef.current[fromPeerId] = payload.signId as string;
       const activeGuesserCount = rosterRef.current.filter((m) => m.peerId !== signerPeerIdRef.current && !disconnectedPeerIdsRef.current.includes(m.peerId)).length;
@@ -368,6 +399,17 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
       return;
     }
     if (event === 'game-over') {
+      if (!totalRoundsRef.current) return;
+      const finalScores = payload.finalScores as Record<string, number>;
+      if (!finalScores || typeof finalScores !== 'object') return;
+      const next: Record<string, number> = {};
+      for (const member of rosterRef.current) {
+        const score = finalScores[member.peerId] ?? 0;
+        if (!Number.isInteger(score) || score < 0 || score > totalRoundsRef.current) return;
+        next[member.peerId] = score;
+      }
+      scoresRef.current = next;
+      setScores(next);
       applyGameOver();
       return;
     }
@@ -427,6 +469,23 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signaling.presentPeerIds, roster]);
 
+  // Only the host advances rounds. Bound a lost host's recovery instead of stranding guests.
+  useEffect(() => {
+    if (!roomId || isHostRef.current || gameFinishedRef.current) return;
+    if (signaling.channelStatus === 'subscribed' && signaling.presentPeerIds.includes(hostIdRef.current ?? '')) {
+      if (hostGraceRef.current) clearTimeout(hostGraceRef.current);
+      hostGraceRef.current = null;
+      return;
+    }
+    if (!hostGraceRef.current) hostGraceRef.current = setTimeout(() => {
+      gameFinishedRef.current = true;
+      roundEndedRef.current = true;
+      recognition.stopLoop();
+      signaling.leave();
+      setPhase('hostLeft');
+    }, 30000);
+  }, [roomId, signaling.presentPeerIds, signaling.channelStatus]);
+
   const createRoom = async () => {
     if (!user) return;
     setCodeError('');
@@ -436,6 +495,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     });
     if (error) { setCodeError('Could not create a room — please try again.'); return; }
     isHostRef.current = true;
+    hostIdRef.current = user.id;
     setRoomId(code);
     const me = { peerId: user.id, username: username ?? 'Host', joinOrder: 0, border: equippedBorder ?? '' };
     setRoster([me]);
@@ -452,8 +512,15 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     const code = (overrideCode ?? joinCode).trim().toUpperCase();
     if (!code) return;
     setCodeError('');
-    const { error } = await supabase.rpc('join_multiplayer_room', { p_code: code });
-    if (error) { setCodeError(joinErrorMessage(error.message)); return; }
+    const error = await joinMultiplayerRoom(code);
+    if (error) { setCodeError(error); return; }
+    const { data: room, error: roomError } = await supabase.from('multiplayer_rooms').select('host_id').eq('code', code).single();
+    if (roomError || !room?.host_id) {
+      await supabase.rpc('leave_multiplayer_room', { p_code: code });
+      setCodeError('Could not reach the host. Please try again.');
+      return;
+    }
+    hostIdRef.current = room.host_id;
     isHostRef.current = false;
     setRoomId(code);
     setStatusMsg('Joining room…');
@@ -499,6 +566,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   };
 
   const startGame = () => {
+    if (!isHostRef.current || totalRoundsRef.current > 0 || rosterRef.current.length < 2) return;
     const order = rosterRef.current.map((m) => m.peerId);
     turnSecondsRef.current = rules.turnSeconds;
     const signs = pickSignsFrom(filterSignPool(ALL_SIGNS, rules.signSet), order.length * rules.rounds);
@@ -515,7 +583,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   };
 
   const handleGuess = (signId: string) => {
-    if (myGuess || !currentSignId) return;
+    if (myGuess || !currentSignId || roundEndedRef.current || gameFinishedRef.current || phase !== 'guessing') return;
     setMyGuess(signId);
     if (signId === currentSignId) sounds.correct(); else sounds.wrong();
     if (isHostRef.current) {
@@ -562,6 +630,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     if (turnIntervalRef.current) clearInterval(turnIntervalRef.current);
     if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
     if (rosterAnnounceRef.current) clearInterval(rosterAnnounceRef.current);
+    if (hostGraceRef.current) clearTimeout(hostGraceRef.current);
   }, []);
 
   const exit = () => {
@@ -718,6 +787,13 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
             </motion.div>
           )}
 
+          {phase === 'hostLeft' && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4">
+              <p>The host could not reconnect. This room has ended.</p>
+              <Button onClick={exit}>Back to Home</Button>
+            </div>
+          )}
+
           {phase === 'finalResults' && (
             <motion.div key="finalResults" className="flex-1 flex flex-col items-center justify-center gap-5"
               initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
@@ -745,7 +821,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
           this, a dropped channel left the player in a room that silently couldn't receive events
           with no in-context way back other than the header close button — satisfies the launch
           requirement that every failure offers Retry + Leave/Return Home. */}
-      {roomId && signaling.channelStatus === 'disconnected' && (
+      {phase !== 'hostLeft' && roomId && signaling.channelStatus === 'disconnected' && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-z-card border border-z-red/40 rounded-2xl px-5 py-3 shadow-xl flex items-center gap-4">
           <span className="text-sm font-semibold text-z-red">Connection lost</span>
           <button

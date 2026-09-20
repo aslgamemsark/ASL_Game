@@ -17,6 +17,11 @@ ships surprised. This is deliberately candid — every item is real and evidence
   certified interpreter — it will sometimes pass sloppy signs and fail good ones.
 
 ## Multiplayer
+- **Scores are not secured against a malicious participant.** Private-channel authorization
+  controls room access, but a broadcast's `from` field is supplied by the client. Role, round and
+  duplicate-message checks improve reliability; they do not authenticate the sender or prove a
+  correct sign. Server-validated results are required before treating multiplayer rewards as
+  cheat-resistant. Do not describe a passing room-permission test as full multiplayer security.
 - **Room mode's disconnect handling is partial** (improved 2026-08-03). It now tracks who has left,
   excludes them from the guess count, re-offers video when they return, ends a round immediately if
   the SIGNER drops rather than running the timer down on an empty tile, skips departed players when

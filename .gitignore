@@ -74,6 +74,7 @@ htmlcov/
 
 # --- Supabase CLI local cache (project link, pooler URL, per-machine) ---
 supabase/.temp/
+supabase/.branches/
 
 .vercel
 
