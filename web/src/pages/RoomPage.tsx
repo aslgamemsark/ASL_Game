@@ -675,7 +675,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
           {phase === 'lobby' && (
             <MultiplayerLobby
               mode="room"
-              onModeChange={onSwitchMode ? () => onSwitchMode('duel') : undefined}
+              onModeChange={onSwitchMode}
               rules={rules}
               onRulesChange={setRules}
               visibility={visibility}

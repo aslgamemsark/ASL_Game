@@ -612,6 +612,7 @@ async function openDuelLobby(browser: Browser, user: TestUser): Promise<Page> {
   // segment is therefore a no-op confirmation of the default rather than a navigation step, and is
   // kept so the test fails loudly if the switcher ever stops being rendered.
   await page.getByRole('button', { name: /1v1 Duel/ }).click();
+  await expect(page.getByRole('heading', { name: 'Sign & Guess', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Create Room$/ })).toBeVisible({ timeout: 15_000 });
   return page;
 }
@@ -652,6 +653,9 @@ test.describe('multiplayer two-client session', () => {
     await page.getByRole('button', { name: /Group Room/ }).click();
     await expect(page.getByRole('heading', { name: /Group Sign & Guess/ }),
       'the Group segment must swap the lobby to room mode').toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /Group Room/ }).click();
+    await expect(page.getByRole('heading', { name: 'Group Sign & Guess', exact: true }),
+      'selecting the active mode must leave that mode selected').toBeVisible();
 
     await page.getByRole('button', { name: /1v1 Duel/ }).click();
     await expect(page.getByRole('heading', { name: /^Sign & Guess$/ }),
@@ -781,7 +785,7 @@ test.describe('multiplayer two-client session', () => {
     await signInThroughUi(page, users[0]!);
     await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first().click();
     await page.getByRole('button', { name: /Multiplayer$/ }).first().click();
-  await page.getByRole('button', { name: 'Allow Camera', exact: true }).click();
+    await page.getByRole('button', { name: 'Allow Camera', exact: true }).click();
     await page.getByRole('button', { name: /1v1 Duel/ }).click();
 
     for (const name of [/^Create Room$/, /Private/, /Public/, /^Join$/]) {

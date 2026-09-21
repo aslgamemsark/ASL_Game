@@ -737,7 +737,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
           {phase === 'lobby' && (
             <MultiplayerLobby
               mode="duel"
-              onModeChange={onSwitchMode ? () => onSwitchMode('room') : undefined}
+              onModeChange={onSwitchMode}
               rules={rules}
               onRulesChange={setRules}
               visibility={visibility}

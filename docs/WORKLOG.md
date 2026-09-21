@@ -5,6 +5,14 @@ see `.claude/rules/worklog.md` for the rule, including when to compress older mo
 
 ## 2026-09-21
 
+- **Fixed multiplayer mode selection** (`DuelPage.tsx`, `RoomPage.tsx`, multiplayer E2E).
+  Both pages discarded the selected mode and always switched to the opposite one. Clicking
+  the already-active 1v1 button silently opened Group, so duel tests created group rooms and
+  waited for an automatic duel start that could never happen. Live CI failure-state logging
+  exposed the Group lobby. Both pages now forward the requested mode unchanged; browser
+  regressions check the exact Duel heading and reselect the active Group mode. Eight focused
+  unit tests and the TypeScript/PWA production build pass; full multiplayer CI is still required.
+
 - **Reconciled release instructions and added multiplayer failure evidence** (`DEPLOYMENT.md`,
   launch/testing/runbook docs, `web/e2e/multiplayer.spec.ts`). Removed nonexistent backup/migration
   npm commands and recorded the verified production project plus the v2 RPC/client compatibility
