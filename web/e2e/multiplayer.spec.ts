@@ -66,6 +66,15 @@ test.beforeEach(async () => {
   await resetRoomState();
 });
 
+test.afterEach(async ({ browser }, testInfo) => {
+  // These tests own multiple contexts; capture both clients when a handshake assertion fails.
+  if (testInfo.status === testInfo.expectedStatus) return;
+  for (const [index, page] of browser.contexts().flatMap((context) => context.pages()).entries()) {
+    const body = await page.locator('body').innerText({ timeout: 2_000 }).catch(() => 'Page unavailable');
+    console.error(`Multiplayer failure page ${index}: ${body.slice(0, 4_000)}`);
+  }
+});
+
 /** Authenticated PostgREST client for a fixture user — the same anon key the app ships with, plus
  *  a real signed-in session, so RLS and auth.uid() behave exactly as they do in production. */
 async function clientFor(user: TestUser): Promise<SupabaseClient> {
@@ -591,6 +600,7 @@ test.describe('multiplayer room registry', () => {
 async function openDuelLobby(browser: Browser, user: TestUser): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
+  page.on('pageerror', (error) => console.error(`Multiplayer page error: ${error.message}`));
   await reachHome(page);
   await signInThroughUi(page, user);
 

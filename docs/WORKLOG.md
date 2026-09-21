@@ -3,6 +3,18 @@
 Running record of what changed and why. Maintained continuously during a session, newest first —
 see `.claude/rules/worklog.md` for the rule, including when to compress older months.
 
+## 2026-09-21
+
+- **Reconciled release instructions and added multiplayer failure evidence** (`DEPLOYMENT.md`,
+  launch/testing/runbook docs, `web/e2e/multiplayer.spec.ts`). Removed nonexistent backup/migration
+  npm commands and recorded the verified production project plus the v2 RPC/client compatibility
+  requirement. The CI run for `8cdb910` passed web/Python and 121 browser cases (five skips);
+  multiplayer passed 24 registry and two UI cases but failed six UI cases. Failure hooks now
+  capture both clients' visible state and page errors to distinguish application failures from
+  test failures. Local lint, test discovery (32 cases) and diff checks passed. No production
+  deployment or database migration performed; credential rotation and physical-device checks
+  remain unconfirmed. Live advisor baseline is unchanged; feedback form and OG image are reachable.
+
 ## 2026-08-07
 
 - **Shipped QS-015 — speak the sign name on a pass** (`web/src/lib/speak.ts` — new,

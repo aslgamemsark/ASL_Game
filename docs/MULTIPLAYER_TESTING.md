@@ -10,7 +10,7 @@ Three options were on the table. This one was chosen deliberately:
 
 | Option | Verdict |
 | --- | --- |
-| **Local stack (`supabase start`)** | **Chosen.** Real schema, real `join_multiplayer_room` RPC including its `for update` row lock (where the join race actually lives), real RLS, real Realtime. Disposable, free, offline, and impossible to confuse with production. |
+| **Local stack (`supabase start`)** | **Chosen.** Real schema, real `join_multiplayer_room_v2` RPC including its `for update` row lock (where the join race actually lives), real RLS and real Realtime. Disposable, with a localhost guard. |
 | A dedicated hosted "test" Supabase project | Rejected. Costs money, needs credentials in CI, still a real network dependency that can be down, and one copy-pasted URL away from being production. |
 | An e2e-only auth bypass in the app | Rejected outright. It would put a "skip authentication" branch into shipped production code. A test convenience that weakens the real security boundary is not a trade worth making at any price. |
 
@@ -20,8 +20,9 @@ the browser tests sign in through the real sign-in form against real GoTrue with
 
 ## One-time setup
 
-**You need Docker.** That is the only manual prerequisite, and the only reason this suite does not
-run on the Windows machine it was written on.
+**You need a working Docker engine** in addition to the normal web development setup. Docker
+Desktop is installed on the audit's Windows machine, but its startup currently fails; CI's
+disposable Linux stack provides database/integration verification while that remains unresolved.
 
 1. **Install Docker Desktop** — <https://docs.docker.com/desktop/> — and start it.
 2. **Start the stack** (from `web/`):
@@ -86,7 +87,7 @@ so CI starts a local stack, applies migrations, and executes the full suite on e
 ## What it covers
 
 **Part A — room registry (driven through the RPCs).** Concurrency lives here, not in the UI: the
-join race is a row lock inside `join_multiplayer_room`. Driving two browsers to race for a slot
+join race is a row lock inside `join_multiplayer_room_v2`. Driving two browsers to race for a slot
 would test the same lock far more slowly and far less deterministically.
 
 - host creates a room; a second player joins by code (and by lowercase code)
@@ -99,8 +100,17 @@ would test the same lock far more slowly and far less deterministically.
 - public rooms discoverable by search, private rooms never; closed rooms drop out of search
 - **brute-force throttle** on repeated wrong-code guessing
 - **RLS** — nobody can create a room owned by someone else, or close someone else's room
+- **membership hardening** — nonmember/repeated leaves cannot decrement the count; concurrent
+  leave/join stays within capacity; private-room reads require membership; only the host can delete
+- **RPC contract** — v2 returns expected denials without rolling back the attempt counter;
+  anonymous callers and the legacy join RPC are denied
+- **friend-challenge insert** — the production duplicate-ignoring upsert remains compatible with
+  restricted host update permissions
 
 **Part B — two real browser contexts, fake media devices.**
+
+Fixtures sign in normally, decline optional training collection and acknowledge the multiplayer
+camera-sharing explanation before using the lobby.
 
 - host creates → client joins by code → **both clients enter the match** (full Realtime + WebRTC
   signaling handoff)

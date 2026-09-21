@@ -31,7 +31,7 @@ Player A  ──(Supabase Realtime broadcast: offer/answer/ICE)──►  Player
    │                                                                │
    └────────────── WebRTC media (P2P, or relayed via TURN) ─────────┘
 
-Room lifecycle:  multiplayer_rooms table + RPCs (join_multiplayer_room, leave_multiplayer_room)
+Room lifecycle:  multiplayer_rooms table + RPCs (join_multiplayer_room_v2, leave_multiplayer_room)
 Signaling:       supabase.channel('mp-room-<code>', { private: true })  — RLS-gated (members only)
 Presence:        Supabase Realtime Presence = "who is actually still connected"
 ICE config:      web/src/config/iceServers.ts   (STUN-first, TURN fallback, env-driven)
