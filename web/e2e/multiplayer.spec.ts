@@ -596,6 +596,7 @@ async function openDuelLobby(browser: Browser, user: TestUser): Promise<Page> {
 
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first().click();
   await page.getByRole('button', { name: /Multiplayer$/ }).first().click();
+  await page.getByRole('button', { name: 'Allow Camera', exact: true }).click();
   // Multiplayer now opens straight into the duel lobby — the separate "pick a mode" screen was
   // replaced by the 1v1 / Group switcher inside the lobby itself (2026-08-03). Clicking the 1v1
   // segment is therefore a no-op confirmation of the default rather than a navigation step, and is
@@ -770,6 +771,7 @@ test.describe('multiplayer two-client session', () => {
     await signInThroughUi(page, users[0]!);
     await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first().click();
     await page.getByRole('button', { name: /Multiplayer$/ }).first().click();
+  await page.getByRole('button', { name: 'Allow Camera', exact: true }).click();
     await page.getByRole('button', { name: /1v1 Duel/ }).click();
 
     for (const name of [/^Create Room$/, /Private/, /Public/, /^Join$/]) {
