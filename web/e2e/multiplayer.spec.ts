@@ -617,8 +617,13 @@ async function openDuelLobby(browser: Browser, user: TestUser): Promise<Page> {
   return page;
 }
 
-/** Both clients leave the lobby for a round view once signaling completes — the host becomes
- *  signer or guesser and the joiner takes the other role. */
+/** Wait for the actual waiting-room code, not the lobby input label or typography. */
+async function readRoomCode(page: Page): Promise<string> {
+  const code = page.getByText('Room Code', { exact: true }).locator('..').locator('p').last();
+  await expect(code).toHaveText(/^[A-Z2-9]{8}$/);
+  return (await code.innerText()).trim();
+}
+
 const IN_ROUND = /SIGN THIS|What are they signing/;
 
 test.describe('multiplayer two-client session', () => {
@@ -627,9 +632,9 @@ test.describe('multiplayer two-client session', () => {
     const guestPage = await openDuelLobby(browser, users[1]!);
 
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
 
-    const code = (await hostPage.locator('p.tracking-widest').first().innerText()).trim();
+    const code = await readRoomCode(hostPage);
     expect(code, 'the host must be shown a shareable room code').toMatch(/^[A-Z2-9]{8}$/);
 
     await guestPage.getByLabel('Room code').fill(code);
@@ -684,7 +689,7 @@ test.describe('multiplayer two-client session', () => {
 
     await hostPage.getByRole('button', { name: /Public/ }).click();
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
 
     await guestPage.getByRole('button', { name: /Search for a Match/ }).click();
 
@@ -702,8 +707,8 @@ test.describe('multiplayer two-client session', () => {
     const guestPage = await openDuelLobby(browser, users[1]!);
 
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
-    const code = (await hostPage.locator('p.tracking-widest').first().innerText()).trim();
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
+    const code = await readRoomCode(hostPage);
 
     await guestPage.getByLabel('Room code').fill(code);
     const join = guestPage.getByRole('button', { name: /^Join$/ });
@@ -723,8 +728,8 @@ test.describe('multiplayer two-client session', () => {
     const guestPage = await openDuelLobby(browser, users[1]!);
 
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
-    const code = (await hostPage.locator('p.tracking-widest').first().innerText()).trim();
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
+    const code = await readRoomCode(hostPage);
 
     await guestPage.getByLabel('Room code').fill(code);
     await guestPage.getByRole('button', { name: /^Join$/ }).click();
@@ -753,8 +758,8 @@ test.describe('multiplayer two-client session', () => {
     const guestPage = await openDuelLobby(browser, users[1]!);
 
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
-    const code = (await hostPage.locator('p.tracking-widest').first().innerText()).trim();
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
+    const code = await readRoomCode(hostPage);
 
     await guestPage.getByLabel('Room code').fill(code);
     await guestPage.getByRole('button', { name: /^Join$/ }).click();
