@@ -395,7 +395,9 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
           scoreDeltas: members.map(m => ({ label: m.peerId === user?.id ? 'You' : m.username, delta: deltas[m.peerId] ?? 0 })) });
         setPhase('roundResult');
       } else {
-        setMyGuess(typeof payload.guess === 'string' ? payload.guess : null);
+        // A snapshot captured before our in-flight guess must not re-enable a second answer.
+        // beginRound already resets the guess when this snapshot advances to a new round.
+        setMyGuess(current => typeof payload.guess === 'string' ? payload.guess : current);
         if (typeof payload.startedAt === 'number' && Number.isFinite(payload.startedAt)) armTurnTimerRef.current(payload.startedAt);
       }
       return;

@@ -131,3 +131,14 @@ it('the finished host still replays its final state to a returning member', asyn
   expect(h.send).toHaveBeenCalledWith('state-snapshot', expect.objectContaining({ finished: true }), 'guest');
   h.send.mockClear(); message('state-request', {}, 'stranger'); expect(h.send).not.toHaveBeenCalled();
 });
+
+it('does not re-enable answers when a same-round snapshot predates the local guess', async () => {
+  await joinGuest();
+  const answer = nodes(render()).find(n => n.type === 'button' && n.props.disabled === false);
+  expect(answer).toBeTruthy();
+  answer.props.onClick(); render();
+  message('state-snapshot', snapshot({ round: 1, signerPeerId: 'host', scores: {}, guess: null }));
+  const answers = nodes(render()).filter(n => n.type === 'button' && typeof n.props.disabled === 'boolean');
+  expect(answers).toHaveLength(4);
+  expect(answers.every(n => n.props.disabled)).toBe(true);
+});

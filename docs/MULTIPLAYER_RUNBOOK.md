@@ -133,3 +133,22 @@ Every peer connection emits **one** of:
 If multiplayer breaks badly under launch load, flip the **`disable_multiplayer`** PostHog feature
 flag ON (rollout 100%). `MultiplayerHubPage` then shows a friendly "temporarily unavailable"
 fallback — no redeploy needed. Turn it back off to restore.
+
+## 8. Application recovery protocol (audit follow-up)
+
+A healthy WebRTC connection or restored Realtime subscription does not replay missed game
+messages. Duel replays its initial start to the same joining opponent and the last canonical
+round result on request. During channel loss it pauses even if cached opponent presence remains;
+only the host initiates a recovery offer. A client whose own channel dropped cannot claim a
+forfeit win from that observation window. Unrecoverable local loss ends without a reward.
+
+Group guests request a host state snapshot after subscription/host-presence recovery. The host
+continues to serve it while displaying final results. Cumulative scores replace local scores,
+so duplicate recovery does not add points or grant a second completion reward. Requests back
+off and stop; an exhausted recovery offers Retry and Leave. If the host leaves permanently,
+its in-memory snapshot is unavailable and the existing host-loss timeout ends the session.
+
+These messages are not persisted across page reloads and their client-supplied sender IDs are
+not cryptographic proof of who sent them. Membership authorization protects channel access;
+it does not turn a member-controlled payload into server-authoritative scoring or anti-cheat.
+Physical-device checks are listed in MULTIPLAYER_TESTING.md.
