@@ -105,6 +105,111 @@ async function passSign(page: Page, signId: string) {
   }, signId);
 }
 
+test('Practice resumes an interrupted preview without reopening the camera', async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalPlay = HTMLMediaElement.prototype.play;
+    let rejected = false;
+    HTMLMediaElement.prototype.play = function () {
+      if (!rejected && this.style.transform.includes('scaleX')) {
+        rejected = true;
+        this.autoplay = false;
+        this.pause();
+        return Promise.reject(new DOMException('Interrupted startup', 'AbortError'));
+      }
+      return originalPlay.call(this);
+    };
+  });
+  await openScreen(page, 'practice', true);
+  // Reference clips also use video; the mirrored element is the live preview.
+  const mirror = page.locator('video[style*="scaleX"]');
+  await expect(mirror).toBeVisible();
+  await expect.poll(() => mirror.evaluate((video: HTMLVideoElement) => video.readyState)).toBeGreaterThanOrEqual(2);
+  await expect.poll(() => mirror.evaluate((video: HTMLVideoElement) => !video.paused)).toBe(true);
+  const requestsBeforePause = await events(page, 'camera_requested');
+  await mirror.evaluate((video: HTMLVideoElement) => {
+    const stream = video.srcObject;
+    video.pause();
+    const originalPlay = video.play.bind(video);
+    let allowPlayback = false;
+    document.addEventListener('click', () => { allowPlayback = true; }, { once: true, capture: true });
+    video.play = () => {
+      if (!allowPlayback) {
+        return Promise.reject(new DOMException('Playback needs a gesture', 'NotAllowedError'));
+      }
+      if (video.srcObject !== stream) throw new Error('Recovery replaced the camera stream');
+      return originalPlay();
+    };
+  });
+  await expect(page.getByRole('button', { name: 'Resume camera preview', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Resume camera preview', exact: true }).click();
+  await expect.poll(() => mirror.evaluate((video: HTMLVideoElement) => !video.paused)).toBe(true);
+  await expect(page.getByRole('button', { name: 'Resume camera preview', exact: true })).toHaveCount(0);
+  expect(await events(page, 'camera_requested')).toHaveLength(requestsBeforePause.length);
+});
+
+test('Practice resumes the recognition video after returning to the tab', async ({ page }) => {
+  await openScreen(page, 'practice', true);
+  const source = page.locator('video').filter({ visible: false });
+  await expect.poll(() => source.evaluate((video: HTMLVideoElement) => !video.paused && video.readyState >= 2)).toBe(true);
+  await source.evaluate((video: HTMLVideoElement) => {
+    video.pause();
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(() => source.evaluate((video: HTMLVideoElement) => !video.paused)).toBe(true);
+});
+
+test('camera discards requests completed after stop and ignores stale failures', async ({ page }) => {
+  await openScreen(page, 'practice', true);
+  await page.route('**/src/App.tsx', route => route.fulfill({
+    contentType: 'application/javascript',
+    body: `import React from '/node_modules/.vite/deps/react.js';
+      import { useCamera } from '/src/hooks/useCamera.ts';
+      export default function App() {
+        const camera = useCamera('practice');
+        return React.createElement('div', null,
+          React.createElement('video', {ref: camera.videoRef, muted: true, autoPlay: true}),
+          React.createElement('output', null, camera.status),
+          React.createElement('button', {onClick: camera.start}, 'Start'),
+          React.createElement('button', {onClick: camera.stop}, 'Stop'));
+      }`,
+  }));
+  await page.reload();
+  await page.evaluate(() => {
+    const requests: { resolve: (stream: MediaStream) => void; reject: (error: Error) => void }[] = [];
+    const streams: MediaStream[] = [];
+    navigator.mediaDevices.getUserMedia = () => new Promise((resolve, reject) => requests.push({ resolve, reject }));
+    Object.assign(window, {
+      finishCameraRequest(index: number, fail = false) {
+        const request = requests[index];
+        if (!request) throw new Error(`Missing camera request ${index}`);
+        if (fail) return request.reject(new DOMException('Old denial', 'NotAllowedError'));
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 20;
+        canvas.getContext('2d')!.fillRect(0, 0, 20, 20);
+        const stream = canvas.captureStream();
+        streams.push(stream);
+        request.resolve(stream);
+      },
+      liveCameraTracks: () => streams.flatMap(stream => stream.getTracks()).filter(track => track.readyState === 'live').length,
+    });
+  });
+  const finish = (index: number, fail = false) => page.evaluate(({ index, fail }) => {
+    (window as unknown as { finishCameraRequest: (index: number, fail: boolean) => void }).finishCameraRequest(index, fail);
+  }, { index, fail });
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await finish(0);
+  await expect(page.locator('output')).toHaveText('idle');
+  await expect.poll(() => page.evaluate(() => (window as unknown as { liveCameraTracks: () => number }).liveCameraTracks())).toBe(0);
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await finish(2);
+  await expect(page.locator('output')).toHaveText('active');
+  await finish(1, true);
+  await expect(page.locator('output')).toHaveText('active');
+});
+
 test('onboarding exposes model failure and retry resumes camera processing', async ({ page }) => {
   await page.addInitScript(() => Object.defineProperty(crypto, 'randomUUID', { value: undefined }));
   await openScreen(page, 'onboarding');

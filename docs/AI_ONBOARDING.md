@@ -12,6 +12,9 @@ QuickSign teaches/practices ASL through lessons, practice and scenarios with cam
 The React 19 / TypeScript / Vite application in `web/` is the production runtime, hosted at
 **https://quicksignn.vercel.app**. `aslgame.vercel.app` was removed at the owner's request;
 do not recreate it or describe it as the canonical address.
+Rechecked 2026-09-22: Vercel lists only the canonical domain and a fresh HTTP request to the old
+domain returns `404 DEPLOYMENT_NOT_FOUND`. A browser with the old PWA cached can still show its
+app shell; that is not evidence of an active deployment.
 
 Recognition is local: MediaPipe Tasks → landmark history → per-parameter rule verifier →
 lesson feedback. Definitions live in `web/src/engine/signs/index.ts`; descriptions and demo

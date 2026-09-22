@@ -64,6 +64,7 @@ interface Props {
 // audit note on ParameterChecklist for why this matters (zero React.memo anywhere previously).
 export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUrl, overlaySignName, passed, label, cosmeticBorderClasses, activeTurn, turnLabel, timerPercent, frameGuide, handZones, aspectClassName = 'aspect-[var(--cam-ar)]' }: Props) {
   const displayRef = useRef<HTMLVideoElement>(null);
+  const [playbackBlocked, setPlaybackBlocked] = useState(false);
   // The container previously forced a hardcoded 16:9 box (`aspect-video`) regardless of the
   // stream's real shape. A phone held in portrait commonly delivers a portrait stream (e.g.
   // 480x640), which `object-cover` into a 16:9 box then crops top-and-bottom — exactly where the
@@ -103,12 +104,22 @@ export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUr
     const display = displayRef.current;
     if (!display) return;
 
+    let playPending = false;
+    let disposed = false;
     const syncStream = () => {
       const stream = videoRef.current?.srcObject ?? null;
       if (display.srcObject !== stream) {
         display.srcObject = stream;
-        // Muted + playsInline (set on the element) is what lets this autoplay on iOS.
-        if (stream) display.play().catch(() => {});
+      }
+      // A browser can interrupt playback without changing the stream. Retry that same view;
+      // the recognition video's readiness cannot tell us whether this preview is playing.
+      if (stream && display.paused && !playPending) {
+        playPending = true;
+        display.play().then(() => {
+          if (!disposed) setPlaybackBlocked(false);
+        }).catch(() => {
+          if (!disposed) setPlaybackBlocked(true);
+        }).finally(() => { playPending = false; });
       }
     };
 
@@ -133,6 +144,7 @@ export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUr
     display.addEventListener('resize', syncAspect);
 
     return () => {
+      disposed = true;
       clearInterval(id);
       display.removeEventListener('loadedmetadata', syncAspect);
       display.removeEventListener('resize', syncAspect);
@@ -163,6 +175,17 @@ export const WebcamMirror = memo(function WebcamMirror({ videoRef, overlayClipUr
         className="w-full h-full object-cover"
         style={{ transform: 'scaleX(-1)' }}
       />
+      {playbackBlocked && (
+        <button
+          type="button"
+          className="absolute inset-0 z-10 bg-video-plate text-white font-bold"
+          onClick={() => {
+            void displayRef.current?.play().then(() => setPlaybackBlocked(false)).catch(() => {});
+          }}
+        >
+          Resume camera preview
+        </button>
+      )}
       {frameGuide && (
         <div className="absolute inset-0 pointer-events-none flex flex-col items-center">
           {/* Face-target box in the upper-center — sized/positioned so the chest stays visible

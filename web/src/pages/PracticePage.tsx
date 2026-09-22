@@ -444,7 +444,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
           {mode === 'loading' && (
             <motion.div
               key="loading"
-              className="flex-1 flex items-center justify-center"
+              className="flex-1 flex flex-col gap-4 items-center justify-center text-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -456,6 +456,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
               >
                 ⚙️
               </motion.div>
+              <p className="font-bold">Starting your camera…</p>
+              <p className="text-sm text-z-gray-300 max-w-sm">
+                Allow camera access in your browser if prompted. If this keeps waiting, go back and try again.
+              </p>
             </motion.div>
           )}
 

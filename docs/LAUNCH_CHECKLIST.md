@@ -14,10 +14,10 @@ findings are in [the historical sign-off](archive/FINAL_PRODUCTION_SIGNOFF.md).
 - [x] PR CI exists in `.github/workflows/ci.yml`: lint, unit tests, `npm run build` (`tsc -b`),
       Python, browser and disposable-Supabase multiplayer jobs. This does not itself establish
       branch-protection settings or prevent Vercel deploying a push to `main`.
-- [x] Fresh database migration replay and 24 room-registry checks passed in CI for `8cdb910`.
-      Web/Python and general browser checks passed (121 browser passes, five skips), but the
-      multiplayer suite has six browser failures (26 passes total). Release remains blocked;
-      failure diagnostics now capture both browser clients for investigation.
+- [x] Fresh database migration replay and 24 room-registry checks passed in CI. Latest checked
+      run `35613897553` (`2908e28`) passed web, Python and general browser jobs; multiplayer has
+      four browser failures (28 passes total). Release remains blocked; the owner has handed
+      remaining multiplayer work to a separate contributor. See the September 22 worklog.
 - [x] Room host-disconnect handling is implemented in the release branch: a guest exits after
       30 seconds of host absence; duplicate completion/reward handling is guarded. Deployment
       and physical-device verification remain pending. See [the multiplayer runbook](MULTIPLAYER_RUNBOOK.md).
