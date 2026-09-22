@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 // Persistent hook slots exercise the real page handlers without adding a DOM dependency.
-const h = vi.hoisted(() => ({ slots: [] as any[], cursor: 0, effects: [] as (() => void)[], cleanups: [] as (() => void)[], message: null as any, send: vi.fn(), addGold: vi.fn(), addSigns: vi.fn(), present: ['host', 'guest'], user: 'host', leave: vi.fn(), connect: vi.fn() }));
+const h = vi.hoisted(() => ({ slots: [] as any[], cursor: 0, effects: [] as (() => void)[], cleanups: [] as (() => void)[], message: null as any, send: vi.fn(), addGold: vi.fn(), addSigns: vi.fn(), present: ['host', 'guest'], user: 'host', leave: vi.fn(), connect: vi.fn(), disconnect: vi.fn() }));
 vi.mock('react', () => ({
   useState: (initial: any) => { const i = h.cursor++; if (!(i in h.slots)) h.slots[i] = initial; return [h.slots[i], (v: any) => { h.slots[i] = typeof v === 'function' ? v(h.slots[i]) : v; }]; },
   useRef: (initial: any) => h.slots[h.cursor++] ??= { current: initial },
@@ -17,7 +17,7 @@ vi.mock('@/hooks/useConfetti', () => ({ useConfetti: () => ({ burst: vi.fn() }) 
 vi.mock('@/analytics', () => ({ track: vi.fn() }));
 vi.mock('@/lib/joinMultiplayerRoom', () => ({ joinMultiplayerRoom: async () => null }));
 vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ insert: async () => ({}), update: () => ({ eq: async () => ({}) }), select: () => ({ eq: () => ({ single: async () => ({ data: { host_id: 'host' } }) }) }) }), rpc: vi.fn() } }));
-vi.mock('@/hooks/useMultiplayerSignaling', () => ({ useMultiplayerSignaling: (options: any) => { h.message = options.onMessage; return { send: h.send, join: async () => {}, startCamera: async () => {}, leave: h.leave, presentPeerIds: h.present, channelStatus: 'subscribed', peers: {}, localVideoRef: { current: null }, connectToPeer: h.connect, disconnectFromPeer: vi.fn(), camStatus: 'idle' }; } }));
+vi.mock('@/hooks/useMultiplayerSignaling', () => ({ useMultiplayerSignaling: (options: any) => { h.message = options.onMessage; return { send: h.send, join: async () => {}, startCamera: async () => {}, leave: h.leave, presentPeerIds: h.present, channelStatus: 'subscribed', peers: {}, localVideoRef: { current: null }, connectToPeer: h.connect, disconnectFromPeer: h.disconnect, camStatus: 'idle' }; } }));
 vi.mock('@/components/multiplayer/MultiplayerLobby', () => ({ MultiplayerLobby: 'lobby' }));
 vi.mock('@/components/shared/Button', () => ({ Button: 'button' }));
 vi.mock('@/components/shared/HeaderBackButton', () => ({ HeaderBackButton: 'back' }));
@@ -141,4 +141,24 @@ it('does not re-enable answers when a same-round snapshot predates the local gue
   const answers = nodes(render()).filter(n => n.type === 'button' && typeof n.props.disabled === 'boolean');
   expect(answers).toHaveLength(4);
   expect(answers.every(n => n.props.disabled)).toBe(true);
+});
+
+it('preserves the next signer connection when its offer arrives before the round transition', async () => {
+  await joinGuest();
+  message('roster', { members: [
+    { peerId: 'host', username: 'Host', joinOrder: 0 },
+    { peerId: 'guest', username: 'Guest', joinOrder: 1 },
+    { peerId: 'third', username: 'Third', joinOrder: 2 },
+  ] }); render();
+  message('round-start', { round: 2, signerPeerId: 'guest', signId: sign }); render();
+  expect(h.connect).toHaveBeenCalledWith('host');
+  expect(h.connect).toHaveBeenCalledWith('third');
+  // The signaling hook handles offers independently of page messages and replaces by peer ID.
+  // Model the new host offer being installed before this page sees the host's round-start.
+  const connections = new Map([['host', 'new-incoming'], ['third', 'old-outgoing']]);
+  h.disconnect.mockImplementation(peerId => connections.delete(peerId));
+  message('round-start', { round: 3, signerPeerId: 'host', signId: sign }); render();
+  expect(connections.get('host')).toBe('new-incoming');
+  expect(connections.has('third')).toBe(false);
+  h.disconnect.mockReset();
 });

@@ -173,9 +173,12 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     setTurnArmed(false);
     setTimeLeft(turnSecondsRef.current);
 
-    // I was signing last round and no longer am — tear down the outbound connections I opened.
+    // The next signer's offer may arrive before this round-start (different senders have no
+    // shared ordering). Keep that peer: its offer replaces the old connection in signaling.
+    // Closing by peer ID here would otherwise destroy the newly received connection too.
     if (signingConnectionsRef.current.length > 0 && signerPeerIdRef.current !== signer) {
-      signingConnectionsRef.current.forEach((peerId) => signaling.disconnectFromPeer(peerId));
+      signingConnectionsRef.current.filter((peerId) => peerId !== signer)
+        .forEach((peerId) => signaling.disconnectFromPeer(peerId));
       signingConnectionsRef.current = [];
     }
 

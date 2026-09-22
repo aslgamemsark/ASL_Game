@@ -605,6 +605,18 @@ async function openDuelLobby(browser: Browser, user: TestUser, setup?: (page: Pa
   const context = await browser.newContext();
   const page = await context.newPage();
   await setup?.(page);
+  // A stalled signer can consume the host's whole turn before Playwright can read its prompt.
+  // Record main-thread stalls without recording auth traffic, video, or landmarks.
+  await page.addInitScript(() => {
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.duration >= 1_000) console.info(`Multiplayer long task: ${Math.round(entry.duration)}ms at ${Math.round(entry.startTime)}ms`);
+      }
+    }).observe({ type: 'longtask', buffered: true });
+  });
+  page.on('console', message => {
+    if (message.text().startsWith('Multiplayer long task:')) console.info(`${user.id}: ${message.text()}`);
+  });
   page.on('pageerror', (error) => console.error(`Multiplayer page error: ${error.message}`));
   await reachHome(page);
   await signInThroughUi(page, user);
@@ -870,8 +882,11 @@ test.describe('multiplayer match completion', () => {
     await pages[0]!.getByRole('button', { name: 'Start Game', exact: true }).click();
     for (let signerIndex = 0; signerIndex < 4; signerIndex++) {
       const signer = pages[signerIndex]!;
+      const started = Date.now();
       await expect(signer.getByText(/SIGN THIS/)).toBeVisible({ timeout: 20_000 });
+      console.info(`Group round ${signerIndex + 1}: signer visible after ${Date.now() - started}ms`);
       const sign = await signer.getByText(/SIGN THIS/).locator('..').locator('p').last().innerText();
+      console.info(`Group round ${signerIndex + 1}: prompt read after ${Date.now() - started}ms`);
       const guessers = pages.filter(page => page !== signer);
       await Promise.all(guessers.map(expectRemoteFrames));
       await Promise.all(guessers.map(page => page.getByRole('button', { name: sign, exact: true }).click()));
