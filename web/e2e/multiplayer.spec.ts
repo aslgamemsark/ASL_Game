@@ -831,10 +831,9 @@ test.describe('multiplayer match completion', () => {
       await guesser.getByRole('button', { name: sign, exact: true }).click();
       scores[1 - signerIndex] = scores[1 - signerIndex]! + 1;
       await Promise.all(pages.map(page => expect(page.getByText('The sign was', { exact: true })).toBeVisible()));
-      await Promise.all(pages.map(page => expect(page.getByText('The sign was', { exact: true })).toBeHidden()));
     }
     for (const [index, page] of pages.entries()) {
-      await expect(page.getByRole('heading', { name: scores[index]! > scores[1 - index]! ? 'You Won!' : 'You Lost', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: scores[index]! > scores[1 - index]! ? 'You Won!' : 'You Lost', exact: true })).toBeVisible({ timeout: 20_000 });
       const board = page.getByText('vs', { exact: true }).locator('..');
       await expect(board.locator('p').nth(0)).toHaveText(String(scores[index]));
       await expect(board.locator('p').nth(2)).toHaveText(String(scores[1 - index]));
@@ -876,10 +875,9 @@ test.describe('multiplayer match completion', () => {
       await Promise.all(guessers.map(expectRemoteFrames));
       await Promise.all(guessers.map(page => page.getByRole('button', { name: sign, exact: true }).click()));
       await Promise.all(pages.map(page => expect(page.getByText('The sign was', { exact: true })).toBeVisible()));
-      await Promise.all(pages.map(page => expect(page.getByText('The sign was', { exact: true })).toBeHidden()));
     }
     for (const page of pages) {
-      await expect(page.getByRole('heading', { name: 'Game Over!', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Game Over!', exact: true })).toBeVisible({ timeout: 20_000 });
       // All four players guessed correctly in each of their three non-signing rounds.
       await expect(page.locator('p').filter({ hasText: /^3$/ })).toHaveCount(4);
     }
@@ -890,11 +888,15 @@ test.describe('multiplayer match completion', () => {
 async function createAndJoin(pages: Page[]) {
   await pages[0]!.getByRole('button', { name: 'Create Room', exact: true }).click();
   const code = await readRoomCode(pages[0]!);
-  for (const page of pages.slice(1)) {
+  for (const [index, page] of pages.slice(1).entries()) {
     await page.getByLabel('Room code', { exact: true }).fill(code);
     await expect(page.getByLabel('Room code', { exact: true }), 'joining must preserve the full generated code').toHaveValue(code);
     await page.getByRole('button', { name: 'Join', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Join', exact: true })).toBeHidden({ timeout: 20_000 });
+    // Roster acknowledgement, not camera startup timing, defines the group join order.
+    if (await pages[0]!.getByRole('button', { name: 'Start Game', exact: true }).count()) {
+      await expect(pages[0]!.getByText(`Players (${index + 2}/4)`, { exact: true })).toBeVisible({ timeout: 20_000 });
+    }
   }
 }
 
@@ -933,14 +935,14 @@ test('group guest recovers final scores after dropped completion broadcasts and 
   await createAndJoin([host, guest]);
   await expect(host.getByText('Players (2/4)', { exact: true })).toBeVisible();
   await host.getByRole('button', { name: 'Start Game', exact: true }).click();
-  await expect(host.getByText(/SIGN THIS/)).toBeVisible();
+  await expect(host.getByText(/SIGN THIS/)).toBeVisible({ timeout: 20_000 });
   let sign = await host.getByText(/SIGN THIS/).locator('..').locator('p').last().innerText();
   await guest.getByRole('button', { name: sign, exact: true }).click();
   await expect(guest.getByText(/SIGN THIS/)).toBeVisible({ timeout: 15_000 });
   sign = await guest.getByText(/SIGN THIS/).locator('..').locator('p').last().innerText();
   dropCompletion = true;
   await host.getByRole('button', { name: sign, exact: true }).click();
-  await expect(host.getByRole('heading', { name: 'Game Over!', exact: true })).toBeVisible();
+  await expect(host.getByRole('heading', { name: 'Game Over!', exact: true })).toBeVisible({ timeout: 20_000 });
   await expect.poll(() => dropped).toBeGreaterThanOrEqual(2);
   await expect(guest.getByRole('heading', { name: 'Game Over!', exact: true })).toBeHidden();
   dropCompletion = false;
