@@ -1,4 +1,5 @@
 import { test, expect, type Browser, type Page, type WebSocketRoute } from '@playwright/test';
+import { broadcastEvent } from './support/realtimeFrame';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   assertLocalOnly,
@@ -922,7 +923,7 @@ test('group guest recovers final scores after dropped completion broadcasts and 
       const server = route.connectToServer();
       serverSocket = server;
       server.onMessage(message => {
-        if (dropCompletion && /"(round-end|game-over)"/.test(message.toString())) {
+        if (dropCompletion && ['round-end', 'game-over'].includes(broadcastEvent(message) ?? '')) {
           dropped++;
           return;
         }
