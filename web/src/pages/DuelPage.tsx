@@ -27,7 +27,7 @@ import { RoundProgressDots } from '@/components/multiplayer/RoundProgressDots';
 import { RoundResultCard } from '@/components/multiplayer/RoundResultCard';
 import { track } from '@/analytics';
 
-type Phase = 'lobby' | 'waiting' | 'signer' | 'guesser' | 'result' | 'done' | 'waiting-reconnect';
+type Phase = 'lobby' | 'waiting' | 'signer' | 'guesser' | 'result' | 'done' | 'waiting-reconnect' | 'connection-ended';
 type Visibility = 'public' | 'private';
 
 interface MatchState {
@@ -117,6 +117,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
   const [statusMsg, setStatusMsg] = useState('');
   const loopRef = useRef<string | null>(null);
   const startedRef = useRef(false);
+  const startReplyRef = useRef<{ peerId: string; payload: Record<string, unknown> } | null>(null);
   // Whether THIS client created the room (createRoom) vs joined one (joinRoom) — used on exit to
   // decide whether to delete the room registry row outright (host) or just decrement the
   // participant count via leave_multiplayer_room (guest), matching RoomPage's isHostRef.
@@ -140,6 +141,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
   const phaseRef = useRef<Phase>('lobby');
   const phaseBeforeDisconnectRef = useRef<Phase>('signer');
   const wasPresentRef = useRef(false);
+  const localDropDuringWaitRef = useRef(false);
   const handleOpponentLostRef = useRef<() => void>(() => {});
   // Analytics-only state: when the match's first round actually started (for finished's
   // duration_ms) and whether multiplayer_match_started already fired (guards against re-firing on
@@ -286,7 +288,16 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
   const handleMessage = useCallback((event: string, payload: Record<string, unknown>, fromPeerId: string) => {
     const ms = matchStateRef.current;
     if (event === 'join') {
-      if (startedRef.current || !user) return;
+      if (!user) return;
+      if (startedRef.current) {
+        // The guest repeats join until start arrives. Replay a lost start without resetting
+        // the match or creating another peer connection; only the admitted opponent gets it.
+        const reply = startReplyRef.current;
+        if (reply?.peerId === fromPeerId && !['done', 'connection-ended'].includes(phaseRef.current)) {
+          signaling.send('start', reply.payload, fromPeerId);
+        }
+        return;
+      }
       startedRef.current = true;
       const opId = fromPeerId;
       const opName = (payload.username as string) ?? 'Opponent';
@@ -313,7 +324,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
       void (async () => {
         await signaling.startCamera();
         await signaling.connectToPeer(opId);
-        signaling.send('start', { signs, firstSign, hostId: user.id, border: equippedBorder ?? '', turnSeconds: turnSecondsRef.current }, opId);
+        const payload = { signs, firstSign, hostId: user.id, border: equippedBorder ?? '', turnSeconds: turnSecondsRef.current };
+        startReplyRef.current = { peerId: opId, payload };
+        signaling.send('start', payload, opId);
       })();
       return;
     }
@@ -392,6 +405,8 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
   }, []);
 
   const signaling = useMultiplayerSignaling({ selfPeerId: user?.id ?? '', onMessage: handleMessage, onIceResult: handleIceResult });
+  const channelStatusRef = useRef(signaling.channelStatus);
+  useEffect(() => { channelStatusRef.current = signaling.channelStatus; }, [signaling.channelStatus]);
 
   useEffect(() => {
     if (autoHostRoomId) void createRoom(autoHostRoomId);
@@ -455,8 +470,8 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
     // cold start). Realtime broadcast has no replay: a message sent before the host subscribes is
     // simply gone, and both players then sit on "Waiting…" forever with no error and no recovery.
     //
-    // Re-sending is safe by construction rather than by luck: the host's handler returns early on
-    // `startedRef.current`, so every join after the first is a no-op. Bounded per livelock.md —
+    // Re-sending is safe: once started, the host replays its cached start to the same opponent
+    // without restarting the match or the peer connection. Bounded per livelock.md —
     // it gives up after JOIN_ANNOUNCE_ATTEMPTS and tells the user, instead of retrying forever.
     const announce = () => signaling.send('join', {
       username: username ?? user.email?.split('@')[0] ?? 'Player',
@@ -605,11 +620,16 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
   }, [clearReconnectTimers, clearJoinAnnounce]);
 
   // Opponent forfeits by leaving: after RECONNECT_SECONDS with no reconnection, the staying player
-  // wins outright and gets the normal win reward. Unchanged from before — only WHO sees which
-  // message during the wait changes, not this countdown/forfeit mechanic itself.
+  // wins only if our own signaling stayed healthy throughout the observation window.
+  // A locally disconnected client cannot know whether the opponent actually left.
   const forfeitWin = useCallback(() => {
     if (phaseRef.current !== 'waiting-reconnect') return;
     clearReconnectTimers();
+    if (channelStatusRef.current !== 'subscribed' || localDropDuringWaitRef.current) {
+      phaseRef.current = 'connection-ended';
+      setPhase('connection-ended');
+      return;
+    }
     phaseRef.current = 'done';
     setEndedByForfeit(true);
     setPhase('done');
@@ -636,7 +656,9 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
     setPhase(phaseBeforeDisconnectRef.current);
     track('multiplayer_reconnected', { mode: 'duel', room_id: matchStateRef.current?.roomId ?? '', downtime_ms: Date.now() - disconnectedAtRef.current });
     const opponentId = matchStateRef.current?.opponentId;
-    if (opponentId) void signaling.connectToPeer(opponentId);
+    // Both pages resume on presence recovery. Only the host offers, preventing simultaneous
+    // offers from replacing each other's RTCPeerConnection during recovery.
+    if (opponentId && isHostRef.current) void signaling.connectToPeer(opponentId);
     if (phaseBeforeDisconnectRef.current === 'guesser') requestMissingResult();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearReconnectTimers]);
@@ -650,6 +672,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
     const p = phaseRef.current;
     if (p !== 'signer' && p !== 'guesser' && p !== 'result') return; // only interrupt active play
     phaseBeforeDisconnectRef.current = p;
+    localDropDuringWaitRef.current = channelStatusRef.current !== 'subscribed';
     cancelResultRequestRef.current?.();
     phaseRef.current = 'waiting-reconnect';
     setPhase('waiting-reconnect');
@@ -693,12 +716,19 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
   const opponentPresent = matchState ? signaling.presentPeerIds.includes(matchState.opponentId) : false;
   // Whether it's THIS client's own signaling connection that's down — see ChannelStatus's
   // docstring. Drives which half of the reconnect UI renders below.
-  const iAmDisconnected = signaling.channelStatus === 'disconnected';
+  const iAmDisconnected = signaling.channelStatus !== 'subscribed';
 
   // Watch the opponent's PRESENCE (not raw WebRTC connectionState, which is symmetric and can't
   // say WHO dropped): a drop during active play starts the reconnect wait; a recovery during the
   // wait resumes the match. wasPresentRef avoids firing on the initial pre-join state.
   useEffect(() => {
+    // Presence may remain stale when OUR channel drops. Never resume or infer a forfeit
+    // from that cached snapshot while unsubscribed, including during a manual retry.
+    if (iAmDisconnected) {
+      handleOpponentLost();
+      if (phaseRef.current === 'waiting-reconnect') localDropDuringWaitRef.current = true;
+      return;
+    }
     if (opponentPresent) {
       wasPresentRef.current = true;
       if (phase === 'waiting-reconnect') resumeAfterReconnect();
@@ -706,7 +736,7 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
       handleOpponentLost();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opponentPresent, phase]);
+  }, [opponentPresent, iAmDisconnected, phase]);
 
   const opponentBorderClasses = matchState?.opponentBorder ? (getShopItem(matchState.opponentBorder)?.preview ?? '') : '';
   const totalRounds = roundSignIds.length || ROUNDS;
@@ -847,10 +877,18 @@ export function DuelPage({ onExit, autoHostRoomId, autoJoinCode, onSwitchMode }:
                   <h2 className="text-xl font-bold text-center">{matchState.opponentUsername} disconnected</h2>
                   <p className="text-z-gray-400 text-sm text-center">Waiting for them to reconnect — the match is still on.</p>
                   <p className="text-4xl font-bold text-z-purple-light">{reconnectLeft}s</p>
-                  <p className="text-z-gray-400 text-xs text-center">If they don't come back, you win.</p>
+                  <p className="text-z-gray-400 text-xs text-center">{localDropDuringWaitRef.current ? 'Waiting to restore the match. No winner can be confirmed yet.' : "If they don't come back, you win."}</p>
                 </>
               )}
             </motion.div>
+          )}
+
+          {phase === 'connection-ended' && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center" role="alert">
+              <h2 className="text-xl font-bold">Connection could not be restored</h2>
+              <p>The match ended without a result. Return home to start a new match.</p>
+              <Button onClick={exit}>Back to Home</Button>
+            </div>
           )}
 
           {phase === 'done' && matchState && (() => {

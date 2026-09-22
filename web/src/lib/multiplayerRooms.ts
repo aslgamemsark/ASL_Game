@@ -7,10 +7,10 @@
  * trailing-zero loss), fixed 8 chars from a 32-symbol alphabet (40 bits) with 0/O/1/I removed so
  * codes are unambiguous when read aloud or retyped. */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const CODE_LENGTH = 8;
+export const ROOM_CODE_LENGTH = 8;
 
 export function generateRoomCode(): string {
-  const bytes = new Uint8Array(CODE_LENGTH);
+  const bytes = new Uint8Array(ROOM_CODE_LENGTH);
   crypto.getRandomValues(bytes);
   let code = '';
   for (const b of bytes) code += CODE_ALPHABET[b % CODE_ALPHABET.length];
