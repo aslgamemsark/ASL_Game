@@ -888,6 +888,10 @@ test.describe('multiplayer match completion', () => {
       const sign = await signer.getByText(/SIGN THIS/).locator('..').locator('p').last().innerText();
       console.info(`Group round ${signerIndex + 1}: prompt read after ${Date.now() - started}ms`);
       const guessers = pages.filter(page => page !== signer);
+      await Promise.all(guessers.map(async (page, index) => {
+        const body = await page.locator('body').innerText();
+        console.info(`Group round ${signerIndex + 1}, guesser ${index}: ${body.slice(-1_200)}`);
+      }));
       await Promise.all(guessers.map(expectRemoteFrames));
       await Promise.all(guessers.map(page => page.getByRole('button', { name: sign, exact: true }).click()));
       await Promise.all(pages.map(page => expect(page.getByText('The sign was', { exact: true })).toBeVisible()));
