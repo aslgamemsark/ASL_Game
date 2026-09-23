@@ -1,4 +1,5 @@
-import { test, expect, type Browser, type Page } from '@playwright/test';
+import { test, expect, type Browser, type Page, type WebSocketRoute } from '@playwright/test';
+import { broadcastEvent } from './support/realtimeFrame';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   assertLocalOnly,
@@ -52,7 +53,10 @@ test.beforeAll(async () => {
       'See docs/MULTIPLAYER_TESTING.md.'
     );
   }
-  if (!probe.reachable) return;
+  if (!probe.reachable) {
+    if (process.env.CI) throw new Error('CI requires a running local Supabase stack; refusing to skip multiplayer validation.');
+    return;
+  }
   users = await ensureTestUsers();
   stackReady = true;
 });
@@ -597,9 +601,22 @@ test.describe('multiplayer room registry', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Signs a fresh context in and parks it on the Duel lobby. */
-async function openDuelLobby(browser: Browser, user: TestUser): Promise<Page> {
+async function openDuelLobby(browser: Browser, user: TestUser, setup?: (page: Page) => Promise<void>): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
+  await setup?.(page);
+  // A stalled signer can consume the host's whole turn before Playwright can read its prompt.
+  // Record main-thread stalls without recording auth traffic, video, or landmarks.
+  await page.addInitScript(() => {
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.duration >= 1_000) console.info(`Multiplayer long task: ${Math.round(entry.duration)}ms at ${Math.round(entry.startTime)}ms`);
+      }
+    }).observe({ type: 'longtask', buffered: true });
+  });
+  page.on('console', message => {
+    if (message.text().startsWith('Multiplayer long task:')) console.info(`${user.id}: ${message.text()}`);
+  });
   page.on('pageerror', (error) => console.error(`Multiplayer page error: ${error.message}`));
   await reachHome(page);
   await signInThroughUi(page, user);
@@ -617,8 +634,13 @@ async function openDuelLobby(browser: Browser, user: TestUser): Promise<Page> {
   return page;
 }
 
-/** Both clients leave the lobby for a round view once signaling completes — the host becomes
- *  signer or guesser and the joiner takes the other role. */
+/** Wait for the actual waiting-room code, not the lobby input label or typography. */
+async function readRoomCode(page: Page): Promise<string> {
+  const code = page.getByText('Room Code', { exact: true }).locator('..').locator('p').last();
+  await expect(code).toHaveText(/^[A-Z2-9]{8}$/);
+  return (await code.innerText()).trim();
+}
+
 const IN_ROUND = /SIGN THIS|What are they signing/;
 
 test.describe('multiplayer two-client session', () => {
@@ -627,12 +649,13 @@ test.describe('multiplayer two-client session', () => {
     const guestPage = await openDuelLobby(browser, users[1]!);
 
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
 
-    const code = (await hostPage.locator('p.tracking-widest').first().innerText()).trim();
+    const code = await readRoomCode(hostPage);
     expect(code, 'the host must be shown a shareable room code').toMatch(/^[A-Z2-9]{8}$/);
 
     await guestPage.getByLabel('Room code').fill(code);
+    await expect(guestPage.getByLabel('Room code')).toHaveValue(code);
     await guestPage.getByRole('button', { name: /^Join$/ }).click();
 
     await expect(hostPage.getByText(IN_ROUND),
@@ -684,7 +707,7 @@ test.describe('multiplayer two-client session', () => {
 
     await hostPage.getByRole('button', { name: /Public/ }).click();
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
 
     await guestPage.getByRole('button', { name: /Search for a Match/ }).click();
 
@@ -702,10 +725,11 @@ test.describe('multiplayer two-client session', () => {
     const guestPage = await openDuelLobby(browser, users[1]!);
 
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
-    const code = (await hostPage.locator('p.tracking-widest').first().innerText()).trim();
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
+    const code = await readRoomCode(hostPage);
 
     await guestPage.getByLabel('Room code').fill(code);
+    await expect(guestPage.getByLabel('Room code')).toHaveValue(code);
     const join = guestPage.getByRole('button', { name: /^Join$/ });
     await join.click();
     await join.click({ force: true }).catch(() => { /* button may already be gone — that is fine */ });
@@ -723,10 +747,11 @@ test.describe('multiplayer two-client session', () => {
     const guestPage = await openDuelLobby(browser, users[1]!);
 
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
-    const code = (await hostPage.locator('p.tracking-widest').first().innerText()).trim();
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
+    const code = await readRoomCode(hostPage);
 
     await guestPage.getByLabel('Room code').fill(code);
+    await expect(guestPage.getByLabel('Room code')).toHaveValue(code);
     await guestPage.getByRole('button', { name: /^Join$/ }).click();
     await expect(guestPage.getByText(IN_ROUND)).toBeVisible({ timeout: 30_000 });
 
@@ -753,10 +778,11 @@ test.describe('multiplayer two-client session', () => {
     const guestPage = await openDuelLobby(browser, users[1]!);
 
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
-    const code = (await hostPage.locator('p.tracking-widest').first().innerText()).trim();
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
+    const code = await readRoomCode(hostPage);
 
     await guestPage.getByLabel('Room code').fill(code);
+    await expect(guestPage.getByLabel('Room code')).toHaveValue(code);
     await guestPage.getByRole('button', { name: /^Join$/ }).click();
     await expect(guestPage.getByText(IN_ROUND)).toBeVisible({ timeout: 30_000 });
 
@@ -796,4 +822,159 @@ test.describe('multiplayer two-client session', () => {
 
     await context.close();
   });
+});
+
+// Completion coverage deliberately uses real guesses and real timeout clocks. Fake camera
+// frames establish transport, but do not pretend to validate human ASL recognition.
+test.describe('multiplayer match completion', () => {
+  test('duel rotates roles, delivers remote frames and awards one point per correct guess', async ({ browser }) => {
+    const pages = [await openDuelLobby(browser, users[0]!), await openDuelLobby(browser, users[1]!)];
+    await pages[0]!.getByRole('button', { name: '3', exact: true }).click();
+    await pages[0]!.getByRole('button', { name: '20s', exact: true }).click();
+    await createAndJoin(pages);
+    const scores: [number, number] = [0, 0];
+    for (let round = 1; round <= 3; round++) {
+      const signerIndex = (users[0]!.id < users[1]!.id) === (round % 2 === 1) ? 0 : 1;
+      const signer = pages[signerIndex]!;
+      const guesser = pages[1 - signerIndex]!;
+      await expect(signer.getByText(/SIGN THIS/)).toBeVisible({ timeout: 20_000 });
+      await expect(guesser.getByText(/What are they signing/)).toBeVisible();
+      await expectRemoteFrames(guesser);
+      const sign = await signer.getByText(/SIGN THIS/).locator('..').locator('p').last().innerText();
+      await guesser.getByRole('button', { name: sign, exact: true }).click();
+      scores[1 - signerIndex] = scores[1 - signerIndex]! + 1;
+      await Promise.all(pages.map(page => expect(page.getByText('The sign was', { exact: true })).toBeVisible()));
+    }
+    for (const [index, page] of pages.entries()) {
+      await expect(page.getByRole('heading', { name: scores[index]! > scores[1 - index]! ? 'You Won!' : 'You Lost', exact: true })).toBeVisible({ timeout: 20_000 });
+      const board = page.getByText('vs', { exact: true }).locator('..');
+      await expect(board.locator('p').nth(0)).toHaveText(String(scores[index]));
+      await expect(board.locator('p').nth(2)).toHaveText(String(scores[1 - index]));
+    }
+    await Promise.all(pages.map(page => page.context().close()));
+  });
+
+  test('duel times out all rounds and finishes as a zero-score draw on both clients', async ({ browser }) => {
+    const pages = [await openDuelLobby(browser, users[0]!), await openDuelLobby(browser, users[1]!)];
+    await pages[0]!.getByRole('button', { name: '3', exact: true }).click();
+    await pages[0]!.getByRole('button', { name: '10s', exact: true }).click();
+    await createAndJoin(pages);
+    for (const page of pages) {
+      await expect(page.getByRole('heading', { name: 'Draw!', exact: true })).toBeVisible({ timeout: 70_000 });
+      const board = page.getByText('vs', { exact: true }).locator('..');
+      await expect(board.locator('p').nth(0)).toHaveText('0');
+      await expect(board.locator('p').nth(2)).toHaveText('0');
+    }
+    await Promise.all(pages.map(page => page.context().close()));
+  });
+
+  test('four-player group rotates every signer and agrees on final scores', async ({ browser }) => {
+    const pages: Page[] = [];
+    for (const user of users) {
+      const page = await openDuelLobby(browser, user);
+      await page.getByRole('button', { name: /Group Room/ }).click();
+      pages.push(page);
+    }
+    await pages[0]!.getByRole('button', { name: '1', exact: true }).click();
+    await pages[0]!.getByRole('button', { name: '20s', exact: true }).click();
+    await createAndJoin(pages);
+    await expect(pages[0]!.getByText('Players (4/4)', { exact: true })).toBeVisible();
+    await pages[0]!.getByRole('button', { name: 'Start Game', exact: true }).click();
+    for (let signerIndex = 0; signerIndex < 4; signerIndex++) {
+      const signer = pages[signerIndex]!;
+      const started = Date.now();
+      await expect(signer.getByText(/SIGN THIS/)).toBeVisible({ timeout: 20_000 });
+      console.info(`Group round ${signerIndex + 1}: signer visible after ${Date.now() - started}ms`);
+      const sign = await signer.getByText(/SIGN THIS/).locator('..').locator('p').last().innerText();
+      console.info(`Group round ${signerIndex + 1}: prompt read after ${Date.now() - started}ms`);
+      const guessers = pages.filter(page => page !== signer);
+      await Promise.all(guessers.map(expectRemoteFrames));
+      await Promise.all(guessers.map(page => page.getByRole('button', { name: sign, exact: true }).click()));
+      if (signerIndex < 3) {
+        // The reveal lasts only 1.5s. A busy renderer can miss it entirely, so verify the
+        // cumulative scores that persist into the next turn, not the transient animation.
+        const expectedScores = pages.map((_, playerIndex) => {
+          const score = signerIndex + 1 - (playerIndex <= signerIndex ? 1 : 0);
+          return new RegExp(`^(?:·\\s*)?${score}\\s*\\D+$`);
+        });
+        await Promise.all(pages.map(page => expect(page.getByRole('list', { name: 'Scores' }).getByRole('listitem'))
+          .toHaveText(expectedScores, { timeout: 20_000 })));
+      }
+    }
+    for (const page of pages) {
+      await expect(page.getByRole('heading', { name: 'Game Over!', exact: true })).toBeVisible({ timeout: 20_000 });
+      // All four players guessed correctly in each of their three non-signing rounds.
+      await expect(page.locator('p').filter({ hasText: /^3$/ })).toHaveCount(4);
+    }
+    await Promise.all(pages.map(page => page.context().close()));
+  });
+});
+
+async function createAndJoin(pages: Page[]) {
+  await pages[0]!.getByRole('button', { name: 'Create Room', exact: true }).click();
+  const code = await readRoomCode(pages[0]!);
+  for (const [index, page] of pages.slice(1).entries()) {
+    await page.getByLabel('Room code', { exact: true }).fill(code);
+    await expect(page.getByLabel('Room code', { exact: true }), 'joining must preserve the full generated code').toHaveValue(code);
+    await page.getByRole('button', { name: 'Join', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Join', exact: true })).toBeHidden({ timeout: 20_000 });
+    // Roster acknowledgement, not camera startup timing, defines the group join order.
+    if (await pages[0]!.getByRole('button', { name: 'Start Game', exact: true }).count()) {
+      await expect(pages[0]!.getByText(`Players (${index + 2}/4)`, { exact: true })).toBeVisible({ timeout: 20_000 });
+    }
+  }
+}
+
+async function expectRemoteFrames(page: Page) {
+  // Scope to the remote tile's existing caption, so a healthy LOCAL preview cannot make this pass.
+  const video = page.getByText(/ — signing$/).locator('..').locator('video');
+  await expect(video).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => video.evaluate(v => {
+    const media = v as HTMLVideoElement;
+    return media.readyState >= 2 && media.videoWidth > 0 && media.currentTime > 0;
+  }), { message: 'the remote WebRTC video must decode frames', timeout: 15_000 }).toBe(true);
+}
+
+test('group guest recovers final scores after dropped completion broadcasts and socket reconnect', async ({ browser }) => {
+  const host = await openDuelLobby(browser, users[0]!);
+  let socket: WebSocketRoute | undefined;
+  let serverSocket: WebSocketRoute | undefined;
+  let dropCompletion = false;
+  let dropped = 0;
+  const guest = await openDuelLobby(browser, users[1]!, async page => {
+    await page.routeWebSocket(/\/realtime\/v1\/websocket/, route => {
+      socket = route;
+      const server = route.connectToServer();
+      serverSocket = server;
+      server.onMessage(message => {
+        if (dropCompletion && ['round-end', 'game-over'].includes(broadcastEvent(message) ?? '')) {
+          dropped++;
+          return;
+        }
+        route.send(message);
+      });
+    });
+  });
+  for (const page of [host, guest]) await page.getByRole('button', { name: /Group Room/ }).click();
+  await host.getByRole('button', { name: '1', exact: true }).click();
+  await createAndJoin([host, guest]);
+  await expect(host.getByText('Players (2/4)', { exact: true })).toBeVisible();
+  await host.getByRole('button', { name: 'Start Game', exact: true }).click();
+  await expect(host.getByText(/SIGN THIS/)).toBeVisible({ timeout: 20_000 });
+  let sign = await host.getByText(/SIGN THIS/).locator('..').locator('p').last().innerText();
+  await guest.getByRole('button', { name: sign, exact: true }).click();
+  await expect(guest.getByText(/SIGN THIS/)).toBeVisible({ timeout: 15_000 });
+  sign = await guest.getByText(/SIGN THIS/).locator('..').locator('p').last().innerText();
+  dropCompletion = true;
+  await host.getByRole('button', { name: sign, exact: true }).click();
+  await expect(host.getByRole('heading', { name: 'Game Over!', exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect.poll(() => dropped).toBeGreaterThanOrEqual(2);
+  await expect(guest.getByRole('heading', { name: 'Game Over!', exact: true })).toBeHidden();
+  dropCompletion = false;
+  // Break the actual Realtime socket, then permit a fresh real subscription. No app state mocks.
+  await socket!.close({ code: 1012, reason: 'integration reconnect' });
+  await serverSocket!.close();
+  await expect(guest.getByRole('heading', { name: 'Game Over!', exact: true })).toBeVisible({ timeout: 25_000 });
+  for (const page of [host, guest]) await expect(page.locator('p').filter({ hasText: /^1$/ })).toHaveCount(2);
+  await Promise.all([host.context().close(), guest.context().close()]);
 });

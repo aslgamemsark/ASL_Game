@@ -96,6 +96,8 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   const [guessOptions, setGuessOptions] = useState<string[]>([]);
   const [myGuess, setMyGuess] = useState<string | null>(null);
   const [resultData, setResultData] = useState<ResultData | null>(null);
+  const [stateSyncFailed, setStateSyncFailed] = useState(false);
+  const [stateRequestEpoch, setStateRequestEpoch] = useState(0);
 
   const [timeLeft, setTimeLeft] = useState(TURN_SECONDS);
   const [turnArmed, setTurnArmed] = useState(false);
@@ -122,6 +124,8 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   const guessesThisRoundRef = useRef<Record<string, string>>({});
   const roundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stateRequestRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastDeltasRef = useRef<Record<string, number>>({});
   const signingConnectionsRef = useRef<string[]>([]);
   const loopRef = useRef<string | null>(null);
   const disconnectedPeerIdsRef = useRef<string[]>([]);
@@ -169,9 +173,12 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     setTurnArmed(false);
     setTimeLeft(turnSecondsRef.current);
 
-    // I was signing last round and no longer am — tear down the outbound connections I opened.
+    // The next signer's offer may arrive before this round-start (different senders have no
+    // shared ordering). Keep that peer: its offer replaces the old connection in signaling.
+    // Closing by peer ID here would otherwise destroy the newly received connection too.
     if (signingConnectionsRef.current.length > 0 && signerPeerIdRef.current !== signer) {
-      signingConnectionsRef.current.forEach((peerId) => signaling.disconnectFromPeer(peerId));
+      signingConnectionsRef.current.filter((peerId) => peerId !== signer)
+        .forEach((peerId) => signaling.disconnectFromPeer(peerId));
       signingConnectionsRef.current = [];
     }
 
@@ -206,6 +213,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     if (gameFinishedRef.current || roundEndedRef.current || roundNum !== roundRef.current) return;
     if (!scoreDeltas || typeof scoreDeltas !== 'object') return;
     roundEndedRef.current = true;
+    lastDeltasRef.current = scoreDeltas;
     if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
     if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
     const next = { ...scoresRef.current };
@@ -252,6 +260,9 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   const applyGameOver = useCallback(() => {
     if (gameFinishedRef.current) return;
     gameFinishedRef.current = true;
+    if (stateRequestRef.current) clearTimeout(stateRequestRef.current);
+    stateRequestRef.current = null;
+    setStateSyncFailed(false);
     if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
     if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
@@ -329,7 +340,71 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   }, []);
 
   const handleMessage = useCallback((event: string, payload: Record<string, unknown>, fromPeerId: string) => {
+    // Broadcast has no replay. Keep serving the host's snapshot after completion, too:
+    // a guest may have missed the final round and game-over while its socket was down.
+    if (event === 'state-request') {
+      if (!isHostRef.current || !rosterRef.current.some((m) => m.peerId === fromPeerId)) return;
+      signaling.send('state-snapshot', {
+        members: rosterRef.current, signs: signsRef.current, turnOrder: turnOrderRef.current,
+        turnSeconds: turnSecondsRef.current, round: roundRef.current,
+        signerPeerId: signerPeerIdRef.current, signId: currentSignIdRef.current,
+        scores: scoresRef.current, ended: roundEndedRef.current, finished: gameFinishedRef.current,
+        scoreDeltas: lastDeltasRef.current,
+        matchStartedAt: matchStartedAtRef.current,
+        startedAt: turnArmedThisRoundRef.current ? turnStartedAtRef.current : null,
+        guess: guessesThisRoundRef.current[fromPeerId] ?? null,
+      }, fromPeerId);
+      return;
+    }
     if (gameFinishedRef.current) return;
+    if (event === 'state-snapshot') {
+      if (isHostRef.current || fromPeerId !== hostIdRef.current) return;
+      const members = payload.members as RosterMember[];
+      const signs = payload.signs as string[];
+      const order = payload.turnOrder as string[];
+      const snapshotRound = payload.round as number;
+      const snapshotScores = payload.scores as Record<string, number>;
+      if (!Array.isArray(members) || members.length > MAX_PLAYERS
+        || members.some(m => !m || typeof m.peerId !== 'string' || typeof m.username !== 'string')
+        || !Array.isArray(signs) || signs.some(id => !SIGNS[id]) || !Array.isArray(order)
+        || !Number.isInteger(snapshotRound) || snapshotRound < roundRef.current || snapshotRound > signs.length
+        || typeof payload.ended !== 'boolean' || typeof payload.finished !== 'boolean'
+        || !snapshotScores || typeof snapshotScores !== 'object'
+        || members.some(m => !Number.isInteger(snapshotScores[m.peerId] ?? 0) || (snapshotScores[m.peerId] ?? 0) < 0 || (snapshotScores[m.peerId] ?? 0) > signs.length)) return;
+      // A delayed active snapshot must not undo a round-end already received live.
+      if (snapshotRound === roundRef.current && snapshotRound > 0 && roundEndedRef.current && !payload.ended) return;
+      if (snapshotRound > 0 && (!SIGNS[payload.signId as string] || !members.some(m => m.peerId === payload.signerPeerId))) return;
+      if (stateRequestRef.current) clearTimeout(stateRequestRef.current);
+      stateRequestRef.current = null;
+      setStateSyncFailed(false);
+      rosterRef.current = members;
+      setRoster(members);
+      signsRef.current = signs;
+      turnOrderRef.current = order;
+      totalRoundsRef.current = signs.length;
+      setTotalRounds(signs.length);
+      if (typeof payload.matchStartedAt === 'number' && Number.isFinite(payload.matchStartedAt)) matchStartedAtRef.current = payload.matchStartedAt;
+      turnSecondsRef.current = TURN_SECONDS_OPTIONS.includes(payload.turnSeconds as number) ? payload.turnSeconds as number : TURN_SECONDS;
+      // Replace cumulative scores, never add them: repeated recovery cannot award twice.
+      scoresRef.current = { ...snapshotScores };
+      setScores(scoresRef.current);
+      if (payload.finished) { applyGameOver(); return; }
+      if (snapshotRound > roundRef.current) beginRound(snapshotRound, payload.signerPeerId as string, payload.signId as string);
+      if (snapshotRound === 0) return;
+      if (payload.ended) {
+        roundEndedRef.current = true;
+        const deltas = (payload.scoreDeltas ?? {}) as Record<string, number>;
+        setResultData({ correctSignName: SIGNS[payload.signId as string]?.name ?? '',
+          scoreDeltas: members.map(m => ({ label: m.peerId === user?.id ? 'You' : m.username, delta: deltas[m.peerId] ?? 0 })) });
+        setPhase('roundResult');
+      } else {
+        // A snapshot captured before our in-flight guess must not re-enable a second answer.
+        // beginRound already resets the guess when this snapshot advances to a new round.
+        setMyGuess(current => typeof payload.guess === 'string' ? payload.guess : current);
+        if (typeof payload.startedAt === 'number' && Number.isFinite(payload.startedAt)) armTurnTimerRef.current(payload.startedAt);
+      }
+      return;
+    }
     // Reliability guards only: payload.from is not authenticated sender provenance.
     if (['roster', 'game-start', 'round-start', 'round-timer-start', 'round-end', 'game-over'].includes(event) && (isHostRef.current || fromPeerId !== hostIdRef.current)) return;
     if (event === 'roster-join') {
@@ -430,6 +505,32 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   }, [roomId]);
 
   const signaling = useMultiplayerSignaling({ selfPeerId: user?.id ?? '', onMessage: handleMessage, onIceResult: handleIceResult });
+
+  // Re-subscription and host presence recovery both need application state recovery;
+  // repairing WebRTC alone cannot restore broadcasts missed while disconnected.
+  const hostPresent = signaling.presentPeerIds.includes(hostIdRef.current ?? '');
+  useEffect(() => {
+    if (!roomId || isHostRef.current || gameFinishedRef.current || signaling.channelStatus !== 'subscribed' || !hostPresent) return;
+    setStateSyncFailed(false);
+    let attempts = 0;
+    const request = () => {
+      if (gameFinishedRef.current) return;
+      if (attempts >= ROSTER_ANNOUNCE_ATTEMPTS) {
+        stateRequestRef.current = null;
+        setStateSyncFailed(true);
+        return;
+      }
+      signaling.send('state-request', {}, hostIdRef.current ?? undefined);
+      attempts += 1;
+      stateRequestRef.current = setTimeout(request, Math.min(5000, ROSTER_ANNOUNCE_INTERVAL_MS * 2 ** (attempts - 1)) + Math.random() * 300);
+    };
+    request();
+    return () => {
+      if (stateRequestRef.current) clearTimeout(stateRequestRef.current);
+      stateRequestRef.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, signaling.channelStatus, hostPresent, stateRequestEpoch]);
 
   // Presence-based disconnect detection: a WebRTC connectionState drop isn't reliable here since
   // not every pair of players has a live peer connection (only the current signer connects to
@@ -670,6 +771,13 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
       </div>
 
       <div className="flex-1 max-w-lg mx-auto w-full px-4 pb-6 flex flex-col">
+        {stateSyncFailed && phase !== 'hostLeft' && phase !== 'finalResults' && (
+          <div role="alert" className="rounded-xl border border-z-purple p-4 my-3 text-center">
+            <p>Could not sync the room. Try again or leave the match.</p>
+            <Button onClick={() => setStateRequestEpoch(value => value + 1)}>Retry</Button>
+            <button onClick={exit} className="min-h-11 px-4">Leave</button>
+          </div>
+        )}
         <AnimatePresence mode="wait">
 
           {phase === 'lobby' && (

@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 // Persistent hook slots exercise the real page handlers without adding a DOM dependency.
-const h = vi.hoisted(() => ({ slots: [] as any[], cursor: 0, effects: [] as (() => void)[], cleanups: [] as (() => void)[], message: null as any, send: vi.fn(), addGold: vi.fn(), addSigns: vi.fn(), present: ['host', 'guest'], user: 'host', leave: vi.fn() }));
+const h = vi.hoisted(() => ({ slots: [] as any[], cursor: 0, effects: [] as (() => void)[], cleanups: [] as (() => void)[], message: null as any, send: vi.fn(), addGold: vi.fn(), addSigns: vi.fn(), present: ['host', 'guest'], user: 'host', leave: vi.fn(), connect: vi.fn(), disconnect: vi.fn() }));
 vi.mock('react', () => ({
   useState: (initial: any) => { const i = h.cursor++; if (!(i in h.slots)) h.slots[i] = initial; return [h.slots[i], (v: any) => { h.slots[i] = typeof v === 'function' ? v(h.slots[i]) : v; }]; },
   useRef: (initial: any) => h.slots[h.cursor++] ??= { current: initial },
@@ -17,7 +17,7 @@ vi.mock('@/hooks/useConfetti', () => ({ useConfetti: () => ({ burst: vi.fn() }) 
 vi.mock('@/analytics', () => ({ track: vi.fn() }));
 vi.mock('@/lib/joinMultiplayerRoom', () => ({ joinMultiplayerRoom: async () => null }));
 vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ insert: async () => ({}), update: () => ({ eq: async () => ({}) }), select: () => ({ eq: () => ({ single: async () => ({ data: { host_id: 'host' } }) }) }) }), rpc: vi.fn() } }));
-vi.mock('@/hooks/useMultiplayerSignaling', () => ({ useMultiplayerSignaling: (options: any) => { h.message = options.onMessage; return { send: h.send, join: async () => {}, startCamera: async () => {}, leave: h.leave, presentPeerIds: h.present, channelStatus: 'subscribed', peers: {}, localVideoRef: { current: null }, connectToPeer: vi.fn(), disconnectFromPeer: vi.fn(), camStatus: 'idle' }; } }));
+vi.mock('@/hooks/useMultiplayerSignaling', () => ({ useMultiplayerSignaling: (options: any) => { h.message = options.onMessage; return { send: h.send, join: async () => {}, startCamera: async () => {}, leave: h.leave, presentPeerIds: h.present, channelStatus: 'subscribed', peers: {}, localVideoRef: { current: null }, connectToPeer: h.connect, disconnectFromPeer: h.disconnect, camStatus: 'idle' }; } }));
 vi.mock('@/components/multiplayer/MultiplayerLobby', () => ({ MultiplayerLobby: 'lobby' }));
 vi.mock('@/components/shared/Button', () => ({ Button: 'button' }));
 vi.mock('@/components/shared/HeaderBackButton', () => ({ HeaderBackButton: 'back' }));
@@ -61,3 +61,104 @@ it('acknowledges repeated roster joins and ignores stranger readiness', async ()
   message('video-ready', { round: 1 }, 'guest'); expect(h.send.mock.calls.filter(c => c[0] === 'round-timer-start')).toHaveLength(1);
 });
 
+function snapshot(overrides: Record<string, unknown> = {}) {
+  return { members: [{ peerId: 'host', username: 'Host', joinOrder: 0 }, { peerId: 'guest', username: 'Guest', joinOrder: 1 }],
+    signs: [sign, sign], turnOrder: ['host', 'guest'], turnSeconds: 15,
+    round: 2, signerPeerId: 'guest', signId: sign, scores: { host: 0, guest: 1 },
+    ended: false, finished: false, scoreDeltas: {}, startedAt: Date.now(), guess: null, ...overrides };
+}
+
+it('requests recovery after presence returns and restores missed round and cumulative scores', async () => {
+  await joinGuest(); h.send.mockClear();
+  h.present = ['guest']; render(); h.present = ['host', 'guest']; render();
+  expect(h.send).toHaveBeenCalledWith('state-request', {}, 'host');
+  message('state-snapshot', snapshot());
+  expect(get('rounds').props.current).toBe(2);
+  expect(get('scores').props.entries.find((p: any) => p.isYou).score).toBe(1);
+  const requests = h.send.mock.calls.filter(c => c[0] === 'state-request').length;
+  vi.advanceTimersByTime(5000);
+  expect(h.send.mock.calls.filter(c => c[0] === 'state-request')).toHaveLength(requests);
+});
+
+it('restores a missed final event and rewards exactly once across repeated snapshots', async () => {
+  await joinGuest();
+  message('state-snapshot', snapshot({ ended: true, finished: true }));
+  message('state-snapshot', snapshot({ ended: true, finished: true }));
+  expect(h.addSigns).toHaveBeenCalledWith(150);
+  expect(h.addGold).toHaveBeenCalledTimes(1);
+});
+
+it('recovers even when game-start itself was missed and ignores nonhost snapshots', async () => {
+  h.user = 'guest'; get('lobby').props.onJoinCodeChange('ABC123'); get('lobby').props.onJoin();
+  for (let i = 0; i < 8; i++) await Promise.resolve(); render();
+  message('state-snapshot', snapshot({ ended: true, finished: true }), 'stranger');
+  expect(h.addGold).not.toHaveBeenCalled();
+  message('state-snapshot', snapshot({ ended: true, finished: true }));
+  expect(h.addGold).toHaveBeenCalledWith(8);
+  expect(h.connect).not.toHaveBeenCalled();
+});
+
+it('offers Retry and Leave when all bounded state recovery requests are lost', async () => {
+  await joinGuest(); h.send.mockClear();
+  vi.advanceTimersByTime(60000);
+  const alert = nodes(render()).find(n => n.props?.role === 'alert');
+  expect(alert).toBeTruthy();
+  expect(nodes(alert).some(n => n.props?.children === 'Leave')).toBe(true);
+  nodes(alert).find(n => n.type === 'button' && n.props.children === 'Retry').props.onClick();
+  render();
+  expect(nodes(render()).find(n => n.props?.role === 'alert')).toBeUndefined();
+  const requests = h.send.mock.calls.filter(c => c[0] === 'state-request').length;
+  expect(requests).toBe(10); // Nine retries before expiry plus the explicit new attempt.
+  message('state-snapshot', snapshot());
+  vi.advanceTimersByTime(60000);
+  expect(nodes(render()).find(n => n.props?.role === 'alert')).toBeUndefined();
+});
+
+it('does not rewind a completed round when an earlier active snapshot arrives late', async () => {
+  await joinGuest();
+  message('round-end', { round: 1, scoreDeltas: { guest: 1 } }); render();
+  message('state-snapshot', snapshot({ round: 1, signerPeerId: 'host', scores: {} }));
+  expect(get('result')).toBeTruthy();
+  expect(get('scores').props.entries.find((p: any) => p.isYou).score).toBe(1);
+});
+
+it('the finished host still replays its final state to a returning member', async () => {
+  await get('lobby').props.onCreate(); render(); message('roster-join', { username: 'Guest' }, 'guest');
+  nodes(render()).find(n => n.type === 'button' && n.props.children === 'Start Game').props.onClick(); render();
+  // Force every host-owned round to expire, with the same deterministic fake clock.
+  for (let i = 0; i < 20; i++) { vi.advanceTimersByTime(25000); render(); }
+  h.send.mockClear(); message('state-request', {}, 'guest');
+  expect(h.send).toHaveBeenCalledWith('state-snapshot', expect.objectContaining({ finished: true }), 'guest');
+  h.send.mockClear(); message('state-request', {}, 'stranger'); expect(h.send).not.toHaveBeenCalled();
+});
+
+it('does not re-enable answers when a same-round snapshot predates the local guess', async () => {
+  await joinGuest();
+  const answer = nodes(render()).find(n => n.type === 'button' && n.props.disabled === false);
+  expect(answer).toBeTruthy();
+  answer.props.onClick(); render();
+  message('state-snapshot', snapshot({ round: 1, signerPeerId: 'host', scores: {}, guess: null }));
+  const answers = nodes(render()).filter(n => n.type === 'button' && typeof n.props.disabled === 'boolean');
+  expect(answers).toHaveLength(4);
+  expect(answers.every(n => n.props.disabled)).toBe(true);
+});
+
+it('preserves the next signer connection when its offer arrives before the round transition', async () => {
+  await joinGuest();
+  message('roster', { members: [
+    { peerId: 'host', username: 'Host', joinOrder: 0 },
+    { peerId: 'guest', username: 'Guest', joinOrder: 1 },
+    { peerId: 'third', username: 'Third', joinOrder: 2 },
+  ] }); render();
+  message('round-start', { round: 2, signerPeerId: 'guest', signId: sign }); render();
+  expect(h.connect).toHaveBeenCalledWith('host');
+  expect(h.connect).toHaveBeenCalledWith('third');
+  // The signaling hook handles offers independently of page messages and replaces by peer ID.
+  // Model the new host offer being installed before this page sees the host's round-start.
+  const connections = new Map([['host', 'new-incoming'], ['third', 'old-outgoing']]);
+  h.disconnect.mockImplementation(peerId => connections.delete(peerId));
+  message('round-start', { round: 3, signerPeerId: 'host', signId: sign }); render();
+  expect(connections.get('host')).toBe('new-incoming');
+  expect(connections.has('third')).toBe(false);
+  h.disconnect.mockReset();
+});
