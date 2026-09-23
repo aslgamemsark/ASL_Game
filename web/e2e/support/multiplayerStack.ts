@@ -170,21 +170,30 @@ async function findUserByEmail(admin: SupabaseClient, email: string): Promise<st
  */
 export async function resetRoomState(): Promise<void> {
   const admin = createAdminClient();
-  await admin.from('multiplayer_room_members').delete().neq('room_code', '');
-  await admin.from('multiplayer_rooms').delete().neq('code', '');
-  await admin.from('room_join_attempts').delete().neq('user_id', '00000000-0000-0000-0000-000000000000');
+  for (const [table, column, value] of [
+    ['multiplayer_room_members', 'room_code', ''],
+    ['multiplayer_rooms', 'code', ''],
+    ['room_join_attempts', 'user_id', '00000000-0000-0000-0000-000000000000'],
+  ]) {
+    const { error } = await admin.from(table!).delete().neq(column!, value!);
+    if (error) throw new Error(`Local fixture cleanup failed for ${table}: ${error.message}`);
+  }
 }
 
 /** Signs a browser page in through the real UI form — no injected session, no test-only hook in
  *  production code. Assumes the page has already completed guest onboarding and is on Home. */
 export async function signInThroughUi(page: Page, user: TestUser): Promise<void> {
   await page.getByRole('button', { name: /sign in/i }).first().click();
-  const dialog = page.getByRole('dialog');
+  const dialog = page.getByRole('dialog', { name: /^Sign in/ });
   await dialog.getByLabel('Email').fill(user.email);
   await dialog.getByLabel('Password').fill(user.password);
   await dialog.getByRole('button', { name: /^sign in$/i }).click();
   // The modal closes once the session lands; that is the signal auth actually succeeded.
   await dialog.waitFor({ state: 'hidden', timeout: 20_000 });
+  // Every fresh browser context gets the account's first-device consent prompt.
+  const consent = page.getByRole('dialog', { name: 'Help improve the AI?' });
+  await consent.getByRole('button', { name: 'No thanks, turn it off' }).click();
+  await consent.waitFor({ state: 'hidden' });
 }
 
 /** Walks guest onboarding to Home — the precondition for signInThroughUi. Mirrors smoke.spec.ts's

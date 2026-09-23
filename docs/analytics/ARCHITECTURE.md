@@ -1,71 +1,69 @@
-# Analytics Architecture
+# Analytics architecture
 
-QuickSign's analytics run on PostHog, wired through one centralized module:
-`web/src/analytics/`. No file outside that module calls PostHog directly.
+_Code contract reviewed 2026-09-19; this is not evidence that the current changes are deployed._
 
-## Why centralized
+The app uses the centralized `web/src/analytics/` API. Static marketing pages load the SDK
+separately and share `web/public/analytics-context.js` for attribution and redaction. Keep those
+entry paths consistent. [Event definitions](EVENT_REFERENCE.md) describe what can be measured;
+[the founder guide](../POSTHOG_GUIDE.md) explains how to use the data.
 
-The project has already paid for scattered logic once (the COFFEE recognition bug — see
-CLAUDE.md). Analytics gets the same discipline: one typed `track()` function, one place that
-knows what "disabled" means, one place that knows the privacy rules. A new event is a new line
-in `events.ts` + `types.ts`, not a new `posthog.capture()` call invented at the point of use.
+## Owners
 
-## Module map
-
-| File | Owns |
+| File | Responsibility |
 |---|---|
-| `client.ts` | PostHog init, privacy config, `sanitizeAnalyticsProperties`, `getPosthog()` (internal accessor) |
-| `events.ts` | Event **names** — the only place a string literal event name may exist. Split into `EVENTS` (ACTIVE, emitted) and `FUTURE_EVENTS` (documented, never emitted). |
-| `types.ts` | `EventPayloads` — one typed payload interface per ACTIVE event; `FuturePayloads` for planned-but-unbuilt events |
-| `capture.ts` | The **only** sanctioned capture surface: `track()`, `identifyUser()`, `aliasAnon()`, `resetIdentity()`, `setGroup()`. Enforced by `analytics/tests/noDirectCapture.test.ts`. |
-| `consent.ts` | Opt-out state (localStorage), independent of PostHog itself |
-| `featureFlags.ts` | Typed flag keys + `isKillSwitchOn()` (non-hook, for hooks/modules) |
-| `useFeatureFlag.ts` | React hook version of flag reads, with a safe default |
-| `useScreenView.ts` | Fires one `screen_viewed` per navigation |
-| `useAnalytics.ts` | Hook wrapper around `capture.ts`'s functions |
-| `AnalyticsIdentityBridge.tsx` | Mounted once in `main.tsx`; syncs PostHog identity to Supabase auth state |
+| `events.ts`, `types.ts` | Implemented event names and typed payloads; no speculative event registry |
+| `capture.ts` | `track`, identity transitions, consent application and queued SDK operations |
+| `client.ts` | Lazy SDK initialization, ordered readiness callbacks, release context and privacy configuration |
+| `AnalyticsIdentityBridge.ts` | Plain `syncAnalyticsIdentity` function called by authoritative AuthContext callbacks; it is not a mounted React component |
+| `firstSuccess.ts` | Device-local v3 first-success state for the current guest/account |
+| `attribution.ts`, `trafficType.ts`, `public/analytics-context.js` | Safe first/latest acquisition fields, explicit tester marker and URL redaction |
+| `consent.ts` | Persisted opt-out; `useScreenView.ts` tracks SPA screen transitions |
+| `featureFlags.ts`, `useFeatureFlag.ts` | Typed flag reads with safe defaults |
+| `hooks/useAttemptLog.ts` | Shared rule-pass reporting across learning surfaces; separate account-gated Supabase persistence |
 
-## Privacy posture (locked — do not loosen without re-reviewing)
+## Initialization, identity and consent
 
-QuickSign's product promise is "your camera never leaves your browser." Analytics config
-mirrors that:
+`VITE_POSTHOG_KEY` plus a production build or `VITE_ANALYTICS_DEV=1` enables initialization.
+Until the dynamically imported SDK is ready, tracking and identity operations queue in call order.
+SDK acceptance is not proof of server ingestion; the queue is memory-only and a failed import or
+closed tab can lose events. Consent is checked again before queued capture executes.
 
-- **No session replay** (`disable_session_recording: true`), ever.
-- **No autocapture** — every event is a deliberate `track()` call with a typed payload.
-- **No automatic pageviews** — this is a `screen` state-machine SPA, not route-based; one manual
-  `screen_viewed` per navigation instead.
-- **Anonymous by default** — `person_profiles: 'identified_only'`. A guest generates events but
-  no Person profile forms until they sign in.
-- **DNT respected.**
-- **A user-facing opt-out** exists (Settings → Privacy → "Anonymous usage analytics"), backed by
-  `consent.ts`, disclosed on the Privacy & Terms page.
-- **Never captured:** email, password, raw hand landmarks, video, full error stacks.
+AuthContext calls `syncAnalyticsIdentity` before its login/product events. A guest is anonymous;
+`identifyUser` identifies the authenticated Supabase user id and lets PostHog link that anonymous
+history. There is no manual alias call. An account switch resets an existing different account
+before identification; logout resets to an anonymous identity. Release, attribution and beta
+cohort context are restored after resets. Current identification supplies provider, account age,
+plan and language; username and country are null. Do not infer email or username capture.
 
-## Gating
+Opting out stops capture; opting back in reapplies the desired account or clears a stale identified
+session. DNT is respected. Missing configuration, blocked storage, browser protections and opt-out
+all limit coverage. Anonymous identity and activation deduplication are browser-local, not proof
+of unique humans across devices or shared browsers.
 
-Analytics only initializes when `VITE_POSTHOG_KEY` is set AND (`import.meta.env.PROD` OR
-`VITE_ANALYTICS_DEV=1`). Every function in `capture.ts` is a safe no-op when analytics isn't
-configured — no call site anywhere in the app needs its own "is analytics ready" guard.
+## Privacy boundary
 
-## Identity flow
+Current SDK configuration enables **session replay with `maskAllInputs: true`** and **autocapture**.
+UI structure, rendered text and interaction metadata can still be observed; input masking is not
+a blanket guarantee that no personal data is collected. Replay also depends on project settings.
+Use deliberate typed events for product funnels; automatic click events are diagnostic context.
 
-1. Anonymous browsing → PostHog assigns an anonymous distinct id, events flow under it.
-2. User signs up/logs in → `AnalyticsIdentityBridge` calls `aliasAnon(user.id)` (links the
-   anonymous history to the account) then `identifyUser(...)`.
-3. Sign-out → `resetIdentity()` — a fresh anonymous id starts, so a guest on a shared device
-   after a logout isn't attributed to the account that just left.
+SPA automatic pageviews are disabled; `screen_viewed` is manual. Pageleave and Web Vitals capture
+are enabled. The app's event payloads must not contain webcam frames, landmark arrays, credentials,
+free-form messages or full stacks. URL query strings/fragments and credential-like properties are
+redacted before sending; campaign fields are allowlisted. A local recognition architecture does
+not mean the application's multiplayer or training-data features never transmit information.
 
-## Session/release metadata
+## Acquisition and release context
 
-Set ONCE per session via `posthog.register()` (super properties), not threaded into every
-`track()` call: `app_version`, `git_commit`, `deployment_environment`, `build_timestamp`
-(injected at build time via `vite.config.ts`'s `define` block, sourced from Vercel's
-`VERCEL_GIT_COMMIT_SHA`/`VERCEL_ENV` in production). Device/browser context uses PostHog's
-built-in `$browser`/`$os`/`$device_type` properties, also captured once per session, not
-recomputed per event.
+`app_version`, `git_commit`, `deployment_environment`, `build_timestamp` and `traffic_type` are
+registered context. `first_*` and `latest_*` acquisition properties contain only approved campaign
+labels, referrer origin and landing path. First touch is retained; a later qualifying campaign or
+external referrer updates latest touch. An untagged direct visit does not erase it.
 
-## Groups
+Allowed campaign keys are `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`
+and `campaign_id`. Values are bounded labels; URLs, email-like strings and token-like values are
+rejected. App entry links copy only those approved current fields and the explicit internal-test
+marker, not arbitrary parameters or auth fragments. Both marketing pages and the app use this helper.
+`?internal=1` marks a tester on that browser; `?internal=0` clears the marker. Country is not a tester flag.
 
-`beta_cohort` (registered on every session — the whole beta population), `country`/`language`
-(registered on identify, from existing region/locale detection). `organization` is a typed
-placeholder for future team/classroom accounts — declared, not populated.
+For population filters, version boundaries and valid denominators, use [Funnels](FUNNELS.md).

@@ -12,6 +12,7 @@
     "lint": "oxlint",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:first-learning": "playwright test --config=playwright.firstLearning.config.ts",
     "test:multiplayer": "playwright test --config=playwright.multiplayer.config.ts",
     "supabase:start": "supabase --workdir .. start && supabase --workdir .. db reset",
     "supabase:stop": "supabase --workdir .. stop",

@@ -1,5 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import { reportError, classifyError } from '@/lib/errorReporting';
+const capture = vi.hoisted(() => vi.fn());
+vi.mock('@/analytics', () => ({ track: capture }));
+
+it('bounds repeated client errors and does not claim a session crashed or send raw text', () => {
+  const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+  capture.mockClear();
+  for (let i = 0; i < 300; i++) reportError(new Error('secret@example.com https://example.com/?token=secret'), { source: 'window-error' });
+  expect(capture).toHaveBeenCalledTimes(1);
+  expect(capture).toHaveBeenCalledWith('client_error', expect.objectContaining({ message: 'Error', source: 'window-error' }));
+  log.mockRestore();
+});
 
 // installGlobalErrorReporting() itself needs `window` (addEventListener/dispatchEvent), which
 // this repo's vitest config runs under Node, not jsdom/happy-dom (no DOM testing infra exists

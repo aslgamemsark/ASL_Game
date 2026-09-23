@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { trainingSourceFor } from '@/hooks/useAttemptLog';
 import type { AttemptSource } from '@/analytics/types';
 
-const ALL_SOURCES: AttemptSource[] = ['lesson', 'practice', 'story', 'speed', 'duel', 'room'];
+const ALL_SOURCES: AttemptSource[] = ['lesson', 'practice', 'story', 'speed', 'duel', 'room', 'onboarding'];
 
 describe('attempt routing policy', () => {
   it('routes every solo screen to its own training-data source', () => {
@@ -23,6 +23,10 @@ describe('attempt routing policy', () => {
   it('keeps multiplayer analytics-only', () => {
     expect(trainingSourceFor('duel')).toBeNull();
     expect(trainingSourceFor('room')).toBeNull();
+  });
+
+  it('keeps onboarding analytics-only without collecting training landmarks', () => {
+    expect(trainingSourceFor('onboarding')).toBeNull();
   });
 
   it('has a decision recorded for every attempt source', () => {

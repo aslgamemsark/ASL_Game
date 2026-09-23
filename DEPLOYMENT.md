@@ -2,7 +2,7 @@
 
 ## Canonical production
 
-**`https://quicksignn.vercel.app`** is canonical. `aslgame.vercel.app` (the old domain) 307-redirects to it — leave that redirect in place; it's live inbound-link equity, not dead weight.
+**`https://quicksignn.vercel.app`** is canonical. The old `aslgame.vercel.app` alias was removed at the owner's request during the September 2026 audit. Do not recreate it or assume the former redirect still exists.
 
 ## Vercel projects (as of 2026-08-30 — verify current state before assuming this is still accurate)
 
@@ -35,7 +35,11 @@ Optional, safe to leave blank:
 
 Push to `main` — Vercel auto-deploys. There is no manual deploy step for the canonical project.
 
-**Database migrations**: run `npm run db:backup` before any migration or seed change. Use `npm run db:migrate:deploy` (`prisma migrate deploy`)-equivalent for this stack against production — **never** `supabase db push` directly against production, and never anything equivalent to `migrate dev` there. Migrations must be **additive-only** (nullable columns/tables, safe defaults) — never rename, tighten, or drop a column a currently-deployed client might still reference. This is what lets a stale browser tab (pre-refresh, running the previous JS bundle) keep working against a newly-deployed API without breaking.
+**Database migrations:** this repository has no `db:backup` or `db:migrate:deploy` npm scripts and does not use Prisma. Before changing production, verify the target project and a usable backup/restore path, review the exact SQL, and replay the migration against a disposable local Supabase database. Apply only the reviewed migration through Supabase's migration tooling after the release checks pass; never reset the production database or blindly push all pending local migrations.
+
+Prefer additive migrations so older browser tabs remain compatible. The pending `20260920000051_secure_multiplayer_membership.sql` deliberately revokes the unsafe legacy join RPC and introduces `join_multiplayer_room_v2`; release it together with its matching client. Older tabs will need a refresh to join rooms. This security change is not a zero-downtime compatibility guarantee. The migration has not been applied to production.
+
+**Verified production database (2026-09-21):** the public QuickSign bundle points to `juzqilqilxzmudazltjx`, named **ARKhan8604's Project**, in the **QuickSign** organization. Recheck the deployed bundle and dashboard before a database mutation; a similar project name is insufficient.
 
 ## CI
 
@@ -51,7 +55,7 @@ Node is pinned to `>=22.12.0` (`web/package.json`'s `engines` field, matched by 
 
 ## Rollback
 
-No automated rollback tooling exists. Manual path: Vercel dashboard → the project → Deployments → find the last known-good deployment → "Promote to Production." For a database migration that needs reverting, restore from the `npm run db:backup` snapshot taken before the migration — there is no automated migration-down tooling either; write and test the reverse migration by hand if the forward one needs undoing.
+No automated rollback tooling exists. For a frontend-only regression, use Vercel → the canonical project → Deployments → the last known-good deployment → "Promote to Production." First verify that its client still matches the deployed database API. In particular, rolling back the v2 multiplayer client alone after revoking the legacy RPC breaks joining. Prefer a tested forward fix that preserves the security restrictions. Database restore requires a verified backup and an explicit recovery plan; it can discard writes made since that backup. Do not treat restore as a routine deployment rollback.
 
 ## Known production issues fixed this session (2026-08-30)
 

@@ -79,4 +79,4 @@ We're ready to plan a wider launch when, on cohort-scale data:
 - No sign is a persistent >60% failure wall except the ones we've knowingly accepted.
 - Feedback volume on any single defect has dropped after its fix shipped.
 - The privacy/legal posture for a minor-facing camera app is signed off (a human blocker, unchanged
-  from `docs/FINAL_PRODUCTION_SIGNOFF.md`).
+  from `docs/archive/FINAL_PRODUCTION_SIGNOFF.md`).

@@ -53,6 +53,7 @@ const PERSISTED_SOURCES: Record<AttemptSource, TrainingDataSource | null> = {
   speed: 'speed',
   duel: null,
   room: null,
+  onboarding: null, // First-value analytics only; no new landmark collection before signup.
 };
 
 /** The Supabase source a screen's attempts persist under, or null when it is analytics-only.
@@ -99,6 +100,7 @@ export function useAttemptLog({ source, worldId = null }: Options): AttemptLog {
       if (attempt.finalPassed) {
         trackFirstSignSuccess({
           signId: attempt.signId,
+          source,
           msSinceLessonStart: Date.now() - mountedAtRef.current,
           attemptsTaken: attempt.attemptNumber,
         });

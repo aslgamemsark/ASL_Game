@@ -25,7 +25,8 @@ theme — never recognition logic, per CLAUDE.md's repo-layout rule.
   silently points at nothing.
 
 ## Adding a sign to a scenario — the proven pipeline (see [[Workstream-A-Classroom]] for a worked example)
-1. `signs/<name>.py` (Python, source of truth) + `web/src/engine/signs/index.ts` entry.
+1. `web/src/engine/signs/index.ts` for browser recognition; maintain the corresponding
+   `signs/<name>.py` definition when the Python prototype/offline workflow is affected.
 2. Export from `signs/__init__.py`, add to the scenario's `<NAME>_SIGNS` tuple.
 3. Confusor fixture pair (reuse `tools/make_synth_fixtures.py`'s `make_hand()`) + tests in both
    `tests/` and `web/tests/`.

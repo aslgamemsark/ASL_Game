@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { ROOM_CODE_LENGTH } from '@/lib/multiplayerRooms';
 
 interface Props {
   /** Unique id for the input/label pair — DuelPage and RoomPage each pass their own. */
@@ -20,8 +21,8 @@ export function RoomJoinByCode({ id, value, onChange, onJoin }: Props) {
           id={id}
           value={value}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
-          placeholder="XXXXXX"
-          maxLength={6}
+          placeholder={'X'.repeat(ROOM_CODE_LENGTH)}
+          maxLength={ROOM_CODE_LENGTH}
           inputMode="text"
           autoCapitalize="characters"
           autoCorrect="off"

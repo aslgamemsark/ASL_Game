@@ -1,5 +1,8 @@
 # Avatar Engine — Project Status
 
+> Historical milestone snapshot for the avatar subsystem, not current app status.
+> Animation replacement is deferred; see [the current brief](AI_ONBOARDING.md).
+
 _Last updated: 2026-07-01_
 
 ## Current milestone: Milestone 5 — Arm Retargeting (in progress, gated)

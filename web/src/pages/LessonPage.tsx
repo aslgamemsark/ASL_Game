@@ -31,6 +31,7 @@ import type { VerifyResult } from '@/engine/verifier';
 import { track } from '@/analytics';
 
 type Phase = 'intro' | 'signing' | 'success' | 'replay' | 'complete';
+const XP_PER_SIGN = 10;
 
 interface Props {
   lessonId: string;
@@ -61,6 +62,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
   // setTimeout in handlePass fires advancePrompt with whatever closure it captured, and waiting on
   // the correctCount *state* there would risk reading a value from before the final increment.
   const correctCountRef = useRef(0);
+  const completedRef = useRef(false);
   // A skip previously advanced with zero acknowledgment — the one moment "coach, don't judge"
   // matters most had the coach saying nothing at all. A brief, non-blocking toast (same pattern
   // as ShopPage's) closes that gap without turning Skip into a full phase transition.
@@ -89,6 +91,8 @@ export function LessonPage({ lessonId, onExit }: Props) {
   const AMPLIFIED_CELEBRATION_PARTICLE_COUNT = 6;
 
   const finishLesson = useCallback(() => {
+    if (completedRef.current) return;
+    completedRef.current = true;
     const isFirstEver = !firstLessonCelebrated;
     setIsFirstLessonComplete(isFirstEver);
     setCompleteMsg(isFirstEver ? pickZippyLine('firstLessonComplete') : pickCompleteMessage());
@@ -99,7 +103,11 @@ export function LessonPage({ lessonId, onExit }: Props) {
       world_id: worldId,
       duration_ms: Date.now() - lessonStartedAtRef.current,
       hints_used: 0, // Lesson has no hint mechanic today (unlike Practice) — 0 is accurate, not a placeholder.
-      xp_earned: earnedXp,
+      // The final-pass timer holds the pre-pass render; read the synchronous count instead.
+      xp_earned: correctCountRef.current * XP_PER_SIGN,
+      correct: correctCountRef.current,
+      total: signIds.length,
+      skipped: signIds.length - correctCountRef.current,
     });
     sounds.levelUp();
     if (isFirstEver) {
@@ -108,7 +116,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
     } else {
       bigCelebration();
     }
-  }, [pickCompleteMessage, completeLesson, lessonId, worldId, earnedXp, sounds, bigCelebration, firstLessonCelebrated, markFirstLessonCelebrated]);
+  }, [pickCompleteMessage, completeLesson, lessonId, worldId, sounds, bigCelebration, firstLessonCelebrated, markFirstLessonCelebrated, signIds.length]);
 
   const advancePrompt = useCallback(() => {
     if (promptIdx + 1 < signIds.length) {
@@ -128,7 +136,7 @@ export function LessonPage({ lessonId, onExit }: Props) {
       if (replayEnabled) recorder.stop();
       sounds.correct();
       burst();
-      const xp = 10;
+      const xp = XP_PER_SIGN;
       setEarnedXp((prev) => prev + xp);
       setCorrectCount((prev) => prev + 1);
       correctCountRef.current += 1;
@@ -249,14 +257,9 @@ export function LessonPage({ lessonId, onExit }: Props) {
       attemptLog.recordMiss(currentSignId, recognition.getSnapshot());
     }
     recorder.discard();
+    recognition.stopLoop('skipped');
     loopStartedForSign.current = null;
-    if (promptIdx + 1 < signIds.length) {
-      setPromptIdx((prev) => prev + 1);
-    } else {
-      setCompleteMsg(pickCompleteMessage());
-      setPhase('complete');
-      completeLesson(lessonId);
-    }
+    advancePrompt();
   };
 
   if (!lesson) {

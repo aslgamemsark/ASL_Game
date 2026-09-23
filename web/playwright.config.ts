@@ -13,7 +13,8 @@ export default defineConfig({
   // running against the wrong webServer. They currently skip (assertLocalOnly defaults to
   // localhost), so the only visible symptom was skip-count noise, but "harmless because a guard
   // happens to catch it" is not a reason to leave a suite pointed at the wrong build.
-  testIgnore: /multiplayer\.spec\.ts/,
+  // First-learning regressions use a separate dev server to substitute model/telemetry modules.
+  testIgnore: /(?:multiplayer|firstLearning)\.spec\.ts/,
   fullyParallel: true,
   // Capped deliberately. Playwright defaults to half the core count (8 here), but each worker is a
   // full browser engine driving React + framer-motion, and the axe sweeps pin a core for seconds at

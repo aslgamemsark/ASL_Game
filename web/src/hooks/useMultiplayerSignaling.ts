@@ -125,6 +125,8 @@ export function useMultiplayerSignaling({ selfPeerId, onMessage, onIceResult }: 
   }, []);
 
   const createPeerConnection = useCallback((peerId: string) => {
+    // ICE can arrive before its first offer. Only a replacement negotiation has stale ICE.
+    const earlyCandidates = pcsRef.current[peerId] ? [] : pendingCandidatesRef.current[peerId] ?? [];
     // Tear down any prior connection under this key first (duplicate offer / re-entry / role
     // rotation in Room mode), so a stale connection never leaks.
     closePeerConnection(peerId);
@@ -160,7 +162,7 @@ export function useMultiplayerSignaling({ selfPeerId, onMessage, onIceResult }: 
     const stream = getStream();
     stream?.getTracks().forEach((t) => pc.addTrack(t, stream));
     pcsRef.current[peerId] = pc;
-    pendingCandidatesRef.current[peerId] = [];
+    pendingCandidatesRef.current[peerId] = earlyCandidates;
     return pc;
   }, [closePeerConnection, getStream, send, updatePeer]);
 

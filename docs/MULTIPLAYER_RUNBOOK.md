@@ -3,6 +3,24 @@
 Operational reference for QuickSign's real-time multiplayer (Duel 1v1 + Room up to 4). Read this
 before touching networking, changing a TURN provider, or debugging a "can't connect" report.
 
+## September 2026 release checks
+
+The multiplayer audit adds `20260920000051_secure_multiplayer_membership.sql` and a
+`join_multiplayer_room_v2` client. Ship these together: the migration revokes the old join RPC,
+so old open tabs fail safely and need a refresh. Do not fall back to the old RPC, which loses
+failed-code throttle counts on rollback. Apply this specific migration only after the local/CI
+database suite passes; do not replay the entire migration history against production.
+
+The patch restricts private-room reads, makes member departure idempotent, and restricts direct
+host updates to status. Duel uses one signer-decided result per round with bounded result replay;
+Room ignores duplicate completions and ends the guest session if its host stays absent for 30
+seconds. These are reliability protections, not server-validated anti-cheat (see Known Limitations).
+
+Run `npm run test:multiplayer` against disposable local Supabase. The suite now covers failed-code
+throttling, concurrent departure/admission, private-room visibility, host-only deletion, and the
+duplicate-ignoring insert used by friend challenges. Test fixtures explicitly decline training
+collection after login. Physical two-device and real-phone signing checks remain separate.
+
 ## 1. Architecture at a glance
 
 QuickSign multiplayer has **no dedicated game server**. It is peer-to-peer video over WebRTC, with
@@ -13,7 +31,7 @@ Player A  ──(Supabase Realtime broadcast: offer/answer/ICE)──►  Player
    │                                                                │
    └────────────── WebRTC media (P2P, or relayed via TURN) ─────────┘
 
-Room lifecycle:  multiplayer_rooms table + RPCs (join_multiplayer_room, leave_multiplayer_room)
+Room lifecycle:  multiplayer_rooms table + RPCs (join_multiplayer_room_v2, leave_multiplayer_room)
 Signaling:       supabase.channel('mp-room-<code>', { private: true })  — RLS-gated (members only)
 Presence:        Supabase Realtime Presence = "who is actually still connected"
 ICE config:      web/src/config/iceServers.ts   (STUN-first, TURN fallback, env-driven)
@@ -115,3 +133,22 @@ Every peer connection emits **one** of:
 If multiplayer breaks badly under launch load, flip the **`disable_multiplayer`** PostHog feature
 flag ON (rollout 100%). `MultiplayerHubPage` then shows a friendly "temporarily unavailable"
 fallback — no redeploy needed. Turn it back off to restore.
+
+## 8. Application recovery protocol (audit follow-up)
+
+A healthy WebRTC connection or restored Realtime subscription does not replay missed game
+messages. Duel replays its initial start to the same joining opponent and the last canonical
+round result on request. During channel loss it pauses even if cached opponent presence remains;
+only the host initiates a recovery offer. A client whose own channel dropped cannot claim a
+forfeit win from that observation window. Unrecoverable local loss ends without a reward.
+
+Group guests request a host state snapshot after subscription/host-presence recovery. The host
+continues to serve it while displaying final results. Cumulative scores replace local scores,
+so duplicate recovery does not add points or grant a second completion reward. Requests back
+off and stop; an exhausted recovery offers Retry and Leave. If the host leaves permanently,
+its in-memory snapshot is unavailable and the existing host-loss timeout ends the session.
+
+These messages are not persisted across page reloads and their client-supplied sender IDs are
+not cryptographic proof of who sent them. Membership authorization protects channel access;
+it does not turn a member-controlled payload into server-authoritative scoring or anti-cheat.
+Physical-device checks are listed in MULTIPLAYER_TESTING.md.

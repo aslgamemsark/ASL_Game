@@ -3,6 +3,55 @@
 Running record of what changed and why. Maintained continuously during a session, newest first —
 see `.claude/rules/worklog.md` for the rule, including when to compress older months.
 
+## 2026-09-22
+
+- **Camera playback recovery and request cleanup.** `WebcamMirror` now retries paused playback
+  even when its stream is unchanged and offers a gesture-based resume button after rejection.
+  `useCamera` resumes a paused source on foreground/start and discards late grants or failures
+  after stop/unmount/newer requests. Practice explains the camera-permission wait instead of
+  displaying an unexplained spinner. Three browser regressions reproduce these failure paths;
+  all 10 first-learning cases pass in an isolated run, and the suite now runs in CI. An earlier
+  concurrent build/edit run reloaded a lesson mid-test; the isolated run passed unchanged.
+  Unit suite: 790 passed, nine expected failures, ten TODOs; lint has existing warnings only.
+  These fixes address reproduced failure paths, not proof of the exact cause of the user's
+  screenshot. Recognition thresholds are unchanged; no production deployment performed.
+- **Old domain verified removed.** The authenticated `asl-game` domain page lists only
+  `quicksignn.vercel.app`; a fresh network request to `aslgame.vercel.app` returns Vercel's
+  `404 DEPLOYMENT_NOT_FOUND`. The existing browser still shows the old cached loading shell.
+  No project or canonical domain was deleted, and no alias was recreated.
+- **Multiplayer handed off at the owner's request.** CI run `35613897553` on `2908e28` passed
+  web, Python and general E2E; multiplayer improved to 28 passed / 4 failed. Remaining failures
+  are host/client match entry, double-tap join, background/restore and network recovery (guest
+  round UI missing). This task now prioritizes camera recovery, not further multiplayer fixes.
+  The already-running local focused check finished with one pass (lobby selection), one failure:
+  `multiplayer.spec.ts:633` reads `ROOM RULES` through `p.tracking-widest.first()` instead of the
+  shareable code. The next contributor should distinguish selector failures from match failures.
+  Docker Desktop was recovered on September 21 by preserving and moving stale runtime socket
+  folders; engine 29.6.2 and local Supabase startup succeeded without deleting volumes. Docker
+  is needed for local database integration tests; GitHub Actions provides it, and manual testing
+  against an existing deployment does not need it. Production credentials and physical-device
+  signing remain unverified; the owner has deferred the latter.
+
+## 2026-09-21
+
+- **Fixed multiplayer mode selection** (`DuelPage.tsx`, `RoomPage.tsx`, multiplayer E2E).
+  Both pages discarded the selected mode and always switched to the opposite one. Clicking
+  the already-active 1v1 button silently opened Group, so duel tests created group rooms and
+  waited for an automatic duel start that could never happen. Live CI failure-state logging
+  exposed the Group lobby. Both pages now forward the requested mode unchanged; browser
+  regressions check the exact Duel heading and reselect the active Group mode. Eight focused
+  unit tests and the TypeScript/PWA production build pass; full multiplayer CI is still required.
+
+- **Reconciled release instructions and added multiplayer failure evidence** (`DEPLOYMENT.md`,
+  launch/testing/runbook docs, `web/e2e/multiplayer.spec.ts`). Removed nonexistent backup/migration
+  npm commands and recorded the verified production project plus the v2 RPC/client compatibility
+  requirement. The CI run for `8cdb910` passed web/Python and 121 browser cases (five skips);
+  multiplayer passed 24 registry and two UI cases but failed six UI cases. Failure hooks now
+  capture both clients' visible state and page errors to distinguish application failures from
+  test failures. Local lint, test discovery (32 cases) and diff checks passed. No production
+  deployment or database migration performed; credential rotation and physical-device checks
+  remain unconfirmed. Live advisor baseline is unchanged; feedback form and OG image are reachable.
+
 ## 2026-08-07
 
 - **Shipped QS-015 — speak the sign name on a pass** (`web/src/lib/speak.ts` — new,
@@ -558,7 +607,7 @@ dev-only avatar viewers — the Phase 4e claim was about user-facing surfaces an
 
 ## 2026-07-31 (part 17) — Pass complete: final release report
 
-- **Production-quality hardening pass closes.** `docs/RELEASE_REPORT_2026-07-31_prod-quality-pass.md`
+- **Production-quality hardening pass closes.** `docs/archive/RELEASE_REPORT_2026-07-31_prod-quality-pass.md`
   written — executive summary, per-phase detail, the three items investigated and correctly declined
   (TopBar cart pop-in, `ReplayCompare`'s phantom tab bar, `ShopPage`/`SettingsPage`'s absent async
   ops), what was explicitly evaluated and declined project-wide (`noUncheckedIndexedAccess`, a
@@ -1579,7 +1628,7 @@ re-verify the onboarding funnel afterwards.
 ### What was done
 - Ran three targeted audits (repo-wide TODO/dead-code, full Supabase security review, multiplayer
   concurrency review) and synthesized findings into four sign-off deliverables:
-  `FINAL_PRODUCTION_SIGNOFF.md`, `LAUNCH_CHECKLIST.md`, `KNOWN_LIMITATIONS.md`,
+  `archive/FINAL_PRODUCTION_SIGNOFF.md`, `LAUNCH_CHECKLIST.md`, `KNOWN_LIMITATIONS.md`,
   `POST_LAUNCH_ROADMAP.md`.
 - **Security fix (applied to production DB + committed):** revoked the stray `anon`/`PUBLIC` EXECUTE
   grant on `admin_set_username` so it matches the 2026-07-12 hardening of every other admin RPC.

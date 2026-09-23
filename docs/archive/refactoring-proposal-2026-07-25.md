@@ -1,3 +1,7 @@
+> Historical snapshot, archived 2026-09-19 from `REFACTORING_PLAN.md`.
+> Claims, test results, paths and next steps describe that session, not the current release.
+> Start with [the current brief](../AI_ONBOARDING.md); do not execute old plans by default.
+
 # QuickSign Refactoring Plan
 
 *Step-by-step migration from current architecture to target architecture*

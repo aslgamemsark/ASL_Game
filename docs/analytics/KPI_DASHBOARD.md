@@ -1,3 +1,12 @@
+# Historical July 2026 KPI worksheet
+
+> **Historical measurement — figures preserved unchanged.** The country-based test filter,
+> event labels and “accuracy”/crash interpretations below belong to the July 2026 analysis.
+> They are not the current metric definitions. In particular, rule-pass decision samples do
+> not measure all physical attempts, and client errors do not necessarily indicate crashes.
+> Use [current funnels and filters](FUNNELS.md) and [current event meanings](EVENT_REFERENCE.md)
+> for new results. Do not apply the old PK exclusion or invent comparability across versions.
+
 # KPI Dashboard (living)
 
 Updated every sprint. Week columns are append-only — never overwrite a past week.

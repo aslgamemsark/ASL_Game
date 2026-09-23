@@ -1,4 +1,5 @@
-import { test, expect, type Browser, type Page } from '@playwright/test';
+import { test, expect, type Browser, type Page, type WebSocketRoute } from '@playwright/test';
+import { broadcastEvent } from './support/realtimeFrame';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   assertLocalOnly,
@@ -52,7 +53,10 @@ test.beforeAll(async () => {
       'See docs/MULTIPLAYER_TESTING.md.'
     );
   }
-  if (!probe.reachable) return;
+  if (!probe.reachable) {
+    if (process.env.CI) throw new Error('CI requires a running local Supabase stack; refusing to skip multiplayer validation.');
+    return;
+  }
   users = await ensureTestUsers();
   stackReady = true;
 });
@@ -66,6 +70,15 @@ test.beforeEach(async () => {
   await resetRoomState();
 });
 
+test.afterEach(async ({ browser }, testInfo) => {
+  // These tests own multiple contexts; capture both clients when a handshake assertion fails.
+  if (testInfo.status === testInfo.expectedStatus) return;
+  for (const [index, page] of browser.contexts().flatMap((context) => context.pages()).entries()) {
+    const body = await page.locator('body').innerText({ timeout: 2_000 }).catch(() => 'Page unavailable');
+    console.error(`Multiplayer failure page ${index}: ${body.slice(0, 4_000)}`);
+  }
+});
+
 /** Authenticated PostgREST client for a fixture user — the same anon key the app ships with, plus
  *  a real signed-in session, so RLS and auth.uid() behave exactly as they do in production. */
 async function clientFor(user: TestUser): Promise<SupabaseClient> {
@@ -76,6 +89,16 @@ async function clientFor(user: TestUser): Promise<SupabaseClient> {
   });
   if (error) throw new Error(`Fixture sign-in failed for ${user.email}: ${error.message}`);
   return client;
+}
+
+/** Exercise the RPC wire contract independently of the production wrapper. */
+async function joinRoom(client: SupabaseClient, code: string) {
+  const response = await client.rpc('join_multiplayer_room_v2', { p_code: code });
+  expect(response.error, 'expected join denials must commit the throttle, not raise').toBeNull();
+  const result = response.data as { room: { participant_count: number } | null; error: string | null };
+  expect(result).toHaveProperty('room');
+  expect(result).toHaveProperty('error');
+  return { data: result.room, error: result.error === null ? null : { message: result.error } };
 }
 
 /** Creates a duel room owned by `host`, mirroring DuelPage.createRoom's insert exactly. */
@@ -108,6 +131,23 @@ function uniqueCode(): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe('multiplayer room registry', () => {
+  test('duel creation tolerates an existing challenge room and only its host can delete it', async () => {
+    const host = await clientFor(users[0]!);
+    const guest = await clientFor(users[1]!);
+    const code = uniqueCode();
+    const row = { code, mode: 'duel', visibility: 'private', host_id: users[0]!.id, max_participants: 2 };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      expect((await host.from('multiplayer_rooms').upsert(row, { onConflict: 'code', ignoreDuplicates: true })).error).toBeNull();
+    }
+    expect((await joinRoom(guest, code)).error).toBeNull();
+    expect((await guest.from('multiplayer_rooms').delete().eq('code', code)).error).toBeNull();
+    expect((await host.from('multiplayer_rooms').select('code').eq('code', code)).data).toEqual([{ code }]);
+    expect((await host.from('multiplayer_rooms').delete().eq('code', code)).error).toBeNull();
+    const remaining = await createAdminClient().from('multiplayer_rooms').select('code').eq('code', code);
+    expect(remaining.error).toBeNull();
+    expect(remaining.data).toEqual([]);
+  });
+
   test('a host creates a room and it is joinable by its code', async () => {
     const [host, guest] = [users[0]!, users[1]!];
     const hostClient = await clientFor(host);
@@ -116,7 +156,7 @@ test.describe('multiplayer room registry', () => {
 
     await createRoom(hostClient, host.id, code);
 
-    const { data, error } = await guestClient.rpc('join_multiplayer_room', { p_code: code });
+    const { data, error } = await joinRoom(guestClient, code);
     expect(error, 'a valid code must join cleanly').toBeNull();
     expect((data as { participant_count: number }).participant_count,
       'the joiner must claim a slot alongside the host').toBe(2);
@@ -130,7 +170,7 @@ test.describe('multiplayer room registry', () => {
 
     await createRoom(hostClient, host.id, code);
 
-    const { error } = await guestClient.rpc('join_multiplayer_room', { p_code: code.toLowerCase() });
+    const { error } = await joinRoom(guestClient, code.toLowerCase());
     expect(error, 'join_multiplayer_room upper()s the code, so case must not matter').toBeNull();
   });
 
@@ -148,8 +188,8 @@ test.describe('multiplayer room registry', () => {
       await createRoom(hostClient, host.id, code);
 
       const [resultA, resultB] = await Promise.all([
-        clientA.rpc('join_multiplayer_room', { p_code: code }),
-        clientB.rpc('join_multiplayer_room', { p_code: code }),
+        joinRoom(clientA, code),
+        joinRoom(clientB, code),
       ]);
 
       const succeeded = [resultA, resultB].filter((r) => !r.error);
@@ -177,9 +217,9 @@ test.describe('multiplayer room registry', () => {
 
     await createRoom(hostClient, host.id, code);
 
-    const first = await guestClient.rpc('join_multiplayer_room', { p_code: code });
+    const first = await joinRoom(guestClient, code);
     expect(first.error).toBeNull();
-    const second = await guestClient.rpc('join_multiplayer_room', { p_code: code });
+    const second = await joinRoom(guestClient, code);
     expect(second.error, 'a repeat join by an existing member must succeed, not error').toBeNull();
 
     const { data: room } = await hostClient
@@ -189,7 +229,7 @@ test.describe('multiplayer room registry', () => {
 
     // And the room must genuinely still be full for a stranger — idempotency must not have
     // quietly freed capacity either.
-    const outsider = await thirdClient.rpc('join_multiplayer_room', { p_code: code });
+    const outsider = await joinRoom(thirdClient, code);
     expect(outsider.error?.message, 'a third player must still be refused').toContain('room full');
   });
 
@@ -205,16 +245,16 @@ test.describe('multiplayer room registry', () => {
       const code = uniqueCode();
 
       await createRoom(hostClient, host.id, code);
-      await guestClient.rpc('join_multiplayer_room', { p_code: code });
+      await joinRoom(guestClient, code);
 
       // Host starts the match — the same direct status UPDATE DuelPage performs.
       await hostClient.from('multiplayer_rooms').update({ status: 'in_progress' }).eq('code', code);
 
-      const rejoin = await guestClient.rpc('join_multiplayer_room', { p_code: code });
+      const rejoin = await joinRoom(guestClient, code);
       expect(rejoin.error, 'a member must be able to reconnect into their own in-progress match')
         .toBeNull();
 
-      const gatecrash = await strangerClient.rpc('join_multiplayer_room', { p_code: code });
+      const gatecrash = await joinRoom(strangerClient, code);
       expect(gatecrash.error?.message, 'a non-member must still be kept out of a started match')
         .toContain('already started');
     });
@@ -229,17 +269,17 @@ test.describe('multiplayer room registry', () => {
     const code = uniqueCode();
 
     await createRoom(hostClient, host.id, code);
-    await guestClient.rpc('join_multiplayer_room', { p_code: code });
+    await joinRoom(guestClient, code);
 
     await hostClient.from('multiplayer_rooms').update({ status: 'closed' }).eq('code', code);
 
-    const rejoin = await guestClient.rpc('join_multiplayer_room', { p_code: code });
+    const rejoin = await joinRoom(guestClient, code);
     expect(rejoin.error?.message, 'a closed room must stay closed to everyone').toContain('closed');
   });
 
   test('an unknown code is refused without revealing anything else', async () => {
     const guestClient = await clientFor(users[1]!);
-    const { error } = await guestClient.rpc('join_multiplayer_room', { p_code: uniqueCode() });
+    const { error } = await joinRoom(guestClient, uniqueCode());
     expect(error?.message).toContain('not found');
   });
 
@@ -251,14 +291,93 @@ test.describe('multiplayer room registry', () => {
     const code = uniqueCode();
 
     await createRoom(hostClient, host.id, code);
-    await guestClient.rpc('join_multiplayer_room', { p_code: code });
-    expect((await thirdClient.rpc('join_multiplayer_room', { p_code: code })).error?.message)
+    await joinRoom(guestClient, code);
+    expect((await joinRoom(thirdClient, code)).error?.message)
       .toContain('room full');
 
     await guestClient.rpc('leave_multiplayer_room', { p_code: code });
 
-    const { error } = await thirdClient.rpc('join_multiplayer_room', { p_code: code });
+    const { error } = await joinRoom(thirdClient, code);
     expect(error, 'the freed slot must be claimable').toBeNull();
+  });
+
+  test('nonmembers, anonymous callers and duplicate leaves cannot remove other players', async () => {
+    const hostClient = await clientFor(users[0]!);
+    const guestClient = await clientFor(users[1]!);
+    const outsider = await clientFor(users[2]!);
+    const code = uniqueCode();
+    await createRoom(hostClient, users[0]!.id, code);
+    expect((await joinRoom(guestClient, code)).error).toBeNull();
+    expect((await createAnonClient().rpc('leave_multiplayer_room', { p_code: code })).error).not.toBeNull();
+    expect((await outsider.rpc('leave_multiplayer_room', { p_code: code })).error).toBeNull();
+    const before = await hostClient.from('multiplayer_rooms').select('participant_count').eq('code', code).single();
+    expect(before.error).toBeNull();
+    expect(before.data?.participant_count).toBe(2);
+
+    const leaves = await Promise.all([
+      guestClient.rpc('leave_multiplayer_room', { p_code: code.toLowerCase() }),
+      guestClient.rpc('leave_multiplayer_room', { p_code: code }),
+    ]);
+    for (const leave of leaves) expect(leave.error).toBeNull();
+    expect((await guestClient.rpc('leave_multiplayer_room', { p_code: code })).error).toBeNull();
+    const after = await hostClient.from('multiplayer_rooms').select('participant_count').eq('code', code).single();
+    expect(after.error).toBeNull();
+    expect(after.data?.participant_count).toBe(1);
+    const members = await createAdminClient().from('multiplayer_room_members').select('user_id').eq('room_code', code);
+    expect(members.error).toBeNull();
+    expect(members.data).toEqual([{ user_id: users[0]!.id }]);
+  });
+
+  test('a concurrent leave and join preserve membership and capacity', async () => {
+    const hostClient = await clientFor(users[0]!);
+    const guestClient = await clientFor(users[1]!);
+    const nextClient = await clientFor(users[2]!);
+    const code = uniqueCode();
+    await createRoom(hostClient, users[0]!.id, code);
+    expect((await joinRoom(guestClient, code)).error).toBeNull();
+    const [leave, join] = await Promise.all([
+      guestClient.rpc('leave_multiplayer_room', { p_code: code }),
+      joinRoom(nextClient, code),
+    ]);
+    expect(leave.error).toBeNull();
+    // Either order is valid: join can see the full room before leave claims its lock.
+    if (join.error) expect(join.error.message).toContain('room full');
+    const room = await hostClient.from('multiplayer_rooms').select('participant_count').eq('code', code).single();
+    const members = await createAdminClient().from('multiplayer_room_members').select('user_id').eq('room_code', code);
+    expect(room.error).toBeNull();
+    expect(members.error).toBeNull();
+    expect(room.data?.participant_count).toBe(join.error ? 1 : 2);
+    expect(members.data?.length).toBe(room.data?.participant_count);
+    expect(members.data?.some(m => m.user_id === users[1]!.id)).toBe(false);
+    expect((await joinRoom(nextClient, code)).error).toBeNull();
+  });
+
+  test('a stranger cannot enumerate private room codes but a member can read their room', async () => {
+    const hostClient = await clientFor(users[0]!);
+    const guestClient = await clientFor(users[1]!);
+    const code = uniqueCode();
+    await createRoom(hostClient, users[0]!.id, code);
+    const hidden = await guestClient.from('multiplayer_rooms').select('code');
+    expect(hidden.error).toBeNull();
+    expect(hidden.data?.some(room => room.code === code)).toBe(false);
+    expect((await joinRoom(guestClient, code)).error).toBeNull();
+    const visible = await guestClient.from('multiplayer_rooms').select('code').eq('code', code);
+    expect(visible.error).toBeNull();
+    expect(visible.data).toEqual([{ code }]);
+  });
+
+  test('a host cannot forge headcounts or change capacity through direct writes', async () => {
+    const hostClient = await clientFor(users[0]!);
+    const code = uniqueCode();
+    await createRoom(hostClient, users[0]!.id, code);
+    for (const patch of [{ participant_count: 0 }, { max_participants: 100 }]) {
+      expect((await hostClient.from('multiplayer_rooms').update(patch).eq('code', code)).error).not.toBeNull();
+    }
+    const forged = await hostClient.from('multiplayer_rooms').insert({
+      code: uniqueCode(), host_id: users[0]!.id, mode: 'duel', max_participants: 2, participant_count: 0,
+    });
+    expect(forged.error).not.toBeNull();
+    expect((await hostClient.from('multiplayer_rooms').update({ status: 'in_progress' }).eq('code', code)).error).toBeNull();
   });
 
   test('public rooms are discoverable by search; private rooms are not', async () => {
@@ -314,7 +433,7 @@ test.describe('multiplayer room registry', () => {
       code, mode: 'duel', visibility: 'public', host_id: host.id, max_participants: 4,
     });
     expect(createError).toBeNull();
-    await guestClient.rpc('join_multiplayer_room', { p_code: code });
+    await joinRoom(guestClient, code);
 
     const found = await guestClient.rpc('find_public_room', { p_mode: 'duel' });
     expect((found.data as { code?: string } | null)?.code ?? null,
@@ -330,14 +449,14 @@ test.describe('multiplayer room registry', () => {
     const code = uniqueCode();
 
     await createRoom(hostClient, host.id, code, 'public');
-    await hostClient.rpc('join_multiplayer_room', { p_code: code });
+    await joinRoom(hostClient, code);
 
     const { data: room } = await hostClient
       .from('multiplayer_rooms').select('participant_count').eq('code', code).single();
     expect((room as { participant_count: number }).participant_count,
       'a host joining their own room must not consume the opponent\'s seat').toBe(1);
 
-    const opponent = await guestClient.rpc('join_multiplayer_room', { p_code: code });
+    const opponent = await joinRoom(guestClient, code);
     expect(opponent.error, 'the real opponent must still be able to get in').toBeNull();
   });
 
@@ -351,9 +470,9 @@ test.describe('multiplayer room registry', () => {
     const code = uniqueCode();
 
     await createRoom(hostClient, host.id, code);
-    await guestClient.rpc('join_multiplayer_room', { p_code: code });
-    await guestClient.rpc('join_multiplayer_room', { p_code: code }); // duplicate
-    await hostClient.rpc('join_multiplayer_room', { p_code: code });  // self-join
+    await joinRoom(guestClient, code);
+    await joinRoom(guestClient, code); // duplicate
+    await joinRoom(hostClient, code);  // self-join
 
     const { data: room } = await hostClient
       .from('multiplayer_rooms').select('participant_count').eq('code', code).single();
@@ -419,17 +538,32 @@ test.describe('multiplayer room registry', () => {
       'search must not offer rooms nobody can join').not.toBe(code);
   });
 
-  test('repeated wrong-code guessing is throttled', async () => {
-    // Room codes are the only thing protecting a private room's live webcam session, so the
-    // brute-force limit is a security control, not a nicety.
-    const guestClient = await clientFor(users[2]!);
-
-    let throttled = false;
-    for (let attempt = 0; attempt < 14; attempt++) {
-      const { error } = await guestClient.rpc('join_multiplayer_room', { p_code: uniqueCode() });
-      if (error?.message.includes('too many join attempts')) { throttled = true; break; }
+  test('wrong-code attempts persist, throttle at eleven and reset after the window', async () => {
+    const guest = users[2]!;
+    const guestClient = await clientFor(guest);
+    for (let attempt = 1; attempt <= 10; attempt++) {
+      expect((await joinRoom(guestClient, uniqueCode())).error?.message).toBe('room not found');
     }
-    expect(throttled, 'code guessing must be rate-limited within a short window').toBe(true);
+    const admin = createAdminClient();
+    const count = await admin.from('room_join_attempts').select('attempts').eq('user_id', guest.id).single();
+    expect(count.error).toBeNull();
+    expect(count.data?.attempts).toBe(10);
+    expect((await joinRoom(guestClient, uniqueCode())).error?.message).toBe('too many join attempts');
+    const hostClient = await clientFor(users[0]!);
+    const code = uniqueCode();
+    await createRoom(hostClient, users[0]!.id, code);
+    expect((await joinRoom(guestClient, code)).error?.message).toBe('too many join attempts');
+    expect((await guestClient.rpc('join_multiplayer_room', { p_code: code })).error,
+      'the legacy RPC must not bypass the throttle').not.toBeNull();
+    expect((await createAnonClient().rpc('join_multiplayer_room_v2', { p_code: code })).error).not.toBeNull();
+
+    const expired = await admin.from('room_join_attempts')
+      .update({ window_start: new Date(Date.now() - 120_000).toISOString() }).eq('user_id', guest.id);
+    expect(expired.error).toBeNull();
+    expect((await joinRoom(guestClient, code)).error).toBeNull();
+    const reset = await admin.from('room_join_attempts').select('attempts').eq('user_id', guest.id).single();
+    expect(reset.error).toBeNull();
+    expect(reset.data?.attempts).toBe(1);
   });
 
   test('a player cannot create a room owned by someone else', async () => {
@@ -467,25 +601,46 @@ test.describe('multiplayer room registry', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Signs a fresh context in and parks it on the Duel lobby. */
-async function openDuelLobby(browser: Browser, user: TestUser): Promise<Page> {
+async function openDuelLobby(browser: Browser, user: TestUser, setup?: (page: Page) => Promise<void>): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
+  await setup?.(page);
+  // A stalled signer can consume the host's whole turn before Playwright can read its prompt.
+  // Record main-thread stalls without recording auth traffic, video, or landmarks.
+  await page.addInitScript(() => {
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.duration >= 1_000) console.info(`Multiplayer long task: ${Math.round(entry.duration)}ms at ${Math.round(entry.startTime)}ms`);
+      }
+    }).observe({ type: 'longtask', buffered: true });
+  });
+  page.on('console', message => {
+    if (message.text().startsWith('Multiplayer long task:')) console.info(`${user.id}: ${message.text()}`);
+  });
+  page.on('pageerror', (error) => console.error(`Multiplayer page error: ${error.message}`));
   await reachHome(page);
   await signInThroughUi(page, user);
 
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first().click();
   await page.getByRole('button', { name: /Multiplayer$/ }).first().click();
+  await page.getByRole('button', { name: 'Allow Camera', exact: true }).click();
   // Multiplayer now opens straight into the duel lobby — the separate "pick a mode" screen was
   // replaced by the 1v1 / Group switcher inside the lobby itself (2026-08-03). Clicking the 1v1
   // segment is therefore a no-op confirmation of the default rather than a navigation step, and is
   // kept so the test fails loudly if the switcher ever stops being rendered.
   await page.getByRole('button', { name: /1v1 Duel/ }).click();
+  await expect(page.getByRole('heading', { name: 'Sign & Guess', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Create Room$/ })).toBeVisible({ timeout: 15_000 });
   return page;
 }
 
-/** Both clients leave the lobby for a round view once signaling completes — the host becomes
- *  signer or guesser and the joiner takes the other role. */
+/** Wait for the actual waiting-room code, not the lobby input label or typography. */
+async function readRoomCode(page: Page): Promise<string> {
+  const code = page.getByText('Room Code', { exact: true }).locator('..').locator('p').last();
+  await expect(code).toHaveText(/^[A-Z2-9]{8}$/);
+  return (await code.innerText()).trim();
+}
+
 const IN_ROUND = /SIGN THIS|What are they signing/;
 
 test.describe('multiplayer two-client session', () => {
@@ -494,12 +649,13 @@ test.describe('multiplayer two-client session', () => {
     const guestPage = await openDuelLobby(browser, users[1]!);
 
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
 
-    const code = (await hostPage.locator('p.tracking-widest').first().innerText()).trim();
+    const code = await readRoomCode(hostPage);
     expect(code, 'the host must be shown a shareable room code').toMatch(/^[A-Z2-9]{8}$/);
 
     await guestPage.getByLabel('Room code').fill(code);
+    await expect(guestPage.getByLabel('Room code')).toHaveValue(code);
     await guestPage.getByRole('button', { name: /^Join$/ }).click();
 
     await expect(hostPage.getByText(IN_ROUND),
@@ -520,6 +676,9 @@ test.describe('multiplayer two-client session', () => {
     await page.getByRole('button', { name: /Group Room/ }).click();
     await expect(page.getByRole('heading', { name: /Group Sign & Guess/ }),
       'the Group segment must swap the lobby to room mode').toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /Group Room/ }).click();
+    await expect(page.getByRole('heading', { name: 'Group Sign & Guess', exact: true }),
+      'selecting the active mode must leave that mode selected').toBeVisible();
 
     await page.getByRole('button', { name: /1v1 Duel/ }).click();
     await expect(page.getByRole('heading', { name: /^Sign & Guess$/ }),
@@ -548,7 +707,7 @@ test.describe('multiplayer two-client session', () => {
 
     await hostPage.getByRole('button', { name: /Public/ }).click();
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
 
     await guestPage.getByRole('button', { name: /Search for a Match/ }).click();
 
@@ -566,10 +725,11 @@ test.describe('multiplayer two-client session', () => {
     const guestPage = await openDuelLobby(browser, users[1]!);
 
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
-    const code = (await hostPage.locator('p.tracking-widest').first().innerText()).trim();
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
+    const code = await readRoomCode(hostPage);
 
     await guestPage.getByLabel('Room code').fill(code);
+    await expect(guestPage.getByLabel('Room code')).toHaveValue(code);
     const join = guestPage.getByRole('button', { name: /^Join$/ });
     await join.click();
     await join.click({ force: true }).catch(() => { /* button may already be gone — that is fine */ });
@@ -587,10 +747,11 @@ test.describe('multiplayer two-client session', () => {
     const guestPage = await openDuelLobby(browser, users[1]!);
 
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
-    const code = (await hostPage.locator('p.tracking-widest').first().innerText()).trim();
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
+    const code = await readRoomCode(hostPage);
 
     await guestPage.getByLabel('Room code').fill(code);
+    await expect(guestPage.getByLabel('Room code')).toHaveValue(code);
     await guestPage.getByRole('button', { name: /^Join$/ }).click();
     await expect(guestPage.getByText(IN_ROUND)).toBeVisible({ timeout: 30_000 });
 
@@ -617,10 +778,11 @@ test.describe('multiplayer two-client session', () => {
     const guestPage = await openDuelLobby(browser, users[1]!);
 
     await hostPage.getByRole('button', { name: /^Create Room$/ }).click();
-    await expect(hostPage.getByText('Room Code')).toBeVisible({ timeout: 20_000 });
-    const code = (await hostPage.locator('p.tracking-widest').first().innerText()).trim();
+    await expect(hostPage.getByText('Room Code', { exact: true })).toBeVisible({ timeout: 20_000 });
+    const code = await readRoomCode(hostPage);
 
     await guestPage.getByLabel('Room code').fill(code);
+    await expect(guestPage.getByLabel('Room code')).toHaveValue(code);
     await guestPage.getByRole('button', { name: /^Join$/ }).click();
     await expect(guestPage.getByText(IN_ROUND)).toBeVisible({ timeout: 30_000 });
 
@@ -649,6 +811,7 @@ test.describe('multiplayer two-client session', () => {
     await signInThroughUi(page, users[0]!);
     await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Me/ }).first().click();
     await page.getByRole('button', { name: /Multiplayer$/ }).first().click();
+    await page.getByRole('button', { name: 'Allow Camera', exact: true }).click();
     await page.getByRole('button', { name: /1v1 Duel/ }).click();
 
     for (const name of [/^Create Room$/, /Private/, /Public/, /^Join$/]) {
@@ -659,4 +822,159 @@ test.describe('multiplayer two-client session', () => {
 
     await context.close();
   });
+});
+
+// Completion coverage deliberately uses real guesses and real timeout clocks. Fake camera
+// frames establish transport, but do not pretend to validate human ASL recognition.
+test.describe('multiplayer match completion', () => {
+  test('duel rotates roles, delivers remote frames and awards one point per correct guess', async ({ browser }) => {
+    const pages = [await openDuelLobby(browser, users[0]!), await openDuelLobby(browser, users[1]!)];
+    await pages[0]!.getByRole('button', { name: '3', exact: true }).click();
+    await pages[0]!.getByRole('button', { name: '20s', exact: true }).click();
+    await createAndJoin(pages);
+    const scores: [number, number] = [0, 0];
+    for (let round = 1; round <= 3; round++) {
+      const signerIndex = (users[0]!.id < users[1]!.id) === (round % 2 === 1) ? 0 : 1;
+      const signer = pages[signerIndex]!;
+      const guesser = pages[1 - signerIndex]!;
+      await expect(signer.getByText(/SIGN THIS/)).toBeVisible({ timeout: 20_000 });
+      await expect(guesser.getByText(/What are they signing/)).toBeVisible();
+      await expectRemoteFrames(guesser);
+      const sign = await signer.getByText(/SIGN THIS/).locator('..').locator('p').last().innerText();
+      await guesser.getByRole('button', { name: sign, exact: true }).click();
+      scores[1 - signerIndex] = scores[1 - signerIndex]! + 1;
+      await Promise.all(pages.map(page => expect(page.getByText('The sign was', { exact: true })).toBeVisible()));
+    }
+    for (const [index, page] of pages.entries()) {
+      await expect(page.getByRole('heading', { name: scores[index]! > scores[1 - index]! ? 'You Won!' : 'You Lost', exact: true })).toBeVisible({ timeout: 20_000 });
+      const board = page.getByText('vs', { exact: true }).locator('..');
+      await expect(board.locator('p').nth(0)).toHaveText(String(scores[index]));
+      await expect(board.locator('p').nth(2)).toHaveText(String(scores[1 - index]));
+    }
+    await Promise.all(pages.map(page => page.context().close()));
+  });
+
+  test('duel times out all rounds and finishes as a zero-score draw on both clients', async ({ browser }) => {
+    const pages = [await openDuelLobby(browser, users[0]!), await openDuelLobby(browser, users[1]!)];
+    await pages[0]!.getByRole('button', { name: '3', exact: true }).click();
+    await pages[0]!.getByRole('button', { name: '10s', exact: true }).click();
+    await createAndJoin(pages);
+    for (const page of pages) {
+      await expect(page.getByRole('heading', { name: 'Draw!', exact: true })).toBeVisible({ timeout: 70_000 });
+      const board = page.getByText('vs', { exact: true }).locator('..');
+      await expect(board.locator('p').nth(0)).toHaveText('0');
+      await expect(board.locator('p').nth(2)).toHaveText('0');
+    }
+    await Promise.all(pages.map(page => page.context().close()));
+  });
+
+  test('four-player group rotates every signer and agrees on final scores', async ({ browser }) => {
+    const pages: Page[] = [];
+    for (const user of users) {
+      const page = await openDuelLobby(browser, user);
+      await page.getByRole('button', { name: /Group Room/ }).click();
+      pages.push(page);
+    }
+    await pages[0]!.getByRole('button', { name: '1', exact: true }).click();
+    await pages[0]!.getByRole('button', { name: '20s', exact: true }).click();
+    await createAndJoin(pages);
+    await expect(pages[0]!.getByText('Players (4/4)', { exact: true })).toBeVisible();
+    await pages[0]!.getByRole('button', { name: 'Start Game', exact: true }).click();
+    for (let signerIndex = 0; signerIndex < 4; signerIndex++) {
+      const signer = pages[signerIndex]!;
+      const started = Date.now();
+      await expect(signer.getByText(/SIGN THIS/)).toBeVisible({ timeout: 20_000 });
+      console.info(`Group round ${signerIndex + 1}: signer visible after ${Date.now() - started}ms`);
+      const sign = await signer.getByText(/SIGN THIS/).locator('..').locator('p').last().innerText();
+      console.info(`Group round ${signerIndex + 1}: prompt read after ${Date.now() - started}ms`);
+      const guessers = pages.filter(page => page !== signer);
+      await Promise.all(guessers.map(expectRemoteFrames));
+      await Promise.all(guessers.map(page => page.getByRole('button', { name: sign, exact: true }).click()));
+      if (signerIndex < 3) {
+        // The reveal lasts only 1.5s. A busy renderer can miss it entirely, so verify the
+        // cumulative scores that persist into the next turn, not the transient animation.
+        const expectedScores = pages.map((_, playerIndex) => {
+          const score = signerIndex + 1 - (playerIndex <= signerIndex ? 1 : 0);
+          return new RegExp(`^(?:·\\s*)?${score}\\s*\\D+$`);
+        });
+        await Promise.all(pages.map(page => expect(page.getByRole('list', { name: 'Scores' }).getByRole('listitem'))
+          .toHaveText(expectedScores, { timeout: 20_000 })));
+      }
+    }
+    for (const page of pages) {
+      await expect(page.getByRole('heading', { name: 'Game Over!', exact: true })).toBeVisible({ timeout: 20_000 });
+      // All four players guessed correctly in each of their three non-signing rounds.
+      await expect(page.locator('p').filter({ hasText: /^3$/ })).toHaveCount(4);
+    }
+    await Promise.all(pages.map(page => page.context().close()));
+  });
+});
+
+async function createAndJoin(pages: Page[]) {
+  await pages[0]!.getByRole('button', { name: 'Create Room', exact: true }).click();
+  const code = await readRoomCode(pages[0]!);
+  for (const [index, page] of pages.slice(1).entries()) {
+    await page.getByLabel('Room code', { exact: true }).fill(code);
+    await expect(page.getByLabel('Room code', { exact: true }), 'joining must preserve the full generated code').toHaveValue(code);
+    await page.getByRole('button', { name: 'Join', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Join', exact: true })).toBeHidden({ timeout: 20_000 });
+    // Roster acknowledgement, not camera startup timing, defines the group join order.
+    if (await pages[0]!.getByRole('button', { name: 'Start Game', exact: true }).count()) {
+      await expect(pages[0]!.getByText(`Players (${index + 2}/4)`, { exact: true })).toBeVisible({ timeout: 20_000 });
+    }
+  }
+}
+
+async function expectRemoteFrames(page: Page) {
+  // Scope to the remote tile's existing caption, so a healthy LOCAL preview cannot make this pass.
+  const video = page.getByText(/ — signing$/).locator('..').locator('video');
+  await expect(video).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => video.evaluate(v => {
+    const media = v as HTMLVideoElement;
+    return media.readyState >= 2 && media.videoWidth > 0 && media.currentTime > 0;
+  }), { message: 'the remote WebRTC video must decode frames', timeout: 15_000 }).toBe(true);
+}
+
+test('group guest recovers final scores after dropped completion broadcasts and socket reconnect', async ({ browser }) => {
+  const host = await openDuelLobby(browser, users[0]!);
+  let socket: WebSocketRoute | undefined;
+  let serverSocket: WebSocketRoute | undefined;
+  let dropCompletion = false;
+  let dropped = 0;
+  const guest = await openDuelLobby(browser, users[1]!, async page => {
+    await page.routeWebSocket(/\/realtime\/v1\/websocket/, route => {
+      socket = route;
+      const server = route.connectToServer();
+      serverSocket = server;
+      server.onMessage(message => {
+        if (dropCompletion && ['round-end', 'game-over'].includes(broadcastEvent(message) ?? '')) {
+          dropped++;
+          return;
+        }
+        route.send(message);
+      });
+    });
+  });
+  for (const page of [host, guest]) await page.getByRole('button', { name: /Group Room/ }).click();
+  await host.getByRole('button', { name: '1', exact: true }).click();
+  await createAndJoin([host, guest]);
+  await expect(host.getByText('Players (2/4)', { exact: true })).toBeVisible();
+  await host.getByRole('button', { name: 'Start Game', exact: true }).click();
+  await expect(host.getByText(/SIGN THIS/)).toBeVisible({ timeout: 20_000 });
+  let sign = await host.getByText(/SIGN THIS/).locator('..').locator('p').last().innerText();
+  await guest.getByRole('button', { name: sign, exact: true }).click();
+  await expect(guest.getByText(/SIGN THIS/)).toBeVisible({ timeout: 15_000 });
+  sign = await guest.getByText(/SIGN THIS/).locator('..').locator('p').last().innerText();
+  dropCompletion = true;
+  await host.getByRole('button', { name: sign, exact: true }).click();
+  await expect(host.getByRole('heading', { name: 'Game Over!', exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect.poll(() => dropped).toBeGreaterThanOrEqual(2);
+  await expect(guest.getByRole('heading', { name: 'Game Over!', exact: true })).toBeHidden();
+  dropCompletion = false;
+  // Break the actual Realtime socket, then permit a fresh real subscription. No app state mocks.
+  await socket!.close({ code: 1012, reason: 'integration reconnect' });
+  await serverSocket!.close();
+  await expect(guest.getByRole('heading', { name: 'Game Over!', exact: true })).toBeVisible({ timeout: 25_000 });
+  for (const page of [host, guest]) await expect(page.locator('p').filter({ hasText: /^1$/ })).toHaveCount(2);
+  await Promise.all([host.context().close(), guest.context().close()]);
 });

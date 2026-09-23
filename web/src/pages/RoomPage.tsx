@@ -9,7 +9,8 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMultiplayerSignaling, type IceResult } from '@/hooks/useMultiplayerSignaling';
 import { supabase } from '@/lib/supabase';
-import { generateRoomCode, joinErrorMessage, filterSignPool, pickSignsFrom, pickNextSigner, DEFAULT_ROOM_RULES, type RoomRules } from '@/lib/multiplayerRooms';
+import { generateRoomCode, filterSignPool, pickSignsFrom, pickNextSigner, DEFAULT_ROOM_RULES, TURN_SECONDS_OPTIONS, type RoomRules } from '@/lib/multiplayerRooms';
+import { joinMultiplayerRoom } from '@/lib/joinMultiplayerRoom';
 import { MultiplayerLobby } from '@/components/multiplayer/MultiplayerLobby';
 import { SIGNS as ENGINE_SIGNS } from '@/engine/signs/index';
 import { SIGNS } from '@/data/signs';
@@ -23,7 +24,7 @@ import { RoundProgressDots } from '@/components/multiplayer/RoundProgressDots';
 import { RoundResultCard } from '@/components/multiplayer/RoundResultCard';
 import { track } from '@/analytics';
 
-type Phase = 'lobby' | 'waitingRoom' | 'signing' | 'guessing' | 'roundResult' | 'finalResults';
+type Phase = 'lobby' | 'waitingRoom' | 'signing' | 'guessing' | 'roundResult' | 'finalResults' | 'hostLeft';
 type Visibility = 'public' | 'private';
 
 interface RosterMember {
@@ -95,6 +96,8 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   const [guessOptions, setGuessOptions] = useState<string[]>([]);
   const [myGuess, setMyGuess] = useState<string | null>(null);
   const [resultData, setResultData] = useState<ResultData | null>(null);
+  const [stateSyncFailed, setStateSyncFailed] = useState(false);
+  const [stateRequestEpoch, setStateRequestEpoch] = useState(0);
 
   const [timeLeft, setTimeLeft] = useState(TURN_SECONDS);
   const [turnArmed, setTurnArmed] = useState(false);
@@ -114,9 +117,15 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   const signerPeerIdRef = useRef<string | null>(null);
   const scoresRef = useRef<Record<string, number>>({});
   const isHostRef = useRef(false);
+  const hostIdRef = useRef<string | null>(null);
+  const roundEndedRef = useRef(true);
+  const gameFinishedRef = useRef(false);
+  const hostGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guessesThisRoundRef = useRef<Record<string, string>>({});
   const roundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stateRequestRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastDeltasRef = useRef<Record<string, number>>({});
   const signingConnectionsRef = useRef<string[]>([]);
   const loopRef = useRef<string | null>(null);
   const disconnectedPeerIdsRef = useRef<string[]>([]);
@@ -151,6 +160,9 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   // turn clock itself — that's armed separately (see armTurnTimer below) once enough guessers
   // have confirmed they can actually SEE the signer's video, not merely that a round exists.
   const beginRound = useCallback((roundNum: number, signer: string, signId: string) => {
+    if (gameFinishedRef.current || roundNum <= roundRef.current) return;
+    if (!Number.isInteger(roundNum) || roundNum < 1 || !SIGNS[signId] || !rosterRef.current.some((m) => m.peerId === signer)) return;
+    roundEndedRef.current = false;
     if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
     if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
@@ -161,9 +173,12 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     setTurnArmed(false);
     setTimeLeft(turnSecondsRef.current);
 
-    // I was signing last round and no longer am — tear down the outbound connections I opened.
+    // The next signer's offer may arrive before this round-start (different senders have no
+    // shared ordering). Keep that peer: its offer replaces the old connection in signaling.
+    // Closing by peer ID here would otherwise destroy the newly received connection too.
     if (signingConnectionsRef.current.length > 0 && signerPeerIdRef.current !== signer) {
-      signingConnectionsRef.current.forEach((peerId) => signaling.disconnectFromPeer(peerId));
+      signingConnectionsRef.current.filter((peerId) => peerId !== signer)
+        .forEach((peerId) => signaling.disconnectFromPeer(peerId));
       signingConnectionsRef.current = [];
     }
 
@@ -195,11 +210,18 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   }, [buildGuessOptions, user?.id]);
 
   const applyRoundEnd = useCallback((roundNum: number, scoreDeltas: Record<string, number>) => {
-    setScores((prev) => {
-      const next = { ...prev };
-      for (const [pid, delta] of Object.entries(scoreDeltas)) next[pid] = (next[pid] ?? 0) + delta;
-      return next;
-    });
+    if (gameFinishedRef.current || roundEndedRef.current || roundNum !== roundRef.current) return;
+    if (!scoreDeltas || typeof scoreDeltas !== 'object') return;
+    roundEndedRef.current = true;
+    lastDeltasRef.current = scoreDeltas;
+    if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
+    if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
+    const next = { ...scoresRef.current };
+    for (const [pid, delta] of Object.entries(scoreDeltas)) {
+      if (rosterRef.current.some((m) => m.peerId === pid) && delta === 1) next[pid] = (next[pid] ?? 0) + 1;
+    }
+    scoresRef.current = next;
+    setScores(next);
     setResultData({
       correctSignName: SIGNS[currentSignIdRef.current ?? '']?.name ?? currentSignIdRef.current ?? '',
       scoreDeltas: rosterRef.current.map((m) => ({ label: usernameFor(m.peerId), delta: scoreDeltas[m.peerId] ?? 0 })),
@@ -211,7 +233,6 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
         const nextRound = roundNum + 1;
         if (nextRound > totalRoundsRef.current) {
           const finalScores = { ...scoresRef.current };
-          for (const [pid, delta] of Object.entries(scoreDeltas)) finalScores[pid] = (finalScores[pid] ?? 0) + delta;
           signaling.send('game-over', { finalScores });
           applyGameOver();
           return;
@@ -224,7 +245,6 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
         if (!nextSigner) {
           // Fewer than two players left — end the match rather than run rounds nobody can score.
           const finalScores = { ...scoresRef.current };
-          for (const [pid, delta] of Object.entries(scoreDeltas)) finalScores[pid] = (finalScores[pid] ?? 0) + delta;
           signaling.send('game-over', { finalScores });
           applyGameOver();
           return;
@@ -238,6 +258,15 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   }, [beginRound, usernameFor]);
 
   const applyGameOver = useCallback(() => {
+    if (gameFinishedRef.current) return;
+    gameFinishedRef.current = true;
+    if (stateRequestRef.current) clearTimeout(stateRequestRef.current);
+    stateRequestRef.current = null;
+    setStateSyncFailed(false);
+    if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
+    if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
+    if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
+    if (hostGraceRef.current) clearTimeout(hostGraceRef.current);
     setPhase('finalResults');
     const myScore = scoresRef.current[user?.id ?? ''] ?? 0;
     const best = Math.max(0, ...Object.values(scoresRef.current));
@@ -260,6 +289,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   }, [user?.id]);
 
   const endRound = useCallback(() => {
+    if (!isHostRef.current || roundEndedRef.current || gameFinishedRef.current) return;
     if (roundTimerRef.current) { clearTimeout(roundTimerRef.current); roundTimerRef.current = null; }
     const signId = currentSignIdRef.current;
     const deltas: Record<string, number> = {};
@@ -276,7 +306,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   // with a synced instant), or by the fallback timeout if that handshake doesn't fully complete.
   // Idempotent per round via turnArmedThisRoundRef.
   const armTurnTimer = useCallback((startedAt?: number) => {
-    if (turnArmedThisRoundRef.current) return;
+    if (turnArmedThisRoundRef.current || roundEndedRef.current || gameFinishedRef.current) return;
     turnArmedThisRoundRef.current = true;
     if (turnArmFallbackRef.current) { clearTimeout(turnArmFallbackRef.current); turnArmFallbackRef.current = null; }
     const at = startedAt ?? Date.now();
@@ -310,17 +340,88 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   }, []);
 
   const handleMessage = useCallback((event: string, payload: Record<string, unknown>, fromPeerId: string) => {
+    // Broadcast has no replay. Keep serving the host's snapshot after completion, too:
+    // a guest may have missed the final round and game-over while its socket was down.
+    if (event === 'state-request') {
+      if (!isHostRef.current || !rosterRef.current.some((m) => m.peerId === fromPeerId)) return;
+      signaling.send('state-snapshot', {
+        members: rosterRef.current, signs: signsRef.current, turnOrder: turnOrderRef.current,
+        turnSeconds: turnSecondsRef.current, round: roundRef.current,
+        signerPeerId: signerPeerIdRef.current, signId: currentSignIdRef.current,
+        scores: scoresRef.current, ended: roundEndedRef.current, finished: gameFinishedRef.current,
+        scoreDeltas: lastDeltasRef.current,
+        matchStartedAt: matchStartedAtRef.current,
+        startedAt: turnArmedThisRoundRef.current ? turnStartedAtRef.current : null,
+        guess: guessesThisRoundRef.current[fromPeerId] ?? null,
+      }, fromPeerId);
+      return;
+    }
+    if (gameFinishedRef.current) return;
+    if (event === 'state-snapshot') {
+      if (isHostRef.current || fromPeerId !== hostIdRef.current) return;
+      const members = payload.members as RosterMember[];
+      const signs = payload.signs as string[];
+      const order = payload.turnOrder as string[];
+      const snapshotRound = payload.round as number;
+      const snapshotScores = payload.scores as Record<string, number>;
+      if (!Array.isArray(members) || members.length > MAX_PLAYERS
+        || members.some(m => !m || typeof m.peerId !== 'string' || typeof m.username !== 'string')
+        || !Array.isArray(signs) || signs.some(id => !SIGNS[id]) || !Array.isArray(order)
+        || !Number.isInteger(snapshotRound) || snapshotRound < roundRef.current || snapshotRound > signs.length
+        || typeof payload.ended !== 'boolean' || typeof payload.finished !== 'boolean'
+        || !snapshotScores || typeof snapshotScores !== 'object'
+        || members.some(m => !Number.isInteger(snapshotScores[m.peerId] ?? 0) || (snapshotScores[m.peerId] ?? 0) < 0 || (snapshotScores[m.peerId] ?? 0) > signs.length)) return;
+      // A delayed active snapshot must not undo a round-end already received live.
+      if (snapshotRound === roundRef.current && snapshotRound > 0 && roundEndedRef.current && !payload.ended) return;
+      if (snapshotRound > 0 && (!SIGNS[payload.signId as string] || !members.some(m => m.peerId === payload.signerPeerId))) return;
+      if (stateRequestRef.current) clearTimeout(stateRequestRef.current);
+      stateRequestRef.current = null;
+      setStateSyncFailed(false);
+      rosterRef.current = members;
+      setRoster(members);
+      signsRef.current = signs;
+      turnOrderRef.current = order;
+      totalRoundsRef.current = signs.length;
+      setTotalRounds(signs.length);
+      if (typeof payload.matchStartedAt === 'number' && Number.isFinite(payload.matchStartedAt)) matchStartedAtRef.current = payload.matchStartedAt;
+      turnSecondsRef.current = TURN_SECONDS_OPTIONS.includes(payload.turnSeconds as number) ? payload.turnSeconds as number : TURN_SECONDS;
+      // Replace cumulative scores, never add them: repeated recovery cannot award twice.
+      scoresRef.current = { ...snapshotScores };
+      setScores(scoresRef.current);
+      if (payload.finished) { applyGameOver(); return; }
+      if (snapshotRound > roundRef.current) beginRound(snapshotRound, payload.signerPeerId as string, payload.signId as string);
+      if (snapshotRound === 0) return;
+      if (payload.ended) {
+        roundEndedRef.current = true;
+        const deltas = (payload.scoreDeltas ?? {}) as Record<string, number>;
+        setResultData({ correctSignName: SIGNS[payload.signId as string]?.name ?? '',
+          scoreDeltas: members.map(m => ({ label: m.peerId === user?.id ? 'You' : m.username, delta: deltas[m.peerId] ?? 0 })) });
+        setPhase('roundResult');
+      } else {
+        // A snapshot captured before our in-flight guess must not re-enable a second answer.
+        // beginRound already resets the guess when this snapshot advances to a new round.
+        setMyGuess(current => typeof payload.guess === 'string' ? payload.guess : current);
+        if (typeof payload.startedAt === 'number' && Number.isFinite(payload.startedAt)) armTurnTimerRef.current(payload.startedAt);
+      }
+      return;
+    }
+    // Reliability guards only: payload.from is not authenticated sender provenance.
+    if (['roster', 'game-start', 'round-start', 'round-timer-start', 'round-end', 'game-over'].includes(event) && (isHostRef.current || fromPeerId !== hostIdRef.current)) return;
     if (event === 'roster-join') {
-      if (!isHostRef.current) return;
+      if (!isHostRef.current || roundRef.current !== 0) return;
       const already = rosterRef.current.some((m) => m.peerId === fromPeerId);
-      if (already || rosterRef.current.length >= MAX_PLAYERS) return;
+      if (already) { signaling.send('roster', { members: rosterRef.current }); return; }
+      if (rosterRef.current.length >= MAX_PLAYERS) return;
       const next = [...rosterRef.current, { peerId: fromPeerId, username: (payload.username as string) ?? 'Player', joinOrder: rosterRef.current.length, border: (payload.border as string) ?? '' }];
+      rosterRef.current = next;
       setRoster(next);
       signaling.send('roster', { members: next });
       return;
     }
     if (event === 'roster') {
       const members = payload.members as RosterMember[];
+      if (!Array.isArray(members) || members.length > MAX_PLAYERS || members.some((m) => !m || typeof m.peerId !== 'string' || typeof m.username !== 'string')) return;
+      rosterRef.current = members;
       setRoster(members);
       // The host has acknowledged us by name — stop re-announcing immediately rather than waiting
       // for the interval's next tick.
@@ -328,13 +429,16 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
       return;
     }
     if (event === 'game-start') {
+      if (totalRoundsRef.current > 0) return;
       const signs = payload.signs as string[];
       const turnOrder = payload.turnOrder as string[];
-      turnSecondsRef.current = (payload.turnSeconds as number) ?? TURN_SECONDS;
+      if (!Array.isArray(signs) || !signs.length || signs.some((id) => typeof id !== 'string' || !SIGNS[id]) || !Array.isArray(turnOrder) || turnOrder.length < 2 || turnOrder.length > MAX_PLAYERS) return;
+      turnSecondsRef.current = TURN_SECONDS_OPTIONS.includes(payload.turnSeconds as number) ? payload.turnSeconds as number : TURN_SECONDS;
       signsRef.current = signs;
       turnOrderRef.current = turnOrder;
       totalRoundsRef.current = signs.length;
       setTotalRounds(signs.length);
+      matchStartedAtRef.current = Date.now();
       return;
     }
     if (event === 'round-start') {
@@ -345,6 +449,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
       // Only the host tracks readiness and decides when to arm the shared clock. Disconnected
       // players are excluded — they'll never send this, and would otherwise stall every round.
       if (!isHostRef.current || payload.round !== roundRef.current) return;
+      if (fromPeerId === signerPeerIdRef.current || !rosterRef.current.some((m) => m.peerId === fromPeerId)) return;
       roundReadyRef.current.add(fromPeerId);
       const activeGuessers = rosterRef.current.filter((m) => m.peerId !== signerPeerIdRef.current && !disconnectedPeerIdsRef.current.includes(m.peerId));
       if (roundReadyRef.current.size >= activeGuessers.length) armTurnTimerRef.current();
@@ -356,7 +461,8 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     }
     if (event === 'guess') {
       if (!isHostRef.current) return;
-      if (payload.round !== roundRef.current) return;
+      if (payload.round !== roundRef.current || roundEndedRef.current) return;
+      if (fromPeerId === signerPeerIdRef.current || !rosterRef.current.some((m) => m.peerId === fromPeerId)) return;
       if (guessesThisRoundRef.current[fromPeerId]) return;
       guessesThisRoundRef.current[fromPeerId] = payload.signId as string;
       const activeGuesserCount = rosterRef.current.filter((m) => m.peerId !== signerPeerIdRef.current && !disconnectedPeerIdsRef.current.includes(m.peerId)).length;
@@ -368,6 +474,17 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
       return;
     }
     if (event === 'game-over') {
+      if (!totalRoundsRef.current) return;
+      const finalScores = payload.finalScores as Record<string, number>;
+      if (!finalScores || typeof finalScores !== 'object') return;
+      const next: Record<string, number> = {};
+      for (const member of rosterRef.current) {
+        const score = finalScores[member.peerId] ?? 0;
+        if (!Number.isInteger(score) || score < 0 || score > totalRoundsRef.current) return;
+        next[member.peerId] = score;
+      }
+      scoresRef.current = next;
+      setScores(next);
       applyGameOver();
       return;
     }
@@ -388,6 +505,32 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   }, [roomId]);
 
   const signaling = useMultiplayerSignaling({ selfPeerId: user?.id ?? '', onMessage: handleMessage, onIceResult: handleIceResult });
+
+  // Re-subscription and host presence recovery both need application state recovery;
+  // repairing WebRTC alone cannot restore broadcasts missed while disconnected.
+  const hostPresent = signaling.presentPeerIds.includes(hostIdRef.current ?? '');
+  useEffect(() => {
+    if (!roomId || isHostRef.current || gameFinishedRef.current || signaling.channelStatus !== 'subscribed' || !hostPresent) return;
+    setStateSyncFailed(false);
+    let attempts = 0;
+    const request = () => {
+      if (gameFinishedRef.current) return;
+      if (attempts >= ROSTER_ANNOUNCE_ATTEMPTS) {
+        stateRequestRef.current = null;
+        setStateSyncFailed(true);
+        return;
+      }
+      signaling.send('state-request', {}, hostIdRef.current ?? undefined);
+      attempts += 1;
+      stateRequestRef.current = setTimeout(request, Math.min(5000, ROSTER_ANNOUNCE_INTERVAL_MS * 2 ** (attempts - 1)) + Math.random() * 300);
+    };
+    request();
+    return () => {
+      if (stateRequestRef.current) clearTimeout(stateRequestRef.current);
+      stateRequestRef.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, signaling.channelStatus, hostPresent, stateRequestEpoch]);
 
   // Presence-based disconnect detection: a WebRTC connectionState drop isn't reliable here since
   // not every pair of players has a live peer connection (only the current signer connects to
@@ -427,6 +570,23 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signaling.presentPeerIds, roster]);
 
+  // Only the host advances rounds. Bound a lost host's recovery instead of stranding guests.
+  useEffect(() => {
+    if (!roomId || isHostRef.current || gameFinishedRef.current) return;
+    if (signaling.channelStatus === 'subscribed' && signaling.presentPeerIds.includes(hostIdRef.current ?? '')) {
+      if (hostGraceRef.current) clearTimeout(hostGraceRef.current);
+      hostGraceRef.current = null;
+      return;
+    }
+    if (!hostGraceRef.current) hostGraceRef.current = setTimeout(() => {
+      gameFinishedRef.current = true;
+      roundEndedRef.current = true;
+      recognition.stopLoop();
+      signaling.leave();
+      setPhase('hostLeft');
+    }, 30000);
+  }, [roomId, signaling.presentPeerIds, signaling.channelStatus]);
+
   const createRoom = async () => {
     if (!user) return;
     setCodeError('');
@@ -436,6 +596,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     });
     if (error) { setCodeError('Could not create a room — please try again.'); return; }
     isHostRef.current = true;
+    hostIdRef.current = user.id;
     setRoomId(code);
     const me = { peerId: user.id, username: username ?? 'Host', joinOrder: 0, border: equippedBorder ?? '' };
     setRoster([me]);
@@ -452,8 +613,15 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     const code = (overrideCode ?? joinCode).trim().toUpperCase();
     if (!code) return;
     setCodeError('');
-    const { error } = await supabase.rpc('join_multiplayer_room', { p_code: code });
-    if (error) { setCodeError(joinErrorMessage(error.message)); return; }
+    const error = await joinMultiplayerRoom(code);
+    if (error) { setCodeError(error); return; }
+    const { data: room, error: roomError } = await supabase.from('multiplayer_rooms').select('host_id').eq('code', code).single();
+    if (roomError || !room?.host_id) {
+      await supabase.rpc('leave_multiplayer_room', { p_code: code });
+      setCodeError('Could not reach the host. Please try again.');
+      return;
+    }
+    hostIdRef.current = room.host_id;
     isHostRef.current = false;
     setRoomId(code);
     setStatusMsg('Joining room…');
@@ -499,6 +667,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   };
 
   const startGame = () => {
+    if (!isHostRef.current || totalRoundsRef.current > 0 || rosterRef.current.length < 2) return;
     const order = rosterRef.current.map((m) => m.peerId);
     turnSecondsRef.current = rules.turnSeconds;
     const signs = pickSignsFrom(filterSignPool(ALL_SIGNS, rules.signSet), order.length * rules.rounds);
@@ -515,7 +684,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
   };
 
   const handleGuess = (signId: string) => {
-    if (myGuess || !currentSignId) return;
+    if (myGuess || !currentSignId || roundEndedRef.current || gameFinishedRef.current || phase !== 'guessing') return;
     setMyGuess(signId);
     if (signId === currentSignId) sounds.correct(); else sounds.wrong();
     if (isHostRef.current) {
@@ -562,6 +731,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
     if (turnIntervalRef.current) clearInterval(turnIntervalRef.current);
     if (turnArmFallbackRef.current) clearTimeout(turnArmFallbackRef.current);
     if (rosterAnnounceRef.current) clearInterval(rosterAnnounceRef.current);
+    if (hostGraceRef.current) clearTimeout(hostGraceRef.current);
   }, []);
 
   const exit = () => {
@@ -601,12 +771,19 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
       </div>
 
       <div className="flex-1 max-w-lg mx-auto w-full px-4 pb-6 flex flex-col">
+        {stateSyncFailed && phase !== 'hostLeft' && phase !== 'finalResults' && (
+          <div role="alert" className="rounded-xl border border-z-purple p-4 my-3 text-center">
+            <p>Could not sync the room. Try again or leave the match.</p>
+            <Button onClick={() => setStateRequestEpoch(value => value + 1)}>Retry</Button>
+            <button onClick={exit} className="min-h-11 px-4">Leave</button>
+          </div>
+        )}
         <AnimatePresence mode="wait">
 
           {phase === 'lobby' && (
             <MultiplayerLobby
               mode="room"
-              onModeChange={onSwitchMode ? () => onSwitchMode('duel') : undefined}
+              onModeChange={onSwitchMode}
               rules={rules}
               onRulesChange={setRules}
               visibility={visibility}
@@ -718,6 +895,13 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
             </motion.div>
           )}
 
+          {phase === 'hostLeft' && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4">
+              <p>The host could not reconnect. This room has ended.</p>
+              <Button onClick={exit}>Back to Home</Button>
+            </div>
+          )}
+
           {phase === 'finalResults' && (
             <motion.div key="finalResults" className="flex-1 flex flex-col items-center justify-center gap-5"
               initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
@@ -745,7 +929,7 @@ export function RoomPage({ onExit, onSwitchMode }: Props) {
           this, a dropped channel left the player in a room that silently couldn't receive events
           with no in-context way back other than the header close button — satisfies the launch
           requirement that every failure offers Retry + Leave/Return Home. */}
-      {roomId && signaling.channelStatus === 'disconnected' && (
+      {phase !== 'hostLeft' && roomId && signaling.channelStatus === 'disconnected' && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-z-card border border-z-red/40 rounded-2xl px-5 py-3 shadow-xl flex items-center gap-4">
           <span className="text-sm font-semibold text-z-red">Connection lost</span>
           <button

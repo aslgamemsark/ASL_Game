@@ -384,6 +384,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
       attemptLog.recordMiss(currentSignId, recognition.getSnapshot());
     }
     recorder.discard();
+    recognition.stopLoop('skipped');
     loopStartedRef.current = null;
     if (queueIdx + 1 < queue.length) {
       setQueueIdx((p) => p + 1);
@@ -443,7 +444,7 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
           {mode === 'loading' && (
             <motion.div
               key="loading"
-              className="flex-1 flex items-center justify-center"
+              className="flex-1 flex flex-col gap-4 items-center justify-center text-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -455,6 +456,10 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
               >
                 ⚙️
               </motion.div>
+              <p className="font-bold">Starting your camera…</p>
+              <p className="text-sm text-z-gray-300 max-w-sm">
+                Allow camera access in your browser if prompted. If this keeps waiting, go back and try again.
+              </p>
             </motion.div>
           )}
 
@@ -579,25 +584,26 @@ export function PracticePage({ onExit, filterSignIds, autoStartExpressive, autoS
                       {cameraUnavailable ? (
                         <div className="rounded-2xl border border-z-red/30 bg-z-red/10 p-4 text-center">
                           <p className="text-sm font-bold text-z-red">
-                            {camStatus === 'denied'
+                            {recognition.status === 'error'
+                              ? "Sign recognition couldn't load"
+                              : camStatus === 'denied'
                               ? 'Camera access denied'
                               : camStatus === 'stalled'
                                 ? "Camera feed isn't showing"
                                 : 'Camera unavailable'}
                           </p>
                           <p className="text-xs text-z-gray-300 mt-1">
-                            {camStatus === 'denied'
+                            {recognition.status === 'error'
+                              ? 'Check your connection, then try again.'
+                              : camStatus === 'denied'
                               ? 'Live coaching needs your camera. Allow camera access in your browser settings, then try again.'
                               : camStatus === 'stalled'
                                 ? "Your camera is on but no picture is coming through. Try again, or check that no other app is using it."
                                 : 'Something went wrong starting the camera. Try again, or check that no other app is using it.'}
                           </p>
-                          {/* stopCam() before startCam() forces a fresh getUserMedia() call instead
-                              of reattaching the same (possibly dead) stream — required for the
-                              'stalled' case, harmless for the others since stop() on an idle camera
-                              is a no-op. */}
+                          {/* Retry model loading too; a fresh camera alone cannot repair a failed model. */}
                           <button
-                            onClick={() => { stopCam(); startCam(); }}
+                            onClick={() => { void recognition.init(); stopCam(); void startCam(); }}
                             className="mt-3 text-xs font-bold text-z-gray-50 bg-z-red/40 hover:bg-z-red/50 px-4 py-2 rounded-lg"
                           >
                             Try again

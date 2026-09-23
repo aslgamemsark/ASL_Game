@@ -85,6 +85,7 @@ jobs:
       # every run since it was added 2026-07-28, which is why that break was never observed.
       - run: npx playwright install --with-deps
       - run: npm run test:e2e
+      - run: npm run test:first-learning
 
   # Multiplayer integration suite. Runs against a LOCAL Supabase stack started here in the runner —
   # never the hosted production project. This is the job that makes the suite worth having: it

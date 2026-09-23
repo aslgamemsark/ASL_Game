@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script src="/analytics-context.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -93,11 +94,25 @@ posthog.init('phc_mDKbcvzVa9vmuV4WLog798KNAJLprfFnfYhH5rWE5wE2', {
   // Matches landing.html's posture (missed here in the initial DNT/opt-out fix, 2026-08-30) —
   // see that file's comment.
   respect_dnt: true,
+  before_send: function (event) {
+    var context = window.quickSignAnalyticsContext;
+    if (!context || context.optedOut()) return null;
+    if (event && event.properties) context.sanitize(event.properties);
+    return event;
+  },
+  loaded: function (ph) {
+    if (window.quickSignAnalyticsContext) ph.register(Object.assign({}, window.quickSignAnalyticsContext.properties(), {
+      surface: 'asl-alphabet', deployment_environment: location.hostname === 'quicksignn.vercel.app' ? 'production' : 'preview'
+    }));
+  },
 });
 try {
   if (localStorage.getItem('quicksign_analytics_opt_out') === 'true') posthog.opt_out_capturing();
 } catch (e) { /* storage blocked — falls back to default (capture), same as consent.ts */ }
 document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('a[href]').forEach(function (link) {
+    if (window.quickSignAnalyticsContext) link.href = window.quickSignAnalyticsContext.appUrl(link.href);
+  });
   posthog.capture('alphabet_landing_view', { referrer: document.referrer || null });
   document.addEventListener('click', function (e) {
     var cta = e.target.closest('.btn-primary');

@@ -74,6 +74,7 @@ htmlcov/
 
 # --- Supabase CLI local cache (project link, pooler URL, per-machine) ---
 supabase/.temp/
+supabase/.branches/
 
 .vercel
 
@@ -85,6 +86,7 @@ ml/training_exports/
 
 # --- Session artifacts / generated reports (not product) ---
 graphify-out/
+/output/
 brag-output/
 /*.pdf
 asl_landmarks_for_friend.zip

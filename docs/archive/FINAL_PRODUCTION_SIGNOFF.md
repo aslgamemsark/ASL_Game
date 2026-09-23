@@ -1,3 +1,7 @@
+> Historical snapshot, archived 2026-09-19 from `docs/FINAL_PRODUCTION_SIGNOFF.md`.
+> Claims, test results, paths and next steps describe that session, not the current release.
+> Start with [the current brief](../AI_ONBOARDING.md); do not execute old plans by default.
+
 # QuickSign — Final Production Sign-Off
 
 _Date: 2026-07-15 · Branch reviewed: `main` @ post-merge of `game-feel-and-launch-prep` (495 tests

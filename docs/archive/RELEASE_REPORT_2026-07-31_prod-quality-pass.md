@@ -1,3 +1,7 @@
+> Historical snapshot, archived 2026-09-19 from `docs/RELEASE_REPORT_2026-07-31_prod-quality-pass.md`.
+> Claims, test results, paths and next steps describe that session, not the current release.
+> Start with [the current brief](../AI_ONBOARDING.md); do not execute old plans by default.
+
 # QuickSign — Production-Quality Hardening Pass — Release Report
 
 **Branch:** `prod-quality-pass` · **Date:** 2026-07-31

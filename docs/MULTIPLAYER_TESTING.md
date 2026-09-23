@@ -10,7 +10,7 @@ Three options were on the table. This one was chosen deliberately:
 
 | Option | Verdict |
 | --- | --- |
-| **Local stack (`supabase start`)** | **Chosen.** Real schema, real `join_multiplayer_room` RPC including its `for update` row lock (where the join race actually lives), real RLS, real Realtime. Disposable, free, offline, and impossible to confuse with production. |
+| **Local stack (`supabase start`)** | **Chosen.** Real schema, real `join_multiplayer_room_v2` RPC including its `for update` row lock (where the join race actually lives), real RLS and real Realtime. Disposable, with a localhost guard. |
 | A dedicated hosted "test" Supabase project | Rejected. Costs money, needs credentials in CI, still a real network dependency that can be down, and one copy-pasted URL away from being production. |
 | An e2e-only auth bypass in the app | Rejected outright. It would put a "skip authentication" branch into shipped production code. A test convenience that weakens the real security boundary is not a trade worth making at any price. |
 
@@ -20,8 +20,9 @@ the browser tests sign in through the real sign-in form against real GoTrue with
 
 ## One-time setup
 
-**You need Docker.** That is the only manual prerequisite, and the only reason this suite does not
-run on the Windows machine it was written on.
+**Local runs need a working Docker engine** in addition to the normal web development setup.
+GitHub Actions starts a disposable Linux Docker stack and can execute the full suite without
+installing Docker on the developer machine.
 
 1. **Install Docker Desktop** — <https://docs.docker.com/desktop/> — and start it.
 2. **Start the stack** (from `web/`):
@@ -64,7 +65,7 @@ Then set `E2E_SUPABASE_URL`, `E2E_SUPABASE_ANON_KEY` and `E2E_SUPABASE_SERVICE_R
 
 ## Behaviour without Docker
 
-The suite **skips**, with a message naming the reason. It does not fail, and it does not silently
+Local developer runs **skip**, with a message naming the reason. CI fails if the stack is absent. It does not fail, and it does not silently
 pass. This distinction is deliberate and enforced in `probeStack()`:
 
 - **Stack unreachable** → skip. Expected on a machine without Docker.
@@ -86,7 +87,7 @@ so CI starts a local stack, applies migrations, and executes the full suite on e
 ## What it covers
 
 **Part A — room registry (driven through the RPCs).** Concurrency lives here, not in the UI: the
-join race is a row lock inside `join_multiplayer_room`. Driving two browsers to race for a slot
+join race is a row lock inside `join_multiplayer_room_v2`. Driving two browsers to race for a slot
 would test the same lock far more slowly and far less deterministically.
 
 - host creates a room; a second player joins by code (and by lowercase code)
@@ -99,8 +100,17 @@ would test the same lock far more slowly and far less deterministically.
 - public rooms discoverable by search, private rooms never; closed rooms drop out of search
 - **brute-force throttle** on repeated wrong-code guessing
 - **RLS** — nobody can create a room owned by someone else, or close someone else's room
+- **membership hardening** — nonmember/repeated leaves cannot decrement the count; concurrent
+  leave/join stays within capacity; private-room reads require membership; only the host can delete
+- **RPC contract** — v2 returns expected denials without rolling back the attempt counter;
+  anonymous callers and the legacy join RPC are denied
+- **friend-challenge insert** — the production duplicate-ignoring upsert remains compatible with
+  restricted host update permissions
 
-**Part B — two real browser contexts, fake media devices.**
+**Part B — two to four real browser contexts, fake media devices.**
+
+Fixtures sign in normally, decline optional training collection and acknowledge the multiplayer
+camera-sharing explanation before using the lobby.
 
 - host creates → client joins by code → **both clients enter the match** (full Realtime + WebRTC
   signaling handoff)
@@ -124,3 +134,43 @@ would test the same lock far more slowly and far less deterministically.
   connectivity drop, not a degraded one.
 - **The Duel and Room state machines are not merged**, per the standing decision. This suite is the
   precondition for revisiting that, not the thing that does it.
+
+## Multiplayer audit follow-up (2026-09-22)
+
+The code-join browser tests now scope the displayed code to the waiting-room label and verify
+that the input retains all eight characters. The old typography selector could read `ROOM RULES`,
+and the shared input independently truncated valid eight-character codes to six. Public Search
+bypassed the input, which is why it passed while code joins failed.
+
+The expanded suite has 24 database checks and 12 browser checks. In addition to lobby, search,
+backgrounding and offline-banner coverage, it exercises complete scored and timeout duels,
+remote video frame decoding across role rotation, a four-player group game, and recovery of a
+lost group completion after a real Realtime socket reconnect. The latter deliberately drops
+`round-end` and `game-over` messages, then requires the host snapshot to restore final scores.
+It does not replace database authorization or inject a test authentication path.
+
+CI fails rather than skips when its local stack is unreachable. Local developer runs still skip
+with an explanation when Docker/Supabase is absent. The audit uses GitHub Actions' disposable
+Docker stack; installing Docker on a developer machine is optional for this execution path.
+
+Focused page-handler tests force stale presence during a local duel disconnect, forfeit expiry,
+single-offerer recovery, lost start replay, lost group setup/results, duplicate completion,
+late snapshots and bounded recovery failure. These test state transitions; the browser suite
+separately verifies the real transport and rendered UI.
+
+### Physical-device checks still required
+
+- Two physical devices across different networks: video in both directions, every role rotation,
+  scored rounds and timeout completion; repeat with three/four group participants.
+- iOS Safari and Android Chrome: camera permissions denied then allowed, camera availability,
+  app background/restore, screen lock/unlock and leaving/rejoining.
+- Airplane mode/Wi-Fi-to-cellular switching mid-round and during the result screen; confirm
+  recovery or a clear end state without duplicate points or an offline winner.
+- Restricted NAT/forced TURN and a lossy/high-latency link; check video continuity and relay
+  diagnostics. Same-machine Chromium fake cameras do not establish these guarantees.
+- Real human signing and camera/model loading remain separate validation. Fake-media tests
+  do not establish recognition accuracy or resolve the separately owned blank-camera issue.
+
+All audit fixtures target local Supabase. Production project `juzqilqilxzmudazltjx` and migration
+`20260920000051` are unchanged by this follow-up. Client-supplied sender IDs and host snapshots
+are reliability mechanisms, not authenticated anti-cheat.

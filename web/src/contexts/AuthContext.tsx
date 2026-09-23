@@ -7,6 +7,7 @@ import { isAlreadyRegisteredError } from '@/lib/authErrors';
 import { friendlyAuthError } from '@/lib/authErrorMessages';
 import { useUserStore } from '@/stores/useUserStore';
 import { track } from '@/analytics';
+import { syncAnalyticsIdentity } from '@/analytics/AnalyticsIdentityBridge';
 
 type ProfileRow = { username: string; is_admin: boolean; is_banned: boolean; ban_reason: string | null };
 
@@ -73,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initialAuthEventVersion = authEventVersionRef.current;
     supabase.auth.getSession().then(({ data }) => {
       if (authEventVersionRef.current !== initialAuthEventVersion) return;
+      syncAnalyticsIdentity(data.session?.user ?? null);
       activeUserRef.current = data.session?.user.id ?? null;
       setSession(data.session);
       if (data.session) fetchUsername(data.session.user.id, data.session.user);
@@ -80,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      syncAnalyticsIdentity(s?.user ?? null);
       authEventVersionRef.current += 1;
       activeUserRef.current = s?.user.id ?? null;
       setSession(s);
@@ -100,8 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // actively choose to start.
       if (event === 'PASSWORD_RECOVERY') setPasswordRecoveryMode(true);
       // A real sign-in (not the initial-session restore on page load, which fires its own event).
-      // A brand-new account also fires SIGNED_IN — see fetchUsername's !fetched branch below for
-      // the separate signup_completed signal; both firing for one first session is intentional.
+      // New and returning accounts both fire SIGNED_IN; this is not a signup-completion signal.
       //
       // Deduplicated by session id (2026-07-27): Supabase re-emits SIGNED_IN on token refresh and
       // on tab focus, not only on an actual sign-in, so this fired continuously for anyone who
@@ -173,14 +175,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setNeedsTrainingConsent(true);
     }
 
-    // Auto-assign a username if none exists (e.g. OAuth user with no profile row yet). No prior
-    // profile row is the accurate "this is a brand-new account" signal for OAuth, where there's
-    // no separate signUp() call to hang signup_completed off of (see signUpWithEmail for the
-    // email/password path's own signup_completed).
+    // Repair a missing username. A missing profile does not prove this is a new account.
     if (!fetched) {
       const u = userObj ?? session?.user;
       if (u) {
-        if (u.app_metadata?.provider === 'google') track('signup_completed', { provider: 'google' });
         // Capped at 16 chars before appending the 4-digit suffix so the result always fits the
         // profiles.username CHECK constraint (3-20 chars) regardless of email length — an
         // uncapped prefix from a long email local-part could otherwise produce a >20-char
@@ -236,16 +234,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('profiles')
         .update({ username } as Record<string, string>)
         .eq('id', data.user.id);
-      track('signup_completed', { provider: 'email' });
+      // A successful request may still require confirmation; this is not a confirmed signup.
+      track('signup_submitted', { provider: 'email' });
     }
     return null;
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    // Fired on intent, before the redirect — can't yet distinguish a new account from a returning
-    // one (that's resolved after the redirect back, in fetchUsername's !fetched branch / the
-    // SIGNED_IN handler above). Documented as an intentional limitation, not a bug.
-    track('signup_started', { provider: 'google' });
+    // OAuth intent cannot distinguish a new account from a returning account.
+    track('auth_started', { provider: 'google' });
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

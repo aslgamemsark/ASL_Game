@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { track, isKillSwitchOn, type ScreenName } from '@/analytics';
+import { track, newAnalyticsId, isKillSwitchOn, type ScreenName } from '@/analytics';
 import { setCameraLive } from '@/lib/cameraActivity';
 
 export type CameraStatus = 'idle' | 'requesting' | 'active' | 'denied' | 'error' | 'stalled';
@@ -19,6 +19,7 @@ export function useCamera(screen: ScreenName = 'onboarding') {
   const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<CameraStatus>('idle');
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestRef = useRef<{ id: string; started: number; firstFrame: boolean } | null>(null);
 
   const clearStallTimer = useCallback(() => {
     if (stallTimerRef.current !== null) {
@@ -35,7 +36,7 @@ export function useCamera(screen: ScreenName = 'onboarding') {
   const scheduleStallCheck = useCallback(() => {
     clearStallTimer();
     stallTimerRef.current = setTimeout(() => {
-      if (videoRef.current && videoRef.current.readyState < 2) {
+      if (videoRef.current && (videoRef.current.readyState < 2 || videoRef.current.paused)) {
         setStatus('stalled');
         track('camera_stalled', { screen, reason: 'no_frame' });
       }
@@ -45,12 +46,18 @@ export function useCamera(screen: ScreenName = 'onboarding') {
   const attachStream = useCallback(() => {
     const video = videoRef.current;
     const stream = streamRef.current;
-    if (video && stream && video.srcObject !== stream) {
-      video.srcObject = stream;
+    if (video && stream && (video.srcObject !== stream || video.paused)) {
+      if (video.srcObject !== stream) video.srcObject = stream;
+      // Returning to the tab can leave this element paused with the same live stream attached.
       // A play() rejection (autoplay policy, element removed mid-attach, etc.) must not vanish
       // silently — log it even though scheduleStallCheck is what actually flips the visible status,
       // since a rejection here is one plausible cause of the frame never arriving.
-      video.play().catch((err: unknown) => {
+      video.play().then(() => {
+        const request = requestRef.current;
+        if (streamRef.current !== stream || !request || request.firstFrame || video.readyState < 2) return;
+        request.firstFrame = true;
+        track('camera_first_frame', { screen, camera_request_id: request.id, duration_ms: Math.round(performance.now() - request.started) });
+      }).catch((err: unknown) => {
         const name = err instanceof DOMException ? err.name : 'unknown';
         track('camera_error', { screen, error_name: `play_failed:${name}` });
       });
@@ -69,11 +76,15 @@ export function useCamera(screen: ScreenName = 'onboarding') {
       scheduleStallCheck();
       return 'active';
     }
+    const request = { id: newAnalyticsId(), started: performance.now(), firstFrame: false };
+    requestRef.current = request;
+    track('camera_requested', { screen, camera_request_id: request.id });
     // Emergency remote kill switch (PostHog flag `disable_camera`) — lets camera-based practice be
     // disabled instantly if it breaks under real launch load, without a hotfix deploy. Surfaces as
     // the same 'error' status the UI already handles for a genuine getUserMedia failure.
     if (isKillSwitchOn('disable_camera')) {
       setStatus('error');
+      track('camera_error', { screen, error_name: 'disabled' });
       return 'error';
     }
     setStatus('requesting');
@@ -92,6 +103,12 @@ export function useCamera(screen: ScreenName = 'onboarding') {
         },
         audio: false,
       });
+      // Permission can resolve after navigation, stop(), or a newer request. Release that
+      // obsolete stream instead of turning the camera back on or replacing the newer feed.
+      if (requestRef.current !== request) {
+        stream.getTracks().forEach((track) => track.stop());
+        return 'idle';
+      }
       streamRef.current = stream;
       // A track can end on its own later (device unplugged, OS revokes access mid-session) with no
       // exception anywhere in this hook — without this listener that death is invisible until the
@@ -120,6 +137,7 @@ export function useCamera(screen: ScreenName = 'onboarding') {
       scheduleStallCheck();
       return 'active';
     } catch (err: unknown) {
+      if (requestRef.current !== request) return 'idle';
       const name = err instanceof DOMException ? err.name : '';
       if (name === 'NotAllowedError') {
         setStatus('denied');
@@ -134,6 +152,7 @@ export function useCamera(screen: ScreenName = 'onboarding') {
   }, [attachStream, clearStallTimer, scheduleStallCheck, screen]);
 
   const stop = useCallback(() => {
+    requestRef.current = null;
     clearStallTimer();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
@@ -152,8 +171,10 @@ export function useCamera(screen: ScreenName = 'onboarding') {
 
   useEffect(() => {
     return () => {
+      requestRef.current = null;
       clearStallTimer();
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
       // Unmounting ends the session as surely as calling stop() — without this, leaving a lesson
       // by navigation (rather than the explicit stop) would leave a deferred SW reload waiting
       // forever on a camera that is already gone.

@@ -1,3 +1,12 @@
+# Frozen July 2026 baseline
+
+> **Historical measurement — figures preserved unchanged.** The country-based test filter,
+> event labels and “accuracy”/crash interpretations below belong to the July 2026 analysis.
+> They are not the current metric definitions. In particular, rule-pass decision samples do
+> not measure all physical attempts, and client errors do not necessarily indicate crashes.
+> Use [current funnels and filters](FUNNELS.md) and [current event meanings](EVENT_REFERENCE.md)
+> for new results. Do not apply the old PK exclusion or invent comparability across versions.
+
 # KPI Baseline — Week 1 (frozen 2026-07-27)
 
 Official baseline. Every future week is diffed against this. Do not edit historical rows; append

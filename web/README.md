@@ -13,10 +13,10 @@ access boundary, not the key).
 
 ## Setup
 
-1. **Node 20+** and npm.
+1. **Node 22.12+** and npm (matches `package.json`).
 2. Install dependencies:
    ```bash
-   npm install
+   npm ci
    ```
 3. **Supabase project.** You need your own Supabase project (free tier is fine) unless you already
    have access to the team's:
@@ -45,32 +45,35 @@ npm run build     # typecheck (tsc -b) + production build to dist/
 npm run preview   # serve the production build locally
 ```
 
-The ML classifier (`src/config/classifier.ts`, `src/hooks/useClassifier.ts`) loads the same way
-under `npm run dev` and `npm run preview` — it's a fetch of `/models/signs/*` at runtime, not
-build-mode-gated. It quietly no-ops (`status: 'disabled'`, rule verifier only) if those files
-aren't reachable, so either command works for testing it as long as `public/models/signs/` is
-present. Set `CLASSIFIER_DEBUG` in `src/config/classifier.ts` to see per-attempt gate decisions
-logged to the console (statically stripped from production builds via `import.meta.env.DEV`).
+The optional ML classifier is disabled in `src/config/classifier.ts`: both
+`CLASSIFIER_LOAD_ENABLED` and `GATE_ENFORCED` are false. Recognition uses the rule verifier.
+Model files alone do not activate it. See that configuration file's validation criteria before
+re-enabling loading or veto enforcement; these are separate decisions.
 
 ## Testing and linting
 
 ```bash
-npm run test       # vitest — unit tests (engine/avatar/classifier logic)
-npm run test:e2e   # playwright — real-browser smoke tests (e2e/)
-npm run lint        # oxlint
-npm run audit       # npm audit --audit-level=high (dependency vulnerabilities)
+npm run test                 # Vitest unit regressions
+npm run test:e2e              # production-build browser tests
+npm run test:first-learning   # controlled camera/model recovery and completion tests
+npm run test:multiplayer      # local Supabase integration tests (see runbook)
+npm run lint                 # oxlint
+npm run audit                # production dependency audit, high severity threshold
 ```
 
-`npm run test:e2e` needs the browser binary once: `npx playwright install chromium`. It builds
-the app and runs it via `npm run preview` (playwright.config.ts's `webServer`), then drives it in
-a real Chromium — currently onboarding-as-guest through to Home, plus the sign-in modal's
-Escape/aria-modal behavior (see `e2e/smoke.spec.ts`). Deliberately scoped to what's reachable
-without a real camera device; camera-dependent flows (lesson/practice recognition) would need a
-fake video device feed and are a separate, larger effort.
+Install the browser engines once with `npx playwright install`. The normal browser suite uses
+Chromium, Android emulation and WebKit/iOS emulation against `npm run preview`; see
+`playwright.config.ts`. For only Chromium, use `npm run test:e2e -- --project=chromium`.
 
-All four (`test`, `test:e2e`, `lint`, `audit` — plus `build`) run in CI
-(`../.github/workflows/ci.yml`) as separate jobs on every PR and push to `main` that touches
-`web/**` (a separate CI job covers the Python side for changes to `core/`/`signs/`/`tests/`).
+The first-learning suite has a separate development-server configuration and simulated media/model
+boundaries. It checks recovery and learning events without a physical camera or live analytics.
+It does not validate real-world signing accuracy. Multiplayer uses its own local Supabase stack;
+see [the multiplayer test guide](../docs/MULTIPLAYER_TESTING.md).
+
+CI commands and trigger conditions are defined in [the workflow](../.github/workflows/ci.yml).
+Browser/multiplayer jobs and build/unit jobs have different triggers; do not assume every check
+runs after a direct push. `npm run build` includes the authoritative `tsc -b` typecheck.
+Real-device and human validation requirements remain in [the launch checklist](../docs/LAUNCH_CHECKLIST.md).
 
 ## Project structure
 

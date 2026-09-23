@@ -656,7 +656,7 @@ merging the Duel/Room state machines (explicit standing decision, unaffected by 
 Status:
 Shipped 2026-07-31 (Phases 0–5 in full, Phase 6 UI dedup, Phase 7 docs) — 696 unit tests + 118 e2e
 pass across chromium/android/ios, `tsc -b` clean, oxlint clean, production build clean, all green at
-every commit. Full report: `docs/RELEASE_REPORT_2026-07-31_prod-quality-pass.md`. Open: the
+every commit. Full report: `docs/archive/RELEASE_REPORT_2026-07-31_prod-quality-pass.md`. Open: the
 multiplayer integration-suite infrastructure decision (blocked on a human call, see report) and the
 real-device/assistive-tech verification items the report lists — neither blocks this pass shipping.
 
